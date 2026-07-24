@@ -172,7 +172,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 ---
 
-## 9. 配置表（关卡运作 / 挖坟 / 坟墓品质 / 材料 / 货币 / 挖坟能力 / 防守 / 主角升级）
+## 9. 配置表（关卡运作 / 挖坟 / 坟墓品质 / 材料 / 货币 / 挖坟能力 / 防守 / 主角升级 / 灵魂 / 宝石 / 种族 / 制造部件）
 
 ### 简体中文
 
@@ -403,6 +403,212 @@ ProtagonistLevelConfig {
 - 当存在 `Level+1` 行且 `LifetimeExperience >= RequiredTotalExperience(Level+1)` 时连升；每升一级应用该行奖励与属性。
 - 各行具体数值 **TBD**（本批只定表结构与语义）。
 
+#### 9.9 灵魂配置表 `SoulConfig`
+
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) 战士属性构成 / 命名。一行 = 一种灵魂。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| SoulId | 灵魂ID | `string` 或 `int` | 主键 |
+| ClassName | 职业名 | `string` | 参与 `WarriorName` 拼接；展示用 |
+| Skills | 可使用技能 | 见编码 | 技能 Id + 等级列表；编码 **TBD**（建议 `SkillId;Level\|…`） |
+| AttackPriority | 攻击优先级 | `string` 或 `int` / 枚举 | 战士侧攻击优先级；与怪物 AttackPriority **分表**；具体排序/编码 **TBD** |
+| MoveStyle | 移动风格 | `string` 或 `int` / 枚举 | 战士移动行为风格；枚举值集 **TBD** |
+| SpiritCost | 精魂消耗 | `int` 或 `float` | 制造时计入总精魂消耗（≥ 0；缺省 0） |
+| ControlPowerCost | 控制力占用 | `int` 或 `float` | 该灵魂对战士 `ControlPowerCost` 的贡献（≥ 0） |
+
+```
+SoulConfig {
+  SoulId: Id
+  ClassName: string               // WarriorName segment
+  Skills: "SkillId;Level|..."     // encoding TBD
+  AttackPriority: Id | enum       // warrior-side; encoding TBD
+  MoveStyle: Id | enum            // encoding TBD
+  SpiritCost: number              // >= 0
+  ControlPowerCost: number
+}
+```
+
+**说明：** 原 `InfoTags` **不再**参与 WarriorInfo 主标签生成（主标签 = 定稿种族）。
+
+**战士实例静态快照（制造完成时写入；非独立配置表）：**
+
+```
+WarriorInstance {
+  Id: Id
+  WarriorName: string             // Prefix(es)+RaceName+ClassName+Suffix
+  RemainingHP: number
+  RaceId: Id                      // weight-1 pick from filled BodyParts → RaceConfig
+  RaceAdjustCoeff: {              // five dims; missing = 0; may be +/-
+    MaxHP: number
+    MoveSpeed: number
+    Strength: number
+    Agility: number
+    Intelligence: number
+  }                               // copied from RaceConfig at manufacture
+  BaseStats: {
+    MaxHP: number
+    MoveSpeed: number
+    Strength: number
+    Agility: number
+    Intelligence: number
+  }                               // from BodyPart aggregation (conversion later)
+  SoulId: Id                      // FK → SoulConfig
+  LockedEquipIds: Id[]            // ExtraEquipment chosen & locked at manufacture
+  GemIds: Id[]                    // 0..6; FK → GemConfig; type-exclusive
+  GemMult: {                      // five dims; Σ of socketed gems; all 0 if none
+    MaxHP: number
+    MoveSpeed: number
+    Strength: number
+    Agility: number
+    Intelligence: number
+  }
+  ControlPowerCost: number        // BodyCost + SoulCost + EquipCost + GemCost at manufacture
+}
+```
+
+**关联说明：**
+
+- 躯体部位 / 额外装备 / 宝石后缀表见 **§9.12–§9.14**。
+- 进战场最终属性（按项 `S`）：`FinalStat(S) = max(0, Base(S) + Equip(S) + Base(S)×SkillBuff(S) + Base(S)×GemMult(S) + Base(S)×RaceAdjust(S))`（先定 `S` 再取来源；`SkillBuff` 仅运行时；各维缺省 0；见 §3.11）。
+- 多宝石：实例 `GemMult(S) = Σ` 已镶嵌各宝石的 `GemMult(S)`。
+- 战士死亡：全部 `GemIds` 回仓库；躯体部位/灵魂/外置装备等绑定材料销毁（见 §3.11）。
+- 种族 **不** 单独计入 `ControlPowerCost`。
+
+#### 9.10 宝石配置表 `GemConfig`
+
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) 战士属性构成 / 宝石。一行 = 一种宝石。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| GemId | 宝石ID | `string` 或 `int` | 主键 |
+| GemType | 宝石类型 | `enum` / `string` | 六类之一；制造槽 **同类型互斥**；正式枚举名 **TBD** |
+| GemMult.MaxHP | 生命值放大系数 | `float` | 缺省视为 **0**；代入 `Base(MaxHP) × GemMult.MaxHP` |
+| GemMult.MoveSpeed | 移动速度放大系数 | `float` | 同上 |
+| GemMult.Strength | 力量放大系数 | `float` | 同上 |
+| GemMult.Agility | 敏捷放大系数 | `float` | 同上 |
+| GemMult.Intelligence | 智力放大系数 | `float` | 同上 |
+| Skills | 额外技能 | 见编码 | 额外一套技能（SkillId + 等级）；编码 **TBD**（建议与 `SoulConfig.Skills` 同风格 `SkillId;Level\|…`） |
+| SpiritCost | 精魂消耗 | `int` 或 `float` | 制造时计入总精魂消耗（≥ 0；缺省 0） |
+| ControlPowerCost | 控制力占用 | `int` 或 `float` | 该宝石对战士 `ControlPowerCost` 的贡献（≥ 0） |
+
+```
+GemConfig {
+  GemId: Id
+  GemType: enum                   // six types; mutual exclusion in slots; names TBD
+  GemMult: {
+    MaxHP: number
+    MoveSpeed: number
+    Strength: number
+    Agility: number
+    Intelligence: number
+  }                               // missing dim = 0
+  Skills: "SkillId;Level|..."     // encoding TBD; extra skill set
+  SpiritCost: number
+  ControlPowerCost: number
+}
+```
+
+**库存语义：** 宝石为可回仓物品；战士死亡时将实例 `GemIds` **全部归还仓库**（其余绑定材料销毁）。制造时实例五维 `GemMult(S) = Σ` 已镶嵌宝石该维（无镶嵌则五维全 0）。获取途径与具体数值 **TBD**。
+
+#### 9.11 种族配置表 `RaceConfig`
+
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) 战士属性构成 / 种族 / 命名。一行 = 一种种族。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| RaceId | 种族ID | `string` 或 `int` | 主键；被躯体部位 `RaceId` 引用 |
+| DisplayNameKey | 展示名 Key | `string` | UI / `WarriorName` 种族段；本地化 Key **TBD** |
+| RaceAdjustCoeff.MaxHP | 生命值调整系数 | `float` | 可正可负；缺省视为 **0** |
+| RaceAdjustCoeff.MoveSpeed | 移动速度调整系数 | `float` | 同上 |
+| RaceAdjustCoeff.Strength | 力量调整系数 | `float` | 同上 |
+| RaceAdjustCoeff.Agility | 敏捷调整系数 | `float` | 同上 |
+| RaceAdjustCoeff.Intelligence | 智力调整系数 | `float` | 同上 |
+
+```
+RaceConfig {
+  RaceId: Id
+  DisplayNameKey: string?
+  RaceAdjustCoeff: {
+    MaxHP: number
+    MoveSpeed: number
+    Strength: number
+    Agility: number
+    Intelligence: number
+  }
+}
+```
+
+**解析：** 制造时对已放入躯体部位（头/躯干/臂/腿）各权重 **1** 按部位 `RaceId` **加权随机**定稿 → 查本表，将五维系数写入 `WarriorInstance.RaceAdjustCoeff`；按项代入 `Base(S) × RaceAdjust(S)`。具体种族列表与数值 **TBD**。
+
+#### 9.12 躯体部位配置表 `BodyPartConfig`（骨架）
+
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) 制造槽位 / 种族加权 / BaseStats。一行 = 一种躯体部位材料。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| BodyPartId | 躯体部位ID | `string` 或 `int` | 主键 |
+| BodySlot | 躯体槽类型 | `enum` | `Head` / `Torso` / `Arm` / `Leg`；决定可放入的制造槽 |
+| RaceId | 种族ID | `string` 或 `int` | FK → `RaceConfig`；参与加权定种族 |
+| SpiritCost | 精魂消耗 | `int` 或 `float` | ≥ 0；缺省 0 |
+| ControlPowerCost | 控制力占用 | `int` 或 `float` | ≥ 0 |
+| BaseStatInputs | 基础属性换算输入 | **TBD** | 汇总换算五项 BaseStats 的输入；算法另专题 |
+
+```
+BodyPartConfig {
+  BodyPartId: Id
+  BodySlot: Head | Torso | Arm | Leg
+  RaceId: Id                      // FK → RaceConfig
+  SpiritCost: number
+  ControlPowerCost: number
+  BaseStatInputs: ...             // TBD
+}
+```
+
+#### 9.13 额外装备配置表 `ExtraEquipmentConfig`（骨架）
+
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) 外置装备 / 命名前缀。一行 = 一种外置装备。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| EquipId | 装备ID | `string` 或 `int` | 主键 |
+| EquipSlot | 装备槽 | `enum` | `Mount` / `Wing` |
+| NamePrefix | 名字前缀 | `string` | 参与 `WarriorName`；两件都装备则依次拼接 |
+| SpiritCost | 精魂消耗 | `int` 或 `float` | ≥ 0；缺省 0 |
+| ControlPowerCost | 控制力占用 | `int` 或 `float` | ≥ 0 |
+| EquipStats | 平坦属性加成 | **TBD** | 五项同名加成 |
+| Skills | 额外技能 | 见编码 | 编码 **TBD** |
+
+```
+ExtraEquipmentConfig {
+  EquipId: Id
+  EquipSlot: Mount | Wing
+  NamePrefix: string
+  SpiritCost: number
+  ControlPowerCost: number
+  EquipStats: ...                 // TBD
+  Skills: "SkillId;Level|..."     // encoding TBD
+}
+```
+
+#### 9.14 宝石后缀命名表 `GemSuffixNameConfig`（骨架）
+
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) 战士命名后缀。一行 = 一种已镶嵌宝石组合 → 后缀。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| ComboKey | 组合键 | `string` | 已镶嵌 `GemType` 集合/有序键；**编码 TBD** |
+| Suffix | 后缀 | `string` | 拼入 `WarriorName` 末段；无匹配可空 |
+
+```
+GemSuffixNameConfig {
+  ComboKey: string                // encoding TBD
+  Suffix: string
+}
+```
+
+**解析：** 制造完成时按实例 `GemIds` 推导 `ComboKey` 查本表得后缀；无宝石或无匹配行 → 后缀为空。
+
 ### English
 
 **Status: Fields and encodings defined; config carrier (SO / external table) TBD** — pick per §13 at implementation time.
@@ -597,6 +803,182 @@ ProtagonistLevelConfig {
 - Save holds `Level`, `LifetimeExperience`.
 - While a `Level+1` row exists and `LifetimeExperience >= RequiredTotalExperience(Level+1)`, chain level-ups; each step applies that row's reward and attributes.
 - Concrete per-row numbers **TBD** (schema/semantics only this batch).
+
+#### 9.9 SoulConfig
+
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) warrior attribute composition / naming. One row = one soul.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| SoulId | 灵魂ID | `string` or `int` | PK |
+| ClassName | 职业名 | `string` | `WarriorName` segment; display |
+| Skills | 可使用技能 | encoding | Skill Id + level list; encoding **TBD** (suggested `SkillId;Level\|…`) |
+| AttackPriority | 攻击优先级 | `string` or `int` / enum | Warrior-side AttackPriority; **separate** from monster table; ordering/encoding **TBD** |
+| MoveStyle | 移动风格 | `string` or `int` / enum | Warrior movement style; enum set **TBD** |
+| SpiritCost | 精魂消耗 | `int` or `float` | Added to manufacture Spirit total (≥ 0; default 0) |
+| ControlPowerCost | 控制力占用 | `int` or `float` | This soul's contribution to warrior `ControlPowerCost` (≥ 0) |
+
+```
+SoulConfig {
+  SoulId: Id
+  ClassName: string
+  Skills: "SkillId;Level|..."
+  AttackPriority: Id | enum
+  MoveStyle: Id | enum
+  SpiritCost: number
+  ControlPowerCost: number
+}
+```
+
+**Note:** Former `InfoTags` no longer builds primary WarriorInfo (primary label = finalized Race).
+
+**Warrior instance static snapshot (written at manufacture; not a config table):**
+
+```
+WarriorInstance {
+  Id: Id
+  WarriorName: string
+  RemainingHP: number
+  RaceId: Id
+  RaceAdjustCoeff: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }
+  BaseStats: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }
+  SoulId: Id
+  LockedEquipIds: Id[]
+  GemIds: Id[]
+  GemMult: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }  // Σ of socketed; 0 if none
+  ControlPowerCost: number
+}
+```
+
+**Related:**
+
+- BodyPart / ExtraEquipment / GemSuffix schemas: **§9.12–§9.14**.
+- Battlefield final (per attribute `S`): `FinalStat(S) = max(0, Base(S) + Equip(S) + Base(S)×SkillBuff(S) + Base(S)×GemMult(S) + Base(S)×RaceAdjust(S))` (pick `S` first; `SkillBuff` runtime only; missing dims = 0; see §3.11).
+- Multi-gem: instance `GemMult(S) = Σ` of socketed gems' `GemMult(S)`.
+- On warrior death: all `GemIds` return to Warehouse; BodyParts/Soul/ExtraEquipment and other bound materials are destroyed (see §3.11).
+- Race does **not** add a separate ControlPowerCost term.
+
+#### 9.10 GemConfig
+
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) warrior attribute composition / Gem. One row = one gem.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| GemId | 宝石ID | `string` or `int` | PK |
+| GemType | 宝石类型 | `enum` / `string` | One of six; **type-exclusive** slots; enum names **TBD** |
+| GemMult.MaxHP | 生命值放大系数 | `float` | Missing = **0**; used as `Base(MaxHP) × GemMult.MaxHP` |
+| GemMult.MoveSpeed | 移动速度放大系数 | `float` | Same |
+| GemMult.Strength | 力量放大系数 | `float` | Same |
+| GemMult.Agility | 敏捷放大系数 | `float` | Same |
+| GemMult.Intelligence | 智力放大系数 | `float` | Same |
+| Skills | 额外技能 | encoding | Extra skill set; encoding **TBD** |
+| SpiritCost | 精魂消耗 | `int` or `float` | ≥ 0; default 0 |
+| ControlPowerCost | 控制力占用 | `int` or `float` | ≥ 0 |
+
+```
+GemConfig {
+  GemId: Id
+  GemType: enum
+  GemMult: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }
+  Skills: "SkillId;Level|..."
+  SpiritCost: number
+  ControlPowerCost: number
+}
+```
+
+**Inventory:** Gems are Warehouse-returnable; on warrior death, **return all** instance `GemIds` to Warehouse (other bound materials destroyed). At manufacture, instance five-dim `GemMult(S) = Σ` of socketed gems (all zeros if none). Acquisition routes and concrete numbers **TBD**.
+
+#### 9.11 RaceConfig
+
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) warrior attribute composition / Race / naming. One row = one race.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| RaceId | 种族ID | `string` or `int` | PK; referenced by BodyPart `RaceId` |
+| DisplayNameKey | 展示名 Key | `string` | UI / `WarriorName` race segment; localization **TBD** |
+| RaceAdjustCoeff.MaxHP | 生命值调整系数 | `float` | May be +/-; missing treated as **0** |
+| RaceAdjustCoeff.MoveSpeed | 移动速度调整系数 | `float` | Same |
+| RaceAdjustCoeff.Strength | 力量调整系数 | `float` | Same |
+| RaceAdjustCoeff.Agility | 敏捷调整系数 | `float` | Same |
+| RaceAdjustCoeff.Intelligence | 智力调整系数 | `float` | Same |
+
+```
+RaceConfig {
+  RaceId: Id
+  DisplayNameKey: string?
+  RaceAdjustCoeff: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }
+}
+```
+
+**Resolve:** At manufacture, weight-**1** pick among filled BodyParts' `RaceId`s (Head/Torso/Arm/Leg) → look up this table → copy five dims into `WarriorInstance.RaceAdjustCoeff`; each dim feeds `Base(S) × RaceAdjust(S)`. Concrete race list and values **TBD**.
+
+#### 9.12 BodyPartConfig (skeleton)
+
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) manufacture slots / race pick / BaseStats. One row = one body-part material.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| BodyPartId | 躯体部位ID | `string` or `int` | PK |
+| BodySlot | 躯体槽类型 | `enum` | `Head` / `Torso` / `Arm` / `Leg` |
+| RaceId | 种族ID | `string` or `int` | FK → `RaceConfig` |
+| SpiritCost | 精魂消耗 | `int` or `float` | ≥ 0; default 0 |
+| ControlPowerCost | 控制力占用 | `int` or `float` | ≥ 0 |
+| BaseStatInputs | 基础属性换算输入 | **TBD** | Inputs for BaseStats aggregation |
+
+```
+BodyPartConfig {
+  BodyPartId: Id
+  BodySlot: Head | Torso | Arm | Leg
+  RaceId: Id
+  SpiritCost: number
+  ControlPowerCost: number
+  BaseStatInputs: ...
+}
+```
+
+#### 9.13 ExtraEquipmentConfig (skeleton)
+
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) external gear / name prefix. One row = one ExtraEquipment.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| EquipId | 装备ID | `string` or `int` | PK |
+| EquipSlot | 装备槽 | `enum` | `Mount` / `Wing` |
+| NamePrefix | 名字前缀 | `string` | `WarriorName`; concatenate if both equipped |
+| SpiritCost | 精魂消耗 | `int` or `float` | ≥ 0; default 0 |
+| ControlPowerCost | 控制力占用 | `int` or `float` | ≥ 0 |
+| EquipStats | 平坦属性加成 | **TBD** | Flat five-stat bonuses |
+| Skills | 额外技能 | encoding | **TBD** |
+
+```
+ExtraEquipmentConfig {
+  EquipId: Id
+  EquipSlot: Mount | Wing
+  NamePrefix: string
+  SpiritCost: number
+  ControlPowerCost: number
+  EquipStats: ...
+  Skills: "SkillId;Level|..."
+}
+```
+
+#### 9.14 GemSuffixNameConfig (skeleton)
+
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) warrior name suffix. One row = one socketed-gem combo → suffix.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| ComboKey | 组合键 | `string` | Socketed `GemType` set/ordered key; **encoding TBD** |
+| Suffix | 后缀 | `string` | Final `WarriorName` segment; empty if no match |
+
+```
+GemSuffixNameConfig {
+  ComboKey: string
+  Suffix: string
+}
+```
+
+**Resolve:** At manufacture complete, derive `ComboKey` from instance `GemIds` → lookup suffix; no gems / no match → empty suffix.
 
 ---
 

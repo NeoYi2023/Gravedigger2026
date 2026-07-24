@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.8.2  
-**最后更新 / Last Updated:** 2026-07-23  
+**文档版本 / Document Version:** v0.14.0  
+**最后更新 / Last Updated:** 2026-07-24  
 **当前阶段 / Current Phase:** 规则录入 / Rule definition  
 
 **套件维护路径：** `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,11 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-24 | v0.14.0 | §3.11 战士制造：槽位/最低要求/预览与精魂闸门；部位加权定种族；六宝石类型互斥且 GemMult 按维 Σ；命名 Prefix+Race+Class+Suffix；死亡宝石全部回仓；SPEC_04 §9.9–§9.14（ClassName/GemType/BodyPart/ExtraEquipment/GemSuffix）；同步 CONTEXT / spec-map |
+| 2026-07-24 | v0.13.0 | §3.11 FinalStat 按单项属性汇总（先定 S 再取来源）；力量例；`max(0,…)` 下限；GemMult 改为五维；SPEC_04 §9.10 / WarriorInstance 同步；CONTEXT |
+| 2026-07-24 | v0.12.0 | §3.11 种族：由躯体决定；五维 RaceAdjustCoeff；FinalStat+=Base×RaceAdjustCoeff；不计控制力；SPEC_04 §9.11 RaceConfig；同步 CONTEXT / spec-map |
+| 2026-07-24 | v0.11.0 | §3.11 宝石：制造可选镶嵌（≤1）；FinalStat+=Base×GemMult；死亡宝石回仓、其余绑定材料销毁；ControlPowerCost 含 GemCost；SPEC_04 §9.10 GemConfig；同步 CONTEXT / spec-map |
+| 2026-07-24 | v0.10.0 | §3.11 战士属性构成关闭：战士信息/基础属性/灵魂/额外装备/控制力占用；FinalStat=Base+Equip+SkillBuffCoeff×Base（Buff 仅运行时）；装备制造锁定；SPEC_04 §9.9 SoulConfig + WarriorInstance 快照；同步 CONTEXT / spec-map |
 | 2026-07-23 | v0.9.0 | §3.11 / SPEC_04 §9.8：主角升级配置表 ProtagonistLevelConfig（累计经验阈值、预留解锁、科技点、控制力上限、主角 MaxHP）；LevelFailure 无关卡结算奖励且不入账本阶段经验、已获不扣；同步 CONTEXT / spec-map |
 | 2026-07-23 | v0.8.2 | Dig 缺口：加权字段通用规则（Weight=0 剔除；Dig 空有效列表放弃该次生成）；MaterialConfig / CurrencyConfig 增 AppearanceIconId、AssetPath、WarehouseQualityOutlineId；能力表改 §9.6、防守表改 §9.7；同步 CONTEXT |
 | 2026-07-23 | v0.8.1 | 挖坟缺口补录：障碍物（Digger/Grave 圆半径 Prefab）；Warehouse+精魂入账（堆叠 10000、AutoConvert）；LootDrop=`Id_Count|…`（保留 Id=`Spirit`）；DigProtagonistCapabilities 四项算法（伤害/单次速度 min0.1/光标半径/可挖类型）；SPEC_04 §9.4 MaterialConfig / §9.5 能力伪结构（原 §9.4 防守表改编号 §9.6）；同步 CONTEXT |
@@ -87,6 +92,11 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-24 | v0.14.0 | §3.11 warrior manufacture: slots/min requirements/preview+Spirit gate; BodyPart weight-1 race pick; 6 type-exclusive gems with per-dim Σ GemMult; name Prefix+Race+Class+Suffix; death returns all gems; SPEC_04 §9.9–§9.14; synced CONTEXT / spec-map |
+| 2026-07-24 | v0.13.0 | §3.11 FinalStat per-attribute aggregation (pick S then sources); Strength example; `max(0,…)` floor; GemMult five-dim; SPEC_04 §9.10 / WarriorInstance synced; CONTEXT |
+| 2026-07-24 | v0.12.0 | §3.11 Race: from Body; five-dim RaceAdjustCoeff; FinalStat+=Base×RaceAdjustCoeff; no ControlPower term; SPEC_04 §9.11 RaceConfig; synced CONTEXT / spec-map |
+| 2026-07-24 | v0.11.0 | §3.11 Gem: optional socket (≤1); FinalStat+=Base×GemMult; on death Gem→Warehouse, other bound materials destroyed; ControlPowerCost includes GemCost; SPEC_04 §9.10 GemConfig; synced CONTEXT / spec-map |
+| 2026-07-24 | v0.10.0 | §3.11 warrior attribute composition closed: Info/BaseStats/Soul/ExtraEquipment/ControlPowerCost; FinalStat=Base+Equip+SkillBuffCoeff×Base (runtime Buff only); equip locked at manufacture; SPEC_04 §9.9 SoulConfig + WarriorInstance snapshot; synced CONTEXT / spec-map |
 | 2026-07-23 | v0.9.0 | §3.11 / SPEC_04 §9.8: ProtagonistLevelConfig (cumulative Exp, reserved unlocks, TechPoints, ControlPower cap, MaxHP); LevelFailure: no level settlement rewards / no stage Exp; already-owned kept; synced CONTEXT / spec-map |
 | 2026-07-23 | v0.8.2 | Dig gaps: weighted-field common rules (Weight=0 dropped; Dig empty effective list abandons spawn); MaterialConfig / CurrencyConfig add AppearanceIconId, AssetPath, WarehouseQualityOutlineId; capabilities → §9.6, Defend → §9.7; synced CONTEXT |
 | 2026-07-23 | v0.8.1 | Dig gap fill: DigObstacle (Digger/Grave circle radii on Prefabs); Warehouse + SpiritEssence credit (stack 10000, AutoConvert); LootDrop=`Id_Count|…` (reserved Id=`Spirit`); DigProtagonistCapabilities formulas (damage / dig speed min 0.1 / cursor radius / diggable types); SPEC_04 §9.4 MaterialConfig / §9.5 capabilities (Defend table renumbered §9.6); synced CONTEXT |

@@ -43,7 +43,9 @@
 | GameplayState（Dig / UpgradeManufacture / Defend） | [§3.1](../../SPEC_03_GameRules.md)、[§3.7](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
 | 关卡阶段流水线 / LevelOperation | [§3.9](../../SPEC_03_GameRules.md) | [§9](../../SPEC_04_Technical.md) |
 | 挖坟 Dig / DigMap / Grave | [§3.10](../../SPEC_03_GameRules.md) | [§9](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
-| 升级与制造 UpgradeManufacture | [§3.11](../../SPEC_03_GameRules.md) | [§9.8](../../SPEC_04_Technical.md) ProtagonistLevelConfig |
+| 升级与制造 UpgradeManufacture | [§3.11](../../SPEC_03_GameRules.md) | [§9.8](../../SPEC_04_Technical.md) ProtagonistLevelConfig；[§9.9](../../SPEC_04_Technical.md) SoulConfig / WarriorInstance；[§9.10](../../SPEC_04_Technical.md) GemConfig；[§9.11](../../SPEC_04_Technical.md) RaceConfig；[§9.12](../../SPEC_04_Technical.md) BodyPartConfig；[§9.13](../../SPEC_04_Technical.md) ExtraEquipmentConfig；[§9.14](../../SPEC_04_Technical.md) GemSuffixNameConfig |
+| 战士属性构成 | [§3.11](../../SPEC_03_GameRules.md) 战士属性构成 | [§9.9](../../SPEC_04_Technical.md)–[§9.14](../../SPEC_04_Technical.md)；FinalStat(S)=max(0,…); 多宝石 Σ GemMult |
+| 战士制造流程 / 槽位 / 命名 | [§3.11](../../SPEC_03_GameRules.md) 制造战士 | 槽位与最低要求；SpiritCost 闸门；部位加权定种族；WarriorName |
 | 防守 Defend / BattleMap / StartBattle | [§3.12](../../SPEC_03_GameRules.md) | [§9.7](../../SPEC_04_Technical.md) DefendGameplayConfig + NavMesh |
 | Demo 验收 D-001～D-004 | [§3.8](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) |
 

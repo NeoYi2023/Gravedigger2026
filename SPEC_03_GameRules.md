@@ -41,7 +41,32 @@
 | ProtagonistLevelConfig | 主角升级配置表 | 等级行：累计经验阈值、预留解锁功能、科技点奖励、控制力上限、主角生命上限（§3.11，[SPEC_04 §9.8](SPEC_04_Technical.md)）。 |
 | TechPoint | 科技点数 | 升级获得；用于科技树（完整树另专题）（§3.11）。 |
 | Material | 材料 | 挖坟入仓库；造战士消耗（与精魂并列；配方另专题）（§3.10、§3.11）。 |
-| Warrior | 战士 | 制造产出的 **独立实例**（ID/血量等）；防守上阵（§3.11）。 |
+| Warrior | 战士 | 制造产出的 **独立实例**（ID/血量/属性构成等）；防守上阵（§3.11）。 |
+| WarriorInfo | 战士信息 | 主标签来源为定稿 **种族（Race）**；仅展示/分类，**不**直接改数值（数值调整走 `RaceAdjustCoeff`）（§3.11）。 |
+| WarriorName | 战士名字 | 制造完成时生成：`Prefix(es) + RaceName + ClassName + Suffix`（§3.11）。 |
+| ManufactureSlot | 制造槽位 | 制造区严格槽位：头1/躯干1/臂2/腿2/灵魂1/宝石6（类型互斥）/坐骑1/翅膀1（§3.11）。 |
+| BodyPart | 躯体部位 | 可拖入头部/躯干/手臂/腿部槽的躯体材料；各带 `RaceId`、`SpiritCost` 等（§3.11，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
+| BodySlot | 躯体槽类型 | `Head` / `Torso` / `Arm` / `Leg`（§3.11）。 |
+| Body | 躯体 | 制造所用躯体部位集合；汇总换算 **基础属性**；各部位 `RaceId` 加权定种族；贡献控制力占用；换算细则另专题（§3.11）。 |
+| BaseStats | 基础属性 | 由躯体汇总换算：生命值、移动速度、力量、敏捷、智力；用法见战斗规则专题（§3.11）。 |
+| Race | 种族 | 由已放入躯体部位（头/躯干/臂/腿）各权重 1 **加权随机**定稿；一战士一族；提供五维 `RaceAdjustCoeff`；配置见 `RaceConfig`（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
+| RaceConfig | 种族配置表 | RaceId → 展示名、五维种族属性调整系数（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
+| RaceAdjustCoeff | 种族属性调整系数 | 五维（对应五项基础属性）；缺省维为 0；可正可负；代入 `BaseStat × RaceAdjustCoeff`；**不**单独计入控制力占用（§3.11）。 |
+| Soul | 灵魂 | 制造时必须注入；无灵魂不可成战士；提供技能（含等级）、攻击优先级、移动风格、命名用 **职业名（ClassName）**；配置见 `SoulConfig`（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
+| SoulConfig | 灵魂配置表 | 灵魂行：ClassName、技能列表与等级、攻击优先级、移动风格、SpiritCost、控制力占用等（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
+| ClassName | 职业名 | 灵魂配置字段；参与 `WarriorName` 拼接（§3.11）。 |
+| MoveStyle | 移动风格 | 灵魂配置的战士移动行为风格（枚举/Id 编码 TBD）（§3.11）。 |
+| ExtraEquipment | 额外装备 | 外置装备（翅膀、坐骑）；制造时选定并 **锁定**；提供额外属性与/或技能、命名前缀、控制力占用（§3.11）。 |
+| ExtraEquipmentConfig | 额外装备配置表 | EquipSlot（Mount/Wing）、NamePrefix、属性/技能、SpiritCost、ControlPowerCost 等（§3.11，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
+| NamePrefix | 名字前缀 | 外置装备配置字段；两件都装备则依次拼入 `WarriorName`（§3.11）。 |
+| SpiritCost | 精魂消耗 | 材料/灵魂/外置/宝石配置字段；制造总消耗 = 已放入项之和（§3.11）。 |
+| Gem | 宝石 | 制造可选镶嵌；**6 槽、不同类型各 1**；提供 `GemMult` + 额外技能；贡献控制力占用；战士死亡后 **全部回仓库**（§3.11，[SPEC_04 §9.10](SPEC_04_Technical.md)）。 |
+| GemType | 宝石类型 | 六类互斥（具体枚举名 TBD）；同类型不可叠放两颗（§3.11）。 |
+| GemConfig | 宝石配置表 | GemId → GemType、五维 GemMult、Skills、SpiritCost、ControlPowerCost（§3.11，[SPEC_04 §9.10](SPEC_04_Technical.md)）。 |
+| GemMult | 宝石放大系数 | **五维**（对应五项基础属性）；缺省维为 0；多颗时实例各维 = **Σ** 已镶嵌宝石该维；无宝石五维皆 0；代入 `Base(S) × GemMult(S)`（§3.11）。 |
+| GemSuffixNameConfig | 宝石后缀命名表 | 按已镶嵌宝石组合 → 名字后缀（键编码 TBD）（§3.11，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
+| ControlPowerCost | 控制力占用值 | 单战士上阵占用；制造完成时 = 躯体 + 灵魂 + 额外装备 + 宝石占用之和（§3.11）。 |
+| SkillBuffCoeff | 技能 Buff 系数 | 战斗运行时 Buff 对基础属性的系数；仅进战场最终属性公式使用；制造静态不含（§3.11）。 |
 | ControlPower | 控制力 | 主角属性；上阵占用；本版上限取当前等级行 `ControlPowerCap`（科技加成另专题）；超额失控（§3.11）。 |
 | LossOfControl | 失控 | 上阵占用超过控制力上限时，按超额档次在战斗中生效（细则 TBD）。 |
 | BattleFormation | 战斗布阵 | 安排战士上阵；持久化战士 ID、位置、剩余血量；可在 §3.11 与 Defend `Prepare` 编辑同一套数据（§3.11、§3.12）。 |
@@ -52,7 +77,7 @@
 | BattleProtagonist | 战斗主角 | 战斗中地图中央的主角实体；与挖坟 `Digger` 区分（§3.12）。 |
 | Monster | 怪物 | 防守战斗敌方单位；从地图空间外刷出（刷怪细则 TBD）。 |
 | Wave | 波次 | 防守刷怪的波次单位；最后一波清场为阶段胜利条件之一（§3.12）。 |
-| AttackPriority | 攻击优先级 | 怪物选目标的预设优先级规则（具体排序表 TBD）。 |
+| AttackPriority | 攻击优先级 | **两处用法**：① 战士灵魂配置的攻击优先级（§3.11 / `SoulConfig`）；② 怪物选目标的预设优先级（§3.12，排序表 TBD）。分属不同实体，编码可共用概念、表分离。 |
 | TargetRetargetInterval | 目标修正间隔 | 怪物重算可攻击目的地的间隔；暂定 **1s**，可配置（§3.12）。 |
 | LevelFailure | 关卡失败 | 战斗中主角阵亡等触发的关卡级失败；与 VictorySettlement 互斥（§3.12）。 |
 
@@ -91,7 +116,32 @@
 | ProtagonistLevelConfig | 主角升级配置表 | Level rows: cumulative Exp threshold, reserved unlock features, TechPoint reward, ControlPower cap, protagonist MaxHP (§3.11, [SPEC_04 §9.8](SPEC_04_Technical.md)). |
 | TechPoint | 科技点数 | Granted on level-up; spent on tech tree (full tree later) (§3.11). |
 | Material | 材料 | Credited to Warehouse from Dig; spent to manufacture (alongside SpiritEssence; recipes later) (§3.10, §3.11). |
-| Warrior | 战士 | Manufactured **instance** (Id/HP/…); deployed in Defend (§3.11). |
+| Warrior | 战士 | Manufactured **instance** (Id/HP/attribute composition/…); deployed in Defend (§3.11). |
+| WarriorInfo | 战士信息 | Primary label = finalized **Race**; display/taxonomy only (no numeric effect; numeric adjust uses `RaceAdjustCoeff`) (§3.11). |
+| WarriorName | 战士名字 | Generated at manufacture: `Prefix(es) + RaceName + ClassName + Suffix` (§3.11). |
+| ManufactureSlot | 制造槽位 | Strict slots: Head1 / Torso1 / Arm2 / Leg2 / Soul1 / Gem6 (type-exclusive) / Mount1 / Wing1 (§3.11). |
+| BodyPart | 躯体部位 | Body materials for Head/Torso/Arm/Leg slots; each carries `RaceId`, `SpiritCost`, etc. (§3.11, [SPEC_04 §9](SPEC_04_Technical.md)). |
+| BodySlot | 躯体槽类型 | `Head` / `Torso` / `Arm` / `Leg` (§3.11). |
+| Body | 躯体 | Set of BodyParts used at manufacture; aggregates **BaseStats**; part `RaceId`s weight-pick Race; contributes ControlPowerCost; conversion later (§3.11). |
+| BaseStats | 基础属性 | From Body aggregation: HP, MoveSpeed, Strength, Agility, Intelligence; combat usage later (§3.11). |
+| Race | 种族 | Finalized by **weighted random** over filled BodyParts (Head/Torso/Arm/Leg), weight **1** each; one race per warrior; five-dim `RaceAdjustCoeff`; config via `RaceConfig` (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
+| RaceConfig | 种族配置表 | RaceId → display name, five-dimensional race adjust coeffs (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
+| RaceAdjustCoeff | 种族属性调整系数 | Five dims (one per BaseStat); missing dim = 0; may be +/-; used as `BaseStat × RaceAdjustCoeff`; does **not** add to ControlPowerCost alone (§3.11). |
+| Soul | 灵魂 | Must be injected at manufacture; no soul → cannot create warrior; provides skills (+levels), AttackPriority, MoveStyle, naming **ClassName**; config via `SoulConfig` (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md)). |
+| SoulConfig | 灵魂配置表 | Soul rows: ClassName, skills+levels, AttackPriority, MoveStyle, SpiritCost, ControlPowerCost, etc. (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md)). |
+| ClassName | 职业名 | Soul config field; used in `WarriorName` (§3.11). |
+| MoveStyle | 移动风格 | Warrior movement behavior style from Soul (enum/Id encoding TBD) (§3.11). |
+| ExtraEquipment | 额外装备 | External gear (wings, mount); chosen and **locked** at manufacture; grants extra stats and/or skills, name prefix, ControlPowerCost (§3.11). |
+| ExtraEquipmentConfig | 额外装备配置表 | EquipSlot (Mount/Wing), NamePrefix, stats/skills, SpiritCost, ControlPowerCost (§3.11, [SPEC_04 §9](SPEC_04_Technical.md)). |
+| NamePrefix | 名字前缀 | ExtraEquipment field; if both equipped, concatenate into `WarriorName` in order (§3.11). |
+| SpiritCost | 精魂消耗 | Per BodyPart/Soul/Equip/Gem config field; total manufacture cost = sum of filled items (§3.11). |
+| Gem | 宝石 | Optional sockets at manufacture; **6 slots, one per GemType**; grants `GemMult` + extra skills; ControlPowerCost; on death **all return to Warehouse** (§3.11, [SPEC_04 §9.10](SPEC_04_Technical.md)). |
+| GemType | 宝石类型 | Six mutually exclusive types (enum names TBD); at most one gem per type (§3.11). |
+| GemConfig | 宝石配置表 | GemId → GemType, five-dim GemMult, Skills, SpiritCost, ControlPowerCost (§3.11, [SPEC_04 §9.10](SPEC_04_Technical.md)). |
+| GemMult | 宝石放大系数 | **Five dims** (one per BaseStat); missing dim = 0; multi-gem instance dim = **Σ** of socketed gems for that dim; all zeros if none; used as `Base(S) × GemMult(S)` (§3.11). |
+| GemSuffixNameConfig | 宝石后缀命名表 | Socketed gem combination → name suffix (key encoding TBD) (§3.11, [SPEC_04 §9](SPEC_04_Technical.md)). |
+| ControlPowerCost | 控制力占用值 | Per-warrior deploy cost; finalized at manufacture = Body + Soul + ExtraEquipment + Gem costs (§3.11). |
+| SkillBuffCoeff | 技能 Buff 系数 | Runtime combat Buff coefficient on BaseStats; used only in battlefield final-stat formula; excluded from manufacture static snapshot (§3.11). |
 | ControlPower | 控制力 | Protagonist attribute; deploy cost; this version cap = current level row `ControlPowerCap` (tech bonus later); overflow → LossOfControl (§3.11). |
 | LossOfControl | 失控 | When deployed control cost exceeds cap, tiered battle effects apply (details TBD). |
 | BattleFormation | 战斗布阵 | Assign warriors to battlefield; persists warrior Id, position, remaining HP; editable in §3.11 and Defend `Prepare` on the same dataset (§3.11, §3.12). |
@@ -102,7 +152,7 @@
 | BattleProtagonist | 战斗主角 | Protagonist entity at BattleMap center; distinct from Dig `Digger` (§3.12). |
 | Monster | 怪物 | Defend enemy unit; spawns outside map space (spawn rules TBD). |
 | Wave | 波次 | Spawn-wave unit; clearing the last wave is part of stage victory (§3.12). |
-| AttackPriority | 攻击优先级 | Preset monster target-selection priority (ordering table TBD). |
+| AttackPriority | 攻击优先级 | **Two uses**: ① warrior Soul AttackPriority (§3.11 / `SoulConfig`); ② monster target-selection presets (§3.12, sort table TBD). Same concept, separate tables/entities. |
 | TargetRetargetInterval | 目标修正间隔 | Interval to recompute attackable destination; provisional **1s**, configurable (§3.12). |
 | LevelFailure | 关卡失败 | Level-level failure (e.g. protagonist death in Combat); mutually exclusive with VictorySettlement (§3.12). |
 
@@ -753,9 +803,9 @@ EffectiveDigDuration countdown → 0
 
 ### 简体中文
 
-**状态：框架已关闭（规则库）；升级配置表结构与关卡失败经验边界已关闭；配方 / 失控档次效果 / 完整科技树 / 等级具体数值另专题补录**
+**状态：框架已关闭（规则库）；升级配置表结构、关卡失败经验边界、战士属性构成（含宝石五维、种族、按项 FinalStat+下限）、战士制造流程/槽位/命名已关闭；躯体→基础属性换算数值 / 六宝石类型正式枚举名 / 宝石后缀组合键编码 / 失控档次效果 / 完整科技树 / 等级与灵魂·宝石·种族表具体数值另专题补录**
 
-当关卡当前阶段 `玩法类型 = UpgradeManufacture` 时进入本阶段。本阶段包含三条并列能力：**升级**、**制造战士**、**战斗布阵**。配置表载体与字段编码见 [SPEC_04 §9](SPEC_04_Technical.md)（升级表见 **§9.8 `ProtagonistLevelConfig`**；制造配方等仍 **TBD**）。
+当关卡当前阶段 `玩法类型 = UpgradeManufacture` 时进入本阶段。本阶段包含三条并列能力：**升级**、**制造战士**、**战斗布阵**。配置表载体与字段编码见 [SPEC_04 §9](SPEC_04_Technical.md)（升级表见 **§9.8 `ProtagonistLevelConfig`**；灵魂表见 **§9.9 `SoulConfig`**；宝石表见 **§9.10 `GemConfig`**；种族表见 **§9.11 `RaceConfig`**；额外装备 / 宝石后缀 / 躯体部位见 **§9.12+**；完整数值仍 **TBD**）。
 
 **界面组织（UI）**
 
@@ -764,7 +814,7 @@ EffectiveDigDuration countdown → 0
 | 布局 | **同一屏三区并列**：升级区 / 制造区 / 布阵区（可同时看见与操作，非 Tab、非线性向导） |
 | 完成入口 | 屏幕 **底部** 常驻「完成 / 进入下一阶段」按钮；点击即触发阶段结束（§3.11 阶段结束） |
 | 布阵编辑器 | 与 Defend `Prepare` **共用同一套**布阵 UI / 逻辑（写同一 BattleFormation） |
-| 区内外细节控件 | 升级/制造区内具体控件与数值展示 **TBD**（后续按子系统补） |
+| 区内外细节控件 | 升级区内具体控件 **TBD**；制造区槽位与预览规则见下「制造战士」 |
 | UI 清单 | 见 §3.6 `UI-010` |
 
 **资源依赖**
@@ -795,15 +845,138 @@ EffectiveDigDuration countdown → 0
 | 规则 | 说明 |
 |------|------|
 | 目的 | 制造 **战士（Warrior）**，供防守阶段上阵，抵御敌人对主角的进攻 |
-| 库存模型 | 每个战士为 **独立实例**（自有 ID、剩余血量等）；**非**种类×数量堆叠 |
-| 消耗 | 消耗仓库中的 **材料** 与/或 **精魂**；本批仅框架「耗资源 → 出战士」；材料种类 / 配方表（含精魂消耗量）**另专题** |
-| 产出 | 可上阵的战士实例（属性、品质 **TBD**） |
+| 库存模型 | 每个战士为 **独立实例**（自有 ID、名字、剩余血量、属性构成快照等）；**非**种类×数量堆叠 |
+| 消耗 | 从仓库扣除已放入的 **材料**，并从货币扣除 **精魂**（总消耗见下） |
+| 产出 | 可上阵的战士实例；属性构成见「战士属性构成」；躯体→基础属性换算数值 **另专题** |
+
+**制造步骤（流水线）**
+
+```
+材料按槽拖入 → 每次成功拖入/移除后刷新预览（角色信息、属性变更、精魂消耗）
+→ 玩家点「制造」（最低材料齐 + 精魂足够）→ 播放制造动画 → 生成战士实例
+```
+
+| 步骤 | 规则 |
+|------|------|
+| 拖入 | 仅接受对应槽位类型的材料；类型不符 → 拒绝 |
+| 预览刷新 | 每次槽位变化后展示：角色信息（含可预览字段）、相对当前方案的属性变更、**当前总精魂消耗** |
+| 制造按钮 | 最低材料要求满足 **且** `SpiritEssence ≥` 总精魂消耗 → 可点；否则 **不可制造**（按钮禁用或点击无效，二选一即可） |
+| 动画 | 制造动画为表现层；规则层在确认消耗后提交生成 |
+| 完成时 | 扣除材料与精魂；定稿种族；写入属性快照与 `WarriorName`；实例进入可上阵池 |
+
+**制造槽位（ManufactureSlot；严格类型）**
+
+| 槽组 | 数量 / 约束 |
+|------|-------------|
+| 头部 | 1（`BodySlot = Head`） |
+| 躯干 | 1（`BodySlot = Torso`） |
+| 手臂 | 2（不分左右；两槽均为 `Arm`） |
+| 腿部 | 2（不分左右；两槽均为 `Leg`） |
+| 灵魂 | 1 |
+| 宝石 | 6（**不同类型各 1**；`GemType` 互斥；六类正式枚举名 **TBD**） |
+| 外置装备 | 坐骑 1（`Mount`）+ 翅膀 1（`Wing`） |
+
+**最低制造要求**
+
+必填：**1 躯干 + 2 手臂 + 2 腿 + 1 灵魂**。头部、宝石、坐骑、翅膀均为 **可选**。
+
+**精魂消耗闸门**
+
+| 规则 | 说明 |
+|------|------|
+| 总消耗 | `TotalSpiritCost = Σ SpiritCost`（已放入的躯体部位、灵魂、外置装备、宝石；缺省项为 0） |
+| 字段来源 | 各材料/灵魂/外置/宝石配置表的 `SpiritCost`（[SPEC_04 §9](SPEC_04_Technical.md)）；具体数值 **TBD** |
+| 不足 | 材料齐但精魂不够 → **不能制造** |
+
+**种族定稿（加权随机）**
+
+| 规则 | 说明 |
+|------|------|
+| 参与部位 | 已放入的 **头部、躯干、手臂×2、腿×2**；空槽 **不**参与 |
+| 权重 | 每部位权重 **1**（相同权重） |
+| 抽取 | 按各部位配置的 `RaceId` 加权随机 → 定稿 `RaceId` |
+| 数值 | 定稿后查 `RaceConfig`，将五维 `RaceAdjustCoeff` 写入实例 |
+| 标签 | 定稿种族为 **WarriorInfo 主标签来源**；**不再**用「躯体 + 灵魂 InfoTags 拼接」生成主标签 |
+
+**战士命名（制造完成时）**
+
+```
+WarriorName = Prefix(es) + RaceDisplayName + ClassName + Suffix
+```
+
+| 段 | 来源 |
+|----|------|
+| 前缀 Prefix(es) | 每件已装备外置装备的 `NamePrefix`；两件都有则 **依次拼接**；皆无则可空 |
+| 种族名 | 定稿 `RaceId` → `RaceConfig.DisplayNameKey`（或展示名） |
+| 职业名 | 所用灵魂的 `SoulConfig.ClassName` |
+| 后缀 Suffix | 无宝石可空；有宝石时由 **`GemSuffixNameConfig`** 按已镶嵌宝石组合解析（键编码 **TBD**） |
+
+**战士属性构成**
+
+战士属性由下列部件构成：**战士信息**、**基础属性**、**种族**、**灵魂**、**额外装备属性**、**宝石**、**控制力占用值**。进入战场时的最终单项数值另叠加 **技能 Buff 系数**（仅运行时）、**宝石放大**与 **种族调整**。
+
+| 部件 | 规则 |
+|------|------|
+| 战士信息（WarriorInfo） | 主标签 = 定稿 **种族**；仅标签 / 展示 / 分类，**不**直接改变数值。数值调整 **仅** 走「种族」与 `RaceAdjustCoeff` |
+| 基础属性（BaseStats） | 由制造所用 **躯体部位** 汇总换算（换算算法与数值 **另专题**）。固定五项：**生命值、移动速度、力量、敏捷、智力**。战斗中用法 **另专题：战斗规则** |
+| 种族（Race） | 由躯体部位加权随机定稿（见上）；数据来自 **`RaceConfig`**（[SPEC_04 §9.11](SPEC_04_Technical.md)）。提供 **五维** `RaceAdjustCoeff`（缺省维 **0**；可正可负）。**不**单独计入 `ControlPowerCost` |
+| 灵魂（Soul） | 制造时注入；数据来自 **`SoulConfig`**（[SPEC_04 §9.9](SPEC_04_Technical.md)）。功能：可使用技能（含技能等级）、**攻击优先级**、**移动风格（MoveStyle）**、命名用 **ClassName** |
+| 额外装备属性 | 外置装备提供的同名平坦属性加成与/或额外技能；制造时写入实例并锁定；并提供 `NamePrefix` |
+| 宝石（Gem） | 可选；最多 6 颗（类型互斥）；数据来自 **`GemConfig`**（[SPEC_04 §9.10](SPEC_04_Technical.md)）。提供：**五维** `GemMult` + **额外技能**（各宝石技能集合并与灵魂技能 **并存**；冲突/覆盖 **TBD**）。无宝石时五维皆 **0**；多颗时实例各维 `GemMult(S) = Σ` 已镶嵌宝石的 `GemMult(S)` |
+| 控制力占用值（ControlPowerCost） | 制造完成时定稿：`ControlPowerCost = BodyCost + SoulCost + EquipCost + GemCost`（无装备/无宝石则对应项为 0；多宝石 `GemCost` 为各宝石占用之和；种族不另加项） |
+
+**最终单项属性（进入战斗 / 战场部署时）：**
+
+公式始终针对 **某一个目标属性项** `S`（`S` ∈ {生命值, 移动速度, 力量, 敏捷, 智力}）。汇总时：**先选定 `S`，再取该属性对应的各来源**，不得跨属性混加。
+
+```
+FinalStat(S) = max(0,
+  Base(S) + Equip(S)
+  + Base(S) × SkillBuff(S)
+  + Base(S) × GemMult(S)
+  + Base(S) × RaceAdjust(S)
+)
+```
+
+**力量例：**
+
+```
+力量最终 = max(0,
+  力量基础 + 装备对力量的增加值
+  + 力量基础 × 技能对力量的增强系数
+  + 力量基础 × 宝石对力量的增强系数
+  + 力量基础 × 种族对力量的增强系数
+)
+```
+
+| 规则 | 说明 |
+|------|------|
+| 汇总步骤 | ① 选定目标属性 `S` → ② 取 `Base(S)`、`Equip(S)`、`SkillBuff(S)`、`GemMult(S)`、`RaceAdjust(S)` → ③ 代入通式 → ④ `max(0, raw)` |
+| `Equip(S)` | 额外装备对该属性的平坦加成；无则 **0** |
+| `SkillBuff(S)` | **仅**战斗运行时 Buff 对该属性的系数；制造静态快照 **不含** |
+| `GemMult(S)` | 实例五维中对应 `S` 的系数 = **Σ** 已镶嵌各宝石的 `GemMult(S)`；无宝石或该维缺省为 **0**；制造时写入实例 |
+| `RaceAdjust(S)` | 定稿种族五维中对应 `S` 的系数；缺省为 **0**；制造时写入实例 |
+| 下限保护 | 最终属性 **最小为 0**；算式结果为负时钳制为 0 |
+| 静态展示 | 制造 / 布阵按项显示 `max(0, Base(S)+Equip(S)+Base(S)×GemMult(S)+Base(S)×RaceAdjust(S))`（须标明未含运行时 Buff） |
+| 重算时机 | 开战部署及战斗中 Buff 变更时，对五项分别按当前 `SkillBuff(S)` 与实例系数重算 `FinalStat(S)` |
+
+**战士实例静态快照（制造完成时写入；伪结构）：** 见 [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.10](SPEC_04_Technical.md) / [§9.11](SPEC_04_Technical.md)。
+
+**战士死亡与材料去向**
+
+| 规则 | 说明 |
+|------|------|
+| 触发 | 战士实例 **死亡**（如战斗中阵亡；死亡判定细节 **另专题：战斗规则**；本批只定物资后果） |
+| 宝石 | 实例 `GemIds` 中全部宝石 → **自动回主角仓库**；**不**随死亡销毁 |
+| 其余材料 | 躯体部位、灵魂、外置装备，以及制造时绑定到该战士的其它材料 → **全部销毁**，**不**回仓 |
+| 实例 | 该战士实例从可上阵池移除（布阵中若仍引用则一并清除；细则与布阵清理 **TBD**） |
 
 **控制力与失控**
 
 | 规则 | 说明 |
 |------|------|
 | 占用时机 | 战士 **上战场时** 占用主角的控制力（制造本身 **不**耗控制力） |
+| 单兵占用 | 取该战士实例的 **`ControlPowerCost`**（制造时已按躯体+灵魂+额外装备+宝石叠加定稿） |
 | 上限成长 | 本版：`ControlPowerCapEffective =` 当前等级行 `ControlPowerCap`；科技对上限的加成 **另专题**（生效后为「等级表上限 + 科技加成」） |
 | 受控判定 | 若所有已上阵战士占用之和 **≤** 上限 → 这些战士 **永久受控**（除非死亡） |
 | 失控判定 | 若占用之和 **>** 上限 → 按 **超过额度** 分档触发 **失控（LossOfControl）** |
@@ -838,17 +1011,25 @@ UpgradeManufacture stage
   → Upgrade: LifetimeExperience (from Defend victory credit) ≥ next RequiredTotalExperience
        → LevelUp (Exp pool not reset) → TechPointsReward + apply ControlPowerCap / ProtagonistMaxHP
        → UnlockedFeatureIds reserved only; TechTree full tree later
-  → Manufacture: spend Materials and/or SpiritEssence → create Warrior instance {Id, HP, ...} (recipes later)
+  → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg+Soul
+       → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
+       → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
+       → Gem: GemIds[]; GemMult(S)=Σ socketed GemMult(S) (5D; all 0 if none)
+       → WarriorName = Prefix(es)+RaceName+ClassName+Suffix; WarriorInfo primary = Race
+       → Warrior instance {Id, WarriorName, RemainingHP, RaceId, RaceAdjustCoeff, BaseStats, SoulId, LockedEquipIds, GemIds[], GemMult(5D), ControlPowerCost}
+       → Body→BaseStats conversion numbers later
   → Formation: shared editor; BattleMap continuous coords; persist {WarriorId, Position, RemainingHP}
-  → Deploy control: Cap = level-row ControlPowerCap (+ tech later); overflow → LossOfControl tiers (effects later); does not block StartBattle
+  → Deploy control: Cap = level-row ControlPowerCap (+ tech later); cost = instance ControlPowerCost; overflow → LossOfControl tiers (effects later); does not block StartBattle
+  → Combat: for each stat S, FinalStat(S)=max(0, Base+Equip+Base×SkillBuff+Base×GemMult+Base×RaceAdjust)
+  → On warrior death: all GemIds → Warehouse; BodyParts/Soul/ExtraEquipment/other bound materials destroyed
   → Player confirms "Complete / Next stage" → no stage settlement → §3.9 next / VictorySettlement
 ```
 
 ### English
 
-**Status: Framework closed (rules library); upgrade table schema and LevelFailure Exp boundary closed; recipes / LossOfControl tier effects / full tech tree / concrete level numbers deferred**
+**Status: Framework closed (rules library); upgrade table schema, LevelFailure Exp boundary, warrior attribute composition (incl. five-dim Gem, Race; per-stat FinalStat + floor), and warrior manufacture flow/slots/naming closed; Body→BaseStats conversion numbers / six GemType enum names / gem-suffix key encoding / LossOfControl tier effects / full tech tree / concrete level & Soul/Gem/Race numbers deferred**
 
-Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel capabilities: **Upgrade**, **Manufacture warriors**, **BattleFormation**. Config encodings: [SPEC_04 §9](SPEC_04_Technical.md) (**§9.8 `ProtagonistLevelConfig`** for upgrade; manufacture recipes still **TBD**).
+Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel capabilities: **Upgrade**, **Manufacture warriors**, **BattleFormation**. Config encodings: [SPEC_04 §9](SPEC_04_Technical.md) (**§9.8 `ProtagonistLevelConfig`**; **§9.9 `SoulConfig`**; **§9.10 `GemConfig`**; **§9.11 `RaceConfig`**; ExtraEquipment / gem-suffix / BodyPart in **§9.12+**; concrete numbers still **TBD**).
 
 **UI layout**
 
@@ -857,7 +1038,7 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 | Layout | **One screen, three side-by-side panels**: Upgrade / Manufacture / Formation |
 | Complete entry | **Bottom** "Complete / Next stage"; ends stage |
 | Formation editor | **Same** UI/logic shared with Defend `Prepare` (same BattleFormation) |
-| In-panel controls | Upgrade/Manufacture widgets **TBD** |
+| In-panel controls | Upgrade widgets **TBD**; Manufacture slots & preview below |
 | UI inventory | §3.6 `UI-010` |
 
 **Resource dependencies**
@@ -888,15 +1069,138 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 | Rule | Notes |
 |------|-------|
 | Purpose | Create **Warrior** instances for Defend |
-| Inventory model | Each warrior is an **independent instance** (own Id, remaining HP, …); **not** stack-by-kind |
-| Cost | **Materials** and/or **SpiritEssence** from Warehouse / currency; framework only «spend resources → warrior»; kinds/recipes (incl. Spirit costs) **later** |
-| Output | Deployable instances (stats/quality **TBD**) |
+| Inventory model | Each warrior is an **independent instance** (own Id, name, remaining HP, attribute snapshot, …); **not** stack-by-kind |
+| Cost | Deduct filled **materials** from Warehouse and **SpiritEssence** for total Spirit cost |
+| Output | Deployable instances; attribute composition below; Body→BaseStats conversion numbers **later** |
+
+**Manufacture pipeline**
+
+```
+Drag materials into slots → on each successful add/remove, refresh preview (info, stat delta, Spirit cost)
+→ player taps Manufacture (min parts filled + enough Spirit) → manufacture VFX → create warrior instance
+```
+
+| Step | Rules |
+|------|-------|
+| Drag | Accept only matching slot type; reject mismatches |
+| Preview | After each slot change: character info, attribute deltas for current plan, **total Spirit cost** |
+| Manufacture button | Enabled only if min requirements met **and** `SpiritEssence ≥` total Spirit cost; else **cannot manufacture** (disable or no-op) |
+| VFX | Presentation only; rules commit after cost confirmation |
+| On complete | Deduct materials + Spirit; finalize Race; write snapshot + `WarriorName`; add to deployable pool |
+
+**Manufacture slots (strict typing)**
+
+| Group | Count / constraint |
+|-------|--------------------|
+| Head | 1 (`BodySlot = Head`) |
+| Torso | 1 (`BodySlot = Torso`) |
+| Arms | 2 (no L/R; both `Arm`) |
+| Legs | 2 (no L/R; both `Leg`) |
+| Soul | 1 |
+| Gems | 6 (**one per GemType**; mutually exclusive; six type names **TBD**) |
+| ExtraEquipment | Mount 1 + Wing 1 |
+
+**Minimum requirements**
+
+Required: **1 Torso + 2 Arms + 2 Legs + 1 Soul**. Head, gems, mount, wings are **optional**.
+
+**Spirit cost gate**
+
+| Rule | Notes |
+|------|-------|
+| Total | `TotalSpiritCost = Σ SpiritCost` of filled BodyParts, Soul, ExtraEquipment, Gems (missing = 0) |
+| Field source | `SpiritCost` on each config row ([SPEC_04 §9](SPEC_04_Technical.md)); concrete numbers **TBD** |
+| Insufficient | Parts OK but Spirit short → **cannot manufacture** |
+
+**Race finalization (weighted pick)**
+
+| Rule | Notes |
+|------|-------|
+| Participants | Filled **Head, Torso, Arm×2, Leg×2**; empty slots excluded |
+| Weight | **1** per part |
+| Pick | Weighted random by each part's `RaceId` → finalized `RaceId` |
+| Numerics | Lookup `RaceConfig`; copy five-dim `RaceAdjustCoeff` into instance |
+| Labels | Finalized Race is **primary WarriorInfo label**; **no** Body+Soul `InfoTags` merge for primary tags |
+
+**Warrior naming (at manufacture complete)**
+
+```
+WarriorName = Prefix(es) + RaceDisplayName + ClassName + Suffix
+```
+
+| Segment | Source |
+|---------|--------|
+| Prefix(es) | Each equipped ExtraEquipment `NamePrefix`; concatenate in order if both; empty if none |
+| Race name | Finalized `RaceId` → `RaceConfig.DisplayNameKey` (or display name) |
+| Class name | Soul `SoulConfig.ClassName` |
+| Suffix | Empty if no gems; else **`GemSuffixNameConfig`** by socketed gem combination (key encoding **TBD**) |
+
+**Warrior attribute composition**
+
+A warrior is composed of: **WarriorInfo**, **BaseStats**, **Race**, **Soul**, **ExtraEquipment stats**, **Gem**, and **ControlPowerCost**. Battlefield final per-stat values additionally apply **SkillBuffCoeff** (runtime only), **GemMult**, and **RaceAdjustCoeff**.
+
+| Part | Rules |
+|------|-------|
+| WarriorInfo | Primary label = finalized **Race**; display/taxonomy only (no numeric effect). Numeric adjust uses **Race** / `RaceAdjustCoeff` only |
+| BaseStats | Aggregated from filled **BodyParts** (conversion algorithm & numbers **later**). Fixed five: **HP, MoveSpeed, Strength, Agility, Intelligence**. Combat usage **later: battle rules** |
+| Race | Weighted pick from BodyParts (above); data from **`RaceConfig`** ([SPEC_04 §9.11](SPEC_04_Technical.md)). Five-dim `RaceAdjustCoeff` (missing dim = **0**; may be +/-). No separate ControlPowerCost term |
+| Soul | Injected at manufacture; **`SoulConfig`** ([SPEC_04 §9.9](SPEC_04_Technical.md)): skills (+levels), **AttackPriority**, **MoveStyle**, naming **ClassName** |
+| ExtraEquipment stats | Flat same-named bonuses and/or extra skills; locked at manufacture; also supplies `NamePrefix` |
+| Gem | Optional; up to 6 (type-exclusive); **`GemConfig`** ([SPEC_04 §9.10](SPEC_04_Technical.md)): **five-dim** `GemMult` + extra skills (union with Soul skills; conflict **TBD**). No gems → all dims **0**; multi-gem → instance `GemMult(S) = Σ` socketed `GemMult(S)` |
+| ControlPowerCost | Finalized at manufacture: `BodyCost + SoulCost + EquipCost + GemCost` (0 for missing; multi-gem GemCost = sum; Race adds no term) |
+
+**Final per-stat (on battlefield deploy / in combat):**
+
+The formula always targets **one attribute** `S` (`S` ∈ {HP, MoveSpeed, Strength, Agility, Intelligence}). Aggregation: **pick `S` first, then gather sources for that attribute only** — never mix across attributes.
+
+```
+FinalStat(S) = max(0,
+  Base(S) + Equip(S)
+  + Base(S) × SkillBuff(S)
+  + Base(S) × GemMult(S)
+  + Base(S) × RaceAdjust(S)
+)
+```
+
+**Strength example:**
+
+```
+FinalStrength = max(0,
+  BaseStrength + EquipStrengthBonus
+  + BaseStrength × SkillBuffStrength
+  + BaseStrength × GemMultStrength
+  + BaseStrength × RaceAdjustStrength
+)
+```
+
+| Rule | Notes |
+|------|-------|
+| Steps | ① Choose target `S` → ② Load `Base(S)`, `Equip(S)`, `SkillBuff(S)`, `GemMult(S)`, `RaceAdjust(S)` → ③ Apply formula → ④ `max(0, raw)` |
+| `Equip(S)` | Flat bonus to that attribute from ExtraEquipment; else **0** |
+| `SkillBuff(S)` | Runtime combat Buff coeff for that attribute only; excluded from manufacture static snapshot |
+| `GemMult(S)` | Instance five-dim coeff for `S` = **Σ** of socketed gems' `GemMult(S)`; **0** if none / missing dim; written at manufacture |
+| `RaceAdjust(S)` | Finalized race five-dim coeff for `S`; **0** if missing; written at manufacture |
+| Floor | Final attribute **minimum 0**; negative raw results clamp to 0 |
+| Static UI | Per-stat `max(0, Base(S)+Equip(S)+Base(S)×GemMult(S)+Base(S)×RaceAdjust(S))` (note runtime Buffs excluded) |
+| Recalc | On StartBattle deploy and when Buffs change, recompute `FinalStat(S)` for each of the five |
+
+**Warrior instance static snapshot (written at manufacture):** see [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.10](SPEC_04_Technical.md) / [§9.11](SPEC_04_Technical.md).
+
+**Warrior death & material fate**
+
+| Rule | Notes |
+|------|-------|
+| Trigger | Warrior instance **death** (e.g. slain in combat; death criteria **later: battle rules**; this batch defines material outcomes only) |
+| Gem | All gems in instance `GemIds` → **auto-return to protagonist Warehouse**; **not** destroyed on death |
+| Other materials | BodyParts, Soul, ExtraEquipment, and other materials bound at manufacture → **all destroyed**; **not** returned |
+| Instance | Remove warrior from deployable pool (clear formation refs if any; cleanup details **TBD**) |
 
 **ControlPower & LossOfControl**
 
 | Rule | Notes |
 |------|-------|
 | When cost applies | On **deployment** (manufacture does **not** cost ControlPower) |
+| Per-warrior cost | Instance **`ControlPowerCost`** (Body+Soul+ExtraEquipment+Gem sum finalized at manufacture) |
 | Cap growth | This version: `ControlPowerCapEffective =` current level row `ControlPowerCap`; tech bonus to cap **later** (then «level-table cap + tech») |
 | Controlled | Sum cost **≤** cap → permanently controlled (unless dead) |
 | LossOfControl | Sum **>** cap → tiered by overflow |
@@ -931,9 +1235,17 @@ UpgradeManufacture stage
   → Upgrade: LifetimeExperience (from Defend victory credit) ≥ next RequiredTotalExperience
        → LevelUp (Exp pool not reset) → TechPointsReward + apply ControlPowerCap / ProtagonistMaxHP
        → UnlockedFeatureIds reserved only; TechTree full tree later
-  → Manufacture: spend Materials and/or SpiritEssence → create Warrior instance {Id, HP, ...} (recipes later)
+  → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg+Soul
+       → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
+       → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
+       → Gem: GemIds[]; GemMult(S)=Σ socketed GemMult(S) (5D; all 0 if none)
+       → WarriorName = Prefix(es)+RaceName+ClassName+Suffix; WarriorInfo primary = Race
+       → Warrior instance {Id, WarriorName, RemainingHP, RaceId, RaceAdjustCoeff, BaseStats, SoulId, LockedEquipIds, GemIds[], GemMult(5D), ControlPowerCost}
+       → Body→BaseStats conversion numbers later
   → Formation: shared editor; BattleMap continuous coords; persist {WarriorId, Position, RemainingHP}
-  → Deploy control: Cap = level-row ControlPowerCap (+ tech later); overflow → LossOfControl tiers (effects later); does not block StartBattle
+  → Deploy control: Cap = level-row ControlPowerCap (+ tech later); cost = instance ControlPowerCost; overflow → LossOfControl tiers (effects later); does not block StartBattle
+  → Combat: for each stat S, FinalStat(S)=max(0, Base+Equip+Base×SkillBuff+Base×GemMult+Base×RaceAdjust)
+  → On warrior death: all GemIds → Warehouse; BodyParts/Soul/ExtraEquipment/other bound materials destroyed
   → Player confirms "Complete / Next stage" → no stage settlement → §3.9 next / VictorySettlement
 ```
 
@@ -1152,15 +1464,24 @@ Defend stage
 - [x] 升级与制造主屏布局（同屏三区 + 底部完成；UI-010）；升级/制造区控件仍 TBD
 - [x] BattleFormation：§3.11 与 Defend Prepare **同一编辑器**；连续坐标；Prepare 不可制造
 - [x] 经验：Defend 阶段胜利统一入账至 `LifetimeExperience`；升级不扣减累计经验；完整科技树另专题
-- [x] 战士=独立实例；制造仅框架（配方另专题）
+- [x] 战士=独立实例；**战士制造流程/槽位/最低要求/精魂闸门/命名已关闭**（§3.11）；躯体→基础属性换算数值另专题
 - [x] 控制力上限=当前等级行 `ControlPowerCap`（科技加成另专题）；失控分档占位（效果另专题）；失控不挡开战
 - [x] 无上阵战士时不允许开战（须 ≥1）
 - [x] 关卡失败：不入账本阶段经验、无关卡结算奖励；已获得不扣除
 - [x] 主角升级配置表 `ProtagonistLevelConfig` 字段与累计阈值语义（SPEC_04 §9.8）；各行具体数值仍 TBD
+- [x] 战士控制力占用值 = 躯体+灵魂+额外装备+宝石叠加（制造时定稿）；灵魂配置表 `SoulConfig`（SPEC_04 §9.9）；宝石配置表 `GemConfig`（SPEC_04 §9.10）；种族配置表 `RaceConfig`（SPEC_04 §9.11）
+- [x] 宝石：制造可选镶嵌（**6 槽、类型互斥**）；五维 `GemMult`（多颗按维 **Σ**）；死亡全部回仓库，其余绑定材料销毁
+- [x] 种族：躯体部位权重 1 加权随机定稿；五维 `RaceAdjustCoeff`；不另计控制力；为主标签来源
+- [x] FinalStat 按单项属性汇总（先定 `S` 再取来源）；`FinalStat(S)=max(0, …)` 下限保护
+- [x] 战士命名：`Prefix(es)+RaceName+ClassName+Suffix`（外置前缀 / 种族 / 灵魂职业 / 宝石后缀表）
 - [ ] 完整科技树节点与 TechPoint 消耗（另专题）
-- [ ] 材料种类、制造配方与战士属性（另专题）
-- [ ] 战士控制力占用值；失控档位阈值与战斗效果（另专题）
-- [ ] 升级 / 制造区内具体控件与数值展示
+- [ ] 躯体→基础属性换算细则与数值；六宝石类型正式枚举名；宝石后缀组合键编码（另专题）
+- [ ] 额外装备 / 躯体部位完整配置数值（表结构见 SPEC_04 §9.12+）
+- [ ] 失控档位阈值与战斗效果（另专题）
+- [ ] 灵魂表 / 技能具体数值与 MoveStyle / AttackPriority 编码（另专题）
+- [ ] 宝石获取途径、五维 GemMult/技能具体数值、镶嵌 UI 与回仓表现（另专题）
+- [ ] 种族列表与各维 RaceAdjustCoeff 具体数值（另专题）
+- [ ] 升级区内具体控件与数值展示；制造区控件细节（槽位规则已定）
 - [x] 防守（Defend）框架：准备/开战/部署/NavMesh 寻路/阶段胜利与关卡失败（§3.12）
 - [ ] 防守刷怪波次表、出生点几何与节奏
 - [ ] 攻击优先级（AttackPriority）排序表；攻击距离与伤害
@@ -1185,18 +1506,27 @@ Defend stage
 - [ ] Dig frame-anim count and asset naming list
 - [x] UpgradeManufacture framework closed (§3.11)
 - [x] UpgradeManufacture: player confirm end; **no** independent stage settlement
-- [x] UI-010 three panels + Complete; Upgrade/Manufacture widgets still TBD
+- [x] UI-010 three panels + Complete; Upgrade widgets still TBD; Manufacture slots/preview closed
 - [x] BattleFormation: shared editor; continuous coords; no manufacture in Prepare
 - [x] Exp: Defend victory → `LifetimeExperience`; level-up does not deduct cumulative Exp; full tech tree later
-- [x] Warrior = instance; manufacture framework only (recipes later)
+- [x] Warrior = instance; **manufacture flow/slots/min requirements/Spirit gate/naming closed** (§3.11); Body→BaseStats numbers later
 - [x] ControlPower cap = level-row `ControlPowerCap` (tech bonus later); LossOfControl tier placeholder; does not block StartBattle
 - [x] StartBattle requires ≥1 deployed warrior
 - [x] LevelFailure: no stage Exp / no level settlement rewards; already-owned not clawed back
 - [x] `ProtagonistLevelConfig` schema + cumulative threshold semantics (SPEC_04 §9.8); concrete row numbers still TBD
+- [x] ControlPowerCost = Body+Soul+ExtraEquipment+Gem (finalized at manufacture); `SoulConfig` (SPEC_04 §9.9); `GemConfig` (SPEC_04 §9.10); `RaceConfig` (SPEC_04 §9.11)
+- [x] Gem: optional sockets (**6, type-exclusive**); five-dim `GemMult` (multi-gem **Σ** per dim); on death all return to Warehouse; other bound materials destroyed
+- [x] Race: weight-1 pick from filled BodyParts; five-dim `RaceAdjustCoeff`; no separate ControlPower term; primary WarriorInfo label
+- [x] FinalStat per-attribute aggregation (pick `S` then sources); `FinalStat(S)=max(0, …)` floor
+- [x] WarriorName = Prefix(es)+RaceName+ClassName+Suffix
 - [ ] Full tech-tree nodes and TechPoint costs (later topic)
-- [ ] Material kinds, recipes, warrior stats (later topic)
-- [ ] Per-warrior control cost; LossOfControl tier thresholds & effects (later topic)
-- [ ] Upgrade / Manufacture in-panel widgets
+- [ ] Body→BaseStats conversion numbers; six GemType enum names; gem-suffix key encoding (later topic)
+- [ ] ExtraEquipment / BodyPart concrete numbers (schemas in SPEC_04 §9.12+)
+- [ ] LossOfControl tier thresholds & effects (later topic)
+- [ ] Soul table / skill concrete numbers; MoveStyle / AttackPriority encoding (later topic)
+- [ ] Gem acquisition, five-dim GemMult/skills, socket UI & return VFX (later topic)
+- [ ] Race list and concrete per-dim RaceAdjustCoeff values (later topic)
+- [ ] Upgrade in-panel widgets; Manufacture widget polish (slot rules closed)
 - [x] Defend framework (§3.12)
 - [ ] Defend wave tables, spawn-point geometry, timing
 - [ ] AttackPriority ordering table; attack range and damage
