@@ -1,0 +1,144 @@
+# =============================================================================
+# Gravedigger2026 — Git ignore
+# Unity 工程位于子目录 Gravedigger2026/；模式不加根锚点，以便匹配嵌套路径。
+# Unity 模板来源: https://github.com/github/gitignore/blob/main/Unity.gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Unity 生成 / 缓存（勿提交）
+# -----------------------------------------------------------------------------
+.utmp/
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+*.log
+
+# Blender 备份（Unity 可直接导入 .blend，无需 .blend1）
+*.blend1
+*.blend1.meta
+
+# -----------------------------------------------------------------------------
+# IDE / 解决方案（Unity 会重新生成）
+# -----------------------------------------------------------------------------
+.vs/
+.idea/
+.gradle/
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.DotSettings.user
+
+# JetBrains Rider 自动生成插件（**/ 适配嵌套 Unity 工程目录）
+**/[Aa]ssets/Plugins/Editor/JetBrains*
+
+# -----------------------------------------------------------------------------
+# Unity 生成的 meta / 崩溃 / Mono
+# -----------------------------------------------------------------------------
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+mono_crash.*
+
+# -----------------------------------------------------------------------------
+# 构建产物
+# -----------------------------------------------------------------------------
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+*.app
+
+# Crashlytics
+crashlytics-build.properties
+
+# TestRunner
+InitTestScene*.unity*
+**/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Addressables（默认忽略，定制后再按需放宽）
+ServerData/
+**/[Aa]ssets/StreamingAssets/aa*
+**/[Aa]ssets/AddressableAssetsData/link.xml*
+**/[Aa]ssets/Addressables_Temp*
+**/[Aa]ssets/AddressableAssetsData/*/*.bin*
+
+# Visual Scripting 自动生成
+**/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
+**/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
+**/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers
+**/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
+
+# Assets 内自动缓存
+**/[Aa]ssets/[Ss]ceneDependencyCache*
+
+# -----------------------------------------------------------------------------
+# OS
+# -----------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.stackdump
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+__MACOSX/
+
+# -----------------------------------------------------------------------------
+# 编辑器 / 工具（仓库约定）
+# -----------------------------------------------------------------------------
+# VS Code 本机覆盖（团队共享的 .vscode/ 设置如需提交可单独 unignore）
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Cursor 本机缓存（保留 .cursor/rules、skills 等可共享内容）
+.cursor/cache/
+.cursor/*.log
+
+# 本地临时 / 密钥（勿提交）
+.env
+.env.*
+!.env.example
+*.local
+secrets/
+credentials.json
+
+# 可选：Asset Store 工具插件（需要忽略时取消下一行注释）
+# **/[Aa]ssets/AssetStoreTools*
+
+# 第三方资源包（体积大，本地自行导入）
+**/[Aa]ssets/SmallScaleInt/
+**/[Aa]ssets/SmallScaleInt.meta

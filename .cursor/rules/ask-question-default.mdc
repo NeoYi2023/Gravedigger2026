@@ -1,0 +1,26 @@
+---
+description: 固定默认使用 AskQuestion 进行选项确认与澄清（所有模式）
+alwaysApply: true
+---
+
+# AskQuestion 默认提问
+
+凡需要用户输入、选择、确认或澄清时，**必须优先调用 `AskQuestion` 工具**，不得用聊天里的编号列表代替。
+
+## 必须使用 AskQuestion 的场景
+
+- 在固定选项中选择（方案 A/B/C、是/否、范围多选等）
+- 确认拟执行动作、难度分级或工作量拆分
+- 澄清歧义需求（能做成选项的尽量做成选项）
+- [unity-spec-dev-workflow §8](../skills/unity-spec-dev-workflow/SKILL.md) 的工作量拆分、难度确认与方案比选
+
+## 规则
+
+1. **默认通道**：有界选择 → `AskQuestion`；`CreatePlan` 只承载方案细节正文，不替代选择题
+2. **禁止**：在正文里写「请回复 A/B/C」或长编号列表代替 `AskQuestion`
+3. **选项**：label 简洁；需要时加一项「其他（我会在聊天中说明）」
+4. **回退**：仅当本会话明确没有 `AskQuestion` 工具时，才用短纯文本提问，并注明「AskQuestion 不可用」
+
+## 难度 / 工作量 / 方案（§8）
+
+同批提问时：澄清题 → **`workload_split`（仅须拆步时）** → `task_difficulty` → `implementation_approach`（最后一项）。
