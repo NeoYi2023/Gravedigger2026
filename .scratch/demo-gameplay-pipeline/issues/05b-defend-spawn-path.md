@@ -2,7 +2,7 @@
 title: Defend — 刷怪波次与最小寻路扣盾
 status: todo
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
 spec_refs:
   - SPEC_03 §3.12 刷怪 / 目标选择与寻路
   - SPEC_04 §9.18 WaveSpawnConfig

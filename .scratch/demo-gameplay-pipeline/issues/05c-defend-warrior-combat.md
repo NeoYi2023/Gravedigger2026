@@ -2,7 +2,7 @@
 title: Defend — 士兵 EngageZone 选敌与普攻命中方案 D
 status: todo
 difficulty: 3
-demo_scope: planned
+demo_scope: in-scope
 spec_refs:
   - SPEC_03 §3.12 WarriorCombat / 命中方案 D / 战斗派生公式
   - SPEC_04 §9.7 EngageZone

@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8b90693686fe134cb682841e216841e, type: 3}
+  m_Name: DigPrefabCatalog
+  m_EditorClassIdentifier: 
+  _digStageRootPrefab: {fileID: 6249220239052254800, guid: 24247b33348bdac42a54f67ecdd9c22b, type: 3}
+  _diggerPrefab: {fileID: 3802795665642611284, guid: 236c4ae71a9652d4cb693606aea6cfbc, type: 3}
+  _rewardFlyerPrefab: {fileID: 939440366962044377, guid: 4a3d8089761ec6c459686c85d053b951, type: 3}
+  _maps:
+  - MapId: Ground_01
+    Prefab: {fileID: 2120705586636139558, guid: 2b55ec59d080c0c4a95b02b760b12e4b, type: 3}
+  - MapId: Ground_02
+    Prefab: {fileID: 7264777058871548636, guid: 7a79e893b4426484b99b8fe04050b953, type: 3}
+  - MapId: Ground_03
+    Prefab: {fileID: 6924062899616502693, guid: 0b521ecfc5bc25440bccf5cf82e26145, type: 3}
+  - MapId: Ground_04
+    Prefab: {fileID: 7210777308345723106, guid: ce629b71308e93541bb64b2154d643f2, type: 3}
+  - MapId: Ground_05
+    Prefab: {fileID: 1713873806957860731, guid: 55f142e0142c1bd41962bd466e64bd2e, type: 3}
+  _graves:
+  - QualityId: Q1
+    Prefab: {fileID: 8761562036536335507, guid: 643e16af11f99e64bbf956ec54476d22, type: 3}
+  - QualityId: Q2
+    Prefab: {fileID: 4396107479665422535, guid: 34d75d9ab48225e498a8cc86902f4244, type: 3}
+  - QualityId: Q3
+    Prefab: {fileID: 664704579647366055, guid: 16afab489a6a664439905ba1f4f5c4a5, type: 3}
+  - QualityId: Q4
+    Prefab: {fileID: 8228155235191010696, guid: d218f15c78116834aa52f0a6ca38d5fc, type: 3}
+  - QualityId: Q5
+    Prefab: {fileID: 4817962158502785523, guid: 357387e537b561b43b5c683b3e654c7c, type: 3}
+  - QualityId: Q6
+    Prefab: {fileID: 729269054949441637, guid: 714e33bb916950844977da42312d9578, type: 3}
+  - QualityId: Q7
+    Prefab: {fileID: 2187703369628178276, guid: 0333f1fb411a06a4fa7e1bb4365e072e, type: 3}
+  - QualityId: Q8
+    Prefab: {fileID: 4482621445685428043, guid: e625a18b6f1c2ec4689eb4cc0b50f955, type: 3}
+  - QualityId: Q9
+    Prefab: {fileID: 636212805202290719, guid: 6bb1da158e191484a9eeb1dc6cc794ce, type: 3}
+  - QualityId: Q10
+    Prefab: {fileID: 774879072499900656, guid: 31b9dff5e5bbc7049957e08a87e33014, type: 3}

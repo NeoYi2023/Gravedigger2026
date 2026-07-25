@@ -52,7 +52,7 @@
 | 防守 Defend / BattleMap / StartBattle / Shield / 刷怪 | [§3.12](../../SPEC_03_GameRules.md) | [§9.7](../../SPEC_04_Technical.md) DefendGameplayConfig（`BattleMapId`→`Prefabs/Maps/Ground_*`）；[§9.18](../../SPEC_04_Technical.md) WaveSpawnConfig；[§9.19](../../SPEC_04_Technical.md) MonsterConfig + NavMesh；失控见 [§9.20](../../SPEC_04_Technical.md)；角色视觉 [§15](../../SPEC_04_Technical.md) |
 | 士兵战斗 / EngageZone / 命中方案 D / 死亡分层 / 战斗派生公式 | [§3.12](../../SPEC_03_GameRules.md) WarriorCombat、[§3.11](../../SPEC_03_GameRules.md) 士兵死亡与材料去向 | EngageZone Prefab；SoulConfig.AttackMode；ClassConfig.PrimaryStat + AttackRange 等；近战前摇 / 远程弹道；法师=远程+Intelligence（同射手通道）；**Demo v1 仅普攻**；CombatDead vs PermanentDeath；宝石特例；NormalAttackPower / AttackSpeed / SkillCooldown（CombatConvertCoeffs；Demo 不驱动技能） |
 | 科技树 TechTree / TechItem / TechEffect | [§3.13](../../SPEC_03_GameRules.md) | [§9.16](../../SPEC_04_Technical.md) TechTreeConfig；[§9.17](../../SPEC_04_Technical.md) TechEffectConfig |
-| Demo 验收 D-001～D-004 | [§3.8](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) |
+| Demo 验收 D-001～D-043 | [§3.8](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) |
 
 ## Changelog
 

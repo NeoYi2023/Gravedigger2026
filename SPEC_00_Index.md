@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.29.0
+**文档版本 / Document Version:** v0.36.0
 **最后更新 / Last Updated:** 2026-07-25  
-**当前阶段 / Current Phase:** 规则录入 / Rule definition  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 落地；Defend 待续）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,14 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-25 | v0.36.0 | UM 布阵区方案 A：`BattleFormationService`（连续坐标上阵/下阵/改位 + 控制力占用）+ `FormationPanelView`；与士兵池打通；存档级持有供 Defend Prepare 共用；同步 SPEC_03 §3.8 D-032、SPEC_04 §6 |
+| 2026-07-25 | v0.35.0 | UM 制造区方案 A：`ManufactureService`（15 严格槽位 / 预览 / 精魂闸门）+ `WarriorPoolService`；追加加载 Soul/Class/Gem/Race/BodyPart/Appearance/Equip/GemSuffix 八表；`WarehouseService` 支持 BodyPart 入账与按 Id 扣减；临时 `Prefabs/Defend/Warriors/{AppearanceId}`；同步 SPEC_03 §3.8 D-031、SPEC_04 §6 |
+| 2026-07-25 | v0.34.0 | UM 升级区方案 A：`UpgradeManufactureStageModule` + `ProtagonistProgressService` + 读 `ProtagonistLevelConfig`；Debug 注入经验连升；同步 SPEC_03 §3.8 D-030、SPEC_04 §6 |
+| 2026-07-25 | v0.33.0 | Dig 垂直切片方案 A：`DigStageModule` + `DigSessionService` + `DigPrefabCatalog`；按 `DigMapId` Instantiate `Prefabs/Maps/`；挖掘/入账/DigStageSummary→交还驱动；同步 SPEC_03 §3.8 D-020、SPEC_04 §6 |
+| 2026-07-25 | v0.32.0 | 关卡驱动方案 A：运行时只读 Csv（Editor=`Assets/ConfigTables/Csv`；Player=`StreamingAssets/ConfigTables/Csv`）；`LevelOperationDriver` + `IStageModule` 钩子；Tools「关卡」启 `Level_01`；UM ConfigId 忽略；MapId 仅解析/日志；同步 SPEC_03 §3.8 D-003/D-004/D-010、SPEC_04 §6/§14 |
+| 2026-07-25 | v0.31.1 | SPEC_04 §1 录入本机 Unity 编辑器路径：`F:\Unity\Unity 2021.3.40f1\Editor\Unity.exe` |
+| 2026-07-25 | v0.31.0 | Meta 壳方案 A：PlayerPrefs 三槽占用；单场景 Boot + Prefab UI；工具设置/关卡 Toast；Demo Debug 切态验 D-004；同步 SPEC_04 §6 / SPEC_03 §3.8 D-001～D-004 状态 |
+| 2026-07-25 | v0.30.0 | Demo 验收扩大为 Meta 壳 + Dig→UM→Defend 流水线垂直切片（§3.8 D-001～D-043）；UM 阶段 `GameplayConfigId`=忽略；Defend Demo 最小刷怪点/NavMesh；同步 SPEC_03/04 §6 / CONTEXT / issues |
 | 2026-07-25 | v0.29.0 | Dig/Defend 地图表现共用 `Ground_01`…`Ground_05`：DigGameplayConfig 增 `DigMapId`；`BattleMapId` 合法值改为 `Ground_*`，Prefab 解析 → `Assets/Prefabs/Maps/`；源参考 Example Scene Grid/Ground；同步 SPEC_03/04 / CONTEXT / spec-map / 配表样例 |
 | 2026-07-25 | v0.28.0 | SPEC_04 §15 角色美术管线：Character Creator 烘焙整角；工具目录禁入游戏资源；补丁导出→`Art/Characters`→Prefabs；`AppearanceId`/`ModelId`/主角 Prefab 解析；Mount/Wing 打进外观；同步 SPEC_03 / CONTEXT / spec-map |
 | 2026-07-25 | v0.27.0 | 套件/工作区路径改为本机 `F:\CursorGame_Git\SPECandSKILL` 与 `F:\CursorGame_Git\Gravedigger2026`；工作区 SPEC/CONTEXT/Skills 回写套件，关闭此前 E: 路径不可达导致的待同步 |
@@ -107,6 +115,14 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-25 | v0.36.0 | UM formation Approach A: `BattleFormationService` (continuous-coord deploy/undeploy/reposition + ControlPower usage) + `FormationPanelView`; wired to warrior pool; save-scoped for shared Defend Prepare; synced SPEC_03 §3.8 D-032, SPEC_04 §6 |
+| 2026-07-25 | v0.35.0 | UM manufacture Approach A: `ManufactureService` (15 strict slots / preview / Spirit gate) + `WarriorPoolService`; loads Soul/Class/Gem/Race/BodyPart/Appearance/Equip/GemSuffix tables; `WarehouseService` credits BodyParts and consumes by Id; temp `Prefabs/Defend/Warriors/{AppearanceId}`; synced SPEC_03 §3.8 D-031, SPEC_04 §6 |
+| 2026-07-25 | v0.34.0 | UM upgrade panel Approach A: `UpgradeManufactureStageModule` + `ProtagonistProgressService` + `ProtagonistLevelConfig`; Debug Exp inject → chain level-up; synced SPEC_03 §3.8 D-030, SPEC_04 §6 |
+| 2026-07-25 | v0.33.0 | Dig vertical Approach A: `DigStageModule` + `DigSessionService` + `DigPrefabCatalog`; instantiate `Prefabs/Maps/` by `DigMapId`; dig/loot/DigStageSummary→return to Level driver; synced SPEC_03 §3.8 D-020, SPEC_04 §6 |
+| 2026-07-25 | v0.32.0 | Level-driver Approach A: runtime CSV-only (Editor=`Assets/ConfigTables/Csv`; Player=`StreamingAssets/ConfigTables/Csv`); `LevelOperationDriver` + `IStageModule` hooks; Tools Level starts `Level_01`; UM ConfigId ignored; MapId resolve/log only; synced SPEC_03 §3.8 D-003/D-004/D-010, SPEC_04 §6/§14 |
+| 2026-07-25 | v0.31.1 | SPEC_04 §1: local Unity Editor path `F:\Unity\Unity 2021.3.40f1\Editor\Unity.exe` |
+| 2026-07-25 | v0.31.0 | Meta shell Approach A: PlayerPrefs 3-slot occupied; Boot scene + Prefab UI; Tools Settings/Level Toast; Demo Debug cycle for D-004; synced SPEC_04 §6 / SPEC_03 §3.8 D-001–D-004 status |
+| 2026-07-25 | v0.30.0 | Demo acceptance expanded to Meta shell + Dig→UM→Defend pipeline vertical (§3.8 D-001–D-043); UM stage `GameplayConfigId`=ignore; Defend Demo-min spawn/NavMesh; synced SPEC_03/04 §6 / CONTEXT / issues |
 | 2026-07-25 | v0.29.0 | Dig/Defend map presentation shares `Ground_01`…`Ground_05`: DigGameplayConfig adds `DigMapId`; `BattleMapId` allowed values → `Ground_*`, Prefab resolve → `Assets/Prefabs/Maps/`; source ref Example Scene Grid/Ground; synced SPEC_03/04 / CONTEXT / spec-map / sample tables |
 | 2026-07-25 | v0.28.0 | SPEC_04 §15 Character Art Pipeline: Character Creator baked whole characters; ban game assets under vendor tool folder; patched export → `Art/Characters` → Prefabs; `AppearanceId`/`ModelId`/protagonist Prefab resolve; Mount/Wing baked into appearance; synced SPEC_03 / CONTEXT / spec-map |
 | 2026-07-25 | v0.27.0 | Kit/workspace paths updated to local `F:\CursorGame_Git\SPECandSKILL` and `F:\CursorGame_Git\Gravedigger2026`; workspace SPEC/CONTEXT/Skills synced back to kit; closes prior E: path unreachable pending sync |

@@ -1,8 +1,8 @@
 ---
 title: UpgradeManufacture — 布阵区写 BattleFormation
-status: todo
+status: done
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
 spec_refs:
   - SPEC_03 §3.11 战斗布阵
   - SPEC_03 §3.12 Prepare 布阵编辑
@@ -26,9 +26,19 @@ spec_refs:
 
 ## 验收
 
-- [ ] 至少 1 名士兵可上阵并持久到下一阶段可读
-- [ ] 「完成」触发阶段结束（§3.9）
+- [x] 至少 1 名士兵可上阵并持久到下一阶段可读
+- [x] 「完成」触发阶段结束（§3.9）
 
 ## 依赖
 
 - [04b](04b-um-manufacture.md)
+
+## 编码前
+
+难度 2：须方案比选（AskQuestion / 负责人选定）后再动手。**负责人 2026-07-25 选定方案 A。**
+
+## 实现（SPEC v0.36.0，方案 A）
+
+- 规则层：`Core/UpgradeManufacture/BattleFormationService` + `BattleFormationEntry`（连续 XZ、上阵/下阵/改位、ΣControlPowerCost / Degree）；存档级挂 Meta 壳，UM Exit 不清空，供 Prepare 共用
+- 表现：`Gameplay/UpgradeManufacture/FormationPanelView`；`UpgradeManufactureStageController` 接线池↔布阵；「完成」打 Formation snapshot 日志后 `TryAdvanceStage`
+- Prefab：`UmAssetBuilder` Regen `v0360` 重建布阵区（按钮上阵/下阵/±X±Z）；本片不强制 Instantiate `Ground_*` 预览

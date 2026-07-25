@@ -2,7 +2,7 @@
 title: （可选）科技树画布学习与挖坟能力重算
 status: todo
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
 spec_refs:
   - SPEC_03 §3.13
   - SPEC_03 §3.6 UI-007 / UI-012

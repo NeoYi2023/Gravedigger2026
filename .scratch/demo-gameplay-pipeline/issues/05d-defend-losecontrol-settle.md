@@ -2,7 +2,7 @@
 title: Defend — 失控开战 roll 与胜负 / 经验结算
 status: todo
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
 spec_refs:
   - SPEC_03 §3.11 控制力与失控
   - SPEC_03 §3.12 失控叛变 / 胜负

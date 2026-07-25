@@ -1,8 +1,9 @@
 ---
 title: Dig 垂直切片 — 生成 / 挖掘 / 奖励 / 阶段汇总
-status: todo
+status: done
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
+selected_approach: A
 spec_refs:
   - SPEC_03 §3.10
   - SPEC_04 §9.2 DigGameplayConfig（含 DigMapId）
@@ -29,10 +30,18 @@ spec_refs:
 - 科技树 UI、正式动画清单、完整存档序列化
 - 运行时直接引用 `SmallScaleInt/` 工具目录资源
 
+## 实现摘要（方案 A）
+
+- `DigStageModule` + 纯 C# `DigSessionService` + `DigPrefabCatalog`
+- Prefab：`Prefabs/Maps/Ground_*`、`Prefabs/Dig/Digger`、`Grave_Q*`、`DigStageRoot`、`DigRewardFlyer`
+- 菜单：`Gravedigger2026/Dig/Generate Dig Prefabs + Catalog`（打开工程会自动生成）
+- Dig_01 样例时长改为 **20s** 便于手验；能力 Demo 默认（DigDamage=25，可挖全部品质）
+- SPEC v0.33.0：§3.8 D-020；SPEC_04 §6 Dig 方案 A
+
 ## 验收
 
-- [ ] 坟墓可挖、可掉落；时长到 → 汇总确认 → 进入下一阶段
-- [ ] 地图按 DigMapId 实例化；Digger/Grave 路径符合 Prefabs/Dig；地图路径符合 Prefabs/Maps
+- [x] 坟墓可挖、可掉落；时长到 → 汇总确认 → 进入下一阶段
+- [x] 地图按 DigMapId 实例化；Digger/Grave 路径符合 Prefabs/Dig；地图路径符合 Prefabs/Maps
 
 ## 依赖
 

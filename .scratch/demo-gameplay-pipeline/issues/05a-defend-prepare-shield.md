@@ -2,7 +2,7 @@
 title: Defend — Prepare / 开战 / 部署 / 护盾 / 倒计时
 status: todo
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
 spec_refs:
   - SPEC_03 §3.12 DefendPhase / StartBattle / Shield / BattleMap
   - SPEC_04 §9.7 DefendGameplayConfig（BattleMapId → Prefabs/Maps）

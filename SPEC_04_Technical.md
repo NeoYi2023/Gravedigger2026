@@ -11,6 +11,7 @@
 | 属性 | 值 |
 |------|-----|
 | Unity 版本 | 2021.3.40f1 |
+| Unity 编辑器（本机） | `F:\Unity\Unity 2021.3.40f1\Editor\Unity.exe` |
 | 脚本语言 | C# |
 | 渲染 | TBD |
 | Cursor 工作区根 | `F:\CursorGame_Git\Gravedigger2026` |
@@ -19,11 +20,14 @@
 | 目标平台 | TBD |
 | 平台优先级 | TBD |
 
+批处理 / CLI 示例：`"<Unity编辑器>" -batchmode -quit -projectPath "<工作区根>\Gravedigger2026" …`（具体参数按任务另定）。
+
 ### English
 
 | Attribute | Value |
 |-----------|-------|
 | Unity version | 2021.3.40f1 |
+| Unity Editor (this machine) | `F:\Unity\Unity 2021.3.40f1\Editor\Unity.exe` |
 | Scripting language | C# |
 | Rendering | TBD |
 | Cursor workspace root | `F:\CursorGame_Git\Gravedigger2026` |
@@ -31,6 +35,8 @@
 | Assets root | `Gravedigger2026/Assets/` |
 | Target platforms | TBD |
 | Platform priority | TBD |
+
+CLI example: `"<UnityEditor>" -batchmode -quit -projectPath "<workspaceRoot>\Gravedigger2026" …` (args per task).
 
 ---
 
@@ -131,34 +137,61 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 ### 简体中文
 
-**状态：已对照 SPEC_03 §3.8**
+**状态：已对照 SPEC_03 §3.8（Meta 壳 + 关卡流水线垂直切片）**
 
-**范围内（须满足 D-001～D-004）：**
+**范围内（须满足 D-001～D-043）：**
 
 | 模块 | 要求 |
 |------|------|
-| 存档 Meta | 固定 3 槽；本地按槽索引；至少持久化「是否占用」；新建 / 进入 / 删除（含确认） |
-| 进档壳层 | 进入后默认 `GameplayState = Dig` 占位；浮动「工具」 |
-| 工具面板 | 设置、关卡占位入口；与玩法 View 分离（壳层 UI） |
-| 玩法三态 | 仅可识别占位；完整规则不实现 |
+| 存档 Meta | 固定 3 槽；本地按槽索引；至少持久化「是否占用」及流水线所需最小字段；新建 / 进入 / 删除（含确认） |
+| 进档壳层 | 进入后默认 `GameplayState = Dig` 占位；浮动「工具」；流水线片可从壳层启动样例关卡（§3.8 D-003 / D-010） |
+| 工具面板 | 设置、关卡入口；与玩法 View 分离（壳层 UI） |
+| 关卡驱动 | 只读 `ConfigTables/Csv/`；`LevelOperationConfig` 升序驱动 Dig → UpgradeManufacture → Defend |
+| Dig | §3.10 垂直切片：`DigMapId`→`Prefabs/Maps/`；挖掘 / 奖励 / DigStageSummary（临时美术允许） |
+| UpgradeManufacture | §3.11 垂直切片：升级区 / 制造 ≥1 士兵 / 布阵写回；阶段 `GameplayConfigId` **忽略**（见 §9.1） |
+| Defend | §3.12 垂直切片：Prepare/开战/护盾；Demo 最小刷怪点 + NavMesh；士兵普攻；胜负/LevelFailure（临时美术允许） |
 
-**范围外：** 三玩法完整规则实现（规则正文见 SPEC_03 §3.9–§3.10）；真实关卡加载与表驱动；工具后续功能；完整存档 schema；未列入 §3.8 的需求。
+**范围外：** 完整技能施放与效果表；正式美术 polish；精确 OutsideMap 几何；完整存档 schema；科技树画布完整验收（可选）；工具后续功能；Editor 打表工具实现；未列入 §3.8 的需求。
 
-**持久化意图（轻量）：** 本地、按槽索引 `0..2`；技术选型（PlayerPrefs / 文件等）**TBD**，实现时再定并回写本节。完整字段 schema **TBD**。
+**持久化意图（轻量）：** 本地、按槽索引 `0..2`。**Demo Meta 选型已锁定：`PlayerPrefs`**；键 `Gravedigger2026.SaveSlot.{0|1|2}.Occupied`（`0`/`1`）。本期仅持久化「是否占用」；完整字段 schema **TBD**；流水线所需最小字段随后续片回写。
 
-**架构提示：** `ToolsPanel` 属 Meta 壳层 UI；玩法状态由规则层持有，View 只订阅展示（见 §13）。挖坟：规则层负责生成、计时、DigAction 触发/忙碌锁与扣血；菱形地图与圆圈光标、帧动画、奖励飞向为主角由 View 表现；逻辑层为整体可放置空间（非格子）。
+**Meta 壳实现（方案 A，D-001～D-004）：** 单场景 `Assets/Scenes/Boot.unity`；`SaveSelect` / `InSaveShell` 以 Canvas Prefab 显隐切换（`Assets/Prefabs/Meta/`、`Assets/Prefabs/UI/`）。规则层：`SaveSlotService` + `GameplayStateService`；View 只订阅。工具「设置」→ Toast 占位；工具「关卡」→ **启动样例 `Level_01`**（见下「关卡驱动」）。壳层正式手动切三态仍 **TBD**；Demo 暂提供进档壳 **Debug「切下一态」** 仅用于手验 D-004（不得等同工具「关卡」）；另提供 **Debug「推进阶段」** 手验 D-010（占位结束当前阶段 → 下一阶段 / VictorySettlement）。
+
+**关卡驱动（方案 A，D-010）：** `ConfigCsvRepository` 只读 CSV（路径见 [§14.5](#145-运行时-csv-加载路径demo)）；`LevelOperationDriver` 按 `LevelId` 取行、`StageNumber` 升序运行；进入阶段时设置 `GameplayState`，经 `IStageModule` 进入/离开钩子挂各玩法（Defend 仍为占位；Dig / UM 升级区见下）。`GameplayType=UpgradeManufacture` 时 **忽略** `GameplayConfigId`（不查 Dig/Defend 表）。Dig/Defend 解析对应表行后校验 `DigMapId` / `BattleMapId` ∈ `Ground_01`…`Ground_05`，逻辑路径 `Assets/Prefabs/Maps/{Id}.prefab`。UI/日志须可见 LevelId、StageNumber、GameplayType。
+
+**Dig 垂直切片（方案 A，D-020）：** `DigStageModule`（`IStageModule`）Enter 时按 `DigMapId` Instantiate `Assets/Prefabs/Maps/{Id}.prefab`，并挂 `DigStageRoot`（`Assets/Prefabs/Dig/`）。规则层 `DigSessionService`（纯 C#）负责有效时长倒计时、开局/过程生成、DigAction 停留触发与忙碌锁、扣血、仓库/精魂入账、阶段奖励汇总；`DigProtagonistCapabilities` Demo 用默认初值（完整科技树见后续片）。表现：`DigPrefabCatalog` 绑定 Digger / `Grave_{QualityId}` / 地图变体；圆圈光标、坟墓 HP 样式、DigReward 飞向、DigStageSummary 由 View 订阅。时长归零 → 取消进行中 DigAction（不结算扣血）→ DigStageSummary 确认 → `LevelOperationDriver.TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
+
+**UM 升级区（方案 A，D-030）：** `UpgradeManufactureStageModule` Enter 时 Instantiate `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab`（同屏三区：升级 / 制造 / 布阵均可操作）。`ConfigCsvRepository` 加载 `Manufacture_ProtagonistLevelConfig.csv`。规则层纯 C# `ProtagonistProgressService` 持有内存态 `Level` / `LifetimeExperience` / `TechPoints` / 生效 `ControlPowerCap` / `ProtagonistMaxHP`；累计阈值连升并应用表行奖励与上限。本片经验用 UI Debug 注入（正式 Defend 胜利入账见后续片）；底部「完成」→ `TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
+
+**UM 制造区（方案 A，D-031）：** `ConfigCsvRepository` 追加加载 `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`。规则层纯 C# `ManufactureService` 持有 15 个严格槽位（头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1），按 Id 解析所属表自动路由到合法空槽，类型不符 / 同类型宝石重复 / 库存不足即拒绝；每次槽位变化重算预览（`Base(S)=Σ StatBonus`、`Equip`、`GemMult`、`RaceAdjust`、`StaticStat`、静态 `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`、`TotalSpiritCost`、`ControlPowerCost`、试算种族与外观）。「制造」闸门 = 最低要求（躯干+臂2+腿2+灵魂）且 `SpiritEssence ≥ TotalSpiritCost`；提交时按 Id 逐件扣仓、扣精魂，定稿种族（各部位权重 1 加权随机）与外观（§9.13 算法），拼装 `WarriorName`，写 `WarriorInstance` 快照入纯 C# `WarriorPoolService`（存档级持有，供 04c 布阵 / 05x 战斗）。`WarehouseService` 扩展：`BodyPartId` 与 `MaterialId` 同命名空间入账（`AutoConvert` 取躯体表）、按 Id 扣减、精魂扣减；制造用灵魂/宝石/外置装备 Demo 期同存该物品仓（获取途径 **TBD**），本片以制造区 **Debug「注入制造套件」** 补齐。外观资源：`UpgradeManufacturePrefabCatalog` 增 `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab` 绑定（临时胶囊体；制造完成时解析并打日志，实际实例化留待 04c/05b）。种族展示名未启用 i18n，按 §9.11 回退直接使用 `DisplayNameKey`。禁止运行时引用 `SmallScaleInt/`。
+
+**UM 布阵区（方案 A，D-032）：** 纯 C# `BattleFormationService`（存档级，与 `WarriorPoolService` 同挂 Meta 壳）持有上阵条目 `{WarriorId, PositionX/Z, RemainingHP}`；坐标系为 BattleMap **连续坐标**（非格子）。上阵从士兵池选入并写入实例当前 `RemainingHP`；下阵写回实例 HP 并清空条目；改位按步进微调 X/Z。控制力占用 = Σ 上阵 `ControlPowerCost`，对照 `ProtagonistProgressService.ControlPowerCap` 展示 Degree（`ΣCost/Cap − 1`，可粗）。表现：`FormationPanelView`（按钮上阵/下阵/微调；无真拖拽）挂入同屏三区布阵区；与 Defend `Prepare` **共用同一 Service**（Prepare UI 复用留 05a）。本片不强制 Instantiate `Ground_*` 预览（正式战斗地图仍按 `BattleMapId`→`Prefabs/Maps/`）。底部「完成」→ `TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
+
+**架构提示：** `ToolsPanel` 属 Meta 壳层 UI；玩法状态由规则层持有，View 只订阅展示（见 §13）。挖坟：规则层负责生成、计时、DigAction 触发/忙碌锁与扣血；菱形地图与圆圈光标、帧动画、奖励飞向为主角由 View 表现；逻辑层为整体可放置空间（非格子）。UM 阶段不查玩法配置表主键；升级进度本片内存持有。Defend：规则层输出目标/目的地；NavMeshAgent 移动；Demo 最小可走面见 §9.7 / SPEC_03 §3.12。
 
 ### English
 
-**Status: Aligned with SPEC_03 §3.8**
+**Status: Aligned with SPEC_03 §3.8 (Meta shell + Level-pipeline vertical slice)**
 
-**In scope (D-001–D-004):** 3 fixed slots with local occupied flag; InSaveShell default Dig placeholder + floating Tools; Settings/Level stubs as shell UI; gameplay states as identifiable placeholders only.
+**In scope (D-001–D-043):** 3 fixed slots with local occupied flag + minimal pipeline fields; InSaveShell default Dig placeholder + floating Tools; sample Level start from shell (D-003/D-010); CSV-only LevelOperation drive Dig→UM→Defend; Dig / UM / Defend verticals per §3.8 (temp art OK); UM stage `GameplayConfigId` **ignored** (§9.1); Defend Demo-min spawn + NavMesh.
 
-**Out of scope:** Full three-mode implementation (rules text in SPEC_03 §3.9–§3.10); real Level load / table drive; future Tools entries; full save schema; anything not in §3.8.
+**Out of scope:** Full skill casts / effect tables; formal art polish; exact OutsideMap geometry; full save schema; full TechTree canvas acceptance (optional); future Tools entries; Editor bake-tool impl; anything not in §3.8.
 
-**Persistence intent:** Local by slot index `0..2`; tech choice (PlayerPrefs / files / etc.) **TBD**. Full field schema **TBD**.
+**Persistence intent:** Local by slot index `0..2`. **Demo Meta locked: `PlayerPrefs`**; keys `Gravedigger2026.SaveSlot.{0|1|2}.Occupied` (`0`/`1`). Occupied flag only this slice; full schema **TBD**; pipeline minimal fields backfilled in later slices.
 
-**Architecture note:** ToolsPanel is Meta shell UI; gameplay state owned by rules layer; View subscribes only (§13). Dig: rules layer owns spawn, timer, DigAction trigger/busy lock, and damage; diamond map, circle cursor, dig frame anims, and DigReward fly-to are View; logic is continuous placeable space (not a cell grid).
+**Meta shell (Approach A, D-001–D-004):** Single scene `Assets/Scenes/Boot.unity`; SaveSelect / InSaveShell via Canvas Prefab show/hide (`Assets/Prefabs/Meta/`, `Assets/Prefabs/UI/`). Rules: `SaveSlotService` + `GameplayStateService`; Views subscribe only. Tools Settings → Toast stub; Tools Level → **starts sample `Level_01`** (see Level driver below). Formal shell three-state switch still **TBD**; Demo temp **Debug cycle** on InSaveShell for hand-checking D-004 (must not equal Tools Level); **Debug advance stage** for D-010 (placeholder end → next / VictorySettlement).
+
+**Level driver (Approach A, D-010):** `ConfigCsvRepository` reads CSV only (paths: [§14.5](#145-runtime-csv-load-paths-demo)); `LevelOperationDriver` loads rows by `LevelId`, runs ascending `StageNumber`; sets `GameplayState` and calls `IStageModule` enter/leave hooks (Defend still placeholder; Dig / UM upgrade below). When `GameplayType=UpgradeManufacture`, **ignore** `GameplayConfigId` (no Dig/Defend lookup). Dig/Defend rows validate `DigMapId` / `BattleMapId` ∈ `Ground_01`…`Ground_05` and resolve `Assets/Prefabs/Maps/{Id}.prefab`. UI/log must show LevelId, StageNumber, GameplayType.
+
+**Dig vertical (Approach A, D-020):** `DigStageModule` (`IStageModule`) on Enter instantiates `Assets/Prefabs/Maps/{DigMapId}.prefab` and mounts `DigStageRoot` (`Assets/Prefabs/Dig/`). Rules: pure-C# `DigSessionService` owns effective-duration countdown, initial/process spawn, DigAction dwell + busy lock, damage, Warehouse/Spirit credit, stage reward aggregate; Demo `DigProtagonistCapabilities` uses default initials (full TechTree later). Presentation: `DigPrefabCatalog` binds Digger / `Grave_{QualityId}` / map variants; circle cursor, grave HP styles, DigReward fly-to, DigStageSummary via Views. Duration 0 → cancel in-progress DigAction (no damage) → DigStageSummary confirm → `LevelOperationDriver.TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
+
+**UM upgrade panel (Approach A, D-030):** `UpgradeManufactureStageModule` on Enter instantiates `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab` (three panels: upgrade / manufacture / formation all operable). `ConfigCsvRepository` loads `Manufacture_ProtagonistLevelConfig.csv`. Rules: pure-C# `ProtagonistProgressService` holds in-memory `Level` / `LifetimeExperience` / `TechPoints` / effective `ControlPowerCap` / `ProtagonistMaxHP`; cumulative-threshold chain level-ups apply row rewards/caps. This slice uses UI Debug Exp inject (formal Defend victory credit later); bottom Complete → `TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
+
+**UM manufacture panel (Approach A, D-031):** `ConfigCsvRepository` additionally loads `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`. Rules: pure-C# `ManufactureService` owns the 15 strict slots (Head1/Torso1/Arm2/Leg2/Soul1/Gem6/Mount1/Wing1), routes an Id to a legal empty slot by resolving its source table, and rejects on type mismatch / duplicate `GemType` / insufficient stock; every slot change recomputes the preview (`Base(S)=Σ StatBonus`, `Equip`, `GemMult`, `RaceAdjust`, `StaticStat`, static `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`, `TotalSpiritCost`, `ControlPowerCost`, trial Race + Appearance). Manufacture gate = min parts (Torso+2Arm+2Leg+Soul) and `SpiritEssence ≥ TotalSpiritCost`; commit deducts each placed Id and the Spirit, finalizes Race (weight-1 pick) and Appearance (§9.13), builds `WarriorName`, and writes the `WarriorInstance` snapshot into pure-C# `WarriorPoolService` (save-scoped; consumed by 04c formation / 05x combat). `WarehouseService` extended: `BodyPartId` credited in the same Id namespace as `MaterialId` (`AutoConvert` from the BodyPart row), per-Id consume, Spirit spend; Souls / Gems / ExtraEquipment share the same item store for Demo (acquisition **TBD**) and are provided by a manufacture-panel **Debug "grant starter kit"** this slice. Appearance assets: `UpgradeManufacturePrefabCatalog` gains `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab` bindings (temp capsules; resolved and logged at manufacture, actual instantiation deferred to 04c/05b). Race display name falls back to `DisplayNameKey` per §9.11 while i18n is off. Do not runtime-reference `SmallScaleInt/`.
+
+**UM formation panel (Approach A, D-032):** Pure-C# `BattleFormationService` (save-scoped beside `WarriorPoolService` on Meta shell) holds deploy entries `{WarriorId, PositionX/Z, RemainingHP}` on **BattleMap continuous coordinates** (not a grid). Deploy copies the pool instance's current `RemainingHP`; undeploy writes HP back and clears the entry; reposition nudges X/Z by a step. ControlPower usage = Σ deployed `ControlPowerCost` vs `ProtagonistProgressService.ControlPowerCap` (Degree = `ΣCost/Cap − 1`, rough UI OK). Presentation: `FormationPanelView` (button deploy/undeploy/nudge; no real drag) in the third on-screen panel; **same Service** shared with Defend `Prepare` (Prepare UI reuse in 05a). This slice does not require instantiating `Ground_*` preview (formal battle maps still resolve `BattleMapId`→`Prefabs/Maps/`). Bottom Complete → `TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
+
+**Architecture note:** ToolsPanel is Meta shell UI; gameplay state owned by rules layer; View subscribes only (§13). Dig: rules owns spawn/timer/DigAction/busy/damage; diamond map, circle cursor, dig anims, DigReward fly-to are View; continuous placeable space. UM stages do not resolve mode-config PKs; upgrade progress is in-memory this slice. Defend: rules outputs target/destination; NavMeshAgent moves; Demo-min walkable surface in §9.7 / SPEC_03 §3.12.
 
 ---
 
@@ -218,14 +251,14 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 | LevelId | 关卡ID | `string` 或 `int` | 同 ID 多行 = 该关全部阶段 |
 | StageNumber | 阶段编号 | `int` | 同关卡内升序执行；建议同关卡内唯一 |
 | GameplayType | 玩法类型 | `enum` / `string` | 如 `Dig` / `UpgradeManufacture` / `Defend` |
-| GameplayConfigId | 玩法配置ID | `string` 或 `int` | 指向对应玩法配置表主键 |
+| GameplayConfigId | 玩法配置ID | `string` 或 `int` | **Dig** → `DigGameplayConfig` 主键；**Defend** → `DefendGameplayConfig` 主键；**UpgradeManufacture** → **忽略**（可不空；运行时**不**查表、**不**解析为 Dig/Defend 行；本阶段读全局表如 `ProtagonistLevelConfig` 等）。**不另开** `UpgradeManufactureGameplayConfig`（见 [SPEC_03 §3.9](SPEC_03_GameRules.md)） |
 
 ```
 LevelOperationConfig {
   LevelId: Id
   StageNumber: int
   GameplayType: Dig | UpgradeManufacture | Defend | ...
-  GameplayConfigId: Id
+  GameplayConfigId: Id   // ignored when GameplayType = UpgradeManufacture
 }
 ```
 
@@ -417,7 +450,8 @@ DefendGameplayConfig {
 - **移动层**（NavMeshAgent 或等价）执行 `SetDestination`；每隔 `TargetRetargetIntervalSeconds` 由规则层触发目的地重算并请求重寻路（怪物与士兵均适用）。
 - **EngageZone**：挂在 BattleMap **Prefab** 上的轴对齐方形选敌区（比地图稍小；策划调位置/尺寸）；非叛变士兵仅在此区内选最近敌人。见 [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat。
 - 士兵命中方案 D：按 `SoulConfig.AttackMode`（制造写入实例）走近战前摇或远程弹道；`AttackRange` / 前摇 / 弹速 / 超时取自 [§9.9b `ClassConfig`](#99b-职业配置表-classconfig)（规则层确认伤害；View 播动作/弹道）。**第一版 Demo**：士兵与怪物仅普通攻击，不施放技能。
-- 障碍烘焙与 NavMesh 表面范围 **TBD**（须覆盖地图内可走区，并允许从地图外刷怪点进入可走区——具体衔接 **TBD**）。
+- 障碍烘焙与 NavMesh 表面范围：**Demo 最小** — 在 `Prefabs/Maps/{BattleMapId}` 可走面烘焙（或运行时等价）最小可走 NavMesh；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点进入可走区。复杂障碍与精确 OutsideMap 外围衔接 **后置**（规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)）。
+- **Demo 刷怪点最小：** 地图 Prefab 上临时固定出生点（SerializeField / 子节点标记）或 `InsideMap` 可走面随机；`ClockDirection` 可映射到固定点；精确 OutsideMap 几何后置。
 
 **刷怪 / 怪物表：** 见 §9.18 `WaveSpawnConfig`、§9.19 `MonsterConfig`；失控见 §9.20 `LossOfControlConfig`、§9.21 `SkillConfig`（骨架）；规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)。
 
@@ -1068,7 +1102,7 @@ All config **Weight** values follow:
 | LevelId | 关卡ID | `string` or `int` | Multiple rows per Level |
 | StageNumber | 阶段编号 | `int` | Ascending within Level; unique per Level recommended |
 | GameplayType | 玩法类型 | `enum` / `string` | e.g. `Dig` / `UpgradeManufacture` / `Defend` |
-| GameplayConfigId | 玩法配置ID | `string` or `int` | FK to mode config PK |
+| GameplayConfigId | 玩法配置ID | `string` or `int` | **Dig** → `DigGameplayConfig` PK; **Defend** → `DefendGameplayConfig` PK; **UpgradeManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config / Dig/Defend rows; stage reads global tables such as `ProtagonistLevelConfig`). **No** separate `UpgradeManufactureGameplayConfig` (see [SPEC_03 §3.9](SPEC_03_GameRules.md)) |
 
 #### 9.2 DigGameplayConfig
 
@@ -1232,7 +1266,8 @@ DefendGameplayConfig {
 - **Movement layer** (NavMeshAgent or equiv.) runs `SetDestination`; every `TargetRetargetIntervalSeconds` the rules layer recomputes destination and requests repath (monsters **and soldiers**).
 - **EngageZone**: axis-aligned square on the BattleMap **Prefab** (slightly smaller than the map; designer-tuned); non-Rebel soldiers pick nearest enemy only inside it. See [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat.
 - Soldier hit scheme D: branch by `SoulConfig.AttackMode` (copied onto instance at manufacture) — melee windup or ranged projectile; `AttackRange` / windup / projectile speed / timeout from [§9.9b `ClassConfig`](#99b-职业配置表-classconfig) (rules confirm damage; View plays anim/projectile). **Demo v1**: soldiers and monsters use normal attacks only; no skill casts.
-- Obstacle bake / NavMesh surface extent **TBD** (must cover in-map walkable area; off-map spawn → walkable entry linkage **TBD**).
+- Obstacle bake / NavMesh surface: **Demo-min** — bake (or runtime-equivalent) a minimal walkable NavMesh on `Prefabs/Maps/{BattleMapId}`; must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. Complex obstacles and exact OutsideMap perimeter linkage **deferred** (rules: [SPEC_03 §3.12](SPEC_03_GameRules.md)).
+- **Demo-min spawn points:** temp fixed markers on map Prefab (SerializeField / child markers) or `InsideMap` random on walkable surface; `ClockDirection` may map to fixed points; exact OutsideMap geometry deferred.
 
 **Spawn / monster tables:** see §9.18 `WaveSpawnConfig`, §9.19 `MonsterConfig`; LossOfControl: §9.20 `LossOfControlConfig`, §9.21 `SkillConfig` (skeleton); rules in [SPEC_03 §3.12](SPEC_03_GameRules.md).
 
@@ -1827,7 +1862,7 @@ SkillConfig {
 
 **原则（强制倾向）：预制体优先（Prefab-first）。** 实际代码与场景开发中，凡会以 GameObject 层级出现的玩法实体、可复用 UI、可生成物、可摆放交互物，**默认用 Prefab + 挂载 Controller** 制作与引用，放在 `Assets/Prefabs/<模块>/`。优先在编辑器中拼装 Prefab，再由代码 `Instantiate` / 引用槽位驱动；**避免**在代码里动态 `new GameObject` 拼层级，或在多个 Scene 中手工复制同一套层级。
 
-**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此；源参考 Example Scene `Grid`/`Ground (1)`…`Ground (5)`，Demo 时复制进项目，**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
+**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此；源参考 Example Scene `Grid`/`Ground (1)`…`Ground (5)`，Demo 时复制进项目，**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
 
 **可不做成 Prefab 的例外：** Scene 唯一常驻 Manager / 引导用一次性布局；纯逻辑无表现的 Service（非 MonoBehaviour 或仅场景单例入口）。
 
@@ -1849,7 +1884,7 @@ SkillConfig {
 
 **Principle (strong default): Prefab-first.** For gameplay entities, reusable UI, spawnables, and placeable interactables that exist as GameObject hierarchies, **author and reference Prefabs + Controllers** under `Assets/Prefabs/<Module>/`. Prefer assembling Prefabs in the Editor and driving them via `Instantiate` / serialized slots. **Do not** build visual hierarchies with runtime `new GameObject` trees, or hand-duplicate the same hierarchy across Scenes.
 
-**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here; source ref Example Scene `Grid`/`Ground (1)`…`Ground (5)`; copy into project at Demo time; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角)). Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
+**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here; source ref Example Scene `Grid`/`Ground (1)`…`Ground (5)`; copy into project at Demo time; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角)). Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
 
 **Exceptions:** Scene-unique Managers / one-off layout; pure logic Services (non-MonoBehaviour or single scene entry).
 
@@ -1932,6 +1967,16 @@ Excel (ConfigTables/Excel/{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx)
   → Runtime Config Loader
 ```
 
+#### 14.5 运行时 CSV 加载路径（Demo）
+
+| 环境 | 根路径 | 说明 |
+|------|--------|------|
+| Editor / 开发 Play | `{Application.dataPath}/ConfigTables/Csv/` | 即工程内 `Assets/ConfigTables/Csv/` |
+| Player 构建 | `{Application.streamingAssetsPath}/ConfigTables/Csv/` | 须在构建前将同名 CSV 镜像到 `Assets/StreamingAssets/ConfigTables/Csv/`（拷贝工具可另开；本片加载器按序探测两根路径） |
+
+- 逻辑仍只读 CSV；**禁止**运行时读 Excel。
+- 缺表 / 缺列 / 非法枚举 → 加载失败并打日志，不静默用空表推进关卡。
+
 ### English
 
 **Status: Engineering rules closed; Editor bake-tool implementation deferred until Demo-dev authorization.**
@@ -1992,6 +2037,16 @@ Excel (ConfigTables/Excel/{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx)
   → CSV (ConfigTables/Csv/{SystemEN}_{TableEN}.csv)
   → Runtime Config Loader
 ```
+
+#### 14.5 Runtime CSV load paths (Demo)
+
+| Environment | Root path | Notes |
+|-------------|-----------|-------|
+| Editor / Play Mode | `{Application.dataPath}/ConfigTables/Csv/` | i.e. project `Assets/ConfigTables/Csv/` |
+| Player build | `{Application.streamingAssetsPath}/ConfigTables/Csv/` | Mirror same CSV files under `Assets/StreamingAssets/ConfigTables/Csv/` before build (copy tool may be separate; this slice’s loader probes both roots in order) |
+
+- Still CSV-only; **never** read Excel at runtime.
+- Missing table / column / illegal enum → load fails with log; do not silently advance Levels on empty tables.
 
 ---
 

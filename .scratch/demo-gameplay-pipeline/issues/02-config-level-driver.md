@@ -1,8 +1,9 @@
 ---
 title: 配置表加载与关卡阶段驱动骨架
-status: todo
+status: done
 difficulty: 2
-demo_scope: planned
+demo_scope: in-scope
+selected_approach: A
 spec_refs:
   - SPEC_03 §3.9
   - SPEC_04 §9.1 LevelOperationConfig
@@ -10,6 +11,7 @@ spec_refs:
   - SPEC_04 §9.7 BattleMapId
   - SPEC_04 §13 Prefabs/Maps
   - SPEC_04 §14
+  - SPEC_04 §14.5 Runtime CSV paths
 ---
 
 ## 目标
@@ -28,10 +30,18 @@ spec_refs:
 - 各玩法完整逻辑（交给 03+）
 - Editor 打表工具（可另开）
 
+## 实现摘要（方案 A）
+
+- `ConfigCsvRepository`：Editor=`Assets/ConfigTables/Csv`；Player=`StreamingAssets/ConfigTables/Csv`
+- `LevelOperationDriver` + `IStageModule` 占位（Dig/UM/Defend）
+- Tools「关卡」→ `Level_01`；Debug「推进阶段」手验 D-010
+- UI 显示 LevelId / StageNumber / GameplayType / MapId
+- SPEC v0.32.0：§3.8 D-003/D-004/D-010；SPEC_04 §6 / §14.5
+
 ## 验收
 
-- [ ] 能按样例关卡推进阶段，UI/日志显示 LevelId、StageNumber、GameplayType
-- [ ] Dig/Defend 的 GameplayConfigId 能解析到对应表行，并读出 DigMapId / BattleMapId
+- [x] 能按样例关卡推进阶段，UI/日志显示 LevelId、StageNumber、GameplayType
+- [x] Dig/Defend 的 GameplayConfigId 能解析到对应表行，并读出 DigMapId / BattleMapId
 
 ## 依赖
 

@@ -8,8 +8,8 @@
 | GameplayState | 玩法状态 | Dig / UpgradeManufacture / Defend；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | SaveSlot | 存档槽 | 固定 3 槽本地存档位 | [§3.4](SPEC_03_GameRules.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡占位 | [§3.5](SPEC_03_GameRules.md) |
-| Level | 关卡 | 关卡运作表驱动的多阶段流程 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡入口（流水线片可启样例关卡） | [§3.5](SPEC_03_GameRules.md) |
+| Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | `Assets/ConfigTables/`：Excel 源（四段中英名）+ CSV 产物（两段英文名） | [SPEC_04 §14](SPEC_04_Technical.md) |
 | BakeTables | 打表 | Editor 一键 Excel→CSV（Excel 四段名映射为 CSV 英文基名）；菜单 `Gravedigger/Config/Bake Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | CharacterArtPipeline | 角色美术管线 | Character Creator **烘焙整角**；游戏资源不得落在工具目录；导出补丁→`Art/Characters`→`Prefabs` | [SPEC_04 §15](SPEC_04_Technical.md) |
@@ -115,7 +115,7 @@
 | TargetRetargetInterval | 目标修正间隔 | 怪物与士兵重算目的地间隔；暂定 1s | [§3.12](SPEC_03_GameRules.md) |
 | LevelFailure | 关卡失败 | 护盾归零等；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣 | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | VictorySettlement | 胜利结算 | 最后一阶段结束后的关卡级结算 | [§3.9](SPEC_03_GameRules.md) |
-| Demo acceptance (D-xxx) | Demo 验收项 | D-001～D-004 最小外围壳 | [§3.8](SPEC_03_GameRules.md) |
+| Demo acceptance (D-xxx) | Demo 验收项 | D-001～D-004 Meta 壳；D-010～D-043 Dig→UM→Defend 流水线垂直切片 | [§3.8](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 
 ## 维护规则
 
