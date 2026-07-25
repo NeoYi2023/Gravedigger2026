@@ -1,0 +1,11 @@
+MonsterId,ModelId,DisplayName,TargetSelect,AttackMode,MaxHP,MoveSpeed,AttackPower,AttackSpeed,AttackRange,MeleeWindupSeconds,RangedProjectileSpeed,RangedTimeoutSeconds,Skills,LootDrop
+Monster_01,MonsterModel_01,腐尸,Nearest,Melee,80,2.5,8,0.8,1.5,0.3,0,0,,Iron_1|Spirit_5
+Monster_02,MonsterModel_02,骷髅兵,PreferWarrior,Ranged,120,2.7,10,0.85,6.3,0,11,2.5,,Bone_1|Spirit_4
+Monster_03,MonsterModel_03,墓园犬,PreferProtagonist,Melee,160,2.9,12,0.9,1.7,0.34,0,0,,Iron_3|Spirit_7
+Monster_04,MonsterModel_04,幽魂,Nearest,Melee,200,3.1,14,0.95,1.8,0.36,0,0,,Bone_1|Spirit_6
+Monster_05,MonsterModel_05,石像鬼,PreferWarrior,Ranged,240,3.3,16,1,7.2,0,14,2.5,,Iron_2|Spirit_9
+Monster_06,MonsterModel_06,巫妖徒,PreferProtagonist,Melee,280,3.5,18,1.05,2,0.4,0,0,,Bone_1|Spirit_8
+Monster_07,MonsterModel_07,骨龙幼崽,Nearest,Melee,320,3.7,20,1.1,2.1,0.42,0,0,,Iron_1|Spirit_11
+Monster_08,MonsterModel_08,血仆,PreferWarrior,Ranged,360,3.9000000000000004,22,1.15,8.1,0,17,2.5,,Bone_1|Spirit_10
+Monster_09,MonsterModel_09,暗影刺客,PreferProtagonist,Melee,400,4.1,24,1.2,2.3,0.46,0,0,,Iron_3|Spirit_13
+Monster_10,MonsterModel_10,巨型僵尸,Nearest,Melee,440,4.3,26,1.25,2.4,0.48,0,0,,Bone_1|Spirit_12

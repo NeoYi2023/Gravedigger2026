@@ -1,0 +1,11 @@
+CurrencyId,AppearanceIconId,AssetPath,WarehouseQualityOutlineId
+Spirit,Icons/Currency_Spirit,Assets/Art/Placeholder/Currency_Spirit,Outline_C1
+Coin,Icons/Currency_Coin,Assets/Art/Placeholder/Currency_Coin,Outline_C2
+Token,Icons/Currency_Token,Assets/Art/Placeholder/Currency_Token,Outline_C3
+Shard,Icons/Currency_Shard,Assets/Art/Placeholder/Currency_Shard,Outline_C4
+Dust,Icons/Currency_Dust,Assets/Art/Placeholder/Currency_Dust,Outline_C5
+Mark,Icons/Currency_Mark,Assets/Art/Placeholder/Currency_Mark,Outline_C6
+Seal,Icons/Currency_Seal,Assets/Art/Placeholder/Currency_Seal,Outline_C7
+Emblem,Icons/Currency_Emblem,Assets/Art/Placeholder/Currency_Emblem,Outline_C8
+Badge,Icons/Currency_Badge,Assets/Art/Placeholder/Currency_Badge,Outline_C9
+Ticket,Icons/Currency_Ticket,Assets/Art/Placeholder/Currency_Ticket,Outline_C10

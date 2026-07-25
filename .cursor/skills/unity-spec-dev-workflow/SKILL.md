@@ -64,7 +64,7 @@ SPEC 文档是**唯一权威**；本 Skill 将其操作化为 Agent 执行步骤
 | 问题 | 是 → 做法 |
 |------|-----------|
 | 运行时多次 **Instantiate**，或多 Scene 复用？ | **Prefab** + Controller；路径 `Assets/Prefabs/<模块>/` |
-| 策划可调数值/模板/表项？ | **ScriptableObject**；路径 `Assets/Settings/<模块>/` |
+| 策划可调数值/模板/表项？ | **配置表** → `Assets/ConfigTables/`（Excel+CSV，见 [SPEC_04 §14](../../SPEC_04_Technical.md)）；非表型单例 → **ScriptableObject** → `Assets/Settings/<模块>/` |
 | UI 显示文本？ | 本地化 Key（若项目启用 i18n） |
 | 高频 spawn/destroy？ | **对象池** |
 | 涉及玩法状态变更？ | **规则 Service/Controller** + 事件通知 View；View 不驱动规则 |
@@ -86,7 +86,9 @@ SPEC 文档是**唯一权威**；本 Skill 将其操作化为 Agent 执行步骤
 | 脚本 Gameplay | `Assets/Scripts/Gameplay/<模块>/` |
 | 脚本 UI | `Assets/Scripts/UI/` |
 | 预制体 | `Assets/Prefabs/<模块>/` |
-| 配置 SO | `Assets/Settings/<模块>/` |
+| 配置表（Excel 源） | `Assets/ConfigTables/Excel/` |
+| 配置表（CSV 产物） | `Assets/ConfigTables/Csv/` |
+| 非表型 SO | `Assets/Settings/<模块>/` |
 | 场景 | `Assets/Scenes/` |
 | 本地化 | `Assets/Localization/` |
 

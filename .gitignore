@@ -136,6 +136,9 @@ __MACOSX/
 secrets/
 credentials.json
 
+# Node 依赖（.scratch 脚本等本地安装）
+**/node_modules/
+
 # 可选：Asset Store 工具插件（需要忽略时取消下一行注释）
 # **/[Aa]ssets/AssetStoreTools*
 

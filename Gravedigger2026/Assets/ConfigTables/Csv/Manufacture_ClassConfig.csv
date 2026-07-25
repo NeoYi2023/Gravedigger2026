@@ -1,0 +1,11 @@
+ClassId,ClassName,PrimaryStat,CombatConvertCoeffs,AttackRange,MeleeWindupSeconds,RangedProjectileSpeed,RangedTimeoutSeconds
+Class_Warrior,战士,Strength,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,1.8,0.35,0,0
+Class_Archer,射手,Agility,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,5.2,0.2,13,2
+Class_Mage,法师,Intelligence,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,5.4,0.2,14,2
+Class_Knight,骑士,Strength,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,1.9500000000000002,0.38,0,0
+Class_Rogue,盗贼,Agility,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,2,0.38999999999999996,0,0
+Class_Priest,牧师,Intelligence,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,6,0.2,17,2
+Class_Berserker,狂战士,Strength,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,2.1,0.41,0,0
+Class_Ranger,游侠,Agility,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,6.4,0.2,19,2
+Class_Warlock,术士,Intelligence,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,6.6,0.2,20,2
+Class_Paladin,圣骑士,Strength,NormalAttackPrimaryMult_1.5|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,2.25,0.43999999999999995,0,0

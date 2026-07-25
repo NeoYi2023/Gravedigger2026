@@ -5,8 +5,8 @@
 当前阶段：**规则录入**。Unity 编码须负责人明确授权 Demo 开发。
 
 **SPEC 维护：**
-- 套件专属目录：`E:\Work\Cursor\SPECandSKILL\Gravedigger2026\`
-- 日常开发以工作区根（`E:\Work\Cursor\Gravedigger2026\Gravedigger2026`）下已复制的 `SPEC_*.md` 为准；重要变更请同步回套件目录。
+- 套件专属目录：`F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`
+- 日常开发以工作区根（`F:\CursorGame_Git\Gravedigger2026`）下已复制的 `SPEC_*.md` 为准；重要变更请同步回套件目录。
 
 ## 三阶段 SPEC 流程
 

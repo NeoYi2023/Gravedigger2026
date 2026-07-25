@@ -1,0 +1,11 @@
+EquipId,EquipSlot,NamePrefix,SpiritCost,ControlPowerCost,EquipStats,Skills
+Equip_Mount_01,Mount,疾驰,15,4,MaxHP_10|MoveSpeed_0.2|Strength_0|Agility_1|Intelligence_2,Skill_01;1
+Equip_Mount_02,Mount,铁蹄,18,5,MaxHP_12|MoveSpeed_0.25|Strength_1|Agility_2|Intelligence_0,
+Equip_Mount_03,Mount,幽灵,21,6,MaxHP_14|MoveSpeed_0.30000000000000004|Strength_2|Agility_0|Intelligence_1,
+Equip_Mount_04,Mount,战兽,24,7,MaxHP_16|MoveSpeed_0.35000000000000003|Strength_0|Agility_1|Intelligence_2,
+Equip_Mount_05,Mount,骨马,27,8,MaxHP_18|MoveSpeed_0.4|Strength_1|Agility_2|Intelligence_0,
+Equip_Wing_01,Wing,羽翼,30,9,MaxHP_20|MoveSpeed_0.45|Strength_2|Agility_0|Intelligence_1,Skill_06;1
+Equip_Wing_02,Wing,蝠翼,33,10,MaxHP_22|MoveSpeed_0.5|Strength_0|Agility_1|Intelligence_2,
+Equip_Wing_03,Wing,光翼,36,11,MaxHP_24|MoveSpeed_0.55|Strength_1|Agility_2|Intelligence_0,
+Equip_Wing_04,Wing,暗翼,39,12,MaxHP_26|MoveSpeed_0.6000000000000001|Strength_2|Agility_0|Intelligence_1,
+Equip_Wing_05,Wing,机械翼,42,13,MaxHP_28|MoveSpeed_0.65|Strength_0|Agility_1|Intelligence_2,

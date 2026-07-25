@@ -1,0 +1,11 @@
+TechId,AttributeModifiers,UnlockedFeatureSystemName
+Tech_Root,DigDamage_1,
+Tech_DigDamage,DigDamage_2,
+Tech_DigSpeed,DigDurationReductionSum_0.1,
+Tech_DigRadius,DigCursorRadius_0.2,
+Tech_DigDuration,DigStageDurationBonus_10,
+Tech_Key_01,DigDamage_3|DigDurationReductionSum_0.05,FeatureDigAdvancedQualities
+Tech_Normal_01,DigDurationReductionSum_0.05,
+Tech_Normal_02,DigCursorRadius_0.1,
+Tech_Capstone,DigDamage_5|DigStageDurationBonus_20,
+Tech_Leaf,DigStageDurationBonus_5,

@@ -3,7 +3,7 @@
 **关联文档 / Related:** [SPEC_00_Index.md](SPEC_00_Index.md)
 
 > 本文件对齐公共套件 `SPECandSKILL\SPEC\SPEC_01_Workflow.md`。  
-> 项目名：**Gravedigger2026**。套件专属目录：`E:\Work\Cursor\SPECandSKILL\Gravedigger2026\`。  
+> 项目名：**Gravedigger2026**。套件专属目录：`F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`。  
 > 日常开发以工作区根已复制的本文件为准；流程变更请同步回套件。
 
 ---

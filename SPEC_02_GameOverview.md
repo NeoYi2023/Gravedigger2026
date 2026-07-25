@@ -14,9 +14,9 @@
 | 游戏引擎 | Unity 2021.3.40f1 |
 | 视觉维度 | TBD（当前工程为 Unity 项目，待确认 2D/3D） |
 | 发布平台 | TBD |
-| Cursor 工作区根 | `E:\Work\Cursor\Gravedigger2026\Gravedigger2026` |
+| Cursor 工作区根 | `F:\CursorGame_Git\Gravedigger2026` |
 | Unity 工程路径 | `Gravedigger2026/`（相对工作区根；含 `Assets/`、`ProjectSettings/`） |
-| 套件专属 SPEC | `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` |
+| 套件专属 SPEC | `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\` |
 | 当前阶段 | 规则录入中（Demo 外壳 + 关卡 / 挖坟 / 升级与制造框架已写入 SPEC_03） |
 
 ### English
@@ -27,9 +27,9 @@
 | Game engine | Unity 2021.3.40f1 |
 | Visual dimension | TBD |
 | Target platforms | TBD |
-| Cursor workspace root | `E:\Work\Cursor\Gravedigger2026\Gravedigger2026` |
+| Cursor workspace root | `F:\CursorGame_Git\Gravedigger2026` |
 | Unity project path | `Gravedigger2026/` (relative to workspace root) |
-| Kit project SPEC | `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` |
+| Kit project SPEC | `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\` |
 | Current phase | Rule definition (Demo shell + Level / Dig / UpgradeManufacture framework in SPEC_03) |
 
 ---

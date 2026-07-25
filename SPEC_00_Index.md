@@ -1,11 +1,11 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.14.0  
-**最后更新 / Last Updated:** 2026-07-24  
+**文档版本 / Document Version:** v0.29.0
+**最后更新 / Last Updated:** 2026-07-25  
 **当前阶段 / Current Phase:** 规则录入 / Rule definition  
 
-**套件维护路径：** `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\`  
-**日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`E:\Work\Cursor\Gravedigger2026\Gravedigger2026`）
+**套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
+**日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
 
 ---
 
@@ -30,8 +30,8 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | 总索引、变更日志（本文件） |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | 三阶段开发流程与协作约定 |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | 游戏概述、平台与定位 |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守框架） |
-| 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | 技术规范、Demo 边界与配置表约定 |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树框架） |
+| 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | 技术规范、Demo 边界、配置表字段与工程约定（§14） |
 
 **建议阅读顺序：** 01 → 02 → 03 → 04。
 
@@ -42,8 +42,8 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | Master index, changelog |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | Three-phase workflow |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | Game overview |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend framework) |
-| 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | Technical standards, Demo boundary, config tables |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree framework) |
+| 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | Technical standards, Demo boundary, config tables + engineering rules (§14) |
 
 ---
 
@@ -65,6 +65,21 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-25 | v0.29.0 | Dig/Defend 地图表现共用 `Ground_01`…`Ground_05`：DigGameplayConfig 增 `DigMapId`；`BattleMapId` 合法值改为 `Ground_*`，Prefab 解析 → `Assets/Prefabs/Maps/`；源参考 Example Scene Grid/Ground；同步 SPEC_03/04 / CONTEXT / spec-map / 配表样例 |
+| 2026-07-25 | v0.28.0 | SPEC_04 §15 角色美术管线：Character Creator 烘焙整角；工具目录禁入游戏资源；补丁导出→`Art/Characters`→Prefabs；`AppearanceId`/`ModelId`/主角 Prefab 解析；Mount/Wing 打进外观；同步 SPEC_03 / CONTEXT / spec-map |
+| 2026-07-25 | v0.27.0 | 套件/工作区路径改为本机 `F:\CursorGame_Git\SPECandSKILL` 与 `F:\CursorGame_Git\Gravedigger2026`；工作区 SPEC/CONTEXT/Skills 回写套件，关闭此前 E: 路径不可达导致的待同步 |
+| 2026-07-25 | v0.26.0 | 配置表结构锁定：士兵 Skills=`SkillId;Level|…`；EquipStats；CombatConvertCoeffs；Class/Monster AttackRange 等命中列；GemType 六类；ComboKey；MoveStyle/AttackPriority；IconStyle 三列；BattleMapId/ModelId Prefab 名；TechUiFrameType；UnlockedFeature 开放名单；SkillConfig 不扩效果列；同步 SPEC_03/04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.25.0 | SPEC_04 §14：Excel 磁盘名改为四段 `{系统中文}_{表中文}_{系统英文}_{表英文}.xlsx`；CSV 仍为 `{系统英文}_{表英文}.csv`；打表按英文后缀两段映射；§9 各表磁盘名分列；同步 CONTEXT / spec-map |
+| 2026-07-25 | v0.24.0 | §3.11 灵魂职业：新增 ClassId / ClassConfig（ClassName、PrimaryStat、CombatConvertCoeffs 占位）；SoulConfig 仅引用 ClassId，移除 ClassName/PrimaryStat；命名与 ClassAffinity 经 ClassConfig；§3.12 Primary 取自职业表，全局派生常量为过渡；同步 SPEC_04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.23.0 | §3.12 Demo 第一版战斗边界：士兵与怪物仅普通攻击、不施放技能；SoulConfig 增 AttackMode；法师普攻=射手远程通道（仅 PrimaryStat=Intelligence）；SkillCooldown/Skills 保留不驱动；同步 SPEC_04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.22.0 | §3.11/§3.12 士兵战斗派生公式：PrimaryStat；StaticStat/FinalStat 分层；NormalAttackPower=Primary×1.5；AttackSpeed=0.5+60/max(Agi,1)；SkillCooldown=max(0.1,BaseCD−30/max(Int,1))；MaxHP=ceil(BodyLife+Str×3)；SoulConfig.PrimaryStat + SkillConfig.BaseCooldownSeconds；同步 CONTEXT / SPEC_04 / spec-map |
+| 2026-07-25 | v0.21.0 | §3.12 士兵战斗：EngageZone 内最近选敌；AttackRange；命中方案 D（近战前摇确认 / 远程弹道）；CombatDead vs PermanentDeath（Ended/LevelFailure 结算）；宝石特例 HP≤0 立即彻底死亡；§3.11 物资仅彻底死亡；AttackPriority 本批不驱动选目标；同步 SPEC_04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.20.0 | §3.11/§3.12 失控规则关闭：失控程度=ΣCost/Cap−1；四档；开战锁定与独立 roll；叛变就近目标（含破盾）；最终率=档位+种族+Σ宝石+Σ技能（clamp）；技能加成非零时释放技能再 roll；SPEC_04 §9.20 LossOfControlConfig + §9.21 SkillConfig 骨架；Race/Gem 失控加成字段；同步 CONTEXT / spec-map |
+| 2026-07-25 | v0.19.0 | §3.11 躯体材料表扩写（BodyPartConfig：等级/StatBonus/AutoConvert/美术等；Base(S)=Σ StatBonus）；新增躯体外观表 BodyAppearanceConfig 与选取算法（平均等级→四舍五入、职业倾向、IsFallback 保底、全表随机）；WarriorInstance.AppearanceId；LootDrop Id 可解析 BodyPartId；SPEC_04 §9.13+ 节号顺延；同步 CONTEXT / spec-map |
+| 2026-07-25 | v0.18.0 | 名词统一：单位中文称谓「战士」→「士兵」（制造/上阵/属性构成等）；英文标识 `Warrior*` / `PreferWarrior` 不变；职业名 `ClassName` 仍可为「战士」；同步 SPEC_03/04、CONTEXT、spec-map |
+| 2026-07-24 | v0.17.0 | §3.12 防守补全：护盾（普通攻击次数；初值=ProtagonistMaxHP；归零 LevelFailure）；战斗倒计时刷怪；WaveSpawnConfig / MonsterConfig（SPEC_04 §9.17–§9.18）；DefendGameplayConfig 增 CombatDurationSeconds；同步 CONTEXT / spec-map。**工作区已更新；套件路径 `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` 本机不可达，待同步** |
+| 2026-07-24 | v0.16.0 | §3.13 科技树框架：中心向外、InitiallyUnlocked 默认学会、前置+LearnCost、设置页 2D 画布（UI-012）；SPEC_04 §9.15 TechTreeConfig / §9.16 TechEffectConfig；经验仍 Defend 胜利入账；同步 CONTEXT / spec-map。**工作区已更新；套件路径 `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` 本机不可达，待同步** |
+| 2026-07-24 | v0.15.0 | SPEC_04：配置表公共工程约定——统一 `ConfigTables/Excel`+`Csv`；命名 `系统_表名`；双格式强制；打表菜单约定（§14）；关闭 §9 载体 TBD；§13 表项与非表 SO 分流；同步 CONTEXT / Skill 速查。**工作区已更新；套件路径 `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` 本机不可达，待同步** |
 | 2026-07-24 | v0.14.0 | §3.11 战士制造：槽位/最低要求/预览与精魂闸门；部位加权定种族；六宝石类型互斥且 GemMult 按维 Σ；命名 Prefix+Race+Class+Suffix；死亡宝石全部回仓；SPEC_04 §9.9–§9.14（ClassName/GemType/BodyPart/ExtraEquipment/GemSuffix）；同步 CONTEXT / spec-map |
 | 2026-07-24 | v0.13.0 | §3.11 FinalStat 按单项属性汇总（先定 S 再取来源）；力量例；`max(0,…)` 下限；GemMult 改为五维；SPEC_04 §9.10 / WarriorInstance 同步；CONTEXT |
 | 2026-07-24 | v0.12.0 | §3.11 种族：由躯体决定；五维 RaceAdjustCoeff；FinalStat+=Base×RaceAdjustCoeff；不计控制力；SPEC_04 §9.11 RaceConfig；同步 CONTEXT / spec-map |
@@ -92,6 +107,21 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-25 | v0.29.0 | Dig/Defend map presentation shares `Ground_01`…`Ground_05`: DigGameplayConfig adds `DigMapId`; `BattleMapId` allowed values → `Ground_*`, Prefab resolve → `Assets/Prefabs/Maps/`; source ref Example Scene Grid/Ground; synced SPEC_03/04 / CONTEXT / spec-map / sample tables |
+| 2026-07-25 | v0.28.0 | SPEC_04 §15 Character Art Pipeline: Character Creator baked whole characters; ban game assets under vendor tool folder; patched export → `Art/Characters` → Prefabs; `AppearanceId`/`ModelId`/protagonist Prefab resolve; Mount/Wing baked into appearance; synced SPEC_03 / CONTEXT / spec-map |
+| 2026-07-25 | v0.27.0 | Kit/workspace paths updated to local `F:\CursorGame_Git\SPECandSKILL` and `F:\CursorGame_Git\Gravedigger2026`; workspace SPEC/CONTEXT/Skills synced back to kit; closes prior E: path unreachable pending sync |
+| 2026-07-25 | v0.26.0 | Config-table schema lock: soldier Skills=`SkillId;Level|…`; EquipStats; CombatConvertCoeffs; Class/Monster AttackRange hit columns; six GemTypes; ComboKey; MoveStyle/AttackPriority; IconStyle three columns; BattleMapId/ModelId Prefab names; TechUiFrameType; open UnlockedFeature list; SkillConfig no effect columns yet; synced SPEC_03/04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.25.0 | SPEC_04 §14: Excel disk names are four-part `{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx`; CSV stays `{SystemEN}_{TableEN}.csv`; bake maps via English suffix; §9 disk names split Excel/CSV; synced CONTEXT / spec-map |
+| 2026-07-25 | v0.24.0 | §3.11 soul Class: new ClassId / ClassConfig (ClassName, PrimaryStat, CombatConvertCoeffs placeholder); SoulConfig references ClassId only (drops ClassName/PrimaryStat); naming & ClassAffinity via ClassConfig; §3.12 Primary from Class table; global derive constants interim; synced SPEC_04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.23.0 | §3.12 Demo v1 combat scope: soldiers & monsters normal attacks only (no skill casts); SoulConfig.AttackMode; Mage normal = Archer Ranged channel (PrimaryStat=Intelligence only); SkillCooldown/Skills retained but unused; synced SPEC_04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.22.0 | §3.11/§3.12 soldier combat derives: PrimaryStat; StaticStat/FinalStat layers; NormalAttackPower=Primary×1.5; AttackSpeed=0.5+60/max(Agi,1); SkillCooldown=max(0.1,BaseCD−30/max(Int,1)); MaxHP=ceil(BodyLife+Str×3); SoulConfig.PrimaryStat + SkillConfig.BaseCooldownSeconds; synced CONTEXT / SPEC_04 / spec-map |
+| 2026-07-25 | v0.21.0 | §3.12 WarriorCombat: nearest target in EngageZone; AttackRange; hit scheme D (melee windup confirm / ranged projectile); CombatDead vs PermanentDeath (settle on Ended/LevelFailure); gem exception immediate PermanentDeath on HP≤0; §3.11 material fate only on PermanentDeath; AttackPriority unused for targeting this batch; synced SPEC_04 / CONTEXT / spec-map |
+| 2026-07-25 | v0.20.0 | Closed §3.11/§3.12 LossOfControl: Degree=ΣCost/Cap−1; four tiers; lock + per-soldier roll at StartBattle; Rebel nearest targeting (Shield −1); FinalChance=tier+race+Σgem+Σskill (clamp); skill-cast re-roll when ΣSkillBonus≠0; SPEC_04 §9.20 LossOfControlConfig + §9.21 SkillConfig skeleton; Race/Gem chance-bonus fields; synced CONTEXT / spec-map |
+| 2026-07-25 | v0.19.0 | §3.11 BodyPartConfig expanded (BodyLevel/StatBonus/AutoConvert/art; Base(S)=Σ StatBonus); new BodyAppearanceConfig + pick rules (avg level→round, ClassAffinity, IsFallback, else table-random); WarriorInstance.AppearanceId; LootDrop may resolve BodyPartId; SPEC_04 §9.13+ renumbered; synced CONTEXT / spec-map |
+| 2026-07-25 | v0.18.0 | Terminology: CN unit name 战士→士兵 (manufacture/deploy/composition); EN ids `Warrior*` / `PreferWarrior` unchanged; ClassName may still be profession「战士」; synced SPEC_03/04, CONTEXT, spec-map |
+| 2026-07-24 | v0.17.0 | §3.12 Defend fill: Shield (normal-hit count; init=`ProtagonistMaxHP`; ≤0 → LevelFailure); countdown spawn; WaveSpawnConfig / MonsterConfig (SPEC_04 §9.17–§9.18); DefendGameplayConfig +`CombatDurationSeconds`; synced CONTEXT / spec-map. **Workspace updated; suite path `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` unreachable on this machine — sync pending** |
+| 2026-07-24 | v0.16.0 | §3.13 TechTree framework: center-out, InitiallyUnlocked default learn, prereqs+LearnCost, Settings 2D canvas (UI-012); SPEC_04 §9.15 TechTreeConfig / §9.16 TechEffectConfig; Exp still Defend victory only; synced CONTEXT / spec-map. **Workspace updated; suite path `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` unreachable on this machine — sync pending** |
+| 2026-07-24 | v0.15.0 | SPEC_04: config-table engineering rules — unified `ConfigTables/Excel`+`Csv`; naming `{System}_{Table}`; dual-format required; Bake Tables menu (§14); closed §9 carrier TBD; §13 splits table rows vs non-table SO; synced CONTEXT / Skill. **Workspace updated; suite path `E:\Work\Cursor\SPECandSKILL\Gravedigger2026\` unreachable on this machine — sync pending** |
 | 2026-07-24 | v0.14.0 | §3.11 warrior manufacture: slots/min requirements/preview+Spirit gate; BodyPart weight-1 race pick; 6 type-exclusive gems with per-dim Σ GemMult; name Prefix+Race+Class+Suffix; death returns all gems; SPEC_04 §9.9–§9.14; synced CONTEXT / spec-map |
 | 2026-07-24 | v0.13.0 | §3.11 FinalStat per-attribute aggregation (pick S then sources); Strength example; `max(0,…)` floor; GemMult five-dim; SPEC_04 §9.10 / WarriorInstance synced; CONTEXT |
 | 2026-07-24 | v0.12.0 | §3.11 Race: from Body; five-dim RaceAdjustCoeff; FinalStat+=Base×RaceAdjustCoeff; no ControlPower term; SPEC_04 §9.11 RaceConfig; synced CONTEXT / spec-map |
