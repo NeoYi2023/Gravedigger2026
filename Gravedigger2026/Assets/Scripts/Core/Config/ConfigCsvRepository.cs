@@ -15,6 +15,9 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, DigGameplayConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, DefendGameplayConfigRow> _defendById =
             new Dictionary<string, DefendGameplayConfigRow>(StringComparer.Ordinal);
+        private readonly List<WaveSpawnConfigRow> _waveSpawnRows = new List<WaveSpawnConfigRow>();
+        private readonly Dictionary<string, MonsterConfigRow> _monsterById =
+            new Dictionary<string, MonsterConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, GraveQualityConfigRow> _graveById =
             new Dictionary<string, GraveQualityConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, MaterialConfigRow> _materialById =
@@ -38,6 +41,13 @@ namespace Gravedigger2026.Core.Config
         private readonly Dictionary<string, string> _gemSuffixByComboKey =
             new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly List<BodyAppearanceConfigRow> _appearances = new List<BodyAppearanceConfigRow>();
+        private readonly Dictionary<int, LossOfControlConfigRow> _lossOfControlByTier =
+            new Dictionary<int, LossOfControlConfigRow>();
+        private readonly List<TechTreeConfigRow> _techTreeRows = new List<TechTreeConfigRow>();
+        private readonly Dictionary<string, TechTreeConfigRow> _techTreeById =
+            new Dictionary<string, TechTreeConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, TechEffectConfigRow> _techEffectById =
+            new Dictionary<string, TechEffectConfigRow>(StringComparer.Ordinal);
 
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
@@ -49,6 +59,8 @@ namespace Gravedigger2026.Core.Config
             _levelOperations.Clear();
             _digById.Clear();
             _defendById.Clear();
+            _waveSpawnRows.Clear();
+            _monsterById.Clear();
             _graveById.Clear();
             _materialById.Clear();
             _currencyById.Clear();
@@ -61,12 +73,18 @@ namespace Gravedigger2026.Core.Config
             _equipById.Clear();
             _gemSuffixByComboKey.Clear();
             _appearances.Clear();
+            _lossOfControlByTier.Clear();
+            _techTreeRows.Clear();
+            _techTreeById.Clear();
+            _techEffectById.Clear();
 
             try
             {
                 LoadLevelOperations();
                 LoadDigGameplay();
                 LoadDefendGameplay();
+                LoadWaveSpawn();
+                LoadMonsters();
                 LoadGraveQuality();
                 LoadMaterial();
                 LoadCurrency();
@@ -79,9 +97,12 @@ namespace Gravedigger2026.Core.Config
                 LoadExtraEquipment();
                 LoadGemSuffixNames();
                 LoadBodyAppearances();
+                LoadLossOfControl();
+                LoadTechTree();
+                LoadTechEffects();
                 IsLoaded = true;
                 Debug.Log(
-                    $"[ConfigCsvRepository] Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}.");
+                    $"[ConfigCsvRepository] Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -122,6 +143,33 @@ namespace Gravedigger2026.Core.Config
         {
             return _defendById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
         }
+
+        public List<WaveSpawnConfigRow> GetWaveSpawnRows(string waveConfigId)
+        {
+            var result = new List<WaveSpawnConfigRow>();
+            if (string.IsNullOrEmpty(waveConfigId))
+            {
+                return result;
+            }
+
+            for (var i = 0; i < _waveSpawnRows.Count; i++)
+            {
+                var row = _waveSpawnRows[i];
+                if (string.Equals(row.WaveConfigId, waveConfigId, StringComparison.Ordinal))
+                {
+                    result.Add(row);
+                }
+            }
+
+            return result;
+        }
+
+        public bool TryGetMonster(string monsterId, out MonsterConfigRow row)
+        {
+            return _monsterById.TryGetValue(monsterId ?? string.Empty, out row);
+        }
+
+        public IEnumerable<MonsterConfigRow> Monsters => _monsterById.Values;
 
         public bool TryGetGraveQuality(string qualityId, out GraveQualityConfigRow row)
         {
@@ -178,6 +226,26 @@ namespace Gravedigger2026.Core.Config
         public bool TryGetGem(string gemId, out GemConfigRow row)
         {
             return _gemById.TryGetValue(gemId ?? string.Empty, out row);
+        }
+
+        public bool TryGetLossOfControlTier(int tierId, out LossOfControlConfigRow row)
+        {
+            return _lossOfControlByTier.TryGetValue(tierId, out row);
+        }
+
+        public IReadOnlyList<TechTreeConfigRow> GetAllTechTreeRows()
+        {
+            return _techTreeRows;
+        }
+
+        public bool TryGetTechTree(string techId, out TechTreeConfigRow row)
+        {
+            return _techTreeById.TryGetValue(techId ?? string.Empty, out row);
+        }
+
+        public bool TryGetTechEffect(string techId, out TechEffectConfigRow row)
+        {
+            return _techEffectById.TryGetValue(techId ?? string.Empty, out row);
         }
 
         public bool TryGetExtraEquipment(string equipId, out ExtraEquipmentConfigRow row)
@@ -303,6 +371,102 @@ namespace Gravedigger2026.Core.Config
                     TargetRetargetIntervalSeconds = retarget
                 };
                 _defendById[id] = defend;
+            }
+        }
+
+        private void LoadWaveSpawn()
+        {
+            const string table = "Defend_WaveSpawnConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var orderText = SimpleCsv.Require(raw, "SpawnOrder", table, rowIndex);
+                var remainingText = SimpleCsv.Require(raw, "SpawnRemainingSeconds", table, rowIndex);
+                var countText = SimpleCsv.Require(raw, "SpawnCount", table, rowIndex);
+                if (!int.TryParse(orderText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var order))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: illegal SpawnOrder '{orderText}'.");
+                }
+
+                if (!int.TryParse(remainingText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var remaining))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SpawnRemainingSeconds '{remainingText}'.");
+                }
+
+                if (!int.TryParse(countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
+                    || count < 1)
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: illegal SpawnCount '{countText}'.");
+                }
+
+                var clockText = OptionalText(raw, "SpawnClockHour");
+                var clockHour = 0;
+                if (clockText.Length > 0
+                    && !int.TryParse(clockText, NumberStyles.Integer, CultureInfo.InvariantCulture, out clockHour))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SpawnClockHour '{clockText}'.");
+                }
+
+                _waveSpawnRows.Add(new WaveSpawnConfigRow
+                {
+                    WaveConfigId = SimpleCsv.Require(raw, "WaveConfigId", table, rowIndex),
+                    SpawnOrder = order,
+                    SpawnRemainingSeconds = remaining,
+                    MonsterId = SimpleCsv.Require(raw, "MonsterId", table, rowIndex),
+                    SpawnCount = count,
+                    AppearLocation = SimpleCsv.Require(raw, "AppearLocation", table, rowIndex),
+                    SpawnMode = SimpleCsv.Require(raw, "SpawnMode", table, rowIndex),
+                    SpawnClockHour = clockHour
+                });
+            }
+        }
+
+        private void LoadMonsters()
+        {
+            const string table = "Defend_MonsterConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "MonsterId", table, rowIndex);
+                var targetText = SimpleCsv.Require(raw, "TargetSelect", table, rowIndex);
+                if (!Enum.TryParse(targetText, false, out TargetSelect targetSelect))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal TargetSelect '{targetText}'.");
+                }
+
+                var modeText = SimpleCsv.Require(raw, "AttackMode", table, rowIndex);
+                if (!Enum.TryParse(modeText, false, out AttackMode attackMode))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: illegal AttackMode '{modeText}'.");
+                }
+
+                _monsterById[id] = new MonsterConfigRow
+                {
+                    MonsterId = id,
+                    ModelId = SimpleCsv.Require(raw, "ModelId", table, rowIndex),
+                    DisplayName = SimpleCsv.Require(raw, "DisplayName", table, rowIndex),
+                    TargetSelect = targetSelect,
+                    AttackMode = attackMode,
+                    MaxHP = RequireFloat(raw, "MaxHP", table, rowIndex),
+                    MoveSpeed = RequireFloat(raw, "MoveSpeed", table, rowIndex),
+                    AttackPower = RequireFloat(raw, "AttackPower", table, rowIndex),
+                    AttackSpeed = RequireFloat(raw, "AttackSpeed", table, rowIndex),
+                    AttackRange = RequireFloat(raw, "AttackRange", table, rowIndex),
+                    MeleeWindupSeconds = OptionalFloat(raw, "MeleeWindupSeconds"),
+                    RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
+                    RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
+                    Skills = OptionalText(raw, "Skills"),
+                    LootDrop = OptionalText(raw, "LootDrop")
+                };
             }
         }
 
@@ -666,6 +830,134 @@ namespace Gravedigger2026.Core.Config
                     Description = OptionalText(raw, "Description"),
                     IsFallback = string.Equals(OptionalText(raw, "IsFallback"), "1", StringComparison.Ordinal)
                 });
+            }
+        }
+
+        private void LoadLossOfControl()
+        {
+            const string table = "Combat_LossOfControlConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var tierText = SimpleCsv.Require(raw, "TierId", table, rowIndex);
+                if (!int.TryParse(tierText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tierId)
+                    || tierId < 1
+                    || tierId > 4)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal TierId '{tierText}' (expect 1..4).");
+                }
+
+                var chance = RequireFloat(raw, "LossOfControlChance", table, rowIndex);
+                if (chance < 0f || chance > 1f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: LossOfControlChance must be in [0,1].");
+                }
+
+                _lossOfControlByTier[tierId] = new LossOfControlConfigRow
+                {
+                    TierId = tierId,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    Description = OptionalText(raw, "Description"),
+                    LossOfControlChance = chance
+                };
+            }
+        }
+
+        private void LoadTechTree()
+        {
+            const string table = "Tech_TechTreeConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "TechId", table, rowIndex);
+                var costText = SimpleCsv.Require(raw, "LearnCost", table, rowIndex);
+                if (!int.TryParse(costText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var learnCost)
+                    || learnCost < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal LearnCost '{costText}'.");
+                }
+
+                var frameText = SimpleCsv.Require(raw, "TechUiFrameType", table, rowIndex);
+                if (!Enum.TryParse(frameText, false, out TechUiFrameType frameType))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal TechUiFrameType '{frameText}'.");
+                }
+
+                var initially = string.Equals(
+                    OptionalText(raw, "InitiallyUnlocked"),
+                    "true",
+                    StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(OptionalText(raw, "InitiallyUnlocked"), "1", StringComparison.Ordinal);
+
+                var nextEncoded = OptionalText(raw, "UnlockNextTechIds");
+                var nextIds = string.IsNullOrEmpty(nextEncoded)
+                    ? Array.Empty<string>()
+                    : nextEncoded.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+
+                for (var n = 0; n < nextIds.Length; n++)
+                {
+                    nextIds[n] = nextIds[n].Trim();
+                }
+
+                var row = new TechTreeConfigRow
+                {
+                    TechId = id,
+                    IconId = OptionalText(raw, "IconId"),
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    EffectDescription = OptionalText(raw, "EffectDescription"),
+                    UnlockNextTechIds = nextIds,
+                    InitiallyUnlocked = initially,
+                    LearnCost = learnCost,
+                    TechUiFrameType = frameType
+                };
+                _techTreeRows.Add(row);
+                _techTreeById[id] = row;
+            }
+        }
+
+        private void LoadTechEffects()
+        {
+            const string table = "Tech_TechEffectConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "TechId", table, rowIndex);
+                if (_techEffectById.TryGetValue(id, out var existing))
+                {
+                    var extraMods = OptionalText(raw, "AttributeModifiers");
+                    if (!string.IsNullOrEmpty(extraMods))
+                    {
+                        existing.AttributeModifiers = string.IsNullOrEmpty(existing.AttributeModifiers)
+                            ? extraMods
+                            : existing.AttributeModifiers + "|" + extraMods;
+                    }
+
+                    var feature = OptionalText(raw, "UnlockedFeatureSystemName");
+                    if (!string.IsNullOrEmpty(feature) && string.IsNullOrEmpty(existing.UnlockedFeatureSystemName))
+                    {
+                        existing.UnlockedFeatureSystemName = feature;
+                    }
+
+                    continue;
+                }
+
+                _techEffectById[id] = new TechEffectConfigRow
+                {
+                    TechId = id,
+                    AttributeModifiers = OptionalText(raw, "AttributeModifiers"),
+                    UnlockedFeatureSystemName = OptionalText(raw, "UnlockedFeatureSystemName")
+                };
             }
         }
 

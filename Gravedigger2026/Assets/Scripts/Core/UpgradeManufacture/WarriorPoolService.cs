@@ -38,5 +38,45 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             _nextSerial++;
             Changed?.Invoke();
         }
+
+        public bool TryRemove(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < _warriors.Count; i++)
+            {
+                if (string.Equals(_warriors[i].Id, warriorId, StringComparison.Ordinal))
+                {
+                    _warriors.RemoveAt(i);
+                    Changed?.Invoke();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool TryGet(string warriorId, out WarriorInstance instance)
+        {
+            instance = null;
+            if (string.IsNullOrEmpty(warriorId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < _warriors.Count; i++)
+            {
+                if (string.Equals(_warriors[i].Id, warriorId, StringComparison.Ordinal))
+                {
+                    instance = _warriors[i];
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

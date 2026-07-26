@@ -2,7 +2,9 @@ using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using Gravedigger2026.UI;
@@ -11,7 +13,7 @@ using UnityEngine;
 namespace Gravedigger2026.Meta
 {
     /// <summary>
-    /// Boot-scene Meta shell orchestrator: SaveSelect ↔ InSaveShell + Level driver (SPEC_03 §3.4–§3.11).
+    /// Boot-scene Meta shell orchestrator: SaveSelect ↔ InSaveShell + Level driver (SPEC_03 §3.4–§3.13).
     /// </summary>
     public sealed class MetaShellController : MonoBehaviour
     {
@@ -19,16 +21,20 @@ namespace Gravedigger2026.Meta
         [SerializeField] private InSaveShellView _inSaveShellView;
         [SerializeField] private ConfirmDialogView _confirmDialog;
         [SerializeField] private ToastView _toastView;
+        [SerializeField] private TechTreeCanvasView _techTreeCanvasView;
         [SerializeField] private DigPrefabCatalog _digPrefabCatalog;
         [SerializeField] private Transform _digWorldParent;
         [SerializeField] private UpgradeManufacturePrefabCatalog _umPrefabCatalog;
         [SerializeField] private Transform _umWorldParent;
+        [SerializeField] private DefendPrefabCatalog _defendPrefabCatalog;
+        [SerializeField] private Transform _defendWorldParent;
 
         private readonly SaveSlotService _saveSlots = new SaveSlotService();
         private readonly GameplayStateService _gameplayState = new GameplayStateService();
         private readonly ConfigCsvRepository _configs = new ConfigCsvRepository();
         private readonly WarehouseService _warehouse = new WarehouseService();
         private readonly ProtagonistProgressService _progress = new ProtagonistProgressService();
+        private readonly TechTreeService _techTree = new TechTreeService();
         private readonly WarriorPoolService _warriorPool = new WarriorPoolService();
         private BattleFormationService _formation;
         private ManufactureService _manufacture;
@@ -38,6 +44,7 @@ namespace Gravedigger2026.Meta
         public GameplayStateService GameplayState => _gameplayState;
         public LevelOperationDriver LevelDriver => _levelDriver;
         public ProtagonistProgressService Progress => _progress;
+        public TechTreeService TechTree => _techTree;
         public WarriorPoolService WarriorPool => _warriorPool;
         public BattleFormationService Formation => _formation;
 
@@ -45,6 +52,7 @@ namespace Gravedigger2026.Meta
         {
             _saveSlots.Load();
 
+            _techTree.Bind(_configs, _progress);
             _formation = new BattleFormationService(_warriorPool);
             _manufacture = new ManufactureService(_configs, _warehouse, _warriorPool);
             _levelDriver = new LevelOperationDriver(_configs, _gameplayState);
@@ -57,6 +65,7 @@ namespace Gravedigger2026.Meta
                         _digPrefabCatalog,
                         _digWorldParent != null ? _digWorldParent : transform,
                         _warehouse,
+                        _techTree,
                         HandleDigSummaryConfirmed,
                         SetStagePresentationActive));
             }
@@ -84,6 +93,26 @@ namespace Gravedigger2026.Meta
                 Debug.LogWarning("[MetaShell] UM PrefabCatalog missing — UpgradeManufacture uses placeholder.");
             }
 
+            if (_defendPrefabCatalog != null)
+            {
+                _levelDriver.RegisterModule(
+                    new DefendStageModule(
+                        _configs,
+                        _defendPrefabCatalog,
+                        _defendWorldParent != null ? _defendWorldParent : transform,
+                        _progress,
+                        _warriorPool,
+                        _formation,
+                        _warehouse,
+                        HandleDefendVictory,
+                        HandleDefendLevelFailure,
+                        SetStagePresentationActive));
+            }
+            else
+            {
+                Debug.LogWarning("[MetaShell] Defend PrefabCatalog missing — Defend uses placeholder.");
+            }
+
             _levelDriver.StageChanged += HandleStageChanged;
             _levelDriver.LevelEnded += HandleLevelEnded;
 
@@ -105,6 +134,11 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.LevelRequested += HandleLevel;
             }
 
+            if (_techTreeCanvasView != null)
+            {
+                _techTreeCanvasView.CloseRequested += HandleTechTreeClose;
+            }
+
             _gameplayState.StateChanged += HandleGameplayStateChanged;
         }
 
@@ -116,6 +150,11 @@ namespace Gravedigger2026.Meta
         private void OnDestroy()
         {
             _gameplayState.StateChanged -= HandleGameplayStateChanged;
+            if (_techTreeCanvasView != null)
+            {
+                _techTreeCanvasView.CloseRequested -= HandleTechTreeClose;
+            }
+
             if (_levelDriver != null)
             {
                 _levelDriver.StageChanged -= HandleStageChanged;
@@ -152,6 +191,13 @@ namespace Gravedigger2026.Meta
             }
 
             _progress.ResetToLevelOne(_configs);
+            _techTree.ResetForNewSave();
+            if (_techTreeCanvasView != null)
+            {
+                _techTreeCanvasView.Bind(_techTree, _progress, _configs);
+                _techTreeCanvasView.Hide();
+            }
+
             _gameplayState.ResetToDefaultDig();
             SetStagePresentationActive(false);
 
@@ -282,6 +328,21 @@ namespace Gravedigger2026.Meta
             AdvanceStageFromGameplay();
         }
 
+        private void HandleDefendVictory()
+        {
+            AdvanceStageFromGameplay();
+        }
+
+        private void HandleDefendLevelFailure(string reason)
+        {
+            if (_levelDriver == null)
+            {
+                return;
+            }
+
+            _levelDriver.AbortLevelAsFailure(reason);
+        }
+
         private void AdvanceStageFromGameplay()
         {
             if (_levelDriver == null)
@@ -315,9 +376,41 @@ namespace Gravedigger2026.Meta
 
         private void HandleSettings()
         {
+            if (!_configs.IsLoaded)
+            {
+                _configs.TryLoadAll();
+            }
+
+            _progress.EnsureLoaded(_configs);
+            _techTree.Bind(_configs, _progress);
+            if (_techTree.LearnedTechIds.Count == 0)
+            {
+                _techTree.ResetForNewSave();
+            }
+
+            if (_techTreeCanvasView != null)
+            {
+                _techTreeCanvasView.Bind(_techTree, _progress, _configs);
+                _techTreeCanvasView.Show();
+                if (_inSaveShellView != null)
+                {
+                    _inSaveShellView.HideToolsPanel();
+                }
+
+                return;
+            }
+
             if (_toastView != null)
             {
-                _toastView.Show("设置（占位）");
+                _toastView.Show("设置（科技树 Prefab 未绑定）");
+            }
+        }
+
+        private void HandleTechTreeClose()
+        {
+            if (_techTreeCanvasView != null)
+            {
+                _techTreeCanvasView.Hide();
             }
         }
 

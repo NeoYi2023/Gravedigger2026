@@ -3,6 +3,7 @@ using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Gameplay.Dig;
 using UnityEngine;
 
@@ -10,6 +11,7 @@ namespace Gravedigger2026.Core.Level
 {
     /// <summary>
     /// Dig IStageModule (Approach A / D-020): Instantiate DigStageRoot + map by DigMapId.
+    /// Caps from TechTreeService (UI-012).
     /// </summary>
     public sealed class DigStageModule : IStageModule
     {
@@ -17,6 +19,7 @@ namespace Gravedigger2026.Core.Level
         private readonly DigPrefabCatalog _catalog;
         private readonly Transform _parent;
         private readonly WarehouseService _warehouse;
+        private readonly TechTreeService _techTree;
         private readonly Action _onSummaryConfirmed;
         private readonly Action<bool> _onDigPresentationActive;
 
@@ -28,6 +31,7 @@ namespace Gravedigger2026.Core.Level
             DigPrefabCatalog catalog,
             Transform parent,
             WarehouseService warehouse,
+            TechTreeService techTree,
             Action onSummaryConfirmed,
             Action<bool> onDigPresentationActive = null)
         {
@@ -35,6 +39,7 @@ namespace Gravedigger2026.Core.Level
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _parent = parent;
             _warehouse = warehouse ?? throw new ArgumentNullException(nameof(warehouse));
+            _techTree = techTree;
             _onSummaryConfirmed = onSummaryConfirmed;
             _onDigPresentationActive = onDigPresentationActive;
         }
@@ -71,7 +76,11 @@ namespace Gravedigger2026.Core.Level
 
             _controller.ConfigureCatalog(_catalog);
 
-            var caps = DigProtagonistCapabilities.CreateDemoDefaults(_configs.GetAllGraveQualityIds());
+            var caps = _techTree != null
+                ? _techTree.Capabilities
+                : DigProtagonistCapabilities.CreateDemoDefaults(_configs.GetAllGraveQualityIds());
+            Debug.Log(
+                $"[Stage:Dig] Caps DigDamage={caps.DigDamage} DigActionDuration={caps.DigActionDuration} Cursor={caps.DigCursorRadius} StageBonus={caps.DigStageDurationBonus}");
             _onDigPresentationActive?.Invoke(true);
             _controller.Begin(context, _configs, _warehouse, caps, () =>
             {

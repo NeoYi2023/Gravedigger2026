@@ -1,6 +1,6 @@
 ---
 title: Defend — Prepare / 开战 / 部署 / 护盾 / 倒计时
-status: todo
+status: done
 difficulty: 2
 demo_scope: in-scope
 spec_refs:
@@ -30,9 +30,21 @@ spec_refs:
 
 ## 验收
 
-- [ ] Prepare → Combat 切换正确；护盾与倒计时可见
-- [ ] 地图按 BattleMapId 从 Prefabs/Maps 实例化
+- [x] Prepare → Combat 切换正确；护盾与倒计时可见
+- [x] 地图按 BattleMapId 从 Prefabs/Maps 实例化
 
 ## 依赖
 
 - [04c](04c-um-formation.md)
+
+## 编码前
+
+难度 2：须方案比选。**负责人 2026-07-26 选定方案 A。**
+
+## 实现（SPEC v0.37.0，方案 A）
+
+- 规则层：`Core/Defend/DefendSessionService` + `DefendPhase`（Prepare→Combat；Shield；整秒倒计时）
+- 模块：`Core/Level/DefendStageModule`（替换占位；Enter Instantiate StageRoot + 独立 `Prefabs/Maps/{BattleMapId}`）
+- 表现：`Gameplay/Defend/DefendStageController` + `DefendHudView` + 复用 `FormationPanelView`；开战部署 `BattleProtagonist` + `Warriors/{AppearanceId}`
+- Catalog / Builder：`Settings/Defend/DefendPrefabCatalog`；`Editor/Defend/DefendAssetBuilder`（菜单或进编辑器自动 Regen `v0370`）；地图补 `EngageZone`
+- Meta：`MetaShellController` 注册 Defend 模块 + `DefendWorldParent`

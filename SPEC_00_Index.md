@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.36.0
-**最后更新 / Last Updated:** 2026-07-25  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 落地；Defend 待续）  
+**文档版本 / Document Version:** v0.42.0
+**最后更新 / Last Updated:** 2026-07-26  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,12 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-26 | v0.42.0 | 科技树画布可选片方案 A（UI-012 / 06）：`ConfigCsvRepository` 加载 TechTree/TechEffect；纯 C# `TechTreeService`（InitiallyUnlocked 自动学会、前置+LearnCost、扣 TechPoint、属性加法重算 `DigProtagonistCapabilities`）；设置入口打开 Prefab 摆位 uGUI 画布（平移/悬停/连线/学习）；`DigStageModule` 改读重算 caps；临时 `Prefabs/Meta/TechTreeCanvasRoot.prefab`；同步 SPEC_03 §3.8/UI-012、SPEC_04 §6 |
+| 2026-07-26 | v0.41.0 | Defend 失控开战 roll 与胜负结算方案 A（D-043 / 05d）：开战锁定 Degree/Tier + `FinalLossChance` 独立 roll→Rebel；Rebel 就近打主角/兵/怪（对主角扣盾）；清场→Ended 入账 Demo 阶段经验 100→`TryAdvanceStage`；`Shield≤0`→LevelFailure 不入账并中止关卡；加载 `Combat_LossOfControlConfig.csv`；PermanentDeath 最小（宝石回仓+清布阵+移池）；同步 SPEC_03 §3.8/§3.12、SPEC_04 §6 |
+| 2026-07-26 | v0.40.0 | Defend 士兵远程弹道片方案 A（D-042 远程 / 05c2）：Session 登记 `RangedProjectileSpeed`/`RangedTimeoutSeconds` + `TryConfirmRangedHit`；`WarriorAgentView` 与近战共用 EngageZone/ASPD；`ProjectileView` 运动学飞向锁定怪（距离≤hitRadius 命中，超时未命中不扣血）；临时 `Prefabs/Defend/Projectile.prefab`；同步 SPEC_03 §3.8 D-042、SPEC_04 §6 |
+| 2026-07-26 | v0.39.0 | Defend 士兵近战片方案 A（D-042 近战）：`WarriorCombatMath` + Session 登记兵/怪 HP；EngageZone 最近选敌；近战前摇 HitConfirm；怪物 `AttackPower` 扣兵 HP；CombatDead 停手；清场条件可检测（不入账）；远程弹道拆 05c2；同步 SPEC_03 §3.8 D-042、SPEC_04 §6 |
+| 2026-07-26 | v0.38.0 | Defend 刷怪与寻路方案 A：`ConfigCsvRepository` 加载 WaveSpawn/Monster；`DefendSessionService` 按剩余秒激活刷怪行并发事件；临时固定 `SpawnPoint` + Runtime NavMesh 烘焙；`MonsterAgentView`（NavMeshAgent）接近并以普攻扣 `Shield`；`Shield≤0`→Ended/LevelFailure 钩子；临时 `Prefabs/Defend/Monsters/{ModelId}`；同步 SPEC_03 §3.8 D-041、SPEC_04 §6 |
+| 2026-07-26 | v0.37.0 | Defend Prepare/开战/护盾方案 A：`DefendStageModule` + `DefendSessionService` + `DefendPrefabCatalog`；Enter 按 `BattleMapId` Instantiate `Prefabs/Maps/`；Prepare 复用 `BattleFormationService`/`FormationPanelView`；开战 ≥1 上阵 → 部署临时 `BattleProtagonist` + 士兵；`Shield`=`ProtagonistMaxHP`；倒计时可见（本片不刷怪）；同步 SPEC_03 §3.8 D-040、SPEC_04 §6 |
 | 2026-07-25 | v0.36.0 | UM 布阵区方案 A：`BattleFormationService`（连续坐标上阵/下阵/改位 + 控制力占用）+ `FormationPanelView`；与士兵池打通；存档级持有供 Defend Prepare 共用；同步 SPEC_03 §3.8 D-032、SPEC_04 §6 |
 | 2026-07-25 | v0.35.0 | UM 制造区方案 A：`ManufactureService`（15 严格槽位 / 预览 / 精魂闸门）+ `WarriorPoolService`；追加加载 Soul/Class/Gem/Race/BodyPart/Appearance/Equip/GemSuffix 八表；`WarehouseService` 支持 BodyPart 入账与按 Id 扣减；临时 `Prefabs/Defend/Warriors/{AppearanceId}`；同步 SPEC_03 §3.8 D-031、SPEC_04 §6 |
 | 2026-07-25 | v0.34.0 | UM 升级区方案 A：`UpgradeManufactureStageModule` + `ProtagonistProgressService` + 读 `ProtagonistLevelConfig`；Debug 注入经验连升；同步 SPEC_03 §3.8 D-030、SPEC_04 §6 |
@@ -115,6 +121,12 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-26 | v0.42.0 | Optional TechTree canvas Approach A (UI-012 / 06): `ConfigCsvRepository` loads TechTree/TechEffect; pure-C# `TechTreeService` (InitiallyUnlocked auto-learn, prereqs+LearnCost, spend TechPoints, additive recalc of `DigProtagonistCapabilities`); Settings opens Prefab-laid-out uGUI canvas (pan/hover/edges/learn); `DigStageModule` reads recalced caps; temp `Prefabs/Meta/TechTreeCanvasRoot.prefab`; synced SPEC_03 §3.8/UI-012, SPEC_04 §6 |
+| 2026-07-26 | v0.41.0 | Defend LossOfControl StartBattle roll + win/lose settle Approach A (D-043 / 05d): lock Degree/Tier + per-soldier `FinalLossChance`→Rebel; Rebel nearest hits protagonist/soldiers/enemies (Shield−1 on protagonist); clear→Ended credits Demo stage Exp 100→`TryAdvanceStage`; `Shield≤0`→LevelFailure no Exp + abort Level; load `Combat_LossOfControlConfig.csv`; minimal PermanentDeath (gems→warehouse, clear formation, remove pool); synced SPEC_03 §3.8/§3.12, SPEC_04 §6 |
+| 2026-07-26 | v0.40.0 | Defend warrior ranged projectile Approach A (D-042 ranged / 05c2): Session registers `RangedProjectileSpeed`/`RangedTimeoutSeconds` + `TryConfirmRangedHit`; `WarriorAgentView` shares EngageZone/ASPD with melee; `ProjectileView` kinematic fly to locked monster (hit when distance≤hitRadius; timeout miss no damage); temp `Prefabs/Defend/Projectile.prefab`; synced SPEC_03 §3.8 D-042, SPEC_04 §6 |
+| 2026-07-26 | v0.39.0 | Defend warrior melee slice Approach A (D-042 melee): `WarriorCombatMath` + Session HP registry; EngageZone nearest target; melee windup HitConfirm; monster `AttackPower` vs warrior HP; CombatDead stops acting; clear-victory detectable (no credit); ranged deferred to 05c2; synced SPEC_03 §3.8 D-042, SPEC_04 §6 |
+| 2026-07-26 | v0.38.0 | Defend spawn + path Approach A: `ConfigCsvRepository` loads WaveSpawn/Monster; `DefendSessionService` activates rows by remaining seconds and emits events; temp fixed `SpawnPoint` + runtime NavMesh bake; `MonsterAgentView` (NavMeshAgent) approaches and normal-attacks `Shield`; `Shield≤0`→Ended/LevelFailure hook; temp `Prefabs/Defend/Monsters/{ModelId}`; synced SPEC_03 §3.8 D-041, SPEC_04 §6 |
+| 2026-07-26 | v0.37.0 | Defend Prepare/StartBattle/Shield Approach A: `DefendStageModule` + `DefendSessionService` + `DefendPrefabCatalog`; Enter instantiates `Prefabs/Maps/` by `BattleMapId`; Prepare reuses `BattleFormationService`/`FormationPanelView`; StartBattle requires ≥1 deployed → temp `BattleProtagonist` + warriors; `Shield`=`ProtagonistMaxHP`; countdown visible (no spawn this slice); synced SPEC_03 §3.8 D-040, SPEC_04 §6 |
 | 2026-07-25 | v0.36.0 | UM formation Approach A: `BattleFormationService` (continuous-coord deploy/undeploy/reposition + ControlPower usage) + `FormationPanelView`; wired to warrior pool; save-scoped for shared Defend Prepare; synced SPEC_03 §3.8 D-032, SPEC_04 §6 |
 | 2026-07-25 | v0.35.0 | UM manufacture Approach A: `ManufactureService` (15 strict slots / preview / Spirit gate) + `WarriorPoolService`; loads Soul/Class/Gem/Race/BodyPart/Appearance/Equip/GemSuffix tables; `WarehouseService` credits BodyParts and consumes by Id; temp `Prefabs/Defend/Warriors/{AppearanceId}`; synced SPEC_03 §3.8 D-031, SPEC_04 §6 |
 | 2026-07-25 | v0.34.0 | UM upgrade panel Approach A: `UpgradeManufactureStageModule` + `ProtagonistProgressService` + `ProtagonistLevelConfig`; Debug Exp inject → chain level-up; synced SPEC_03 §3.8 D-030, SPEC_04 §6 |

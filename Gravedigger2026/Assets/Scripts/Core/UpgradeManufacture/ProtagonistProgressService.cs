@@ -6,8 +6,8 @@ using UnityEngine;
 namespace Gravedigger2026.Core.UpgradeManufacture
 {
     /// <summary>
-    /// In-memory protagonist Level / LifetimeExperience / TechPoints / caps (SPEC_03 §3.11 / D-030).
-    /// Formal Exp credit on Defend victory is deferred; this slice supports Debug inject.
+    /// In-memory protagonist Level / LifetimeExperience / TechPoints / caps (SPEC_03 §3.11 / D-030 / D-043).
+    /// Formal Exp credit on Defend victory via AddExperience(DemoStageExperienceReward).
     /// </summary>
     public sealed class ProtagonistProgressService
     {
@@ -90,6 +90,39 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         }
 
         public bool IsMaxLevel => Level >= _maxConfiguredLevel;
+
+        public bool TrySpendTechPoints(int amount)
+        {
+            if (amount < 0)
+            {
+                return false;
+            }
+
+            if (amount == 0)
+            {
+                return true;
+            }
+
+            if (TechPoints < amount)
+            {
+                return false;
+            }
+
+            TechPoints -= amount;
+            Changed?.Invoke();
+            return true;
+        }
+
+        public void DebugGrantTechPoints(int amount)
+        {
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            TechPoints += amount;
+            Changed?.Invoke();
+        }
 
         private void RebuildLevelIndex(ConfigCsvRepository configs)
         {

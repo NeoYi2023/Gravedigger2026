@@ -59,6 +59,8 @@ namespace Gravedigger2026.Editor.Meta
 
             // Dig vertical (D-020) Prefabs + MetaShell Dig wiring.
             Gravedigger2026.Editor.Dig.DigAssetBuilder.GenerateAll();
+            // TechTree canvas (UI-012) Prefab + Settings wiring.
+            Gravedigger2026.Editor.Tech.TechTreeAssetBuilder.GenerateAll();
         }
 
         private static void EnsureFolders()

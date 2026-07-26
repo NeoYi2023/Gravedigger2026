@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7256738e6fefc3945b5386f7575592f5, type: 3}
+  m_Name: DefendPrefabCatalog
+  m_EditorClassIdentifier: 
+  _defendStageRootPrefab: {fileID: 5195272429028053511, guid: 079d4c2fb60749d40a3c468990405b70, type: 3}
+  _battleProtagonistPrefab: {fileID: 4104538918496031396, guid: 8a7dab25f0ea1134a82ffc108f6fdfc6, type: 3}
+  _projectilePrefab: {fileID: 7104538918496031401, guid: c4e8a1b2d3f5467890abcdef12345678, type: 3}
+  _maps:
+  - MapId: Ground_01
+    Prefab: {fileID: 2120705586636139558, guid: 2b55ec59d080c0c4a95b02b760b12e4b, type: 3}
+  - MapId: Ground_02
+    Prefab: {fileID: 7264777058871548636, guid: 7a79e893b4426484b99b8fe04050b953, type: 3}
+  - MapId: Ground_03
+    Prefab: {fileID: 6924062899616502693, guid: 0b521ecfc5bc25440bccf5cf82e26145, type: 3}
+  - MapId: Ground_04
+    Prefab: {fileID: 7210777308345723106, guid: ce629b71308e93541bb64b2154d643f2, type: 3}
+  - MapId: Ground_05
+    Prefab: {fileID: 1713873806957860731, guid: 55f142e0142c1bd41962bd466e64bd2e, type: 3}
+  _warriorAppearances:
+  - AppearanceId: App_01
+    Prefab: {fileID: 3927253789114556784, guid: bba7ac13b3abf76478718a93d04db97e, type: 3}
+  - AppearanceId: App_02
+    Prefab: {fileID: 5571087911832153802, guid: c56398953a6e8a34489d390f4a908bd5, type: 3}
+  - AppearanceId: App_03
+    Prefab: {fileID: 1307972536732645804, guid: fc7959b3afcc4cf4bb3cf525cb53dc0e, type: 3}
+  - AppearanceId: App_04
+    Prefab: {fileID: 335183830416959083, guid: 4bb2bfe30c3d4144fb6b4a21b7256114, type: 3}
+  - AppearanceId: App_05
+    Prefab: {fileID: 7011144667353517037, guid: 469b1c14ee7053f4294a53b267cac0cf, type: 3}
+  - AppearanceId: App_06
+    Prefab: {fileID: 5095459468666009328, guid: f57e17c44f8375248a20213c9fe0c096, type: 3}
+  - AppearanceId: App_07
+    Prefab: {fileID: 1032979178503171019, guid: 9fd4938b21fd834469779d6919314658, type: 3}
+  - AppearanceId: App_08
+    Prefab: {fileID: 8965099250728526135, guid: 8b2cd5dd633480d4fa1478385fd690c6, type: 3}
+  - AppearanceId: App_09
+    Prefab: {fileID: 5668095864612883419, guid: 8afc6ea8c3e189a4eb28059daca33470, type: 3}
+  - AppearanceId: App_10
+    Prefab: {fileID: 2259025151361738304, guid: c85e66db2a00d6347b6ff74fa22e7dfe, type: 3}
+  _monsterModels:
+  - ModelId: MonsterModel_01
+    Prefab: {fileID: 4104538918496031396, guid: 1ccbe6d85da84fa1add847a22decfb29, type: 3}
+  - ModelId: MonsterModel_02
+    Prefab: {fileID: 4104538918496031396, guid: 724ab3882eb2427485a26b2caafae012, type: 3}
+  - ModelId: MonsterModel_03
+    Prefab: {fileID: 4104538918496031396, guid: d0c8bd4776b04537909611dfc2c1ab9d, type: 3}
+  - ModelId: MonsterModel_04
+    Prefab: {fileID: 4104538918496031396, guid: 15b74ddd604c44a397681aae2a03cd18, type: 3}
+  - ModelId: MonsterModel_05
+    Prefab: {fileID: 4104538918496031396, guid: b2edd44343f44fb6a4a022ed1beddf16, type: 3}
+  - ModelId: MonsterModel_06
+    Prefab: {fileID: 4104538918496031396, guid: 3d8a3378a0b14206bad5bd83eeb71391, type: 3}
+  - ModelId: MonsterModel_07
+    Prefab: {fileID: 4104538918496031396, guid: e79d54b1f1f44eccaa604692e741c74b, type: 3}
+  - ModelId: MonsterModel_08
+    Prefab: {fileID: 4104538918496031396, guid: 62333f02a00841b999102cf24045080b, type: 3}
+  - ModelId: MonsterModel_09
+    Prefab: {fileID: 4104538918496031396, guid: f3e295caaeb24927a5716260b4d9de58, type: 3}
+  - ModelId: MonsterModel_10
+    Prefab: {fileID: 4104538918496031396, guid: db8f62920b8045459abaa3722131751f, type: 3}

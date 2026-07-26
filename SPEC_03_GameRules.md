@@ -376,12 +376,12 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-004 | 挖坟占位屏 | 占位 | 可识别当前为 Dig |
 | UI-005 | 升级与制造占位屏 | 占位 | 可识别当前为 UpgradeManufacture（原 SewRevive） |
 | UI-006 | 防守占位屏 | 占位 | 可识别当前为 Defend；完整 UI 见 §3.12 |
-| UI-007 | 设置页 | 已定义（规则库） | 自工具面板进入；承载科技树画布（UI-012）；其它设置项 TBD |
+| UI-007 | 设置页 | 已实现（方案 A） | 自工具面板进入；承载科技树画布（UI-012）；其它设置项 TBD |
 | UI-008 | 关卡占位页 | 占位 | 自工具面板进入；非玩法三态 |
 | UI-009 | 开战按钮 | 已定义（Demo 流水线） | Defend 准备态；点击 → StartBattle（§3.12）；验收见 §3.8 D-040 |
 | UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 同屏三区（升级/制造/布阵）+ 底部「完成」；细则控件可简陋；验收见 §3.8 D-030～D-032 |
 | UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；确认后接 §3.9；验收见 §3.8 D-020 |
-| UI-012 | 科技树画布 | 已定义（规则库） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；本版 Demo **可选后置**（非 §3.8 P0） |
+| UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 
 ### English
 
@@ -393,12 +393,12 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-004 | Dig placeholder | Placeholder | Identifiable Dig |
 | UI-005 | UpgradeManufacture placeholder | Placeholder | Identifiable UpgradeManufacture (was SewRevive) |
 | UI-006 | Defend placeholder | Placeholder | Identifiable Defend; full UI in §3.12 |
-| UI-007 | Settings page | Defined (rules library) | From Tools; hosts TechTree canvas (UI-012); other settings TBD |
+| UI-007 | Settings page | Done (Approach A) | From Tools; hosts TechTree canvas (UI-012); other settings TBD |
 | UI-008 | Level stub page | Placeholder | From Tools; Meta may Toast; pipeline must start sample Level (§3.8 D-003/D-010) |
 | UI-009 | StartBattle button | Defined (Demo pipeline) | Defend Prepare; click → StartBattle (§3.12); accept §3.8 D-040 |
 | UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Three panels + bottom Complete; widgets may be rough; accept §3.8 D-030–D-032 |
 | UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; confirm → §3.9; accept §3.8 D-020 |
-| UI-012 | TechTree canvas | Defined (rules library) | 2D pannable canvas; §3.13; **optional** this Demo (not §3.8 P0) |
+| UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 
 ---
 
@@ -446,13 +446,13 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a thr
 | D-004 | 进档后可识别当前处于三种玩法状态之一；默认进档为挖坟占位；关卡内由阶段玩法类型驱动 | P0 | Meta 占位+Debug 切态保留；关卡内由 `LevelOperationDriver` 按阶段 `GameplayType` 驱动 |
 | D-010 | 运行时只读 `ConfigTables/Csv/`；按 `LevelOperationConfig` 升序驱动至少一条含 Dig → UpgradeManufacture → Defend 的样例关卡；UI/日志可见 LevelId、StageNumber、GameplayType | P0 | 已实现（方案 A；手验：Tools 关卡 + Debug 推进阶段） |
 | D-020 | Dig 垂直切片可玩：按 `DigMapId` 实例化 `Assets/Prefabs/Maps/{Id}.prefab`；坟墓可挖可掉落；有效时长归零 → DigStageSummary 确认 → 交还关卡驱动 | P0 | 已实现（方案 A：`DigStageModule` + `DigSessionService`） |
-| D-030 | UpgradeManufacture 升级区：可读 `ProtagonistLevelConfig`；注入/入账经验后可连升并看到表字段生效（TechPoints / ControlPowerCap / ProtagonistMaxHP） | P0 | 已实现（方案 A：`UpgradeManufactureStageModule` + `ProtagonistProgressService`；正式入账仍待 05d） |
+| D-030 | UpgradeManufacture 升级区：可读 `ProtagonistLevelConfig`；注入/入账经验后可连升并看到表字段生效（TechPoints / ControlPowerCap / ProtagonistMaxHP） | P0 | 已实现（方案 A：`UpgradeManufactureStageModule` + `ProtagonistProgressService`；正式入账见 D-043） |
 | D-031 | UpgradeManufacture 制造：至少可制造 1 名士兵实例并入池（临时 Prefab 可；技能不施放） | P0 | 已实现（方案 A：`ManufactureService` + `WarriorPoolService`；严格槽位 / 精魂闸门 / 种族与外观定稿 / 命名；临时 `Prefabs/Defend/Warriors/{AppearanceId}`） |
 | D-032 | UpgradeManufacture 布阵：连续坐标布阵可写回；与 Defend Prepare 共用同一套 BattleFormation | P0 | 已实现（方案 A：`BattleFormationService` + `FormationPanelView`；按钮上阵/下阵/微调坐标；控制力占用展示；存档级持有供 Prepare） |
-| D-040 | Defend Prepare / 开战 / 护盾：加载 `BattleMapId`→`Prefabs/Maps/`；开战须 ≥1 上阵；`Shield` 初值=主角等级行 `ProtagonistMaxHP` | P0 | 待实现 |
-| D-041 | Defend 刷怪与寻路：样例波次能出怪；Demo 最小出生点（临时固定点或地图内随机）；怪物 NavMesh 接近并以普攻扣主角护盾；精确 OutsideMap 几何 **后置** | P0 | 待实现 |
-| D-042 | Defend 士兵战斗：EngageZone 内普攻可选敌并造成伤害（第一版不施放技能） | P0 | 待实现 |
-| D-043 | Defend 胜负与结算：清场胜利可入账阶段经验并交还关卡驱动；`Shield ≤ 0` → LevelFailure（可验） | P0 | 待实现 |
+| D-040 | Defend Prepare / 开战 / 护盾：加载 `BattleMapId`→`Prefabs/Maps/`；开战须 ≥1 上阵；`Shield` 初值=主角等级行 `ProtagonistMaxHP` | P0 | 已实现（方案 A：`DefendStageModule` + `DefendSessionService`；倒计时可跑；刷怪/战斗见后续片） |
+| D-041 | Defend 刷怪与寻路：样例波次能出怪；Demo 最小出生点（临时固定点或地图内随机）；怪物 NavMesh 接近并以普攻扣主角护盾；精确 OutsideMap 几何 **后置** | P0 | 已实现（方案 A：Session 按剩余秒激活 WaveSpawn + Runtime NavMesh + `MonsterAgentView` 扣盾；`Shield≤0`→Ended 钩子） |
+| D-042 | Defend 士兵战斗：EngageZone 内普攻可选敌并造成伤害（第一版不施放技能） | P0 | 已实现（方案 A：近战前摇 + 远程 `ProjectileView` 软碰撞命中/超时未命中；清场可检测；胜负入账见 D-043） |
+| D-043 | Defend 胜负与结算：清场胜利可入账阶段经验并交还关卡驱动；`Shield ≤ 0` → LevelFailure（可验） | P0 | 已实现（方案 A：开战 Degree/Tier 锁定 + `FinalLossChance` roll→Rebel 就近扣盾；清场 Ended 入账 Demo Exp=100→`TryAdvanceStage`；护盾归零 LevelFailure 不入账并 `AbortLevel`） |
 
 **Demo 范围外（仍排除）：**
 
@@ -460,7 +460,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a thr
 - 正式美术与动画 polish（临时 Prefab / 占位资源允许；禁止运行时引用 `SmallScaleInt/`）
 - 完整存档序列化 schema（超出槽占用及流水线所需的最小持久化字段）
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
-- 科技树画布完整验收（§3.13 可选后置；非本表 P0）
+- 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
 - 工具面板「设置」「关卡」以外的后续功能；完整 polish；未写入本表的需求
 - Editor 打表工具实现（[SPEC_04 §14](SPEC_04_Technical.md) 约定已锁；实现另开）
 
@@ -480,13 +480,13 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-004 | Identifiable gameplay state; default Dig placeholder; in-Level driven by stage GameplayType | P0 | Meta placeholders + Debug cycle kept; in-Level driven by `LevelOperationDriver` via stage `GameplayType` |
 | D-010 | Runtime reads `ConfigTables/Csv/` only; `LevelOperationConfig` drives at least one sample Level with Dig → UpgradeManufacture → Defend; UI/log shows LevelId, StageNumber, GameplayType | P0 | Done (Approach A; hand-check: Tools Level + Debug advance stage) |
 | D-020 | Dig vertical playable: instantiate `Assets/Prefabs/Maps/{DigMapId}.prefab`; dig + loot; duration → DigStageSummary confirm → return to Level driver | P0 | Done (Approach A: `DigStageModule` + `DigSessionService`) |
-| D-030 | UM upgrade panel: read `ProtagonistLevelConfig`; inject/credit Exp → multi-level up; TechPoints / ControlPowerCap / ProtagonistMaxHP visible | P0 | Done (Approach A: `UpgradeManufactureStageModule` + `ProtagonistProgressService`; formal credit still 05d) |
+| D-030 | UM upgrade panel: read `ProtagonistLevelConfig`; inject/credit Exp → multi-level up; TechPoints / ControlPowerCap / ProtagonistMaxHP visible | P0 | Done (Approach A: `UpgradeManufactureStageModule` + `ProtagonistProgressService`; formal credit in D-043) |
 | D-031 | UM manufacture: craft ≥1 soldier instance into pool (temp Prefab OK; no skill casts) | P0 | Done (Approach A: `ManufactureService` + `WarriorPoolService`; strict slots / Spirit gate / Race + Appearance finalize / naming; temp `Prefabs/Defend/Warriors/{AppearanceId}`) |
 | D-032 | UM formation: continuous-coord formation writable; shared BattleFormation with Defend Prepare | P0 | Done (Approach A: `BattleFormationService` + `FormationPanelView`; button deploy/undeploy/nudge coords; ControlPower usage; save-scoped for Prepare) |
-| D-040 | Defend Prepare / StartBattle / Shield: load `BattleMapId`→`Prefabs/Maps/`; StartBattle requires ≥1 deployed; Shield init = level-row `ProtagonistMaxHP` | P0 | Pending |
-| D-041 | Defend spawn + path: sample waves spawn; Demo-min spawn (fixed points or in-map random); monsters NavMesh approach and normal-attack Shield; exact OutsideMap geometry **deferred** | P0 | Pending |
-| D-042 | Defend WarriorCombat: EngageZone normal-attack targeting + damage (no skill casts in v1) | P0 | Pending |
-| D-043 | Defend win/lose: clear-spawn victory credits stage Exp and returns to Level driver; `Shield ≤ 0` → LevelFailure (verifiable) | P0 | Pending |
+| D-040 | Defend Prepare / StartBattle / Shield: load `BattleMapId`→`Prefabs/Maps/`; StartBattle requires ≥1 deployed; Shield init = level-row `ProtagonistMaxHP` | P0 | Done (Approach A: `DefendStageModule` + `DefendSessionService`; countdown runs; spawn/combat in later slices) |
+| D-041 | Defend spawn + path: sample waves spawn; Demo-min spawn (fixed points or in-map random); monsters NavMesh approach and normal-attack Shield; exact OutsideMap geometry **deferred** | P0 | Done (Approach A: Session activates WaveSpawn by remaining seconds + runtime NavMesh + `MonsterAgentView` hits Shield; `Shield≤0`→Ended hook) |
+| D-042 | Defend WarriorCombat: EngageZone normal-attack targeting + damage (no skill casts in v1) | P0 | Done (Approach A: melee windup + ranged `ProjectileView` soft-hit/timeout miss; clear detectable; win/lose credit in D-043) |
+| D-043 | Defend win/lose: clear-spawn victory credits stage Exp and returns to Level driver; `Shield ≤ 0` → LevelFailure (verifiable) | P0 | Done (Approach A: StartBattle Degree/Tier lock + `FinalLossChance`→Rebel nearest Shield hit; clear Ended credits Demo Exp=100→`TryAdvanceStage`; Shield 0 LevelFailure no Exp + `AbortLevel`) |
 
 **Out of Demo scope (still excluded):**
 
@@ -494,7 +494,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - Formal art / animation polish (temp Prefabs OK; **no** runtime refs to `SmallScaleInt/`)
 - Full save schema beyond occupied flag + minimal fields needed by the pipeline
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
-- Full TechTree canvas acceptance (§3.13 optional; not P0 here)
+- Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
 - Tools entries beyond Settings / Level; full polish; anything not in this table
 - Editor bake-tool implementation ([SPEC_04 §14](SPEC_04_Technical.md) rules locked; implement separately)
 
@@ -1662,7 +1662,7 @@ Idle/Move → (target in EngageZone) → Move to AttackRange
 | **关卡失败（LevelFailure）** | `Combat` 中 **护盾 Shield ≤ 0** → 立即关卡失败；**不**走 VictorySettlement / **无关卡结算奖励**（§3.9）；结算时对仍 `CombatDead` 的士兵按上表执行彻底死亡（无结束复活则 PermanentDeath） |
 | **本阶段胜利** | **同时**满足：① 本 `WaveConfigId` 下 **全部刷怪行均已触发**；② **全部已刷出怪物均已被击杀**（场上无存活敌、无待触发行） |
 | 倒计时归零 | **不**单独构成胜或负 |
-| 阶段胜利之后 | `Combat` → `Ended` → 结算彻底死亡（见士兵战斗）→ **统一入账本阶段经验（Experience）**（§3.11）→ §3.9 阶段结算（其余内容 **TBD**）→ 下一阶段 /（若末阶段）VictorySettlement |
+| 阶段胜利之后 | `Combat` → `Ended` → 结算彻底死亡（见士兵战斗）→ **统一入账本阶段经验（Experience）**（§3.11；**Demo 固定 +100** `LifetimeExperience`，正式表字段后置）→ §3.9 阶段结算（其余内容 **TBD**）→ 下一阶段 /（若末阶段）VictorySettlement |
 | 关卡失败与经验 | LevelFailure **不**入账本阶段经验；此前已入账的 Experience 与其它已获资源 **不扣除** |
 | 叛变与胜利 | 存活的叛变士兵 **不**单独阻挡阶段胜利（胜利仍只看刷怪行与怪物） |
 
@@ -1896,7 +1896,7 @@ Idle/Move → (target in EngageZone) → Move to AttackRange
 | **LevelFailure** | In `Combat`, **Shield ≤ 0** → immediate LevelFailure; **no** VictorySettlement / **no level settlement rewards** (§3.9); settle PermanentDeath for remaining `CombatDead` soldiers (no end-battle revive → PermanentDeath) |
 | **Stage victory** | **All** of: ① **all** `WaveSpawnConfig` rows for this `WaveConfigId` **have fired**; ② **all** spawned monsters **have been killed** (no living enemies; no pending spawn rows) |
 | Countdown = 0 | **Does not** alone win or lose |
-| After stage victory | `Combat` → `Ended` → settle PermanentDeath (see WarriorCombat) → **credit stage Experience** (§3.11) → §3.9 stage settlement (other content **TBD**) → next stage / (if last) VictorySettlement |
+| After stage victory | `Combat` → `Ended` → settle PermanentDeath (see WarriorCombat) → **credit stage Experience** (§3.11; **Demo fixed +100** to `LifetimeExperience`; formal table field deferred) → §3.9 stage settlement (other content **TBD**) → next stage / (if last) VictorySettlement |
 | LevelFailure & Exp | LevelFailure **does not** credit stage Exp; already-owned Experience and other assets are **not clawed back** |
 | Rebels & victory | Living Rebel soldiers do **not** alone block stage victory (victory still only checks spawn rows + monsters) |
 
@@ -2160,7 +2160,8 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [x] 失控判定时机与叛变 AI（开战锁定 Degree；就近目标；技能二次完整率 roll——**Demo 无技能施放故不触发二次 roll**）（§3.11 / §3.12）
 - [ ] 防守阶段结算其余字段；关卡失败结算 UI / 字段
 - [ ] 怪物技能效果表；技能命中主角是否扣盾；士兵技能效果与复活技能（另专题；**Demo 不实现**）；精确 OutsideMap 出生几何（Demo 后置）
-- [ ] 科技树画布完整 Demo 验收（可选；非 §3.8 P0）
+- [x] 科技树画布 Demo 垂直（方案 A：学习扣点 + Dig 能力重算可验；非 §3.8 P0）
+- [ ] 科技树节点具体数值/图标 polish 与功能系统名完整枚举
 - [ ] 设置项清单（科技树入口已定；其它设置项 TBD）
 - [ ] 存档完整字段（显示名、时间戳、局内进度等）
 - [ ] 工具面板后续功能列表
@@ -2214,10 +2215,11 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [x] Demo acceptance expanded: Meta shell + Dig→UM→Defend pipeline (SPEC_03 §3.8 D-001～D-043); UM `GameplayConfigId` = ignore
 - [ ] Defend settlement other fields; LevelFailure settlement UI / fields
 - [ ] Monster skill-effect table; whether skill hits reduce Shield; soldier skill effects & revive skills (later topic; **not in Demo**); exact OutsideMap spawn geometry (post-Demo)
+- [x] TechTree canvas Demo vertical (Approach A: spend+learn + Dig caps recalc verifiable; not §3.8 P0)
+- [ ] Concrete tech-node values/icon polish & full feature-system enum
 - [ ] Settings item list (TechTree entry closed; other settings TBD)
 - [ ] Full save fields (name, timestamp, progress, etc.)
 - [ ] Future ToolsPanel entries
-- [ ] TechTree canvas full Demo acceptance (optional / not §3.8 P0)
 
 ---
 

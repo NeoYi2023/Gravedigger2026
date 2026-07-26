@@ -45,7 +45,8 @@ namespace Gravedigger2026.Core.Level
         }
 
         /// <summary>
-        /// Registers Defend placeholder. Dig / UM are registered by MetaShell (D-020 / D-030).
+        /// Registers placeholders for stages not yet wired by MetaShell.
+        /// Dig / UM / Defend are overwritten by MetaShell when catalogs are bound (D-020 / D-030 / D-040).
         /// </summary>
         public void RegisterDefaultPlaceholders()
         {
@@ -138,6 +139,30 @@ namespace Gravedigger2026.Core.Level
             StageChanged?.Invoke(null);
         }
 
+        /// <summary>
+        /// LevelFailure abort: exit current stage, end Level without VictorySettlement (SPEC_03 §3.9 / D-043).
+        /// </summary>
+        public void AbortLevelAsFailure(string reason)
+        {
+            if (!IsRunning && string.IsNullOrEmpty(ActiveLevelId))
+            {
+                return;
+            }
+
+            var levelId = ActiveLevelId;
+            ExitCurrentModule();
+            ActiveLevelId = null;
+            _stages = new List<LevelOperationConfigRow>();
+            _stageIndex = -1;
+            _currentContext = null;
+            var message = string.IsNullOrEmpty(reason)
+                ? $"LevelFailure — 关卡 {levelId} 中止"
+                : $"LevelFailure — {reason}";
+            Debug.LogWarning($"[LevelOperationDriver] {message}");
+            LevelEnded?.Invoke(message);
+            StageChanged?.Invoke(null);
+        }
+
         private bool TryEnterCurrentStage(out string error)
         {
             error = null;
@@ -218,7 +243,8 @@ namespace Gravedigger2026.Core.Level
                     }
 
                     context.ResolvedMapPrefabPath = battlePath;
-                    context.MapResolveNote = $"BattleMapId={defend.BattleMapId} → {battlePath} (Instantiate deferred).";
+                    context.MapResolveNote =
+                        $"BattleMapId={defend.BattleMapId} → {battlePath} (Instantiate by DefendStageModule).";
                     return true;
 
                 default:

@@ -1,6 +1,6 @@
 ---
 title: Defend — 刷怪波次与最小寻路扣盾
-status: todo
+status: done
 difficulty: 2
 demo_scope: in-scope
 spec_refs:
@@ -28,8 +28,20 @@ spec_refs:
 
 ## 验收
 
-- [ ] 样例波次能出怪；怪能碰到主角扣盾
+- [x] 样例波次能出怪；怪能碰到主角扣盾
 
 ## 依赖
 
 - [05a](05a-defend-prepare-shield.md)
+
+## 编码前
+
+难度 2：须方案比选。**负责人 2026-07-26 选定方案 A**（Session 驱动 + NavMeshAgent）。
+
+## 实现（SPEC v0.38.0，方案 A）
+
+- 配置：`ConfigCsvRepository` 加载 `Defend_WaveSpawnConfig` / `Defend_MonsterConfig`
+- 规则：`DefendSessionService` 按 `RemainingCombatSeconds` 激活波次行 → `WaveSpawnRequested`；`ApplyProtagonistNormalHit`；`Shield≤0`→`Ended` + LevelFailure 钩子
+- 表现：`MonsterAgentView`（NavMeshAgent）+ `DefendNavMeshBaker` Runtime 烘焙 + `DefendSpawnPointSet`（钟点/随机点；无点时几何回退）
+- Catalog / Builder：怪物 `Prefabs/Defend/Monsters/{ModelId}`；菜单或进编辑器自动 Regen `v0380`；Catalog 缺绑定时运行时临时立方体回退
+- PreferWarrior 本片回退打主角（士兵 HP 见 05c）

@@ -1,6 +1,6 @@
 ---
 title: Defend — 失控开战 roll 与胜负 / 经验结算
-status: todo
+status: done
 difficulty: 2
 demo_scope: in-scope
 spec_refs:
@@ -26,9 +26,21 @@ spec_refs:
 
 ## 验收
 
-- [ ] 胜利有经验入账；失败不入账本阶段经验且保留已有资源
-- [ ] 失控超额仍可开战；roll 行为可观察
+- [x] 胜利有经验入账；失败不入账本阶段经验且保留已有资源
+- [x] 失控超额仍可开战；roll 行为可观察
 
 ## 依赖
 
-- [05c](05c-defend-warrior-combat.md)
+- [05c](05c-defend-warrior-combat.md)（清场可检测）
+- 建议接 [05c2](05c2-defend-ranged-projectile.md) 后再验远程清场，非硬阻塞
+
+## 编码前
+
+难度 2：须方案比选。**负责人 2026-07-26 选定方案 A。**
+
+## 实现（SPEC v0.41.0，方案 A）
+
+- 规则：`DefendSessionService` 开战锁定 Degree/Tier；`ResolveStartBattleRebelRolls`→`FinalLossChance`；清场→`VictorySettled(+100)`；护盾归零→`LevelFailure` + PermanentDeath 最小结算
+- 配置：`ConfigCsvRepository` 加载 `Combat_LossOfControlConfig.csv`；`LossOfControlMath`
+- 表现：`WarriorAgentView` Rebel 不受 EngageZone，就近打主角/兵/怪（对主角扣盾）
+- 驱动：`DefendStageModule` 胜→`TryAdvanceStage`；败→`AbortLevelAsFailure`；宝石回仓+清布阵+移池
