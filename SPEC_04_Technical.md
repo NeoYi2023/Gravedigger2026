@@ -2122,6 +2122,17 @@ Assets/Prefabs/Defend/Monsters/{ModelId}.prefab
 - Art 目录存烘焙产物（图、Clip、Controller）；游戏 Instantiate 只引用 `Prefabs/` 下游戏 Prefab。
 - 主角固定逻辑名：`Digger`、`BattleProtagonist`（本版不另开多皮肤表）。
 
+**士兵游戏 Prefab 组装（`Warriors/{AppearanceId}`，俯视相机）：**
+
+| 节点 | 职责 |
+|------|------|
+| 根 | 位移；运行时挂 `WarriorAgentView` + `NavMeshAgent`（可代码 Add） |
+| 子 `Visual` | `SpriteRenderer` + `Animator`（Controller 来自 Art 烘焙）；`localEulerAngles = (90, 0, 0)`，使 Sprite 朝 +Y，对齐 Defend/Dig 俯视相机（相机 `Euler(90,0,0)`） |
+
+- View 层：`NavMeshAgent.updateRotation = false`（八向靠 Animator `DirIndex`，见 §15.5；本约定不要求本片已驱动参数）。
+- **禁止**用 `GenericTopDownController` 作默认玩法控制器（见 §15.4）。
+- 怪物 / `BattleProtagonist` 若仍用 Mesh 占位，不强制本结构；换 Sprite 时沿用同一约定。
+
 #### 15.3 导出路径改造（强制）
 
 厂商 `SpritesheetGenerator` 默认将 `outputParent` 写到工具内 `Created Spritesheets/`。**本项目维护补丁**：把 Editor 导出根改为 `Assets/Art/Characters/...`（按角色类型分子目录；导出文件夹名与 `AppearanceId` / `ModelId` / 主角约定对齐）。Clips / Controller / 可选导出 Prefab 随同写入该 Art 子目录；再组装或复制为 §15.2 的游戏 Prefab。
@@ -2182,6 +2193,17 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Die 等。挖坟循环动�
 #### 15.2 Project paths
 
 Same tree as ZH §15.2. Art holds bake outputs; runtime Instantiate uses `Prefabs/` only. Fixed protagonist logical names: `Digger`, `BattleProtagonist`.
+
+**Soldier game Prefab assembly (`Warriors/{AppearanceId}`, top-down camera):**
+
+| Node | Role |
+|------|------|
+| Root | Translation; runtime `WarriorAgentView` + `NavMeshAgent` (may be AddComponent) |
+| Child `Visual` | `SpriteRenderer` + `Animator` (Controller from Art bake); `localEulerAngles = (90, 0, 0)` so the sprite faces +Y toward the Defend/Dig top-down camera (`Euler(90,0,0)`) |
+
+- View: `NavMeshAgent.updateRotation = false` (8-dir via Animator `DirIndex`, §15.5; this slice need not drive those params yet).
+- **Do not** use `GenericTopDownController` as the default gameplay controller (§15.4).
+- Monsters / `BattleProtagonist` still on Mesh placeholders need not follow this yet; adopt the same layout when switching to sprites.
 
 #### 15.3 Export path patch (mandatory)
 

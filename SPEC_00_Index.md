@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.42.0
+**文档版本 / Document Version:** v0.45.0
 **最后更新 / Last Updated:** 2026-07-26  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
 
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-26 | v0.45.0 | 士兵外观 Prefab：根 + 子 `Visual`（Sprite/Animator，`localEuler(90,0,0)`）对齐俯视相机；`WarriorAgentView` 设 `NavMeshAgent.updateRotation=false`；同步 SPEC_04 §15.2 |
 | 2026-07-26 | v0.44.0 | Character Creator 导出补丁：切片强制 `textureType=Sprite` + 资产路径正斜杠；零 Clip 中止空 Controller；Editor 修复菜单重建 `.anim`/`.controller`；同步 SPEC_04 §15.3 |
 | 2026-07-26 | v0.43.0 | 落地 `Assets/Art/` 各系统美术源目录脚手架（Characters/Dig/Maps/Defend/UI/Placeholder/VFX/Audio）；预建 AppearanceId/ModelId/Ground/Grave 槽位；本版不另建顶层 `Sprites/`；同步 SPEC_04 §2 |
 | 2026-07-26 | v0.42.0 | 科技树画布可选片方案 A（UI-012 / 06）：`ConfigCsvRepository` 加载 TechTree/TechEffect；纯 C# `TechTreeService`（InitiallyUnlocked 自动学会、前置+LearnCost、扣 TechPoint、属性加法重算 `DigProtagonistCapabilities`）；设置入口打开 Prefab 摆位 uGUI 画布（平移/悬停/连线/学习）；`DigStageModule` 改读重算 caps；临时 `Prefabs/Meta/TechTreeCanvasRoot.prefab`；同步 SPEC_03 §3.8/UI-012、SPEC_04 §6 |
@@ -123,6 +124,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-26 | v0.45.0 | Warrior appearance Prefab: root + child `Visual` (Sprite/Animator, `localEuler(90,0,0)`) for top-down camera; `WarriorAgentView` sets `NavMeshAgent.updateRotation=false`; synced SPEC_04 §15.2 |
 | 2026-07-26 | v0.44.0 | Character Creator export patch: force slice `textureType=Sprite` + forward-slash asset paths; abort empty Controller when zero clips; Editor repair menu rebuilds `.anim`/`.controller`; synced SPEC_04 §15.3 |
 | 2026-07-26 | v0.43.0 | Scaffold `Assets/Art/` per-system art source folders (Characters/Dig/Maps/Defend/UI/Placeholder/VFX/Audio); pre-create AppearanceId/ModelId/Ground/Grave slots; no top-level `Sprites/` this revision; synced SPEC_04 §2 |
 | 2026-07-26 | v0.42.0 | Optional TechTree canvas Approach A (UI-012 / 06): `ConfigCsvRepository` loads TechTree/TechEffect; pure-C# `TechTreeService` (InitiallyUnlocked auto-learn, prereqs+LearnCost, spend TechPoints, additive recalc of `DigProtagonistCapabilities`); Settings opens Prefab-laid-out uGUI canvas (pan/hover/edges/learn); `DigStageModule` reads recalced caps; temp `Prefabs/Meta/TechTreeCanvasRoot.prefab`; synced SPEC_03 §3.8/UI-012, SPEC_04 §6 |
