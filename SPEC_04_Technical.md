@@ -59,16 +59,30 @@ Gravedigger2026/Assets/
 │   │   ├── Warriors/      # 士兵 AppearanceId Prefab
 │   │   └── Monsters/      # 怪物 ModelId Prefab
 │   └── Maps/              # Dig/Defend 共用地面变体 Ground_01…Ground_05
-├── Art/
-│   └── Characters/        # Character Creator 烘焙导出源（见 §15）
-│       ├── Protagonist/
-│       ├── Appearances/
-│       └── Monsters/
-├── Sprites/
+├── Art/                   # 美术源素材（非运行时 Instantiate 入口）
+│   ├── Characters/        # Character Creator 烘焙导出源（见 §15）
+│   │   ├── Protagonist/   # Digger / BattleProtagonist
+│   │   ├── Appearances/   # Appearances/{AppearanceId}/
+│   │   └── Monsters/      # Monsters/{ModelId}/
+│   ├── Dig/               # 坟墓、挖坟反馈等非角色源
+│   │   ├── Graves/        # Graves/{Grave_Q*}/
+│   │   └── Feedback/
+│   ├── Maps/              # Maps/{Ground_0N}/ 贴图等
+│   ├── Defend/            # 弹道、护盾等非角色表现源
+│   │   ├── Projectile/
+│   │   └── Shield/
+│   ├── UI/                # 2D 图标统一落点（本版不另建 Sprites/）
+│   │   ├── Currency/
+│   │   ├── Icons/
+│   │   ├── Outlines/
+│   │   ├── Tech/
+│   │   └── Meta/
+│   ├── Placeholder/       # Demo CSV AssetPath 过渡落点
+│   ├── VFX/
+│   └── Audio/             # 玩法音效源约定
 ├── Localization/
 │   ├── Strings/
 │   └── Fonts/
-├── Audio/
 ├── Resources/
 ├── Settings/              # 非表型 ScriptableObject（单例调参、引用槽等）
 ├── SmallScaleInt/         # 第三方 Character Creator 工具源（仅创作；见 §15）
@@ -77,11 +91,13 @@ Gravedigger2026/Assets/
     └── Csv/               # 程序读表（.csv）；打表产物；运行时唯一数据源
 ```
 
+**Art vs Prefabs：** `Art/` 存源素材（图、Clip、Controller、贴图等）；游戏 Instantiate / Catalog 绑定只引用 `Prefabs/<模块>/`。本版 **不** 单独落地顶层 `Sprites/`；2D 图标统一落在 `Art/UI/`（及 `Art/Placeholder/` 过渡）。角色烘焙细则见 [§15](#15-角色美术管线character-creator-烘焙整角)。
+
 实际目录以工程为准；结构性变更记入 SPEC_00 Changelog。配置表路径与命名强制约定见 [§14](#14-配置表工程约定与打表工具)。角色美术路径与工具目录禁入见 [§15](#15-角色美术管线character-creator-烘焙整角)。
 
 ### English
 
-Recommended tree as above (includes `Art/Characters/`, `Prefabs/Dig|Defend|Maps/...`, `SmallScaleInt/` tool source, `ConfigTables/Excel/` + `ConfigTables/Csv/`). Record structural changes in SPEC_00 Changelog. Config-table path and naming rules: [§14](#14-配置表工程约定与打表工具). Character art paths and vendor-folder ban: [§15](#15-角色美术管线character-creator-烘焙整角).
+Recommended tree as above. `Art/` holds source art (Characters per [§15](#15-角色美术管线character-creator-烘焙整角), Dig/Maps/Defend/UI/VFX/Audio, plus `Placeholder/` for Demo CSV `AssetPath`); runtime Instantiate uses `Prefabs/` only. Top-level `Sprites/` is **not** used this revision—2D icons live under `Art/UI/`. Also includes `Prefabs/Dig|Defend|Maps/...`, `SmallScaleInt/` tool source, `ConfigTables/Excel/` + `ConfigTables/Csv/`. Record structural changes in SPEC_00 Changelog. Config-table path and naming rules: [§14](#14-配置表工程约定与打表工具). Character art paths and vendor-folder ban: [§15](#15-角色美术管线character-creator-烘焙整角).
 
 ---
 
@@ -2110,7 +2126,17 @@ Assets/Prefabs/Defend/Monsters/{ModelId}.prefab
 
 厂商 `SpritesheetGenerator` 默认将 `outputParent` 写到工具内 `Created Spritesheets/`。**本项目维护补丁**：把 Editor 导出根改为 `Assets/Art/Characters/...`（按角色类型分子目录；导出文件夹名与 `AppearanceId` / `ModelId` / 主角约定对齐）。Clips / Controller / 可选导出 Prefab 随同写入该 Art 子目录；再组装或复制为 §15.2 的游戏 Prefab。
 
-**升级风险：** 重新导入 `.unitypackage` 会覆盖补丁脚本 → 每次导入后须 `diff` `SpritesheetGenerator.cs`（及相关写盘路径）并重打补丁。
+**切片 / Clip 补丁（强制，否则 Windows 下 `.anim`/`.controller` 会空导出）：**
+
+| 问题 | 现象 | 补丁 |
+|------|------|------|
+| 切片未设 `TextureImporter.textureType = Sprite` | meta 可有 `spriteMode: Multiple` 与 spritesheet 名，但 `textureType` 仍为 Default(0)；`LoadAllAssetRepresentationsAtPath` 得不到 Sprite → **不写任何 `.anim`**，却仍生成 **空 BlendTree**（`m_Childs: []`）的 `.controller` | 切片与 `ApplyFrameCountOption` 重导时必须 `textureType = Sprite`，并与厂商源 `spritesheets/`（`textureType: 8`）一致 |
+| `AssetImporter.GetAtPath` 使用反斜杠路径 | Windows 上 importer 可能为 null，切片静默跳过 | 资产路径统一 `.Replace("\\", "/")` |
+| 无 Sprite 仍建 Controller | 空状态机误当成功 | `AnimatorClipBuilder`：零 Clip 时 **LogError 并中止**，不写空 `.controller` |
+
+**修复已坏导出：** Editor 菜单 `Tools/Gravedigger/Art/Repair Character Creator Export`（对选中或指定角色文件夹：纠正 importer → 重导 → 重建 Clips/Controller）。
+
+**升级风险：** 重新导入 `.unitypackage` 会覆盖补丁脚本 → 每次导入后须 `diff` `SpritesheetGenerator.cs` / `AnimatorClipBuilder.cs`（及相关写盘路径）并重打补丁。
 
 #### 15.4 流水线
 
@@ -2161,7 +2187,17 @@ Same tree as ZH §15.2. Art holds bake outputs; runtime Instantiate uses `Prefab
 
 Vendor `SpritesheetGenerator` defaults `outputParent` to in-package `Created Spritesheets/`. **This project maintains a patch** so Editor export roots at `Assets/Art/Characters/...` (subfolders by role; folder names align with `AppearanceId` / `ModelId` / protagonist convention). Clips / Controller / optional export Prefab land under that Art subfolder; then assemble/copy into §15.2 game Prefabs.
 
-**Upgrade risk:** Re-importing the `.unitypackage` overwrites the patch → after each import, `diff` `SpritesheetGenerator.cs` (and related write paths) and re-apply.
+**Slice / Clip patch (mandatory — otherwise Windows exports empty `.anim`/`.controller`):**
+
+| Issue | Symptom | Patch |
+|-------|---------|-------|
+| Slice omits `TextureImporter.textureType = Sprite` | Meta may show Multiple + spritesheet names while `textureType` stays Default(0); no Sprite sub-assets → **no `.anim`**, yet an empty BlendTree `.controller` (`m_Childs: []`) is still written | Force `textureType = Sprite` on slice and `ApplyFrameCountOption` reimport; match vendor `spritesheets/` (`textureType: 8`) |
+| Backslash paths in `AssetImporter.GetAtPath` | Importer may be null on Windows; slice silently skipped | Normalize asset paths with `.Replace("\\", "/")` |
+| Controller built with zero clips | Empty state machine looks “successful” | `AnimatorClipBuilder`: **LogError and abort** when clip count is zero |
+
+**Repair broken exports:** Editor menu `Tools/Gravedigger/Art/Repair Character Creator Export` (fix importer → reimport → rebuild Clips/Controller for selected/target character folder).
+
+**Upgrade risk:** Re-importing the `.unitypackage` overwrites the patch → after each import, `diff` `SpritesheetGenerator.cs` / `AnimatorClipBuilder.cs` (and related write paths) and re-apply.
 
 #### 15.4 Pipeline
 

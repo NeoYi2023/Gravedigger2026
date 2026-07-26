@@ -65,6 +65,8 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-26 | v0.44.0 | Character Creator 导出补丁：切片强制 `textureType=Sprite` + 资产路径正斜杠；零 Clip 中止空 Controller；Editor 修复菜单重建 `.anim`/`.controller`；同步 SPEC_04 §15.3 |
+| 2026-07-26 | v0.43.0 | 落地 `Assets/Art/` 各系统美术源目录脚手架（Characters/Dig/Maps/Defend/UI/Placeholder/VFX/Audio）；预建 AppearanceId/ModelId/Ground/Grave 槽位；本版不另建顶层 `Sprites/`；同步 SPEC_04 §2 |
 | 2026-07-26 | v0.42.0 | 科技树画布可选片方案 A（UI-012 / 06）：`ConfigCsvRepository` 加载 TechTree/TechEffect；纯 C# `TechTreeService`（InitiallyUnlocked 自动学会、前置+LearnCost、扣 TechPoint、属性加法重算 `DigProtagonistCapabilities`）；设置入口打开 Prefab 摆位 uGUI 画布（平移/悬停/连线/学习）；`DigStageModule` 改读重算 caps；临时 `Prefabs/Meta/TechTreeCanvasRoot.prefab`；同步 SPEC_03 §3.8/UI-012、SPEC_04 §6 |
 | 2026-07-26 | v0.41.0 | Defend 失控开战 roll 与胜负结算方案 A（D-043 / 05d）：开战锁定 Degree/Tier + `FinalLossChance` 独立 roll→Rebel；Rebel 就近打主角/兵/怪（对主角扣盾）；清场→Ended 入账 Demo 阶段经验 100→`TryAdvanceStage`；`Shield≤0`→LevelFailure 不入账并中止关卡；加载 `Combat_LossOfControlConfig.csv`；PermanentDeath 最小（宝石回仓+清布阵+移池）；同步 SPEC_03 §3.8/§3.12、SPEC_04 §6 |
 | 2026-07-26 | v0.40.0 | Defend 士兵远程弹道片方案 A（D-042 远程 / 05c2）：Session 登记 `RangedProjectileSpeed`/`RangedTimeoutSeconds` + `TryConfirmRangedHit`；`WarriorAgentView` 与近战共用 EngageZone/ASPD；`ProjectileView` 运动学飞向锁定怪（距离≤hitRadius 命中，超时未命中不扣血）；临时 `Prefabs/Defend/Projectile.prefab`；同步 SPEC_03 §3.8 D-042、SPEC_04 §6 |
@@ -121,6 +123,8 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-26 | v0.44.0 | Character Creator export patch: force slice `textureType=Sprite` + forward-slash asset paths; abort empty Controller when zero clips; Editor repair menu rebuilds `.anim`/`.controller`; synced SPEC_04 §15.3 |
+| 2026-07-26 | v0.43.0 | Scaffold `Assets/Art/` per-system art source folders (Characters/Dig/Maps/Defend/UI/Placeholder/VFX/Audio); pre-create AppearanceId/ModelId/Ground/Grave slots; no top-level `Sprites/` this revision; synced SPEC_04 §2 |
 | 2026-07-26 | v0.42.0 | Optional TechTree canvas Approach A (UI-012 / 06): `ConfigCsvRepository` loads TechTree/TechEffect; pure-C# `TechTreeService` (InitiallyUnlocked auto-learn, prereqs+LearnCost, spend TechPoints, additive recalc of `DigProtagonistCapabilities`); Settings opens Prefab-laid-out uGUI canvas (pan/hover/edges/learn); `DigStageModule` reads recalced caps; temp `Prefabs/Meta/TechTreeCanvasRoot.prefab`; synced SPEC_03 §3.8/UI-012, SPEC_04 §6 |
 | 2026-07-26 | v0.41.0 | Defend LossOfControl StartBattle roll + win/lose settle Approach A (D-043 / 05d): lock Degree/Tier + per-soldier `FinalLossChance`→Rebel; Rebel nearest hits protagonist/soldiers/enemies (Shield−1 on protagonist); clear→Ended credits Demo stage Exp 100→`TryAdvanceStage`; `Shield≤0`→LevelFailure no Exp + abort Level; load `Combat_LossOfControlConfig.csv`; minimal PermanentDeath (gems→warehouse, clear formation, remove pool); synced SPEC_03 §3.8/§3.12, SPEC_04 §6 |
 | 2026-07-26 | v0.40.0 | Defend warrior ranged projectile Approach A (D-042 ranged / 05c2): Session registers `RangedProjectileSpeed`/`RangedTimeoutSeconds` + `TryConfirmRangedHit`; `WarriorAgentView` shares EngageZone/ASPD with melee; `ProjectileView` kinematic fly to locked monster (hit when distance≤hitRadius; timeout miss no damage); temp `Prefabs/Defend/Projectile.prefab`; synced SPEC_03 §3.8 D-042, SPEC_04 §6 |
