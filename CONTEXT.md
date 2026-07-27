@@ -95,7 +95,8 @@
 | DefendPhase | 防守子状态 | Prepare / Combat / Ended | [§3.12](SPEC_03_GameRules.md) |
 | StartBattle | 开战 | 准备态按钮；进入 Combat 并部署 | [§3.12](SPEC_03_GameRules.md) |
 | BattleMap | 战斗地图 | 连续可走空间；与 DigMap 阶段分离；表现可共用 `Ground_*`（`BattleMapId`）；Prefab 含 EngageZone | [§3.12](SPEC_03_GameRules.md) |
-| EngageZone | 选敌区 | 地图 Prefab 上比地图稍小的轴对齐方形；非叛变士兵仅区内选最近敌人 | [§3.12](SPEC_03_GameRules.md) |
+| EngageZone | 选敌区 | 地图 Prefab 上比地图稍小的 IsoDiamond（XZ 菱形）；非叛变士兵仅区内选最近敌人 | [§3.12](SPEC_03_GameRules.md) |
+| IsoDiamond | 地图菱形足迹 | XZ 曼哈顿菱形（`|dx|/hx+|dz|/hz≤1`）；半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`，可随 iso 高宽比各向异性（Demo `(5,2.5)`）；`DigMapBounds`/`EngageZone`/`WalkSurface`/NavMesh 共用 | [§3.10](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | AttackMode | 攻击模式 | Melee/Ranged；士兵 SoulConfig / 怪物 MonsterConfig；普攻命中分支 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | AttackRange | 攻击距离 | 士兵 ClassConfig / 怪物 MonsterConfig；进入距内才攻击 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | CombatDead | 战斗死亡 | 无宝石士兵 HP≤0；可复活；不触发物资去向 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |

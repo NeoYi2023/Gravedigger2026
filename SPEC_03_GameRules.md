@@ -21,7 +21,7 @@
 | DigGameplayConfig | 挖坟配置 | 挖坟配置表一行：时长、开局坟数、过程生成速率、品质权重（零权重项剔除）等（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | Grave | 坟墓 | 挖坟地图上的可生成实体；带坟墓品质 ID；落点须避开已有坟与障碍物。 |
 | VictorySettlement | 胜利结算 | 关卡**最后一阶段**结束后触发的关卡级结算反馈。 |
-| DigMap | 挖坟地图 | 表现上为旋转 45° 正方形（菱形外观）组成的地图；**逻辑层为整体可放置空间，非格子网格**；表现 Prefab 逻辑名 `Ground_01`…`Ground_05`（`DigMapId`）。 |
+| DigMap | 挖坟地图 | 表现上用 Unity **Isometric Tilemap** 铺斜 45° 菱形地板（正交/无透视）；**逻辑足迹 IsoDiamond**（XZ 曼哈顿菱形，与砖面外轮廓对齐；连续可放置，非格子网格）；表现 Prefab 逻辑名 `Ground_01`…`Ground_05`（`DigMapId`）。 |
 | Digger | 挖坟主角 | 挖坟阶段在地图中心点生成的角色；待机 / 挖坟循环动画由场上是否有坟正在被挖驱动（§3.10）；外观为 Character Creator **烘焙整角**，见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
 | DigAction | 挖掘流程 | 圆圈光标在坟上停留 ≥0.2s 触发；坟上播放 `DigActionDuration` 挖掘帧动画后结算扣血；该坟挖掘中不可重复触发（§3.10）。 |
 | DigObstacle | 挖坟障碍物 | Dig 阶段仅两类：Digger 与未消除 Grave；圆形障碍半径在各自预制体上配置（§3.10）。 |
@@ -98,7 +98,7 @@
 | Defend | 防守 | 关卡玩法类型 / `GameplayState`：准备态→开战→战斗；见 §3.12。 |
 | DefendPhase | 防守子状态 | 阶段内子状态：`Prepare`（准备）→ `Combat`（战斗中）→ `Ended`（已结束）。 |
 | StartBattle | 开战 | 准备态 UI 按钮；点击后进入 `Combat` 并部署单位（§3.12）。 |
-| BattleMap | 战斗地图 | 防守阶段地图；逻辑为连续可走空间（非格子）；与 DigMap 阶段分离，表现可共用 `Ground_*`（§3.12）。 |
+| BattleMap | 战斗地图 | 防守阶段地图；逻辑为连续可走空间（非格子）；表现与 DigMap 同为 Isometric Tilemap，可共用 `Ground_*`（§3.12）。 |
 | BattleProtagonist | 战斗主角 | 战斗中地图中央的主角实体；与挖坟 `Digger` 区分；Defend 中以 **护盾（Shield）** 代替 HP 承受普通攻击（§3.12）；外观为 Character Creator **烘焙整角**，见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
 | Shield | 护盾 | Defend 战斗中主角可承受 **普通攻击** 的次数；开战时 `Shield =` 当前等级行 `ProtagonistMaxHP`；归零 → LevelFailure（§3.12）。 |
 | Monster | 怪物 | 防守战斗敌方单位；参数见 `MonsterConfig`；出现位置可为地图内或外围（§3.12，[SPEC_04 §9.19](SPEC_04_Technical.md)）；外观为 Character Creator **烘焙整角**（`ModelId` Prefab），见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
@@ -109,7 +109,7 @@
 | RemainingCombatSeconds | 战斗剩余秒 | Defend 开战倒计时剩余整秒；与刷怪行 `SpawnRemainingSeconds` 相等时激活该行（§3.12）。 |
 | TargetSelect | 目标选择 | 怪物选目标模式：`Nearest` / `PreferWarrior` / `PreferProtagonist`（§3.12 / `MonsterConfig`）。 |
 | AttackPriority | 攻击优先级 | **士兵灵魂**配置字段（§3.11 / `SoulConfig`）；枚举与怪物 `TargetSelect` 对齐：`Nearest` \| `PreferWarrior` \| `PreferProtagonist`；**本批不驱动**选目标（默认见 `EngageZone` 内最近敌人）。怪物侧选目标用 `TargetSelect`（§3.12）。 |
-| EngageZone | 选敌区 | BattleMap 预制体上比地图稍小的轴对齐方形；非叛变士兵仅在此区内选最近敌人；区外不可选（§3.12）。 |
+| EngageZone | 选敌区 | BattleMap 预制体上比地图稍小的 **IsoDiamond**（XZ 菱形）；非叛变士兵仅在此区内选最近敌人；区外不可选（§3.12）。 |
 | AttackRange | 攻击距离 | 近战/远程均有；须进入目标攻击距离内才开始攻击动作（§3.12）。 |
 | CombatDead | 战斗死亡 | 士兵 HP≤0 且无宝石时的战场状态；可被战斗中复活技能拉起；**不**触发物资去向（§3.11、§3.12）。 |
 | PermanentDeath | 彻底死亡 | 实例移除 + 布阵位空 + 执行物资去向；结算于阶段胜利 `Ended` / LevelFailure，或带宝石士兵 HP≤0 立即触发（§3.11、§3.12）。 |
@@ -133,7 +133,7 @@
 | DigGameplayConfig | 挖坟配置 | One Dig config row: duration, initial grave count, spawn rate, quality weights (zero-weight entries dropped) (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | Grave | 坟墓 | Spawnable Dig-map entity with Grave Quality Id; placement must avoid existing graves and obstacles. |
 | VictorySettlement | 胜利结算 | Level-level settlement feedback after the **last** stage ends. |
-| DigMap | 挖坟地图 | Visually composed of 45°-rotated squares (diamond look); **logically one continuous placeable space, not a cell grid**; presentation Prefab logical names `Ground_01`…`Ground_05` (`DigMapId`). |
+| DigMap | 挖坟地图 | Presentation uses Unity **Isometric Tilemap** diamond floor tiles (orthographic / no perspective); **logic footprint IsoDiamond** (XZ Manhattan diamond aligned to tile silhouette; continuous placeable, not a cell grid); presentation Prefab logical names `Ground_01`…`Ground_05` (`DigMapId`). |
 | Digger | 挖坟主角 | Avatar spawned at DigMap center when Dig stage starts; idle vs looping dig anim driven by whether ≥1 grave is being dug (§3.10); visuals are Character Creator **baked whole characters** — [SPEC_04 §15](SPEC_04_Technical.md). |
 | DigAction | 挖掘流程 | Circle cursor dwell ≥0.2s on a grave triggers dig; dig frame anim for `DigActionDuration` then damage resolve; busy grave cannot re-trigger (§3.10). |
 | DigObstacle | 挖坟障碍物 | Dig-stage obstacles only: Digger and uncleared Graves; circle obstacle radius on each Prefab (§3.10). |
@@ -210,7 +210,7 @@
 | Defend | 防守 | Stage type / `GameplayState`: Prepare → StartBattle → Combat; §3.12. |
 | DefendPhase | 防守子状态 | In-stage phases: `Prepare` → `Combat` → `Ended`. |
 | StartBattle | 开战 | Prepare-phase UI button; click → `Combat` and deploy units (§3.12). |
-| BattleMap | 战斗地图 | Defend-stage map; continuous walkable space (not a grid); stage-separate from DigMap; may share `Ground_*` presentation (§3.12). |
+| BattleMap | 战斗地图 | Defend-stage map; continuous walkable space (not a grid); presentation shares DigMap Isometric Tilemap via `Ground_*` (§3.12). |
 | BattleProtagonist | 战斗主角 | Protagonist entity at BattleMap center; distinct from Dig `Digger`; in Defend uses **Shield** instead of HP for normal attacks (§3.12); visuals are Character Creator **baked whole characters** — [SPEC_04 §15](SPEC_04_Technical.md). |
 | Shield | 护盾 | Hit-count capacity for **normal attacks** on the protagonist in Defend; on StartBattle `Shield =` current level row `ProtagonistMaxHP`; `Shield ≤ 0` → LevelFailure (§3.12). |
 | Monster | 怪物 | Defend enemy unit; params in `MonsterConfig`; appear location InsideMap or OutsideMap (§3.12, [SPEC_04 §9.19](SPEC_04_Technical.md)); visuals are Character Creator **baked whole characters** (`ModelId` Prefab) — [SPEC_04 §15](SPEC_04_Technical.md). |
@@ -221,7 +221,7 @@
 | RemainingCombatSeconds | 战斗剩余秒 | Whole-second Defend combat countdown remaining; activates spawn rows when equal to `SpawnRemainingSeconds` (§3.12). |
 | TargetSelect | 目标选择 | Monster targeting mode: `Nearest` / `PreferWarrior` / `PreferProtagonist` (§3.12 / `MonsterConfig`). |
 | AttackPriority | 攻击优先级 | **Soldier Soul** field (§3.11 / `SoulConfig`); same enum as monster `TargetSelect`: `Nearest` \| `PreferWarrior` \| `PreferProtagonist`; **does not drive** targeting this batch (default = nearest enemy inside `EngageZone`). Monster targeting uses `TargetSelect` (§3.12). |
-| EngageZone | 选敌区 | Axis-aligned square on BattleMap Prefab, slightly smaller than the map; non-Rebel soldiers pick nearest enemy **only inside** this zone; outside = not selectable (§3.12). |
+| EngageZone | 选敌区 | **IsoDiamond** (XZ diamond) on BattleMap Prefab, slightly smaller than the map; non-Rebel soldiers pick nearest enemy **only inside** this zone; outside = not selectable (§3.12). |
 | AttackRange | 攻击距离 | Both Melee and Ranged; must enter target AttackRange before starting attack action (§3.12). |
 | CombatDead | 战斗死亡 | Battlefield state when soldier HP≤0 and has no gems; revivable by in-combat revive skills; **does not** trigger material fate (§3.11, §3.12). |
 | PermanentDeath | 彻底死亡 | Remove instance + clear formation slot + run material fate; settled on stage victory `Ended` / LevelFailure, or immediately when a gemmed soldier hits HP≤0 (§3.11, §3.12). |
@@ -601,10 +601,10 @@ EnterLevel
 
 | 规则 | 说明 |
 |------|------|
-| 表现 | 由旋转 45° 的正方形组成，外观呈菱形拼贴 |
-| 表现资产 | 本阶段 `DigGameplayConfig.DigMapId` → Prefab 逻辑名 `Ground_01`…`Ground_05`（与 Defend 的 `BattleMapId` **共用**同一地面变体池）；源参考 Example Scene `Grid`/`Ground (1)`…`Ground (5)`，运行时须用项目 Prefab，见 [SPEC_04 §9.2 / §13 / §15](SPEC_04_Technical.md) |
-| 逻辑 | **整体可放置空间**，不是一堆格子；落点在连续空间中选取 |
-| 可放置 | 候选位置上不得与任何 **挖坟障碍物（DigObstacle）** 的圆形区域相交 |
+| 表现 | Unity **Isometric Tilemap** 斜 45° 菱形地板拼贴；相机正交（无透视）；玩法坐标系仍为 XZ 顶视 |
+| 表现资产 | 本阶段 `DigGameplayConfig.DigMapId` → Prefab 逻辑名 `Ground_01`…`Ground_05`（与 Defend 的 `BattleMapId` **共用**同一地面变体池）；Tile/Sprite 落 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；运行时只引用 `Assets/Prefabs/Maps/{Id}.prefab`，**禁止**引用 `SmallScaleInt/`，见 [SPEC_04 §9.2 / §13 / §15](SPEC_04_Technical.md) |
+| 逻辑 | **整体可放置空间**（**IsoDiamond** XZ 曼哈顿菱形，与 Isometric 砖面外轮廓对齐），不是一堆格子；落点在连续菱形内选取；Tilemap 仅表现，不驱动规则网格；`DigMapBounds` 半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`（可各向异性；Demo ≈`(5,2.5)`） |
+| 可放置 | 候选位置须在 IsoDiamond 内，且不得与任何 **挖坟障碍物（DigObstacle）** 的圆形区域相交 |
 
 **障碍物（DigObstacle）**
 
@@ -757,10 +757,10 @@ When the current Level stage has `GameplayType = Dig`, use the DigGameplayConfig
 
 | Rule | Notes |
 |------|-------|
-| Presentation | Composed of 45°-rotated squares (diamond look) |
-| Visual asset | Stage `DigGameplayConfig.DigMapId` → Prefab logical name `Ground_01`…`Ground_05` (**shared** ground-variant pool with Defend `BattleMapId`); source ref Example Scene `Grid`/`Ground (1)`…`Ground (5)`; runtime must use project Prefabs — [SPEC_04 §9.2 / §13 / §15](SPEC_04_Technical.md) |
-| Logic | **One continuous placeable space**, not a cell grid; pick positions in continuous space |
-| Placeable | Candidate must **not** intersect any **DigObstacle** circle |
+| Presentation | Unity **Isometric Tilemap** diamond floor tiles; orthographic camera (no perspective); gameplay remains XZ top-down |
+| Visual asset | Stage `DigGameplayConfig.DigMapId` → Prefab logical name `Ground_01`…`Ground_05` (**shared** ground-variant pool with Defend `BattleMapId`); Tile/Sprite under `Assets/Art/Maps/Tiles/` (copied from Example Scene `Environment/Tiles`+`Sprites`); runtime only `Assets/Prefabs/Maps/{Id}.prefab`; **do not** reference `SmallScaleInt/` — [SPEC_04 §9.2 / §13 / §15](SPEC_04_Technical.md) |
+| Logic | **One continuous placeable space** (**IsoDiamond** XZ Manhattan diamond aligned to Isometric tile silhouette), not a cell grid; sample inside the diamond; Tilemap is presentation-only; `DigMapBounds` half-extents = `PaintRadius*(cellSize.x,cellSize.y)` (anisotropic OK; Demo ≈`(5,2.5)`) |
+| Placeable | Candidate must be **inside IsoDiamond** and **not** intersect any **DigObstacle** circle |
 
 **Obstacles (DigObstacle)**
 
@@ -1558,10 +1558,10 @@ UpgradeManufacture stage
 
 | 规则 | 说明 |
 |------|------|
-| 逻辑 | **连续可走空间**（非格子网格）；与 DigMap **阶段分离**（不同阶段实例），表现资产可与 Dig **共用** `Ground_01`…`Ground_05` |
+| 逻辑 | **连续可走空间**（**IsoDiamond** XZ 菱形足迹，非格子网格）；与 DigMap **阶段分离**（不同阶段实例），表现资产可与 Dig **共用** `Ground_01`…`Ground_05` |
 | 表现资产 | `DefendGameplayConfig.BattleMapId` → 同 Dig 的地面变体池（合法值 `Ground_01`…`Ground_05`）；解析见 [SPEC_04 §9.7 / §13](SPEC_04_Technical.md) |
-| 障碍 | Demo 最小：地图 Prefab 可走面须可烘焙 NavMesh；复杂障碍几何 **后置** |
-| EngageZone | 地图 **Prefab** 上挂载比 BattleMap 稍小的 **轴对齐方形选敌区**；位置与尺寸由策划在预制体上调节；规则层只读该区域（见下「士兵战斗」） |
+| 障碍 | Demo 最小：地图 Prefab 可走面须可烘焙 NavMesh（同形旋转盒 / `WalkSurface`）；复杂障碍几何 **后置** |
+| EngageZone | 地图 **Prefab** 上挂载比 BattleMap 稍小的 **IsoDiamond（XZ 菱形）选敌区**；位置与尺寸由策划在预制体上调节；规则层只读该区域（见下「士兵战斗」） |
 
 **刷怪（WaveSpawnConfig）**
 
@@ -1792,10 +1792,10 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 
 | Rule | Notes |
 |------|-------|
-| Logic | **Continuous walkable space** (not a cell grid); **stage-separate** from DigMap (different stage instances); presentation assets **may share** Dig’s `Ground_01`…`Ground_05` pool |
+| Logic | **Continuous walkable space** (**IsoDiamond** XZ footprint, not a cell grid); **stage-separate** from DigMap (different stage instances); presentation assets **may share** Dig’s `Ground_01`…`Ground_05` pool |
 | Visual asset | `DefendGameplayConfig.BattleMapId` → same ground-variant pool as Dig (allowed `Ground_01`…`Ground_05`); resolve via [SPEC_04 §9.7 / §13](SPEC_04_Technical.md) |
-| Obstacles | Demo-min: map Prefab walkable surface must bake NavMesh; complex obstacle geometry **deferred** |
-| EngageZone | Axis-aligned square **slightly smaller** than BattleMap, authored on the map **Prefab**; position/size tuned by designers; rules layer reads the zone (see WarriorCombat below) |
+| Obstacles | Demo-min: map Prefab walkable surface must bake NavMesh (same-shape rotated box / `WalkSurface`); complex obstacle geometry **deferred** |
+| EngageZone | **IsoDiamond** (XZ diamond) **slightly smaller** than BattleMap, authored on the map **Prefab**; position/size tuned by designers; rules layer reads the zone (see WarriorCombat below) |
 
 **Spawn (WaveSpawnConfig)**
 

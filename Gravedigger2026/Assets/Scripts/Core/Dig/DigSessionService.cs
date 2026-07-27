@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Gameplay.Maps;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Dig
@@ -31,7 +32,7 @@ namespace Gravedigger2026.Core.Dig
         private float _spawnAccumulator;
         private float _diggerObstacleRadius = 0.8f;
         private Vector3 _diggerPosition;
-        private Vector2 _placeableHalfExtents = new Vector2(5f, 5f);
+        private Vector2 _placeableHalfExtents = new Vector2(5f, 2.5f);
         private int _nextGraveId = 1;
         private bool _active;
         private bool _timeUp;
@@ -431,6 +432,11 @@ namespace Gravedigger2026.Core.Dig
                 var x = (float)((_rng.NextDouble() * 2.0 - 1.0) * _placeableHalfExtents.x);
                 var z = (float)((_rng.NextDouble() * 2.0 - 1.0) * _placeableHalfExtents.y);
                 var candidate = new Vector3(_diggerPosition.x + x, _diggerPosition.y, _diggerPosition.z + z);
+
+                if (!MapFootprintMath.ContainsXZ(_diggerPosition, _placeableHalfExtents, candidate))
+                {
+                    continue;
+                }
 
                 if (CirclesOverlap(candidate, graveRadius, _diggerPosition, _diggerObstacleRadius))
                 {

@@ -70,7 +70,7 @@ namespace Gravedigger2026.Gameplay.Dig
             _mapInstance.name = context.DigConfig.DigMapId;
 
             var bounds = _mapInstance.GetComponent<DigMapBounds>();
-            var half = bounds != null ? bounds.HalfExtents : new Vector2(5f, 5f);
+            var half = bounds != null ? bounds.HalfExtents : new Vector2(5f, 2.5f);
             var center = bounds != null ? bounds.Center : _mapInstance.transform.position;
 
             var diggerPrefab = _catalog.DiggerPrefab;
@@ -107,6 +107,9 @@ namespace Gravedigger2026.Gameplay.Dig
                 _digCamera.orthographicSize = Mathf.Max(half.x, half.y) + 1.5f;
                 _digCamera.nearClipPlane = 0.1f;
                 _digCamera.farClipPlane = 100f;
+                // Top-down: sort transparent Tilemap vs Sprite by view depth (higher Y draws in front).
+                _digCamera.transparencySortMode = TransparencySortMode.CustomAxis;
+                _digCamera.transparencySortAxis = Vector3.up;
             }
 
             EnsureDigLight();
@@ -208,7 +211,8 @@ namespace Gravedigger2026.Gameplay.Dig
         {
             if (_catalog == null || !_catalog.TryGetGrave(grave.QualityId, out var prefab) || prefab == null)
             {
-                Debug.LogWarning($"[DigStageController] No Grave prefab for {grave.QualityId}");
+                Debug.LogWarning(
+                    $"[DigStageController] No Grave prefab for QualityId='{grave.QualityId}'. Check DigPrefabCatalog grave refs.");
                 return;
             }
 

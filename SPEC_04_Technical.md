@@ -67,7 +67,7 @@ Gravedigger2026/Assets/
 │   ├── Dig/               # 坟墓、挖坟反馈等非角色源
 │   │   ├── Graves/        # Graves/{Grave_Q*}/
 │   │   └── Feedback/
-│   ├── Maps/              # Maps/{Ground_0N}/ 贴图等
+│   ├── Maps/              # Maps/Tiles/（Isometric Tile+Sprite）+ Maps/{Ground_0N}/
 │   ├── Defend/            # 弹道、护盾等非角色表现源
 │   │   ├── Projectile/
 │   │   └── Shield/
@@ -311,7 +311,7 @@ LevelOperationConfig {
 | 字段 (EN) | 中文 | 类型（伪） | 说明 |
 |-----------|------|------------|------|
 | GameplayConfigId | 玩法配置ID | `string` 或 `int` | 主键；被关卡运作表引用 |
-| DigMapId | 挖坟地图ID | `string` | Prefab 逻辑名（无路径、无扩展名）；合法值 **`Ground_01`…`Ground_05`**；运行时解析 → `Assets/Prefabs/Maps/{DigMapId}.prefab`；与 Defend `BattleMapId` 共用同一地面变体池（源参考 Example Scene `Ground (1)`…`Ground (5)`，须复制为项目 Prefab，见 [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)） |
+| DigMapId | 挖坟地图ID | `string` | Prefab 逻辑名（无路径、无扩展名）；合法值 **`Ground_01`…`Ground_05`**；运行时解析 → `Assets/Prefabs/Maps/{DigMapId}.prefab`；与 Defend `BattleMapId` 共用同一地面变体池；表现 = **Isometric Tilemap**（Tile/Sprite 在 `Assets/Art/Maps/Tiles/`，自 Example `Environment/Tiles`+`Sprites` 复制）；禁止运行时引用 `SmallScaleInt/`，见 [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)） |
 | LevelDurationSeconds | 关卡时长限制 | `float` 或 `int` | **基础**时长（秒）；有效倒计时 = 本字段 + `DigStageDurationBonus`（见 [SPEC_03 §3.10](SPEC_03_GameRules.md) / §9.6） |
 | InitialGraveCount | 开局基础生成坟墓数量 | `int` | 开局独立加权随机次数 N（≥ 0） |
 | SpawnRate | 倒计时过程中生成坟墓速率 | 见编码 | 每 N 秒生成 M 个 |
@@ -468,7 +468,7 @@ DigProtagonistCapabilities {
 | 字段 (EN) | 中文 | 类型（伪） | 说明 |
 |-----------|------|------------|------|
 | GameplayConfigId | 玩法配置ID | `string` 或 `int` | 主键；被关卡运作表引用 |
-| BattleMapId | 战斗地图ID | `string` | Prefab 逻辑名（无路径、无扩展名）；合法值 **`Ground_01`…`Ground_05`**（与 Dig `DigMapId` 共用地面变体池）；运行时解析 → `Assets/Prefabs/Maps/{BattleMapId}.prefab`（含 EngageZone；Demo 时从 Example Scene `Ground (N)` 复制为项目 Prefab，见 [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)） |
+| BattleMapId | 战斗地图ID | `string` | Prefab 逻辑名（无路径、无扩展名）；合法值 **`Ground_01`…`Ground_05`**（与 Dig `DigMapId` 共用地面变体池）；运行时解析 → `Assets/Prefabs/Maps/{BattleMapId}.prefab`（含 EngageZone + Isometric Tilemap 地面 + Demo `WalkSurface`/NavMesh 可走约定，见 [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)） |
 | WaveConfigId | 波次配置ID | `string` 或 `int` | FK → `WaveSpawnConfig`（§9.18）分组键 |
 | CombatDurationSeconds | 战斗总时长 | `int` | 开战倒计时初值（整秒）；剩余秒用于刷怪激活；归零不单独判胜负 |
 | TargetRetargetIntervalSeconds | 目标修正间隔 | `float` | 怪物与士兵重算可攻击目的地的间隔（秒）；默认 **1** |
@@ -488,9 +488,9 @@ DefendGameplayConfig {
 - 采用 Unity **NavMesh**（或项目统一封装的等价 Agent）在 BattleMap 连续可走空间上寻路。
 - **规则层**只输出：当前目标实体 ID + 可攻击目的地世界坐标；**不**直接写 `Transform` / `Animator`。
 - **移动层**（NavMeshAgent 或等价）执行 `SetDestination`；每隔 `TargetRetargetIntervalSeconds` 由规则层触发目的地重算并请求重寻路（怪物与士兵均适用）。
-- **EngageZone**：挂在 BattleMap **Prefab** 上的轴对齐方形选敌区（比地图稍小；策划调位置/尺寸）；非叛变士兵仅在此区内选最近敌人。见 [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat。
+- **EngageZone**：挂在 BattleMap **Prefab** 上的 **IsoDiamond（XZ 菱形）选敌区**（比地图稍小；策划调位置/尺寸）；非叛变士兵仅在此区内选最近敌人。见 [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat。
 - 士兵命中方案 D：按 `SoulConfig.AttackMode`（制造写入实例）走近战前摇或远程弹道；`AttackRange` / 前摇 / 弹速 / 超时取自 [§9.9b `ClassConfig`](#99b-职业配置表-classconfig)（规则层确认伤害；View 播动作/弹道）。**第一版 Demo**：士兵与怪物仅普通攻击，不施放技能。
-- 障碍烘焙与 NavMesh 表面范围：**Demo 最小** — 在 `Prefabs/Maps/{BattleMapId}` 可走面烘焙（或运行时等价）最小可走 NavMesh；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点进入可走区。复杂障碍与精确 OutsideMap 外围衔接 **后置**（规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)）。
+- 障碍烘焙与 NavMesh 表面范围：**Demo 最小** — 按 `DigMapBounds` **IsoDiamond** 半尺寸（`PaintRadius*(cellSize.x,cellSize.y)`，可各向异性；Demo `cellSize≈(1,0.5)`→`(5,2.5)`）Runtime 烘焙 **同形菱形薄网格**可走面（或 Prefab 上不可见 `WalkSurface` 菱形 Mesh）；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点进入可走区。复杂障碍与精确 OutsideMap 外围衔接 **后置**（规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)）。
 - **Demo 刷怪点最小：** 地图 Prefab 上临时固定出生点（SerializeField / 子节点标记）或 `InsideMap` 可走面随机；`ClockDirection` 可映射到固定点；精确 OutsideMap 几何后置。
 
 **刷怪 / 怪物表：** 见 §9.18 `WaveSpawnConfig`、§9.19 `MonsterConfig`；失控见 §9.20 `LossOfControlConfig`、§9.21 `SkillConfig`（骨架）；规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)。
@@ -1153,7 +1153,7 @@ All config **Weight** values follow:
 | Field (EN) | ZH | Type (pseudo) | Notes |
 |------------|-----|---------------|-------|
 | GameplayConfigId | 玩法配置ID | `string` or `int` | PK; referenced by Level Operation |
-| DigMapId | 挖坟地图ID | `string` | Prefab logical name (no path/ext); allowed **`Ground_01`…`Ground_05`**; resolve → `Assets/Prefabs/Maps/{DigMapId}.prefab`; shared ground-variant pool with Defend `BattleMapId` (source ref Example Scene `Ground (1)`…`Ground (5)`; copy to project Prefabs — [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)) |
+| DigMapId | 挖坟地图ID | `string` | Prefab logical name (no path/ext); allowed **`Ground_01`…`Ground_05`**; resolve → `Assets/Prefabs/Maps/{DigMapId}.prefab`; shared ground-variant pool with Defend `BattleMapId`; presentation = **Isometric Tilemap** (Tiles/Sprites under `Assets/Art/Maps/Tiles/`, copied from Example `Environment/Tiles`+`Sprites`); do not runtime-reference `SmallScaleInt/` — [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角) |
 | LevelDurationSeconds | 关卡时长限制 | `float` or `int` | **Base** duration (seconds); effective countdown = this field + `DigStageDurationBonus` (see [SPEC_03 §3.10](SPEC_03_GameRules.md) / §9.6) |
 | InitialGraveCount | 开局基础生成坟墓数量 | `int` | N independent weighted rolls at start |
 | SpawnRate | 倒计时过程中生成坟墓速率 | encoding | Every N seconds spawn M |
@@ -1284,7 +1284,7 @@ DigProtagonistCapabilities {
 | Field (EN) | ZH | Type (pseudo) | Notes |
 |------------|-----|---------------|-------|
 | GameplayConfigId | 玩法配置ID | `string` or `int` | PK; referenced by Level Operation |
-| BattleMapId | 战斗地图ID | `string` | Prefab logical name (no path/ext); allowed **`Ground_01`…`Ground_05`** (shared ground-variant pool with Dig `DigMapId`); resolve → `Assets/Prefabs/Maps/{BattleMapId}.prefab` (incl. EngageZone; Demo: copy Example Scene `Ground (N)` into project Prefabs — [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)) |
+| BattleMapId | 战斗地图ID | `string` | Prefab logical name (no path/ext); allowed **`Ground_01`…`Ground_05`** (shared ground-variant pool with Dig `DigMapId`); resolve → `Assets/Prefabs/Maps/{BattleMapId}.prefab` (incl. EngageZone + Isometric Tilemap ground + Demo WalkSurface/NavMesh — [§13](#13-unity-资源编排与可扩展性约定) / [§15](#15-角色美术管线character-creator-烘焙整角)) |
 | WaveConfigId | 波次配置ID | `string` or `int` | FK → `WaveSpawnConfig` (§9.18) group key |
 | CombatDurationSeconds | 战斗总时长 | `int` | Combat countdown init (whole seconds); remaining seconds drive spawn; hitting 0 does not alone decide win/lose |
 | TargetRetargetIntervalSeconds | 目标修正间隔 | `float` | Seconds between attackable-destination recomputes for monsters **and soldiers**; default **1** |
@@ -1304,9 +1304,9 @@ DefendGameplayConfig {
 - Use Unity **NavMesh** (or a project-wide equivalent Agent) on BattleMap continuous walkable space.
 - **Rules layer** outputs: current target entity Id + attackable world destination; must **not** write `Transform` / `Animator` directly.
 - **Movement layer** (NavMeshAgent or equiv.) runs `SetDestination`; every `TargetRetargetIntervalSeconds` the rules layer recomputes destination and requests repath (monsters **and soldiers**).
-- **EngageZone**: axis-aligned square on the BattleMap **Prefab** (slightly smaller than the map; designer-tuned); non-Rebel soldiers pick nearest enemy only inside it. See [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat.
+- **EngageZone**: **IsoDiamond** (XZ diamond) on the BattleMap **Prefab** (slightly smaller than the map; designer-tuned); non-Rebel soldiers pick nearest enemy only inside it. See [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat.
 - Soldier hit scheme D: branch by `SoulConfig.AttackMode` (copied onto instance at manufacture) — melee windup or ranged projectile; `AttackRange` / windup / projectile speed / timeout from [§9.9b `ClassConfig`](#99b-职业配置表-classconfig) (rules confirm damage; View plays anim/projectile). **Demo v1**: soldiers and monsters use normal attacks only; no skill casts.
-- Obstacle bake / NavMesh surface: **Demo-min** — bake (or runtime-equivalent) a minimal walkable NavMesh on `Prefabs/Maps/{BattleMapId}`; must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. Complex obstacles and exact OutsideMap perimeter linkage **deferred** (rules: [SPEC_03 §3.12](SPEC_03_GameRules.md)).
+- Obstacle bake / NavMesh surface: **Demo-min** — runtime bake from `DigMapBounds` **IsoDiamond** half-extents (`PaintRadius*(cellSize.x,cellSize.y)`, anisotropic OK; Demo `cellSize≈(1,0.5)`→`(5,2.5)`) using a **matching thin diamond mesh** (or invisible Prefab `WalkSurface` diamond Mesh); must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. Complex obstacles and exact OutsideMap perimeter linkage **deferred** (rules: [SPEC_03 §3.12](SPEC_03_GameRules.md)).
 - **Demo-min spawn points:** temp fixed markers on map Prefab (SerializeField / child markers) or `InsideMap` random on walkable surface; `ClockDirection` may map to fixed points; exact OutsideMap geometry deferred.
 
 **Spawn / monster tables:** see §9.18 `WaveSpawnConfig`, §9.19 `MonsterConfig`; LossOfControl: §9.20 `LossOfControlConfig`, §9.21 `SkillConfig` (skeleton); rules in [SPEC_03 §3.12](SPEC_03_GameRules.md).
@@ -1902,7 +1902,7 @@ SkillConfig {
 
 **原则（强制倾向）：预制体优先（Prefab-first）。** 实际代码与场景开发中，凡会以 GameObject 层级出现的玩法实体、可复用 UI、可生成物、可摆放交互物，**默认用 Prefab + 挂载 Controller** 制作与引用，放在 `Assets/Prefabs/<模块>/`。优先在编辑器中拼装 Prefab，再由代码 `Instantiate` / 引用槽位驱动；**避免**在代码里动态 `new GameObject` 拼层级，或在多个 Scene 中手工复制同一套层级。
 
-**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此；源参考 Example Scene `Grid`/`Ground (1)`…`Ground (5)`，Demo 时复制进项目，**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
+**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
 
 **可不做成 Prefab 的例外：** Scene 唯一常驻 Manager / 引导用一次性布局；纯逻辑无表现的 Service（非 MonoBehaviour 或仅场景单例入口）。
 
@@ -1924,7 +1924,7 @@ SkillConfig {
 
 **Principle (strong default): Prefab-first.** For gameplay entities, reusable UI, spawnables, and placeable interactables that exist as GameObject hierarchies, **author and reference Prefabs + Controllers** under `Assets/Prefabs/<Module>/`. Prefer assembling Prefabs in the Editor and driving them via `Instantiate` / serialized slots. **Do not** build visual hierarchies with runtime `new GameObject` trees, or hand-duplicate the same hierarchy across Scenes.
 
-**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here; source ref Example Scene `Grid`/`Ground (1)`…`Ground (5)`; copy into project at Demo time; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角)). Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
+**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here). Map **presentation** is Unity **Isometric Tilemap** (`CellLayout=Isometric`, Demo `CellSize≈(1,0.5,2)`, Grid rotated onto XZ for Dig/Defend orthographic top-down); Tile/Sprite sources under `Assets/Art/Maps/Tiles/` (copied from Example Scene `Environment/Tiles`+`Sprites`); Prefab also has invisible `WalkSurface` (**IsoDiamond**: thin XZ diamond mesh for Demo NavMesh), `DigMapBounds` / EngageZone (same diamond footprint; half-extents=`PaintRadius*(cellSize.x,cellSize.y)`), spawn points. Editor: Tile Palette hand-paint or Builder default fill; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角). Require `com.unity.2d.tilemap` for editor painting. Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
 
 **Exceptions:** Scene-unique Managers / one-off layout; pure logic Services (non-MonoBehaviour or single scene entry).
 

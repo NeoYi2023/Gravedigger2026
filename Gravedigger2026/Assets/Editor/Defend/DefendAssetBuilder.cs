@@ -5,6 +5,7 @@ using System.IO;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
+using Gravedigger2026.Gameplay.Maps;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using Gravedigger2026.Meta;
 using UnityEditor;
@@ -31,7 +32,7 @@ namespace Gravedigger2026.Editor.Defend
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
         private const string MonsterCsv = "Defend_MonsterConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0400";
+        private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0460";
 
         private static readonly string[] MapIds =
         {
@@ -144,7 +145,7 @@ namespace Gravedigger2026.Editor.Defend
                 $"[DefendAssetBuilder] Generated Defend Prefabs + Catalog (maps={mapEntries.Count}, warriors={warriorEntries.Count}, monsters={monsterEntries.Count}) and wired MetaShellRoot.");
         }
 
-        private static void EnsureEngageZonesAndSpawnPointsOnMaps()
+        public static void EnsureEngageZonesAndSpawnPointsOnMaps()
         {
             for (var i = 0; i < MapIds.Length; i++)
             {
@@ -157,7 +158,7 @@ namespace Gravedigger2026.Editor.Defend
 
                 var contents = PrefabUtility.LoadPrefabContents(path);
                 var bounds = contents.GetComponent<DigMapBounds>();
-                var half = bounds != null ? bounds.HalfExtents : new Vector2(5f, 5f);
+                var half = bounds != null ? bounds.HalfExtents : new Vector2(5f, 2.5f);
                 var center = bounds != null ? bounds.Center : contents.transform.position;
 
                 var existing = contents.GetComponentInChildren<EngageZone>(true);
@@ -166,11 +167,16 @@ namespace Gravedigger2026.Editor.Defend
                     var zoneGo = new GameObject("EngageZone");
                     zoneGo.transform.SetParent(contents.transform, false);
                     zoneGo.transform.position = center;
-                    var zone = zoneGo.AddComponent<EngageZone>();
-                    var zso = new SerializedObject(zone);
-                    zso.FindProperty("_halfExtents").vector2Value = half * 0.85f;
-                    zso.ApplyModifiedPropertiesWithoutUndo();
+                    existing = zoneGo.AddComponent<EngageZone>();
                 }
+                else
+                {
+                    existing.transform.position = center;
+                }
+
+                var zso = new SerializedObject(existing);
+                zso.FindProperty("_halfExtents").vector2Value = half * 0.85f;
+                zso.ApplyModifiedPropertiesWithoutUndo();
 
                 EnsureSpawnPointSet(contents.transform, center, half);
 
@@ -194,7 +200,6 @@ namespace Gravedigger2026.Editor.Defend
 
             var clock = new Transform[13];
             var random = new List<Transform>(12);
-            var radius = Mathf.Max(halfExtents.x, halfExtents.y) * 0.9f;
             for (var hour = 1; hour <= 12; hour++)
             {
                 var name = $"SpawnClock_{hour:00}";
@@ -206,9 +211,8 @@ namespace Gravedigger2026.Editor.Defend
                     child = pointGo.transform;
                 }
 
-                var angleDeg = (12 - hour) * 30f;
-                var rad = angleDeg * Mathf.Deg2Rad;
-                child.position = center + new Vector3(Mathf.Sin(rad) * radius, 0.05f, Mathf.Cos(rad) * radius);
+                var rim = MapFootprintMath.PointOnClockHour(center, halfExtents, hour, 0.9f);
+                child.position = new Vector3(rim.x, center.y + 0.05f, rim.z);
                 clock[hour] = child;
                 random.Add(child);
             }

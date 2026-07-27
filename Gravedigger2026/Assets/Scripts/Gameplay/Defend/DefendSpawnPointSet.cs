@@ -1,10 +1,11 @@
+using Gravedigger2026.Gameplay.Maps;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
     /// Demo-min fixed spawn markers on BattleMap Prefab (SPEC_03 §3.12 / D-041).
-    /// ClockHour 1–12 maps to clockPoints; RegionRandom picks from randomPool.
+    /// ClockHour 1–12 maps to clockPoints on IsoDiamond rim; RegionRandom picks from randomPool.
     /// </summary>
     public sealed class DefendSpawnPointSet : MonoBehaviour
     {
@@ -26,7 +27,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     return _clockPoints[hour].position;
                 }
 
-                return ClockFallback(mapCenter, halfExtents, hour);
+                return MapFootprintMath.PointOnClockHour(mapCenter, halfExtents, hour, 0.9f);
             }
 
             if (_randomPool != null && _randomPool.Length > 0)
@@ -49,20 +50,11 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
             }
 
-            // InsideMap / OutsideMap both fall back to edge offset this Demo slice.
+            // InsideMap / OutsideMap both fall back to diamond rim this Demo slice.
             var edge = string.Equals(appearLocation, "InsideMap", System.StringComparison.OrdinalIgnoreCase)
                 ? 0.55f
                 : 0.95f;
-            return mapCenter + new Vector3(halfExtents.x * edge, 0f, 0f);
-        }
-
-        private static Vector3 ClockFallback(Vector3 mapCenter, Vector2 halfExtents, int hour)
-        {
-            // 12 = +Z, 3 = +X (clock on XZ plane).
-            var angleDeg = (12 - hour) * 30f;
-            var rad = angleDeg * Mathf.Deg2Rad;
-            var radius = Mathf.Max(halfExtents.x, halfExtents.y) * 0.9f;
-            return mapCenter + new Vector3(Mathf.Sin(rad) * radius, 0f, Mathf.Cos(rad) * radius);
+            return MapFootprintMath.PointOnClockHour(mapCenter, halfExtents, 3, edge);
         }
 
 #if UNITY_EDITOR

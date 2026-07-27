@@ -16,7 +16,7 @@ namespace Gravedigger2026.Editor.Tech
         private const string PrefabMetaDir = "Assets/Prefabs/Meta";
         private const string CanvasPath = PrefabMetaDir + "/TechTreeCanvasRoot.prefab";
         private const string MetaRootPath = PrefabMetaDir + "/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.TechTreeAssets.Regen.v0420c";
+        private const string RegenPrefsKey = "Gravedigger2026.TechTreeAssets.Regen.v0420d";
 
         private static readonly (string TechId, Vector2 Pos, Color Icon)[] Layout =
         {
@@ -59,16 +59,15 @@ namespace Gravedigger2026.Editor.Tech
             EnsureFolder(PrefabMetaDir);
             EnsureFolder("Assets/Editor/Tech");
 
-            // Drop stale canvas with missing scripts (PanLayer fileID:0 from earlier builds).
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPath) != null)
-            {
-                AssetDatabase.DeleteAsset(CanvasPath);
-            }
+            // Unlink nested instance first so MetaShellRoot never points at a deleted GUID.
+            UnlinkTechTreeFromMetaShell();
 
             var canvasGo = BuildCanvasRoot();
             StripMissingScriptsRecursive(canvasGo);
+            // Overwrite in place — preserves TechTreeCanvasRoot.prefab.meta GUID.
             PrefabUtility.SaveAsPrefabAsset(canvasGo, CanvasPath);
             Object.DestroyImmediate(canvasGo);
+            AssetDatabase.ImportAsset(CanvasPath, ImportAssetOptions.ForceUpdate);
 
             WireMetaShell();
             AssetDatabase.SaveAssets();
@@ -238,6 +237,47 @@ namespace Gravedigger2026.Editor.Tech
             return node;
         }
 
+        private static void UnlinkTechTreeFromMetaShell()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(MetaRootPath) == null)
+            {
+                return;
+            }
+
+            var metaRoot = PrefabUtility.LoadPrefabContents(MetaRootPath);
+            try
+            {
+                var canvasHost = metaRoot.transform.Find("MetaCanvas");
+                if (canvasHost != null)
+                {
+                    var existing = canvasHost.Find("TechTreeCanvasRoot");
+                    if (existing != null)
+                    {
+                        Object.DestroyImmediate(existing.gameObject);
+                    }
+                }
+
+                var controller = metaRoot.GetComponent<MetaShellController>();
+                if (controller != null)
+                {
+                    var so = new SerializedObject(controller);
+                    var prop = so.FindProperty("_techTreeCanvasView");
+                    if (prop != null)
+                    {
+                        prop.objectReferenceValue = null;
+                        so.ApplyModifiedPropertiesWithoutUndo();
+                    }
+                }
+
+                StripMissingScriptsRecursive(metaRoot);
+                PrefabUtility.SaveAsPrefabAsset(metaRoot, MetaRootPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(metaRoot);
+            }
+        }
+
         private static void WireMetaShell()
         {
             var metaPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(MetaRootPath);
@@ -250,6 +290,7 @@ namespace Gravedigger2026.Editor.Tech
             var canvasPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CanvasPath);
             if (canvasPrefab == null)
             {
+                Debug.LogWarning("[TechTreeAssetBuilder] TechTreeCanvasRoot missing — skip wire.");
                 return;
             }
 
@@ -276,7 +317,6 @@ namespace Gravedigger2026.Editor.Tech
                     Object.DestroyImmediate(existing.gameObject);
                 }
 
-                // Also clear any nested missing scripts left from prior failed wires.
                 StripMissingScriptsRecursive(metaRoot);
 
                 var instance = (GameObject)PrefabUtility.InstantiatePrefab(canvasPrefab, canvasHost);

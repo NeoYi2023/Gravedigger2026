@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using Gravedigger2026.Editor.Maps;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Meta;
 using Gravedigger2026.UI;
@@ -23,7 +24,7 @@ namespace Gravedigger2026.Editor.Dig
         private const string DiggerPath = PrefabDigDir + "/Digger.prefab";
         private const string RewardPath = PrefabDigDir + "/DigRewardFlyer.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v0330b";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v0460";
 
         private static readonly string[] MapIds =
         {
@@ -61,14 +62,14 @@ namespace Gravedigger2026.Editor.Dig
         {
             EnsureFolders();
 
+            // Isometric Tilemap maps (preserve hand-painted tiles unless force via Maps menu).
+            MapTilemapAssetBuilder.EnsureMapsForDigBuilder(forceRepaint: false);
+
             var mapPrefabs = new List<DigPrefabCatalog.MapEntry>();
             for (var i = 0; i < MapIds.Length; i++)
             {
                 var id = MapIds[i];
                 var path = $"{PrefabMapsDir}/{id}.prefab";
-                var go = BuildMapPrefab(id, i);
-                PrefabUtility.SaveAsPrefabAsset(go, path);
-                Object.DestroyImmediate(go);
                 mapPrefabs.Add(new DigPrefabCatalog.MapEntry
                 {
                     MapId = id,
@@ -86,7 +87,18 @@ namespace Gravedigger2026.Editor.Dig
             {
                 var q = QualityIds[i];
                 var path = $"{PrefabDigDir}/Grave_{q}.prefab";
-                var go = BuildGrave(q, i);
+                Sprite keepSprite = null;
+                var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (existing != null)
+                {
+                    var existingSr = existing.GetComponentInChildren<SpriteRenderer>(true);
+                    if (existingSr != null)
+                    {
+                        keepSprite = existingSr.sprite;
+                    }
+                }
+
+                var go = BuildGrave(q, i, keepSprite);
                 PrefabUtility.SaveAsPrefabAsset(go, path);
                 Object.DestroyImmediate(go);
                 graveEntries.Add(new DigPrefabCatalog.GraveEntry
@@ -180,24 +192,6 @@ namespace Gravedigger2026.Editor.Dig
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
-        private static GameObject BuildMapPrefab(string mapId, int tintIndex)
-        {
-            var root = new GameObject(mapId);
-            var bounds = root.AddComponent<DigMapBounds>();
-            var boundsSo = new SerializedObject(bounds);
-            boundsSo.FindProperty("_halfExtents").vector2Value = new Vector2(5f, 5f);
-            boundsSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ground.name = "GroundVisual";
-            ground.transform.SetParent(root.transform, false);
-            ground.transform.localScale = new Vector3(10f, 0.2f, 10f);
-            ground.transform.localPosition = Vector3.zero;
-            ground.transform.localRotation = Quaternion.Euler(0f, tintIndex * 12f, 0f);
-            Object.DestroyImmediate(ground.GetComponent<Collider>());
-            return root;
-        }
-
         private static GameObject BuildDigger()
         {
             var root = new GameObject("Digger");
@@ -216,14 +210,22 @@ namespace Gravedigger2026.Editor.Dig
             return root;
         }
 
-        private static GameObject BuildGrave(string qualityId, int index)
+        private static GameObject BuildGrave(string qualityId, int index, Sprite sprite = null)
         {
             var root = new GameObject($"Grave_{qualityId}");
-            var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            body.name = "Body";
-            body.transform.SetParent(root.transform, false);
-            body.transform.localScale = new Vector3(0.9f, 0.35f, 0.9f);
-            Object.DestroyImmediate(body.GetComponent<Collider>());
+
+            // Flat on XZ, face +Y; Z=180 keeps art upright under Dig top-down camera.
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(root.transform, false);
+            spriteGo.transform.localRotation = Quaternion.Euler(-90f, 0f, 180f);
+            spriteGo.transform.localPosition = new Vector3(0f, 0.25f, 0f);
+            spriteGo.transform.localScale = Vector3.one;
+            var spriteRenderer = spriteGo.AddComponent<SpriteRenderer>();
+            spriteRenderer.sortingOrder = 200;
+            if (sprite != null)
+            {
+                spriteRenderer.sprite = sprite;
+            }
 
             var obstacle = root.AddComponent<DigObstacleRadius>();
             var oso = new SerializedObject(obstacle);
@@ -232,7 +234,7 @@ namespace Gravedigger2026.Editor.Dig
 
             var view = root.AddComponent<DigGraveView>();
             var vso = new SerializedObject(view);
-            vso.FindProperty("_bodyRenderer").objectReferenceValue = body.GetComponent<Renderer>();
+            vso.FindProperty("_bodyRenderer").objectReferenceValue = spriteRenderer;
             vso.ApplyModifiedPropertiesWithoutUndo();
             return root;
         }

@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.45.0
-**最后更新 / Last Updated:** 2026-07-26  
+**文档版本 / Document Version:** v0.46.2
+**最后更新 / Last Updated:** 2026-07-27  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,9 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-27 | v0.46.2 | IsoDiamond 半尺寸改为 `PaintRadius*(cellSize.x,cellSize.y)`（可各向异性；Demo `cellSize≈(1,0.5)`→`(5,2.5)`）；`WalkSurface`/NavMesh 改同形菱形薄网格，修正相对 Tilemap 上下差一半 |
+| 2026-07-27 | v0.46.1 | 地图逻辑足迹统一为 IsoDiamond（XZ 曼哈顿菱形，与 Isometric Tilemap 外轮廓对齐）：`DigMapBounds`/`EngageZone`/`WalkSurface`（Y=45° 扁盒）/ NavMesh 旋转盒 / 钟点刷怪边 / Dig 可放置采样；半尺寸=菱形顶点到中心距离；同步 SPEC_03/04、CONTEXT |
+| 2026-07-27 | v0.46.0 | 关卡地图表现改为 Unity Isometric Tilemap（正交顶视 XZ；逻辑仍连续非格子）；Tile/Sprite 落 `Art/Maps/Tiles/`（自 Example Environment 复制）；`Ground_*` Prefab 含 Grid+Tilemap+WalkSurface；须 `com.unity.2d.tilemap`；同步 SPEC_03 DigMap、SPEC_04 §2/§9/§13 |
 | 2026-07-26 | v0.45.0 | 士兵外观 Prefab：根 + 子 `Visual`（Sprite/Animator，`localEuler(90,0,0)`）对齐俯视相机；`WarriorAgentView` 设 `NavMeshAgent.updateRotation=false`；同步 SPEC_04 §15.2 |
 | 2026-07-26 | v0.44.0 | Character Creator 导出补丁：切片强制 `textureType=Sprite` + 资产路径正斜杠；零 Clip 中止空 Controller；Editor 修复菜单重建 `.anim`/`.controller`；同步 SPEC_04 §15.3 |
 | 2026-07-26 | v0.43.0 | 落地 `Assets/Art/` 各系统美术源目录脚手架（Characters/Dig/Maps/Defend/UI/Placeholder/VFX/Audio）；预建 AppearanceId/ModelId/Ground/Grave 槽位；本版不另建顶层 `Sprites/`；同步 SPEC_04 §2 |
@@ -124,6 +127,9 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-27 | v0.46.2 | IsoDiamond half-extents = `PaintRadius*(cellSize.x,cellSize.y)` (anisotropic OK; Demo `cellSize≈(1,0.5)`→`(5,2.5)`); `WalkSurface`/NavMesh use matching thin diamond mesh — fixes Z extent ~2× vs Tilemap |
+| 2026-07-27 | v0.46.1 | Unify map logic footprint as IsoDiamond (XZ Manhattan diamond aligned to Isometric Tilemap silhouette): `DigMapBounds`/`EngageZone`/`WalkSurface` (Y=45° flat box) / rotated NavMesh box / clock-rim spawns / Dig placeable sampling; half-extents = vertex-to-center distance; synced SPEC_03/04, CONTEXT |
+| 2026-07-27 | v0.46.0 | Map presentation → Unity Isometric Tilemap (orthographic XZ top-down; logic still continuous non-grid); Tiles/Sprites under `Art/Maps/Tiles/` (copied from Example Environment); `Ground_*` Prefabs include Grid+Tilemap+WalkSurface; require `com.unity.2d.tilemap`; synced SPEC_03 DigMap, SPEC_04 §2/§9/§13 |
 | 2026-07-26 | v0.45.0 | Warrior appearance Prefab: root + child `Visual` (Sprite/Animator, `localEuler(90,0,0)`) for top-down camera; `WarriorAgentView` sets `NavMeshAgent.updateRotation=false`; synced SPEC_04 §15.2 |
 | 2026-07-26 | v0.44.0 | Character Creator export patch: force slice `textureType=Sprite` + forward-slash asset paths; abort empty Controller when zero clips; Editor repair menu rebuilds `.anim`/`.controller`; synced SPEC_04 §15.3 |
 | 2026-07-26 | v0.43.0 | Scaffold `Assets/Art/` per-system art source folders (Characters/Dig/Maps/Defend/UI/Placeholder/VFX/Audio); pre-create AppearanceId/ModelId/Ground/Grave slots; no top-level `Sprites/` this revision; synced SPEC_04 §2 |

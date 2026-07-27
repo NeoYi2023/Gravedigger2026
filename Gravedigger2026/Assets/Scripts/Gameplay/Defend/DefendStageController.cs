@@ -45,7 +45,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private DefendSpawnPointSet _spawnPoints;
         private EngageZone _engageZone;
         private NavMeshDataInstance _navMeshInstance;
-        private Vector2 _mapHalfExtents = new Vector2(5f, 5f);
+        private Vector2 _mapHalfExtents = new Vector2(5f, 2.5f);
         private string _selectedWarriorId;
         private Vector3 _mapCenter;
         private bool _running;
@@ -110,7 +110,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _mapInstance.name = context.DefendConfig.BattleMapId;
 
             var bounds = _mapInstance.GetComponent<DigMapBounds>();
-            _mapHalfExtents = bounds != null ? bounds.HalfExtents : new Vector2(5f, 5f);
+            _mapHalfExtents = bounds != null ? bounds.HalfExtents : new Vector2(5f, 2.5f);
             _mapCenter = bounds != null ? bounds.Center : _mapInstance.transform.position;
 
             _engageZone = _mapInstance.GetComponentInChildren<EngageZone>(true);
