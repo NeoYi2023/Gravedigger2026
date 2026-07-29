@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Editor.Art;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Maps;
@@ -16,7 +17,7 @@ namespace Gravedigger2026.Editor.Defend
 {
     /// <summary>
     /// Builds Defend StageRoot / BattleProtagonist / Projectile / Catalog, ensures EngageZone + SpawnPoints on Maps,
-    /// temp Monster Prefabs, and wires MetaShellRoot (Approach A / D-040–D-042).
+    /// Monster Prefabs (Art Visual when ready, else temp cubes), and wires MetaShellRoot (D-040–D-042).
     /// </summary>
     public static class DefendAssetBuilder
     {
@@ -32,7 +33,7 @@ namespace Gravedigger2026.Editor.Defend
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
         private const string MonsterCsv = "Defend_MonsterConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0460";
+        private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0473";
 
         private static readonly string[] MapIds =
         {
@@ -82,9 +83,12 @@ namespace Gravedigger2026.Editor.Defend
             EnsureFolders();
             EnsureEngageZonesAndSpawnPointsOnMaps();
 
-            var battleGo = BuildBattleProtagonist();
-            PrefabUtility.SaveAsPrefabAsset(battleGo, BattleProtagonistPath);
-            UnityEngine.Object.DestroyImmediate(battleGo);
+            // SPEC_04 §15.2: assemble 2D Visual from Art; never regenerate Capsule Body.
+            if (!ProtagonistPrefabAssembler.AssembleBattleProtagonist())
+            {
+                Debug.LogError("[DefendAssetBuilder] Failed to assemble BattleProtagonist Prefab from Art.");
+            }
+
             var battlePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BattleProtagonistPath);
 
             var projectileGo = BuildProjectile();
@@ -287,6 +291,16 @@ namespace Gravedigger2026.Editor.Defend
                 }
 
                 var path = $"{PrefabMonstersDir}/{modelId}.prefab";
+                // SPEC_04 §15.2: Art-ready ModelIds assemble Visual; never overwrite with temp cube.
+                if (MonsterModelPrefabAssembler.HasArtReady(modelId))
+                {
+                    if (!MonsterModelPrefabAssembler.TryAssemble(modelId))
+                    {
+                        Debug.LogWarning(
+                            $"[DefendAssetBuilder] Art-ready monster assemble failed: {modelId}");
+                    }
+                }
+
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
                 if (prefab == null)
                 {
@@ -329,17 +343,6 @@ namespace Gravedigger2026.Editor.Defend
             var agent = root.AddComponent<UnityEngine.AI.NavMeshAgent>();
             agent.radius = 0.35f;
             agent.height = 1.2f;
-            return root;
-        }
-
-        private static GameObject BuildBattleProtagonist()
-        {
-            var root = new GameObject("BattleProtagonist");
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(root.transform, false);
-            body.transform.localScale = new Vector3(0.85f, 1.0f, 0.85f);
-            UnityEngine.Object.DestroyImmediate(body.GetComponent<Collider>());
             return root;
         }
 
@@ -390,6 +393,14 @@ namespace Gravedigger2026.Editor.Defend
             scaler.referenceResolution = new Vector2(1920, 1080);
 
             var panelRoot = CreateUiPanel(canvasGo.transform, "DefendRoot", new Color(0.07f, 0.09f, 0.12f, 0.88f));
+            // DefendRoot is a layout host only — do not draw/raycast a fullscreen Image overlay.
+            var defendRootImage = panelRoot.GetComponent<Image>();
+            if (defendRootImage != null)
+            {
+                defendRootImage.enabled = false;
+                defendRootImage.raycastTarget = false;
+            }
+
             Stretch(panelRoot.GetComponent<RectTransform>());
 
             var phase = CreateUiText(panelRoot.transform, "PhaseText", "DefendPhase：Prepare", 26, TextAnchor.UpperCenter);

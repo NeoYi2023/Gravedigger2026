@@ -261,8 +261,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         }
 
         /// <summary>
-        /// Demo-only: grants one legal parts set + Spirit so D-031 can be hand-verified before
-        /// Soul / Gem / ExtraEquipment acquisition rules exist.
+        /// Demo-only: grants one legal parts set + every SoulConfig row ×1 + Spirit so D-031 can be
+        /// hand-verified before Soul / Gem / ExtraEquipment acquisition rules exist.
         /// </summary>
         public void GrantDebugStarterKit()
         {
@@ -271,16 +271,13 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             GrantFirstBodyPart(BodySlot.Arm, 2);
             GrantFirstBodyPart(BodySlot.Leg, 2);
 
-            var soulIds = new List<string>();
+            // Demo Debug kit: grant every SoulConfig row ×1 (sample Soul_01…Soul_10).
             foreach (var soul in _configs.Souls)
             {
-                soulIds.Add(soul.SoulId);
-            }
-
-            soulIds.Sort(StringComparer.Ordinal);
-            if (soulIds.Count > 0)
-            {
-                _warehouse.AddItem(soulIds[0], 1);
+                if (!string.IsNullOrEmpty(soul.SoulId))
+                {
+                    _warehouse.AddItem(soul.SoulId, 1);
+                }
             }
 
             var gemsByType = new Dictionary<GemType, string>();

@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using SmallScaleInc.CharacterCreatorFantasy;
@@ -10,14 +11,18 @@ namespace Gravedigger2026.Editor.Art
 {
     /// <summary>
     /// Repairs Character Creator bake folders where PNGs were sliced without
-    /// TextureImporterType.Sprite, leaving zero .anim and empty BlendTree controllers.
+    /// TextureImporterType.Sprite, or sliced with NPOT-padded width (e.g. 2048→136.53
+    /// cells instead of 1920→128), leaving empty clips or frame-drift sprites.
     /// See SPEC_04 §15.3.
     /// </summary>
     public static class CharacterCreatorExportRepair
     {
         private const string MenuPath = "Tools/Gravedigger/Art/Repair Character Creator Export";
+        private const string MenuPathAll = "Tools/Gravedigger/Art/Repair All Character Creator Exports (Art/Characters)";
+        private const string ArtCharactersRoot = "Assets/Art/Characters";
         private const int DefaultColumns = 15;
         private const int Rows = 8;
+        private const float SliceWidthTolerance = 0.5f;
 
         [MenuItem(MenuPath)]
         private static void RepairFromSelectionOrDialog()
@@ -64,6 +69,41 @@ namespace Gravedigger2026.Editor.Art
             return !EditorApplication.isPlayingOrWillChangePlaymode;
         }
 
+        [MenuItem(MenuPathAll)]
+        private static void RepairAllUnderArtCharacters()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                return;
+
+            if (!AssetDatabase.IsValidFolder(ArtCharactersRoot))
+            {
+                EditorUtility.DisplayDialog("Repair failed", "Missing folder:\n" + ArtCharactersRoot, "OK");
+                return;
+            }
+
+            if (!EditorUtility.DisplayDialog(
+                    "Repair all character exports?",
+                    "Reslice spritesheets (force correct cell size) and rebuild .anim/.controller under:\n" +
+                    ArtCharactersRoot +
+                    "\n\nThis may take several minutes.",
+                    "Repair all",
+                    "Cancel"))
+                return;
+
+            int ok = RepairAllArtCharactersBatch();
+            EditorUtility.DisplayDialog(
+                "Repair complete",
+                "Repaired " + ok + " character bake folder(s) under " + ArtCharactersRoot +
+                ".\nSee Console for details.",
+                "OK");
+        }
+
+        [MenuItem(MenuPathAll, true)]
+        private static bool RepairAllValidate()
+        {
+            return !EditorApplication.isPlayingOrWillChangePlaymode;
+        }
+
         /// <summary>
         /// Batch entry for -executeMethod / tests.
         /// </summary>
@@ -86,6 +126,56 @@ namespace Gravedigger2026.Editor.Art
 
             if (!any)
                 Debug.LogError("[CharacterCreatorExportRepair] No App_01 folders repaired.");
+        }
+
+        /// <summary>
+        /// Batch entry: repair every character bake folder under Art/Characters.
+        /// </summary>
+        public static int RepairAllArtCharactersBatch()
+        {
+            if (!AssetDatabase.IsValidFolder(ArtCharactersRoot))
+            {
+                Debug.LogError("[CharacterCreatorExportRepair] Missing " + ArtCharactersRoot);
+                return 0;
+            }
+
+            var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string[] pngGuids = AssetDatabase.FindAssets("t:Texture2D", new[] { ArtCharactersRoot });
+            foreach (string guid in pngGuids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (string.IsNullOrEmpty(path) || !path.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string dir = Path.GetDirectoryName(path)?.Replace("\\", "/");
+                string resolved = ResolveCharacterBakeFolder(dir);
+                if (!string.IsNullOrEmpty(resolved))
+                    folders.Add(resolved);
+            }
+
+            int ok = 0;
+            int i = 0;
+            foreach (string folder in folders.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                i++;
+                EditorUtility.DisplayProgressBar(
+                    "Repair Character Creator Exports",
+                    folder + " (" + i + "/" + folders.Count + ")",
+                    (float)i / folders.Count);
+                try
+                {
+                    if (RepairFolder(folder, DefaultColumns))
+                        ok++;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("[CharacterCreatorExportRepair] Exception on " + folder + ": " + ex);
+                }
+            }
+
+            EditorUtility.ClearProgressBar();
+            Debug.Log("[CharacterCreatorExportRepair] Batch done: ok=" + ok + " / " + folders.Count);
+            return ok;
         }
 
         public static bool RepairFolder(string folderAssetPath, int columns)
@@ -269,22 +359,48 @@ namespace Gravedigger2026.Editor.Art
             ti.mipmapEnabled = false;
             ti.alphaIsTransparency = true;
             ti.isReadable = false;
+            ti.npotScale = TextureImporterNPOTScale.None;
 
-            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
-            if (tex == null)
+            // Apply importer settings before reading dimensions (avoid NPOT-padded size).
+            EditorUtility.SetDirty(ti);
+            ti.SaveAndReimport();
+
+            ti.GetSourceTextureWidthAndHeight(out int sourceWidth, out int sourceHeight);
+            if (sourceWidth <= 0 || sourceHeight <= 0)
             {
-                Debug.LogError("[CharacterCreatorExportRepair] Failed to load texture: " + assetPath);
-                return false;
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+                if (tex == null)
+                {
+                    Debug.LogError("[CharacterCreatorExportRepair] Failed to load texture: " + assetPath);
+                    return false;
+                }
+
+                sourceWidth = tex.width;
+                sourceHeight = tex.height;
             }
 
-            // Prefer existing rects if count matches; otherwise rebuild grid.
+            float expectedSliceWidth = sourceWidth / (float)columns;
+            float expectedSliceHeight = sourceHeight / (float)Rows;
             var existing = ti.spritesheet;
-            bool needRebuild = existing == null || existing.Length != columns * Rows;
+            bool countMismatch = existing == null || existing.Length != columns * Rows;
+            bool sizeMismatch = false;
+            if (!countMismatch)
+            {
+                float actualW = existing[0].rect.width;
+                float actualH = existing[0].rect.height;
+                sizeMismatch =
+                    Mathf.Abs(actualW - expectedSliceWidth) > SliceWidthTolerance ||
+                    Mathf.Abs(actualH - expectedSliceHeight) > SliceWidthTolerance ||
+                    existing[0].rect.xMax > sourceWidth + SliceWidthTolerance ||
+                    existing[0].rect.yMax > sourceHeight + SliceWidthTolerance;
+            }
+
+            bool needRebuild = countMismatch || sizeMismatch;
+            string baseName = Path.GetFileNameWithoutExtension(assetPath);
+
             if (!needRebuild)
             {
                 // Still rewrite names to {base}_{row}_{col} expected by AnimatorClipBuilder.
-                string baseName = Path.GetFileNameWithoutExtension(assetPath);
                 for (int i = 0; i < existing.Length; i++)
                 {
                     int y = i / columns;
@@ -298,10 +414,16 @@ namespace Gravedigger2026.Editor.Art
             }
             else
             {
-                float sliceWidth = tex.width / (float)columns;
-                float sliceHeight = tex.height / (float)Rows;
+                if (sizeMismatch)
+                {
+                    Debug.LogWarning(
+                        $"[CharacterCreatorExportRepair] Reslicing {assetPath}: " +
+                        $"cell was {existing[0].rect.width}x{existing[0].rect.height}, " +
+                        $"expected {expectedSliceWidth}x{expectedSliceHeight} " +
+                        $"(source {sourceWidth}x{sourceHeight}).");
+                }
+
                 var metaData = new SpriteMetaData[columns * Rows];
-                string baseName = Path.GetFileNameWithoutExtension(assetPath);
                 for (int y = 0; y < Rows; y++)
                 {
                     for (int x = 0; x < columns; x++)
@@ -309,7 +431,11 @@ namespace Gravedigger2026.Editor.Art
                         metaData[y * columns + x] = new SpriteMetaData
                         {
                             name = $"{baseName}_{y}_{x}",
-                            rect = new Rect(x * sliceWidth, y * sliceHeight, sliceWidth, sliceHeight),
+                            rect = new Rect(
+                                x * expectedSliceWidth,
+                                y * expectedSliceHeight,
+                                expectedSliceWidth,
+                                expectedSliceHeight),
                             pivot = new Vector2(0.5f, 0.5f),
                             alignment = (int)SpriteAlignment.Center
                         };

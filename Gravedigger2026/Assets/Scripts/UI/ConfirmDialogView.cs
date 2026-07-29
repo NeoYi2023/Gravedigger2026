@@ -16,11 +16,7 @@ namespace Gravedigger2026.UI
 
         private void Awake()
         {
-            if (_root != null)
-            {
-                _root.SetActive(false);
-            }
-
+            // Prefab starts inactive. Do NOT SetActive(false) on self/_root here — see ToolsPanelView.
             if (_confirmButton != null)
             {
                 _confirmButton.onClick.AddListener(HandleConfirm);

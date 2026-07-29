@@ -6,6 +6,7 @@ using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
+using Gravedigger2026.Gameplay.Formation;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using Gravedigger2026.UI;
 using UnityEngine;
@@ -26,6 +27,7 @@ namespace Gravedigger2026.Meta
         [SerializeField] private Transform _digWorldParent;
         [SerializeField] private UpgradeManufacturePrefabCatalog _umPrefabCatalog;
         [SerializeField] private Transform _umWorldParent;
+        [SerializeField] private FormationPrefabCatalog _formationPrefabCatalog;
         [SerializeField] private DefendPrefabCatalog _defendPrefabCatalog;
         [SerializeField] private Transform _defendWorldParent;
 
@@ -80,6 +82,8 @@ namespace Gravedigger2026.Meta
                     new UpgradeManufactureStageModule(
                         _configs,
                         _umPrefabCatalog,
+                        _formationPrefabCatalog,
+                        _defendPrefabCatalog,
                         _umWorldParent != null ? _umWorldParent : transform,
                         _progress,
                         _manufacture,
@@ -99,6 +103,7 @@ namespace Gravedigger2026.Meta
                     new DefendStageModule(
                         _configs,
                         _defendPrefabCatalog,
+                        _formationPrefabCatalog,
                         _defendWorldParent != null ? _defendWorldParent : transform,
                         _progress,
                         _warriorPool,

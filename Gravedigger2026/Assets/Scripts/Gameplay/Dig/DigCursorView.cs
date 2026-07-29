@@ -1,41 +1,48 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
     /// <summary>
-    /// Dig circle cursor: screen-space ring (always visible) + world hit on Dig plane.
+    /// Dig circle cursor: screen-space Prefab ring (UiDigCursorRing) + optional world ring.
+    /// Hit radius is circular (DigSessionService); UI diameter tracks DigCursorRadius projection.
     /// </summary>
     public sealed class DigCursorView : MonoBehaviour
     {
         [SerializeField] private Transform _ring;
-        [SerializeField] private RectTransform _uiRing;
+        [SerializeField] private DigCursorRingView _uiRingPrefab;
+        [SerializeField] private DigCursorRingView _uiRing;
         [SerializeField] private float _planeY;
+        [SerializeField] private bool _showWorldRing;
 
         private Camera _digCamera;
         private float _radius = 1.2f;
         private Canvas _uiCanvas;
+        private DigCursorRingView _spawnedUiRing;
 
         public Vector3 WorldPosition { get; private set; }
         public bool IsValid { get; private set; }
 
-        public void Configure(Camera digCamera, float radius, float planeY)
+        public void SetUiRingPrefab(DigCursorRingView prefab)
+        {
+            if (prefab != null)
+            {
+                _uiRingPrefab = prefab;
+            }
+        }
+
+        public void Configure(Camera digCamera, float radius, float planeY, Canvas hudCanvas = null)
         {
             _digCamera = digCamera;
             _radius = Mathf.Max(0.1f, radius);
             _planeY = planeY;
+            if (hudCanvas != null)
+            {
+                _uiCanvas = hudCanvas;
+            }
+
             EnsureUiRing();
             ApplyRingScale();
             SampleFromScreen(Input.mousePosition);
-        }
-
-        public void SetUiRing(RectTransform uiRing)
-        {
-            _uiRing = uiRing;
-            if (_uiRing != null)
-            {
-                _uiCanvas = _uiRing.GetComponentInParent<Canvas>();
-            }
         }
 
         /// <summary>Called by DigStageController before feeding cursor into DigSessionService.</summary>
@@ -59,19 +66,30 @@ namespace Gravedigger2026.Gameplay.Dig
             IsValid = true;
             SetRingVisible(true);
 
-            if (_ring != null)
+            if (_showWorldRing && _ring != null)
             {
                 _ring.position = world + Vector3.up * 0.05f;
                 ApplyRingScale();
             }
 
-            if (_uiRing != null)
+            var activeUi = ActiveUiRing;
+            if (activeUi != null)
             {
-                _uiRing.position = screenPosition;
-                var size = ScreenRadiusToUiSize();
-                _uiRing.sizeDelta = new Vector2(size, size);
+                activeUi.Root.position = screenPosition;
+                activeUi.ApplyDiameter(ScreenRadiusToUiSize());
             }
         }
+
+        public void DestroySpawnedUiRing()
+        {
+            if (_spawnedUiRing != null)
+            {
+                Destroy(_spawnedUiRing.gameObject);
+                _spawnedUiRing = null;
+            }
+        }
+
+        private DigCursorRingView ActiveUiRing => _spawnedUiRing != null ? _spawnedUiRing : _uiRing;
 
         private void LateUpdate()
         {
@@ -118,17 +136,27 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void EnsureUiRing()
         {
-            if (_uiRing != null)
+            if (ActiveUiRing != null)
             {
                 if (_uiCanvas == null)
                 {
-                    _uiCanvas = _uiRing.GetComponentInParent<Canvas>();
+                    _uiCanvas = ActiveUiRing.GetComponentInParent<Canvas>();
                 }
 
                 return;
             }
 
-            var canvas = GetComponentInParent<Canvas>();
+            if (_uiRingPrefab == null)
+            {
+                return;
+            }
+
+            var canvas = _uiCanvas;
+            if (canvas == null)
+            {
+                canvas = GetComponentInParent<Canvas>();
+            }
+
             if (canvas == null)
             {
                 canvas = transform.root.GetComponentInChildren<Canvas>(true);
@@ -140,17 +168,14 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             _uiCanvas = canvas;
-            var go = new GameObject("UiDigCursorRing", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            go.transform.SetParent(canvas.transform, false);
-            var image = go.GetComponent<Image>();
-            image.color = new Color(1f, 0.92f, 0.2f, 0.9f);
-            image.raycastTarget = false;
-            _uiRing = go.GetComponent<RectTransform>();
-            _uiRing.anchorMin = new Vector2(0.5f, 0.5f);
-            _uiRing.anchorMax = new Vector2(0.5f, 0.5f);
-            _uiRing.pivot = new Vector2(0.5f, 0.5f);
-            _uiRing.sizeDelta = new Vector2(96f, 96f);
-            _uiRing.SetAsLastSibling();
+            _spawnedUiRing = Instantiate(_uiRingPrefab, canvas.transform, false);
+            _spawnedUiRing.name = "UiDigCursorRing";
+            var root = _spawnedUiRing.Root;
+            root.anchorMin = new Vector2(0.5f, 0.5f);
+            root.anchorMax = new Vector2(0.5f, 0.5f);
+            root.pivot = new Vector2(0.5f, 0.5f);
+            root.SetAsLastSibling();
+            _spawnedUiRing.ApplyDiameter(96f);
         }
 
         private float ScreenRadiusToUiSize()
@@ -169,7 +194,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void ApplyRingScale()
         {
-            if (_ring == null)
+            if (!_showWorldRing || _ring == null)
             {
                 return;
             }
@@ -179,14 +204,19 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void SetRingVisible(bool visible)
         {
-            if (_ring != null)
+            if (_showWorldRing && _ring != null)
             {
                 _ring.gameObject.SetActive(visible);
             }
-
-            if (_uiRing != null)
+            else if (_ring != null)
             {
-                _uiRing.gameObject.SetActive(visible);
+                _ring.gameObject.SetActive(false);
+            }
+
+            var activeUi = ActiveUiRing;
+            if (activeUi != null)
+            {
+                activeUi.gameObject.SetActive(visible);
             }
         }
 

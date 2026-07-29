@@ -11,7 +11,7 @@
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡入口（流水线片可启样例关卡） | [§3.5](SPEC_03_GameRules.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | `Assets/ConfigTables/`：Excel 源（四段中英名）+ CSV 产物（两段英文名） | [SPEC_04 §14](SPEC_04_Technical.md) |
-| BakeTables | 打表 | Editor 一键 Excel→CSV（Excel 四段名映射为 CSV 英文基名）；菜单 `Gravedigger/Config/Bake Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
+| BakeTables | 打表 | Editor 一键 Excel→CSV（Excel 四段名映射为 CSV 英文基名）；菜单 `Gravedigger2026/Config/Bake Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | CharacterArtPipeline | 角色美术管线 | Character Creator **烘焙整角**；游戏资源不得落在工具目录；导出补丁→`Art/Characters`→`Prefabs` | [SPEC_04 §15](SPEC_04_Technical.md) |
 | BakedWholeCharacter | 烘焙整角 | 用 Creator 拼装后导出整角 spritesheet/Animator/Prefab；非运行时叠装 | [SPEC_04 §15](SPEC_04_Technical.md) |
 | LevelOperation | 关卡运作 | 关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
@@ -44,6 +44,7 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
+| WarriorAnimView | 士兵动画表现 | Defend 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`） | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorName | 士兵名字 | Prefix(es)+RaceName+ClassName+Suffix | [§3.11](SPEC_03_GameRules.md) |
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
@@ -90,12 +91,14 @@
 | LossOfControlConfig | 失控配置表 | TierId→名称/描述/基础失控概率 | [SPEC_04 §9.20](SPEC_04_Technical.md) |
 | Rebel | 叛变 | 失控成功状态；就近打主角/士兵/敌人；至死亡 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | SkillConfig | 技能配置表 | 骨架；BaseCooldownSeconds + 失控概率加成；效果列另专题（同文件扩写）；**Demo 不施放技能** | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
-| BattleFormation | 战斗布阵 | 连续坐标；§3.11 与 Prepare 同一编辑器 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
+| BattleFormation | 战斗布阵 | 连续坐标；共享 `FormationEditor`（士兵栏拖拽）；§3.11 与 Prepare 同一编辑器 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
+| FormationEditor | 布阵编辑器 | Prefab `FormationEditorRoot`；底栏士兵格（上阵保留+变亮）+ Idle 跟手拖放；UM 返回 / Defend 开战 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | Defend | 防守 | Prepare→开战→Combat；胜负见专节 | [§3.12](SPEC_03_GameRules.md) |
 | DefendPhase | 防守子状态 | Prepare / Combat / Ended | [§3.12](SPEC_03_GameRules.md) |
 | StartBattle | 开战 | 准备态按钮；进入 Combat 并部署 | [§3.12](SPEC_03_GameRules.md) |
 | BattleMap | 战斗地图 | 连续可走空间；与 DigMap 阶段分离；表现可共用 `Ground_*`（`BattleMapId`）；Prefab 含 EngageZone | [§3.12](SPEC_03_GameRules.md) |
 | EngageZone | 选敌区 | 地图 Prefab 上比地图稍小的 IsoDiamond（XZ 菱形）；非叛变士兵仅区内选最近敌人 | [§3.12](SPEC_03_GameRules.md) |
+| FormationHome | 布阵原点 | 开战部署锁定的布阵世界坐标；无 EngageZone 目标时非叛变士兵自动返回 | [§3.12](SPEC_03_GameRules.md) |
 | IsoDiamond | 地图菱形足迹 | XZ 曼哈顿菱形（`|dx|/hx+|dz|/hz≤1`）；半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`，可随 iso 高宽比各向异性（Demo `(5,2.5)`）；`DigMapBounds`/`EngageZone`/`WalkSurface`/NavMesh 共用 | [§3.10](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | AttackMode | 攻击模式 | Melee/Ranged；士兵 SoulConfig / 怪物 MonsterConfig；普攻命中分支 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | AttackRange | 攻击距离 | 士兵 ClassConfig / 怪物 MonsterConfig；进入距内才攻击 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |

@@ -23,7 +23,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
         private const string StageRootPath = PrefabUmDir + "/UpgradeManufactureStageRoot.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0360";
+        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0480";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -185,17 +185,13 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, -18f), new Vector2(900f, 42f));
 
-            // Three panels: Upgrade / Manufacture / Formation placeholder
+            // Two panels: Upgrade / Manufacture (formation via 布阵 button)
             var upgradeZone = CreateUiPanel(panelRoot.transform, "UpgradeZone", new Color(0.18f, 0.22f, 0.32f, 0.95f));
-            StretchFill(upgradeZone.GetComponent<RectTransform>(), new Vector2(0f, 0.18f), new Vector2(0.33f, 0.88f), 8f);
+            StretchFill(upgradeZone.GetComponent<RectTransform>(), new Vector2(0f, 0.18f), new Vector2(0.49f, 0.88f), 8f);
 
             var manufactureZone = CreateUiPanel(panelRoot.transform, "ManufactureZone", new Color(0.2f, 0.2f, 0.26f, 0.95f));
-            StretchFill(manufactureZone.GetComponent<RectTransform>(), new Vector2(0.34f, 0.18f), new Vector2(0.66f, 0.88f), 8f);
+            StretchFill(manufactureZone.GetComponent<RectTransform>(), new Vector2(0.51f, 0.18f), new Vector2(1f, 0.88f), 8f);
             var manufactureView = BuildManufactureZone(manufactureZone.transform);
-
-            var formationZone = CreateUiPanel(panelRoot.transform, "FormationZone", new Color(0.16f, 0.18f, 0.22f, 0.9f));
-            StretchFill(formationZone.GetComponent<RectTransform>(), new Vector2(0.67f, 0.18f), new Vector2(1f, 0.88f), 8f);
-            var formationView = BuildFormationZone(formationZone.transform);
 
             var status = CreateUiText(upgradeZone.transform, "Status", "升级区", 20, TextAnchor.UpperLeft);
             StretchFill(status.GetComponent<RectTransform>(), new Vector2(0.04f, 0.38f), new Vector2(0.96f, 0.96f), 0f);
@@ -211,7 +207,12 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             var complete = CreateUiButton(panelRoot.transform, "CompleteButton", "完成 / 进入下一阶段",
                 new Color(0.45f, 0.35f, 0.22f, 1f));
             Place(complete.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(360f, 52f));
+                new Vector2(0.5f, 0f), new Vector2(-100f, 28f), new Vector2(320f, 52f));
+
+            var formationBtn = CreateUiButton(panelRoot.transform, "FormationButton", "布阵",
+                new Color(0.28f, 0.42f, 0.55f, 1f));
+            Place(formationBtn.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f), new Vector2(160f, 28f), new Vector2(140f, 52f));
 
             var upgradeView = panelRoot.AddComponent<UpgradePanelView>();
             var vso = new SerializedObject(upgradeView);
@@ -220,21 +221,24 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             vso.FindProperty("_inject100Button").objectReferenceValue = inject100.GetComponent<Button>();
             vso.FindProperty("_inject500Button").objectReferenceValue = inject500.GetComponent<Button>();
             vso.FindProperty("_completeButton").objectReferenceValue = complete.GetComponent<Button>();
+            vso.FindProperty("_formationButton").objectReferenceValue = formationBtn.GetComponent<Button>();
             vso.ApplyModifiedPropertiesWithoutUndo();
 
             var cso = new SerializedObject(controller);
             cso.FindProperty("_upgradePanel").objectReferenceValue = upgradeView;
             cso.FindProperty("_manufacturePanel").objectReferenceValue = manufactureView;
-            cso.FindProperty("_formationPanel").objectReferenceValue = formationView;
+            cso.FindProperty("_mainUiRoot").objectReferenceValue = panelRoot;
+            cso.FindProperty("_formationPanel").objectReferenceValue = null;
             cso.ApplyModifiedPropertiesWithoutUndo();
 
             panelRoot.SetActive(false);
             return root;
         }
 
-        private static FormationPanelView BuildFormationZone(Transform zone)
+        private static FormationPanelView BuildFormationZoneUnused(Transform zone)
         {
-            var header = CreateUiText(zone, "Header", "布阵区（点左上阵 / 点右选中 / 按钮改位）", 15,
+            // Kept for reference; UM formation is FormationEditorRoot (v0.48).
+            var header = CreateUiText(zone, "Header", "布阵区（已迁移至独立编辑器）", 15,
                 TextAnchor.UpperCenter);
             StretchFill(header.GetComponent<RectTransform>(), new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), 0f);
 
@@ -285,6 +289,11 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             so.FindProperty("_nudgePosZButton").objectReferenceValue = posZ.GetComponent<Button>();
             so.ApplyModifiedPropertiesWithoutUndo();
             return view;
+        }
+
+        private static FormationPanelView BuildFormationZone(Transform zone)
+        {
+            return BuildFormationZoneUnused(zone);
         }
 
         private static ManufacturePanelView BuildManufactureZone(Transform zone)
@@ -342,20 +351,53 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
         {
             var panel = CreateUiPanel(parent, name, new Color(0.12f, 0.13f, 0.17f, 0.95f));
             StretchFill(panel.GetComponent<RectTransform>(), anchorMin, anchorMax, 0f);
-            panel.AddComponent<RectMask2D>();
 
-            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup));
-            contentGo.transform.SetParent(panel.transform, false);
+            var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
+            scrollGo.transform.SetParent(panel.transform, false);
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            StretchFill(scrollRt, Vector2.zero, Vector2.one, 2f);
+            var scrollImg = scrollGo.GetComponent<Image>();
+            scrollImg.color = new Color(1f, 1f, 1f, 0.02f);
+            scrollImg.raycastTarget = true;
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            var viewportRt = viewportGo.GetComponent<RectTransform>();
+            StretchFill(viewportRt, Vector2.zero, Vector2.one, 0f);
+            var viewportImg = viewportGo.GetComponent<Image>();
+            viewportImg.color = new Color(1f, 1f, 1f, 0.02f);
+            viewportImg.raycastTarget = true;
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewportGo.transform, false);
             var content = contentGo.GetComponent<RectTransform>();
-            StretchFill(content, Vector2.zero, Vector2.one, 2f);
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
 
             var layout = contentGo.GetComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperLeft;
             layout.spacing = 1f;
+            layout.padding = new RectOffset(2, 2, 2, 2);
             layout.childControlHeight = true;
             layout.childControlWidth = true;
             layout.childForceExpandHeight = false;
             layout.childForceExpandWidth = true;
+
+            var fitter = contentGo.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.content = content;
+            scroll.viewport = viewportRt;
             return content;
         }
 
@@ -364,7 +406,9 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
             go.transform.SetParent(content, false);
             go.GetComponent<Image>().color = new Color(0.24f, 0.27f, 0.34f, 0.95f);
-            go.GetComponent<LayoutElement>().preferredHeight = 18f;
+            var layoutElement = go.GetComponent<LayoutElement>();
+            layoutElement.preferredHeight = 18f;
+            layoutElement.minHeight = 18f;
 
             var text = CreateUiText(go.transform, "Label", "row", 11, TextAnchor.MiddleLeft);
             var rect = text.GetComponent<RectTransform>();

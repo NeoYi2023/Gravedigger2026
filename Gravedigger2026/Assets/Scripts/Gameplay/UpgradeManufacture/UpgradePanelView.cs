@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.UpgradeManufacture
 {
     /// <summary>
-    /// Rough upgrade panel UI (SPEC_03 UI-010 / D-030). Widgets are not polished.
+    /// Upgrade + Complete + Formation entry (SPEC_03 UI-010 / D-030 / D-032).
     /// </summary>
     public sealed class UpgradePanelView : MonoBehaviour
     {
@@ -14,10 +14,12 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         [SerializeField] private Button _inject100Button;
         [SerializeField] private Button _inject500Button;
         [SerializeField] private Button _completeButton;
+        [SerializeField] private Button _formationButton;
 
         public event Action Inject100Requested;
         public event Action Inject500Requested;
         public event Action CompleteRequested;
+        public event Action FormationRequested;
 
         private void OnEnable()
         {
@@ -34,6 +36,11 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             if (_completeButton != null)
             {
                 _completeButton.onClick.AddListener(HandleComplete);
+            }
+
+            if (_formationButton != null)
+            {
+                _formationButton.onClick.AddListener(HandleFormation);
             }
         }
 
@@ -52,6 +59,11 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             if (_completeButton != null)
             {
                 _completeButton.onClick.RemoveListener(HandleComplete);
+            }
+
+            if (_formationButton != null)
+            {
+                _formationButton.onClick.RemoveListener(HandleFormation);
             }
         }
 
@@ -92,6 +104,11 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private void HandleComplete()
         {
             CompleteRequested?.Invoke();
+        }
+
+        private void HandleFormation()
+        {
+            FormationRequested?.Invoke();
         }
     }
 }

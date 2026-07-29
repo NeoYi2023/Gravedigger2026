@@ -34,6 +34,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private Func<Transform> _protagonistProvider;
         private GameObject _projectilePrefab;
         private Transform _projectileParent;
+        private Vector3 _formationHome;
+        private bool _hasFormationHome;
         private float _retargetInterval = 1f;
         private float _retargetTimer;
         private float _attackStartCooldown;
@@ -42,6 +44,10 @@ namespace Gravedigger2026.Gameplay.Defend
         private RebelTargetKind _windupKind;
         private string _windupTargetId;
         private NavMeshAgent _agent;
+        private WarriorAnimView _anim;
+        private bool _diePlayed;
+        private const float MoveAnimSpeedSqr = 0.04f;
+        private const float FormationHomeStoppingDistance = 0.15f;
 
         public string WarriorId => _warriorId;
 
@@ -54,7 +60,8 @@ namespace Gravedigger2026.Gameplay.Defend
             GameObject projectilePrefab = null,
             Transform projectileParent = null,
             Func<IReadOnlyList<WarriorAgentView>> warriorsProvider = null,
-            Func<Transform> protagonistProvider = null)
+            Func<Transform> protagonistProvider = null,
+            Vector3? formationHomeWorld = null)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
@@ -64,6 +71,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _protagonistProvider = protagonistProvider;
             _projectilePrefab = projectilePrefab;
             _projectileParent = projectileParent;
+            _hasFormationHome = formationHomeWorld.HasValue;
+            _formationHome = formationHomeWorld ?? Vector3.zero;
             _retargetInterval = Mathf.Max(0.1f, retargetIntervalSeconds);
             _retargetTimer = 0f;
             _attackStartCooldown = 0f;
@@ -71,6 +80,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _attackPhase = AttackPhase.IdleOrMove;
             _windupKind = RebelTargetKind.None;
             _windupTargetId = null;
+            _diePlayed = false;
 
             if (!_session.TryGetWarrior(_warriorId, out var state) || state == null)
             {
@@ -85,6 +95,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 _agent = gameObject.AddComponent<NavMeshAgent>();
             }
 
+            _anim = GetComponent<WarriorAnimView>();
+            if (_anim == null)
+            {
+                _anim = gameObject.AddComponent<WarriorAnimView>();
+            }
+
             _agent.speed = Mathf.Max(0.1f, state.MoveSpeed);
             _agent.stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
             _agent.angularSpeed = 720f;
@@ -94,6 +110,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _agent.autoBraking = true;
             // SPEC_04 §15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
             _agent.updateRotation = false;
+
+            _anim.ResetToIdle();
 
             if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 4f, NavMesh.AllAreas))
             {
@@ -115,6 +133,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!_session.IsWarriorCombatActive(_warriorId) || !_session.TryGetWarrior(_warriorId, out var state))
             {
+                PlayDieOnce();
                 StopAgent();
                 return;
             }
@@ -125,6 +144,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 _retargetTimer = 0f;
                 RequestPath(state);
             }
+
+            TickAnimPresentation(state);
 
             if (state.IsRebel)
             {
@@ -138,6 +159,75 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 TickLoyalRanged(state);
             }
+        }
+
+        private void TickAnimPresentation(DefendCombatWarriorState state)
+        {
+            if (_anim == null)
+            {
+                return;
+            }
+
+            var moving = _attackPhase != AttackPhase.Windup
+                         && _agent != null
+                         && _agent.isOnNavMesh
+                         && !_agent.isStopped
+                         && _agent.velocity.sqrMagnitude > MoveAnimSpeedSqr;
+
+            if (_attackPhase != AttackPhase.Windup)
+            {
+                _anim.SetMoving(moving);
+            }
+
+            if (TryGetAimPoint(state, out var aimPoint))
+            {
+                var toAim = aimPoint - transform.position;
+                toAim.y = 0f;
+                if (toAim.sqrMagnitude > 0.0001f)
+                {
+                    _anim.SetFacing(toAim);
+                    return;
+                }
+            }
+
+            if (moving && _agent != null)
+            {
+                var vel = _agent.velocity;
+                vel.y = 0f;
+                if (vel.sqrMagnitude > 0.0001f)
+                {
+                    _anim.SetFacing(vel);
+                }
+            }
+        }
+
+        private bool TryGetAimPoint(DefendCombatWarriorState state, out Vector3 aimPoint)
+        {
+            aimPoint = default;
+            if (state.IsRebel)
+            {
+                return TryFindNearestRebelTarget(out _, out _, out aimPoint);
+            }
+
+            var target = FindNearestEngageMonster();
+            if (target == null)
+            {
+                return false;
+            }
+
+            aimPoint = target.transform.position;
+            return true;
+        }
+
+        private void PlayDieOnce()
+        {
+            if (_diePlayed || _anim == null)
+            {
+                return;
+            }
+
+            _diePlayed = true;
+            _anim.PlayDie();
         }
 
         private void TickLoyalMelee(DefendCombatWarriorState state)
@@ -229,6 +319,18 @@ namespace Gravedigger2026.Gameplay.Defend
                 _agent.isStopped = true;
             }
 
+            var toTarget = target.transform.position - transform.position;
+            toTarget.y = 0f;
+            if (_anim != null)
+            {
+                if (toTarget.sqrMagnitude > 0.0001f)
+                {
+                    _anim.SetFacing(toTarget);
+                }
+
+                _anim.PlayAttack();
+            }
+
             var parent = _projectileParent != null ? _projectileParent : transform.parent;
             var go = Instantiate(_projectilePrefab, parent);
             go.name = $"Projectile_{_warriorId}";
@@ -271,6 +373,64 @@ namespace Gravedigger2026.Gameplay.Defend
             if (_agent != null && _agent.isOnNavMesh)
             {
                 _agent.isStopped = true;
+            }
+
+            if (_anim != null)
+            {
+                if (TryResolveWindupAim(kind, targetId, out var aim))
+                {
+                    var toAim = aim - transform.position;
+                    toAim.y = 0f;
+                    if (toAim.sqrMagnitude > 0.0001f)
+                    {
+                        _anim.SetFacing(toAim);
+                    }
+                }
+
+                _anim.PlayAttack();
+            }
+        }
+
+        private bool TryResolveWindupAim(RebelTargetKind kind, string targetId, out Vector3 aim)
+        {
+            aim = default;
+            switch (kind)
+            {
+                case RebelTargetKind.Protagonist:
+                {
+                    var tf = _protagonistProvider != null ? _protagonistProvider() : null;
+                    if (tf == null)
+                    {
+                        return false;
+                    }
+
+                    aim = tf.position;
+                    return true;
+                }
+                case RebelTargetKind.Warrior:
+                {
+                    var other = FindWarriorById(targetId);
+                    if (other == null)
+                    {
+                        return false;
+                    }
+
+                    aim = other.transform.position;
+                    return true;
+                }
+                case RebelTargetKind.Monster:
+                {
+                    var monster = FindMonsterByRuntimeId(targetId);
+                    if (monster == null)
+                    {
+                        return false;
+                    }
+
+                    aim = monster.transform.position;
+                    return true;
+                }
+                default:
+                    return false;
             }
         }
 
@@ -350,6 +510,11 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _agent.isStopped = false;
             }
+
+            if (_anim != null)
+            {
+                _anim.SetMoving(false);
+            }
         }
 
         private void RequestPath(DefendCombatWarriorState state)
@@ -360,26 +525,38 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             Vector3 dest;
+            float stoppingDistance;
             if (state.IsRebel)
             {
                 if (!TryFindNearestRebelTarget(out _, out _, out dest))
                 {
                     return;
                 }
+
+                stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
             }
             else
             {
                 var target = FindNearestEngageMonster();
-                if (target == null)
+                if (target != null)
+                {
+                    dest = target.transform.position;
+                    stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
+                }
+                else if (_hasFormationHome)
+                {
+                    // SPEC_03 §3.12: no EngageZone target → auto-return FormationHome; retarget keeps searching.
+                    dest = _formationHome;
+                    stoppingDistance = FormationHomeStoppingDistance;
+                }
+                else
                 {
                     return;
                 }
-
-                dest = target.transform.position;
             }
 
             _agent.isStopped = false;
-            _agent.stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
+            _agent.stoppingDistance = stoppingDistance;
             _agent.SetDestination(dest);
         }
 

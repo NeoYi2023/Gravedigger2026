@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Gameplay.Defend;
+using Gravedigger2026.Gameplay.Formation;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.UpgradeManufacture
 {
     /// <summary>
-    /// UM stage presentation: upgrade (D-030) + manufacture (D-031) + formation (D-032).
+    /// UM stage: upgrade + manufacture main screen; FormationEditor via 布阵 button (D-030–D-032).
     /// </summary>
     public sealed class UpgradeManufactureStageController : MonoBehaviour
     {
@@ -16,22 +20,23 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         [SerializeField] private UpgradeManufacturePrefabCatalog _catalog;
         [SerializeField] private UpgradePanelView _upgradePanel;
         [SerializeField] private ManufacturePanelView _manufacturePanel;
+        [SerializeField] private GameObject _mainUiRoot;
         [SerializeField] private FormationPanelView _formationPanel;
 
         private readonly List<string> _inventoryLabels = new List<string>();
         private readonly List<string> _inventoryIds = new List<string>();
         private readonly List<string> _slotLabels = new List<string>();
-        private readonly List<string> _poolLabels = new List<string>();
-        private readonly List<string> _poolIds = new List<string>();
-        private readonly List<string> _formationLabels = new List<string>();
-        private readonly List<string> _formationIds = new List<string>();
 
+        private ConfigCsvRepository _configs;
+        private FormationPrefabCatalog _formationCatalog;
+        private DefendPrefabCatalog _defendCatalog;
         private ProtagonistProgressService _progress;
         private ManufactureService _manufacture;
         private WarriorPoolService _warriorPool;
         private BattleFormationService _formation;
+        private LevelStageContext _stageContext;
         private Action _onComplete;
-        private string _selectedWarriorId;
+        private FormationEditorController _editor;
         private bool _active;
 
         public void ConfigureCatalog(UpgradeManufacturePrefabCatalog catalog)
@@ -43,19 +48,26 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         }
 
         public void Begin(
+            ConfigCsvRepository configs,
+            FormationPrefabCatalog formationCatalog,
+            DefendPrefabCatalog defendCatalog,
             ProtagonistProgressService progress,
             ManufactureService manufacture,
             WarriorPoolService warriorPool,
             BattleFormationService formation,
+            LevelStageContext stageContext,
             Action onComplete)
         {
             End();
+            _configs = configs;
+            _formationCatalog = formationCatalog;
+            _defendCatalog = defendCatalog;
             _progress = progress ?? throw new ArgumentNullException(nameof(progress));
             _manufacture = manufacture;
             _warriorPool = warriorPool;
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
+            _stageContext = stageContext;
             _onComplete = onComplete;
-            _selectedWarriorId = null;
             _active = true;
 
             _progress.Changed += HandleProgressChanged;
@@ -64,6 +76,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _upgradePanel.Inject100Requested += HandleInject100;
                 _upgradePanel.Inject500Requested += HandleInject500;
                 _upgradePanel.CompleteRequested += HandleComplete;
+                _upgradePanel.FormationRequested += HandleOpenFormation;
                 _upgradePanel.Show();
             }
 
@@ -79,28 +92,25 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
 
             if (_warriorPool != null)
             {
-                _warriorPool.Changed += HandlePoolOrFormationChanged;
+                _warriorPool.Changed += HandlePoolChanged;
             }
 
-            _formation.Changed += HandlePoolOrFormationChanged;
+            _formation.Changed += HandlePoolChanged;
+
             if (_formationPanel != null)
             {
-                _formationPanel.DeployRequested += HandleDeployRequested;
-                _formationPanel.SelectRequested += HandleSelectRequested;
-                _formationPanel.UndeployRequested += HandleUndeployRequested;
-                _formationPanel.NudgeNegXRequested += HandleNudgeNegX;
-                _formationPanel.NudgePosXRequested += HandleNudgePosX;
-                _formationPanel.NudgeNegZRequested += HandleNudgeNegZ;
-                _formationPanel.NudgePosZRequested += HandleNudgePosZ;
+                _formationPanel.gameObject.SetActive(false);
             }
 
+            SetMainUiVisible(true);
             RefreshStatus();
             RefreshManufacture();
-            RefreshFormation();
         }
 
         public void End()
         {
+            CloseFormationEditor();
+
             if (!_active)
             {
                 return;
@@ -116,6 +126,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _upgradePanel.Inject100Requested -= HandleInject100;
                 _upgradePanel.Inject500Requested -= HandleInject500;
                 _upgradePanel.CompleteRequested -= HandleComplete;
+                _upgradePanel.FormationRequested -= HandleOpenFormation;
                 _upgradePanel.Hide();
             }
 
@@ -131,32 +142,113 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
 
             if (_warriorPool != null)
             {
-                _warriorPool.Changed -= HandlePoolOrFormationChanged;
+                _warriorPool.Changed -= HandlePoolChanged;
             }
 
             if (_formation != null)
             {
-                _formation.Changed -= HandlePoolOrFormationChanged;
+                _formation.Changed -= HandlePoolChanged;
             }
 
-            if (_formationPanel != null)
-            {
-                _formationPanel.DeployRequested -= HandleDeployRequested;
-                _formationPanel.SelectRequested -= HandleSelectRequested;
-                _formationPanel.UndeployRequested -= HandleUndeployRequested;
-                _formationPanel.NudgeNegXRequested -= HandleNudgeNegX;
-                _formationPanel.NudgePosXRequested -= HandleNudgePosX;
-                _formationPanel.NudgeNegZRequested -= HandleNudgeNegZ;
-                _formationPanel.NudgePosZRequested -= HandleNudgePosZ;
-            }
-
+            _configs = null;
+            _formationCatalog = null;
+            _defendCatalog = null;
             _progress = null;
             _manufacture = null;
             _warriorPool = null;
             _formation = null;
+            _stageContext = null;
             _onComplete = null;
-            _selectedWarriorId = null;
             _active = false;
+        }
+
+        private void HandleOpenFormation()
+        {
+            if (_editor != null || _formationCatalog == null || _defendCatalog == null)
+            {
+                Debug.LogWarning("[UM] FormationEditor catalog missing.");
+                return;
+            }
+
+            var rootPrefab = _formationCatalog.FormationEditorRootPrefab;
+            if (rootPrefab == null)
+            {
+                Debug.LogError("[UM] FormationEditorRoot prefab missing.");
+                return;
+            }
+
+            var mapId = FormationMapResolver.ResolveUmBattleMapId(
+                _configs,
+                _stageContext != null ? _stageContext.LevelId : null,
+                _stageContext != null ? _stageContext.StageNumber : 0);
+
+            if (!_defendCatalog.TryGetMap(mapId, out var mapPrefab))
+            {
+                Debug.LogError($"[UM] BattleMap prefab missing for '{mapId}'.");
+                return;
+            }
+
+            SetMainUiVisible(false);
+            var instance = Instantiate(rootPrefab, transform);
+            instance.name = "FormationEditorRoot(Clone)";
+            _editor = instance.GetComponent<FormationEditorController>();
+            if (_editor == null)
+            {
+                _editor = instance.AddComponent<FormationEditorController>();
+            }
+
+            _editor.ReturnRequested += HandleFormationReturn;
+            _editor.Begin(
+                FormationEditorMode.UpgradeManufacture,
+                _defendCatalog,
+                _warriorPool,
+                _formation,
+                _progress,
+                mapPrefab,
+                null);
+
+            Debug.Log($"[UM Formation] Opened editor map={mapId}");
+        }
+
+        private void HandleFormationReturn()
+        {
+            CloseFormationEditor();
+            SetMainUiVisible(true);
+            RefreshManufacture();
+        }
+
+        private void CloseFormationEditor()
+        {
+            if (_editor == null)
+            {
+                return;
+            }
+
+            _editor.ReturnRequested -= HandleFormationReturn;
+            _editor.End();
+            Destroy(_editor.gameObject);
+            _editor = null;
+        }
+
+        private void SetMainUiVisible(bool visible)
+        {
+            if (_mainUiRoot != null)
+            {
+                _mainUiRoot.SetActive(visible);
+                return;
+            }
+
+            if (_upgradePanel != null)
+            {
+                if (visible)
+                {
+                    _upgradePanel.Show();
+                }
+                else
+                {
+                    _upgradePanel.Hide();
+                }
+            }
         }
 
         private void HandleInject100()
@@ -202,7 +294,6 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private void HandleProgressChanged()
         {
             RefreshStatus();
-            RefreshFormation();
         }
 
         private void HandleManufactureChanged()
@@ -210,10 +301,9 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             RefreshManufacture();
         }
 
-        private void HandlePoolOrFormationChanged()
+        private void HandlePoolChanged()
         {
             RefreshManufacture();
-            RefreshFormation();
         }
 
         private void HandleItemPlaceRequested(string itemId)
@@ -263,87 +353,6 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             {
                 Debug.LogWarning(
                     $"[UM Manufacture] 外观 Prefab 未绑定：Assets/Prefabs/Defend/Warriors/{instance.AppearanceId}.prefab");
-            }
-        }
-
-        private void HandleDeployRequested(string warriorId)
-        {
-            if (_formation == null || string.IsNullOrEmpty(warriorId))
-            {
-                return;
-            }
-
-            if (!_formation.TryDeploy(warriorId, out var error))
-            {
-                Debug.Log($"[UM Formation] 上阵失败：{error}");
-                RefreshFormation();
-                return;
-            }
-
-            _selectedWarriorId = warriorId;
-            Debug.Log($"[UM Formation] 上阵 {warriorId}");
-        }
-
-        private void HandleSelectRequested(string warriorId)
-        {
-            if (string.IsNullOrEmpty(warriorId))
-            {
-                return;
-            }
-
-            _selectedWarriorId = warriorId;
-            RefreshFormation();
-        }
-
-        private void HandleUndeployRequested()
-        {
-            if (_formation == null || string.IsNullOrEmpty(_selectedWarriorId))
-            {
-                return;
-            }
-
-            var id = _selectedWarriorId;
-            if (!_formation.TryUndeploy(id, out var error))
-            {
-                Debug.Log($"[UM Formation] 下阵失败：{error}");
-                RefreshFormation();
-                return;
-            }
-
-            _selectedWarriorId = null;
-            Debug.Log($"[UM Formation] 下阵 {id}");
-        }
-
-        private void HandleNudgeNegX()
-        {
-            Nudge(-BattleFormationService.DefaultNudgeStep, 0f);
-        }
-
-        private void HandleNudgePosX()
-        {
-            Nudge(BattleFormationService.DefaultNudgeStep, 0f);
-        }
-
-        private void HandleNudgeNegZ()
-        {
-            Nudge(0f, -BattleFormationService.DefaultNudgeStep);
-        }
-
-        private void HandleNudgePosZ()
-        {
-            Nudge(0f, BattleFormationService.DefaultNudgeStep);
-        }
-
-        private void Nudge(float dx, float dz)
-        {
-            if (_formation == null || string.IsNullOrEmpty(_selectedWarriorId))
-            {
-                return;
-            }
-
-            if (!_formation.TryNudge(_selectedWarriorId, dx, dz, out var error))
-            {
-                Debug.Log($"[UM Formation] 改位失败：{error}");
             }
         }
 
@@ -407,96 +416,6 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             _manufacturePanel.SetPreviewText(BuildPreviewText(preview));
             _manufacturePanel.SetManufactureInteractable(preview.CanManufacture);
             _manufacturePanel.SetPoolText(BuildPoolText());
-        }
-
-        private void RefreshFormation()
-        {
-            if (_formationPanel == null || _formation == null)
-            {
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(_selectedWarriorId) && !_formation.IsDeployed(_selectedWarriorId))
-            {
-                _selectedWarriorId = null;
-            }
-
-            _poolLabels.Clear();
-            _poolIds.Clear();
-            if (_warriorPool != null)
-            {
-                var warriors = _warriorPool.Warriors;
-                for (var i = 0; i < warriors.Count; i++)
-                {
-                    var w = warriors[i];
-                    if (_formation.IsDeployed(w.Id))
-                    {
-                        continue;
-                    }
-
-                    _poolLabels.Add($"{w.Id} {w.WarriorName}｜控 {w.ControlPowerCost:0.##}");
-                    _poolIds.Add(w.Id);
-                }
-            }
-
-            if (_poolLabels.Count == 0)
-            {
-                _poolLabels.Add("（无可上阵士兵：先制造）");
-                _poolIds.Add(string.Empty);
-            }
-
-            _formationPanel.SetPoolLines(_poolLabels, _poolIds);
-
-            _formationLabels.Clear();
-            _formationIds.Clear();
-            var entries = _formation.Entries;
-            for (var i = 0; i < entries.Count; i++)
-            {
-                var e = entries[i];
-                var mark = string.Equals(e.WarriorId, _selectedWarriorId, StringComparison.Ordinal) ? "▶ " : string.Empty;
-                var name = e.WarriorId;
-                if (_warriorPool != null)
-                {
-                    for (var w = 0; w < _warriorPool.Warriors.Count; w++)
-                    {
-                        if (string.Equals(_warriorPool.Warriors[w].Id, e.WarriorId, StringComparison.Ordinal))
-                        {
-                            name = $"{e.WarriorId} {_warriorPool.Warriors[w].WarriorName}";
-                            break;
-                        }
-                    }
-                }
-
-                _formationLabels.Add($"{mark}{name} @({e.PositionX:0.##},{e.PositionZ:0.##}) HP={e.RemainingHP:0}");
-                _formationIds.Add(e.WarriorId);
-            }
-
-            if (_formationLabels.Count == 0)
-            {
-                _formationLabels.Add("（布阵为空：点击左侧士兵上阵）");
-                _formationIds.Add(string.Empty);
-            }
-
-            _formationPanel.SetFormationLines(_formationLabels, _formationIds);
-
-            var cap = _progress != null ? _progress.ControlPowerCap : 0;
-            var used = _formation.SumControlPowerCost();
-            var degree = _formation.ComputeLossOfControlDegree(cap);
-            var degreeText = float.IsInfinity(degree)
-                ? "∞"
-                : degree.ToString("0.##");
-            var selected = "未选中上阵士兵（点右侧列表）";
-            if (!string.IsNullOrEmpty(_selectedWarriorId) && _formation.TryGetEntry(_selectedWarriorId, out var sel))
-            {
-                selected =
-                    $"选中 {_selectedWarriorId} @({sel.PositionX:0.##},{sel.PositionZ:0.##}) 步进±{BattleFormationService.DefaultNudgeStep:0}";
-            }
-
-            _formationPanel.SetStatusText(
-                $"布阵区（连续坐标 · 与 Prepare 共用 BattleFormation）\n" +
-                $"控制力占用 {used:0.##} / Cap {cap}｜Degree={degreeText}\n" +
-                $"{selected}");
-            _formationPanel.SetActionInteractable(!string.IsNullOrEmpty(_selectedWarriorId));
         }
 
         private static string BuildPreviewText(ManufacturePreview preview)

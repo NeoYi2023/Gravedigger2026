@@ -98,7 +98,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -117,9 +117,9 @@ TextureImporter:
       name: Taunt_0_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -138,9 +138,9 @@ TextureImporter:
       name: Taunt_0_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -159,9 +159,9 @@ TextureImporter:
       name: Taunt_0_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -180,9 +180,9 @@ TextureImporter:
       name: Taunt_0_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -201,9 +201,9 @@ TextureImporter:
       name: Taunt_0_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -222,9 +222,9 @@ TextureImporter:
       name: Taunt_0_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -243,9 +243,9 @@ TextureImporter:
       name: Taunt_0_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -264,9 +264,9 @@ TextureImporter:
       name: Taunt_0_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -285,9 +285,9 @@ TextureImporter:
       name: Taunt_0_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -306,9 +306,9 @@ TextureImporter:
       name: Taunt_0_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -327,9 +327,9 @@ TextureImporter:
       name: Taunt_0_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -348,9 +348,9 @@ TextureImporter:
       name: Taunt_0_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -369,9 +369,9 @@ TextureImporter:
       name: Taunt_0_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -390,9 +390,9 @@ TextureImporter:
       name: Taunt_0_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 0
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -413,7 +413,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -432,9 +432,9 @@ TextureImporter:
       name: Taunt_1_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -453,9 +453,9 @@ TextureImporter:
       name: Taunt_1_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -474,9 +474,9 @@ TextureImporter:
       name: Taunt_1_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -495,9 +495,9 @@ TextureImporter:
       name: Taunt_1_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -516,9 +516,9 @@ TextureImporter:
       name: Taunt_1_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -537,9 +537,9 @@ TextureImporter:
       name: Taunt_1_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -558,9 +558,9 @@ TextureImporter:
       name: Taunt_1_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -579,9 +579,9 @@ TextureImporter:
       name: Taunt_1_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -600,9 +600,9 @@ TextureImporter:
       name: Taunt_1_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -621,9 +621,9 @@ TextureImporter:
       name: Taunt_1_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -642,9 +642,9 @@ TextureImporter:
       name: Taunt_1_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -663,9 +663,9 @@ TextureImporter:
       name: Taunt_1_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -684,9 +684,9 @@ TextureImporter:
       name: Taunt_1_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -705,9 +705,9 @@ TextureImporter:
       name: Taunt_1_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 128
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -728,7 +728,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -747,9 +747,9 @@ TextureImporter:
       name: Taunt_2_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -768,9 +768,9 @@ TextureImporter:
       name: Taunt_2_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -789,9 +789,9 @@ TextureImporter:
       name: Taunt_2_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -810,9 +810,9 @@ TextureImporter:
       name: Taunt_2_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -831,9 +831,9 @@ TextureImporter:
       name: Taunt_2_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -852,9 +852,9 @@ TextureImporter:
       name: Taunt_2_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -873,9 +873,9 @@ TextureImporter:
       name: Taunt_2_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -894,9 +894,9 @@ TextureImporter:
       name: Taunt_2_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -915,9 +915,9 @@ TextureImporter:
       name: Taunt_2_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -936,9 +936,9 @@ TextureImporter:
       name: Taunt_2_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -957,9 +957,9 @@ TextureImporter:
       name: Taunt_2_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -978,9 +978,9 @@ TextureImporter:
       name: Taunt_2_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -999,9 +999,9 @@ TextureImporter:
       name: Taunt_2_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1020,9 +1020,9 @@ TextureImporter:
       name: Taunt_2_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 256
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1043,7 +1043,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1062,9 +1062,9 @@ TextureImporter:
       name: Taunt_3_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1083,9 +1083,9 @@ TextureImporter:
       name: Taunt_3_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1104,9 +1104,9 @@ TextureImporter:
       name: Taunt_3_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1125,9 +1125,9 @@ TextureImporter:
       name: Taunt_3_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1146,9 +1146,9 @@ TextureImporter:
       name: Taunt_3_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1167,9 +1167,9 @@ TextureImporter:
       name: Taunt_3_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1188,9 +1188,9 @@ TextureImporter:
       name: Taunt_3_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1209,9 +1209,9 @@ TextureImporter:
       name: Taunt_3_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1230,9 +1230,9 @@ TextureImporter:
       name: Taunt_3_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1251,9 +1251,9 @@ TextureImporter:
       name: Taunt_3_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1272,9 +1272,9 @@ TextureImporter:
       name: Taunt_3_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1293,9 +1293,9 @@ TextureImporter:
       name: Taunt_3_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1314,9 +1314,9 @@ TextureImporter:
       name: Taunt_3_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1335,9 +1335,9 @@ TextureImporter:
       name: Taunt_3_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 384
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1358,7 +1358,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1377,9 +1377,9 @@ TextureImporter:
       name: Taunt_4_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1398,9 +1398,9 @@ TextureImporter:
       name: Taunt_4_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1419,9 +1419,9 @@ TextureImporter:
       name: Taunt_4_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1440,9 +1440,9 @@ TextureImporter:
       name: Taunt_4_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1461,9 +1461,9 @@ TextureImporter:
       name: Taunt_4_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1482,9 +1482,9 @@ TextureImporter:
       name: Taunt_4_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1503,9 +1503,9 @@ TextureImporter:
       name: Taunt_4_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1524,9 +1524,9 @@ TextureImporter:
       name: Taunt_4_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1545,9 +1545,9 @@ TextureImporter:
       name: Taunt_4_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1566,9 +1566,9 @@ TextureImporter:
       name: Taunt_4_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1587,9 +1587,9 @@ TextureImporter:
       name: Taunt_4_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1608,9 +1608,9 @@ TextureImporter:
       name: Taunt_4_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1629,9 +1629,9 @@ TextureImporter:
       name: Taunt_4_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1650,9 +1650,9 @@ TextureImporter:
       name: Taunt_4_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 512
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1673,7 +1673,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1692,9 +1692,9 @@ TextureImporter:
       name: Taunt_5_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1713,9 +1713,9 @@ TextureImporter:
       name: Taunt_5_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1734,9 +1734,9 @@ TextureImporter:
       name: Taunt_5_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1755,9 +1755,9 @@ TextureImporter:
       name: Taunt_5_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1776,9 +1776,9 @@ TextureImporter:
       name: Taunt_5_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1797,9 +1797,9 @@ TextureImporter:
       name: Taunt_5_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1818,9 +1818,9 @@ TextureImporter:
       name: Taunt_5_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1839,9 +1839,9 @@ TextureImporter:
       name: Taunt_5_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1860,9 +1860,9 @@ TextureImporter:
       name: Taunt_5_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1881,9 +1881,9 @@ TextureImporter:
       name: Taunt_5_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1902,9 +1902,9 @@ TextureImporter:
       name: Taunt_5_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1923,9 +1923,9 @@ TextureImporter:
       name: Taunt_5_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1944,9 +1944,9 @@ TextureImporter:
       name: Taunt_5_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1965,9 +1965,9 @@ TextureImporter:
       name: Taunt_5_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 640
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -1988,7 +1988,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2007,9 +2007,9 @@ TextureImporter:
       name: Taunt_6_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2028,9 +2028,9 @@ TextureImporter:
       name: Taunt_6_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2049,9 +2049,9 @@ TextureImporter:
       name: Taunt_6_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2070,9 +2070,9 @@ TextureImporter:
       name: Taunt_6_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2091,9 +2091,9 @@ TextureImporter:
       name: Taunt_6_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2112,9 +2112,9 @@ TextureImporter:
       name: Taunt_6_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2133,9 +2133,9 @@ TextureImporter:
       name: Taunt_6_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2154,9 +2154,9 @@ TextureImporter:
       name: Taunt_6_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2175,9 +2175,9 @@ TextureImporter:
       name: Taunt_6_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2196,9 +2196,9 @@ TextureImporter:
       name: Taunt_6_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2217,9 +2217,9 @@ TextureImporter:
       name: Taunt_6_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2238,9 +2238,9 @@ TextureImporter:
       name: Taunt_6_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2259,9 +2259,9 @@ TextureImporter:
       name: Taunt_6_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2280,9 +2280,9 @@ TextureImporter:
       name: Taunt_6_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 768
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2303,7 +2303,7 @@ TextureImporter:
         serializedVersion: 2
         x: 0
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2322,9 +2322,9 @@ TextureImporter:
       name: Taunt_7_1
       rect:
         serializedVersion: 2
-        x: 136.53334
+        x: 128
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2343,9 +2343,9 @@ TextureImporter:
       name: Taunt_7_2
       rect:
         serializedVersion: 2
-        x: 273.06668
+        x: 256
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2364,9 +2364,9 @@ TextureImporter:
       name: Taunt_7_3
       rect:
         serializedVersion: 2
-        x: 409.60004
+        x: 384
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2385,9 +2385,9 @@ TextureImporter:
       name: Taunt_7_4
       rect:
         serializedVersion: 2
-        x: 546.13336
+        x: 512
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2406,9 +2406,9 @@ TextureImporter:
       name: Taunt_7_5
       rect:
         serializedVersion: 2
-        x: 682.6667
+        x: 640
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2427,9 +2427,9 @@ TextureImporter:
       name: Taunt_7_6
       rect:
         serializedVersion: 2
-        x: 819.2001
+        x: 768
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2448,9 +2448,9 @@ TextureImporter:
       name: Taunt_7_7
       rect:
         serializedVersion: 2
-        x: 955.7334
+        x: 896
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2469,9 +2469,9 @@ TextureImporter:
       name: Taunt_7_8
       rect:
         serializedVersion: 2
-        x: 1092.2667
+        x: 1024
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2490,9 +2490,9 @@ TextureImporter:
       name: Taunt_7_9
       rect:
         serializedVersion: 2
-        x: 1228.8
+        x: 1152
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2511,9 +2511,9 @@ TextureImporter:
       name: Taunt_7_10
       rect:
         serializedVersion: 2
-        x: 1365.3334
+        x: 1280
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2532,9 +2532,9 @@ TextureImporter:
       name: Taunt_7_11
       rect:
         serializedVersion: 2
-        x: 1501.8667
+        x: 1408
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2553,9 +2553,9 @@ TextureImporter:
       name: Taunt_7_12
       rect:
         serializedVersion: 2
-        x: 1638.4001
+        x: 1536
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2574,9 +2574,9 @@ TextureImporter:
       name: Taunt_7_13
       rect:
         serializedVersion: 2
-        x: 1774.9335
+        x: 1664
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
@@ -2595,9 +2595,9 @@ TextureImporter:
       name: Taunt_7_14
       rect:
         serializedVersion: 2
-        x: 1911.4668
+        x: 1792
         y: 896
-        width: 136.53334
+        width: 128
         height: 128
       alignment: 0
       pivot: {x: 0.5, y: 0.5}

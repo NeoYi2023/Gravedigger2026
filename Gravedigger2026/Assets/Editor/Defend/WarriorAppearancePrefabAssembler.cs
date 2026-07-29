@@ -64,6 +64,13 @@ namespace Gravedigger2026.Editor.Defend
                 MoveComponentIfNeeded<SpriteRenderer>(root, visual.gameObject);
                 MoveComponentIfNeeded<Animator>(root, visual.gameObject);
 
+                var sr = visual.GetComponent<SpriteRenderer>();
+                if (sr != null)
+                {
+                    // SPEC_04 §15.2 — above GroundTilemap (order 0).
+                    sr.sortingOrder = 200;
+                }
+
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
                 return true;
             }

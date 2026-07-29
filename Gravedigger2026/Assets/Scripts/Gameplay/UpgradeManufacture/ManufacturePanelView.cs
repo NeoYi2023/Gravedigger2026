@@ -11,6 +11,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
     /// </summary>
     public sealed class ManufacturePanelView : MonoBehaviour
     {
+        private const float RowHeight = 18f;
+
         [SerializeField] private RectTransform _inventoryContent;
         [SerializeField] private Button _inventoryRowTemplate;
         [SerializeField] private RectTransform _slotContent;
@@ -29,6 +31,16 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         public event Action GrantKitRequested;
         public event Action ClearSlotsRequested;
         public event Action ManufactureRequested;
+
+        private void Awake()
+        {
+            // Legacy Prefabs stretched Content into a fixed panel; many kit rows crushed height to ~0
+            // (blank labels). Heal once at runtime so existing assets work without a full rebuild.
+            _inventoryContent = EnsureVerticalScrollColumn(_inventoryContent);
+            _slotContent = EnsureVerticalScrollColumn(_slotContent);
+            HardenRowTemplate(_inventoryRowTemplate);
+            HardenRowTemplate(_slotRowTemplate);
+        }
 
         private void OnEnable()
         {
@@ -140,9 +152,128 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             while (rows.Count < required)
             {
                 var clone = Instantiate(template, content);
+                HardenRowTemplate(clone);
                 clone.gameObject.SetActive(true);
                 rows.Add(clone);
             }
+        }
+
+        private static void HardenRowTemplate(Button row)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            var layoutElement = row.GetComponent<LayoutElement>();
+            if (layoutElement == null)
+            {
+                layoutElement = row.gameObject.AddComponent<LayoutElement>();
+            }
+
+            layoutElement.preferredHeight = RowHeight;
+            layoutElement.minHeight = RowHeight;
+        }
+
+        /// <summary>
+        /// Upgrades a legacy list Content (stretched inside a fixed column) into Scroll/Viewport/Content
+        /// so row preferred heights stay readable when the Debug kit adds many inventory lines.
+        /// </summary>
+        private static RectTransform EnsureVerticalScrollColumn(RectTransform content)
+        {
+            if (content == null)
+            {
+                return null;
+            }
+
+            if (content.GetComponentInParent<ScrollRect>() != null)
+            {
+                HardenListContent(content);
+                return content;
+            }
+
+            var column = content.parent as RectTransform;
+            if (column == null)
+            {
+                HardenListContent(content);
+                return content;
+            }
+
+            var columnMask = column.GetComponent<RectMask2D>();
+            if (columnMask != null)
+            {
+                Destroy(columnMask);
+            }
+
+            var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
+            scrollGo.transform.SetParent(column, false);
+            scrollGo.transform.SetSiblingIndex(content.GetSiblingIndex());
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            StretchFill(scrollRt, 2f);
+            var scrollImg = scrollGo.GetComponent<Image>();
+            scrollImg.color = new Color(1f, 1f, 1f, 0.02f);
+            scrollImg.raycastTarget = true;
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            var viewportRt = viewportGo.GetComponent<RectTransform>();
+            StretchFill(viewportRt, 0f);
+            var viewportImg = viewportGo.GetComponent<Image>();
+            viewportImg.color = new Color(1f, 1f, 1f, 0.02f);
+            viewportImg.raycastTarget = true;
+
+            content.SetParent(viewportGo.transform, false);
+            HardenListContent(content);
+
+            scroll.content = content;
+            scroll.viewport = viewportRt;
+            return content;
+        }
+
+        private static void HardenListContent(RectTransform content)
+        {
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+
+            var layout = content.GetComponent<VerticalLayoutGroup>();
+            if (layout == null)
+            {
+                layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            }
+
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.spacing = 1f;
+            layout.padding = new RectOffset(2, 2, 2, 2);
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = true;
+
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        }
+
+        private static void StretchFill(RectTransform rt, float padding)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(padding, padding);
+            rt.offsetMax = new Vector2(-padding, -padding);
         }
 
         private static void SetRowLabel(Button row, string label)

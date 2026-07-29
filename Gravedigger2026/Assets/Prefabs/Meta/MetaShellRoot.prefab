@@ -2520,6 +2520,7 @@ MonoBehaviour:
   _digWorldParent: {fileID: 2155152180490997452}
   _umPrefabCatalog: {fileID: 11400000, guid: 22a343f39edd1b84681b9b3e85239c8c, type: 2}
   _umWorldParent: {fileID: 525636055204036864}
+  _formationPrefabCatalog: {fileID: 11400000, guid: 8ebc886899e349048b1178d359096a43, type: 2}
   _defendPrefabCatalog: {fileID: 11400000, guid: ff91b0f66a9ceeb4db335621a4229a0a, type: 2}
   _defendWorldParent: {fileID: 499053350620578896}
 --- !u!1 &3233854936562390122

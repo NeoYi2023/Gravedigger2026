@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
 using System.IO;
+using Gravedigger2026.Editor.Art;
 using Gravedigger2026.Editor.Maps;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Meta;
@@ -19,12 +20,15 @@ namespace Gravedigger2026.Editor.Dig
         private const string PrefabDigDir = "Assets/Prefabs/Dig";
         private const string PrefabMapsDir = "Assets/Prefabs/Maps";
         private const string SettingsDigDir = "Assets/Settings/Dig";
+        private const string ArtUiDigDir = "Assets/Art/UI/Dig";
         private const string CatalogPath = SettingsDigDir + "/DigPrefabCatalog.asset";
         private const string StageRootPath = PrefabDigDir + "/DigStageRoot.prefab";
         private const string DiggerPath = PrefabDigDir + "/Digger.prefab";
         private const string RewardPath = PrefabDigDir + "/DigRewardFlyer.prefab";
+        private const string UiCursorRingPath = PrefabDigDir + "/UiDigCursorRing.prefab";
+        private const string CircleSpritePath = ArtUiDigDir + "/Ui_DigCursor_Circle.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v0460";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v0464";
 
         private static readonly string[] MapIds =
         {
@@ -77,9 +81,12 @@ namespace Gravedigger2026.Editor.Dig
                 });
             }
 
-            var diggerGo = BuildDigger();
-            PrefabUtility.SaveAsPrefabAsset(diggerGo, DiggerPath);
-            Object.DestroyImmediate(diggerGo);
+            // SPEC_04 §15.2: assemble 2D Visual from Art; never regenerate Capsule Body.
+            if (!ProtagonistPrefabAssembler.AssembleDigger())
+            {
+                Debug.LogError("[DigAssetBuilder] Failed to assemble Digger Prefab from Art.");
+            }
+
             var diggerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(DiggerPath);
 
             var graveEntries = new List<DigPrefabCatalog.GraveEntry>();
@@ -113,7 +120,16 @@ namespace Gravedigger2026.Editor.Dig
             Object.DestroyImmediate(rewardGo);
             var rewardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RewardPath);
 
-            var stageGo = BuildDigStageRoot();
+            var circleSprite = EnsureCircleSprite();
+            var cursorRingGo = BuildUiDigCursorRing(circleSprite);
+            PrefabUtility.SaveAsPrefabAsset(cursorRingGo, UiCursorRingPath);
+            Object.DestroyImmediate(cursorRingGo);
+            var cursorRingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(UiCursorRingPath);
+            var cursorRingView = cursorRingPrefab != null
+                ? cursorRingPrefab.GetComponent<DigCursorRingView>()
+                : null;
+
+            var stageGo = BuildDigStageRoot(cursorRingView);
             PrefabUtility.SaveAsPrefabAsset(stageGo, StageRootPath);
             Object.DestroyImmediate(stageGo);
             var stagePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath);
@@ -125,10 +141,10 @@ namespace Gravedigger2026.Editor.Dig
                 AssetDatabase.CreateAsset(catalog, CatalogPath);
             }
 
-            catalog.EditorSet(stagePrefab, diggerPrefab, rewardPrefab, mapPrefabs, graveEntries);
+            catalog.EditorSet(stagePrefab, diggerPrefab, rewardPrefab, cursorRingView, mapPrefabs, graveEntries);
             EditorUtility.SetDirty(catalog);
 
-            // Re-bind catalog on DigStageRoot controller
+            // Re-bind catalog + cursor prefab on DigStageRoot controller / DigCursorView
             var stageContents = PrefabUtility.LoadPrefabContents(StageRootPath);
             var controller = stageContents.GetComponent<DigStageController>();
             if (controller != null)
@@ -136,6 +152,15 @@ namespace Gravedigger2026.Editor.Dig
                 var so = new SerializedObject(controller);
                 so.FindProperty("_catalog").objectReferenceValue = catalog;
                 so.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            var cursorView = stageContents.GetComponentInChildren<DigCursorView>(true);
+            if (cursorView != null && cursorRingView != null)
+            {
+                var cso = new SerializedObject(cursorView);
+                cso.FindProperty("_uiRingPrefab").objectReferenceValue = cursorRingView;
+                cso.FindProperty("_showWorldRing").boolValue = false;
+                cso.ApplyModifiedPropertiesWithoutUndo();
             }
 
             PrefabUtility.SaveAsPrefabAsset(stageContents, StageRootPath);
@@ -192,24 +217,6 @@ namespace Gravedigger2026.Editor.Dig
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
-        private static GameObject BuildDigger()
-        {
-            var root = new GameObject("Digger");
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(root.transform, false);
-            body.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
-            Object.DestroyImmediate(body.GetComponent<Collider>());
-
-            var obstacle = root.AddComponent<DigObstacleRadius>();
-            var oso = new SerializedObject(obstacle);
-            oso.FindProperty("_radius").floatValue = 0.85f;
-            oso.ApplyModifiedPropertiesWithoutUndo();
-
-            root.AddComponent<DigDiggerView>();
-            return root;
-        }
-
         private static GameObject BuildGrave(string qualityId, int index, Sprite sprite = null)
         {
             var root = new GameObject($"Grave_{qualityId}");
@@ -252,7 +259,98 @@ namespace Gravedigger2026.Editor.Dig
             return root;
         }
 
-        private static GameObject BuildDigStageRoot()
+        private static Sprite EnsureCircleSprite()
+        {
+            EnsureFolder("Assets/Art");
+            EnsureFolder("Assets/Art/UI");
+            EnsureFolder(ArtUiDigDir);
+
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(CircleSpritePath) == null)
+            {
+                const int size = 128;
+                var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                var center = (size - 1) * 0.5f;
+                var radius = center - 0.5f;
+                var radiusSq = radius * radius;
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        var dx = x - center;
+                        var dy = y - center;
+                        var inside = dx * dx + dy * dy <= radiusSq;
+                        tex.SetPixel(x, y, inside ? Color.white : Color.clear);
+                    }
+                }
+
+                tex.Apply(false, false);
+                var png = tex.EncodeToPNG();
+                Object.DestroyImmediate(tex);
+                File.WriteAllBytes(
+                    Path.Combine(Directory.GetCurrentDirectory(), CircleSpritePath.Replace('/', Path.DirectorySeparatorChar)),
+                    png);
+                AssetDatabase.ImportAsset(CircleSpritePath);
+            }
+
+            var importer = AssetImporter.GetAtPath(CircleSpritePath) as TextureImporter;
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.filterMode = FilterMode.Bilinear;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(CircleSpritePath);
+        }
+
+        private static GameObject BuildUiDigCursorRing(Sprite circleSprite)
+        {
+            const float strokeWidthPx = 3f;
+            var root = new GameObject("UiDigCursorRing", typeof(RectTransform));
+            var rootRt = root.GetComponent<RectTransform>();
+            rootRt.anchorMin = new Vector2(0.5f, 0.5f);
+            rootRt.anchorMax = new Vector2(0.5f, 0.5f);
+            rootRt.pivot = new Vector2(0.5f, 0.5f);
+            rootRt.sizeDelta = new Vector2(96f, 96f);
+
+            var strokeGo = new GameObject("Stroke", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            strokeGo.transform.SetParent(root.transform, false);
+            var strokeRt = strokeGo.GetComponent<RectTransform>();
+            strokeRt.anchorMin = new Vector2(0.5f, 0.5f);
+            strokeRt.anchorMax = new Vector2(0.5f, 0.5f);
+            strokeRt.pivot = new Vector2(0.5f, 0.5f);
+            strokeRt.sizeDelta = new Vector2(96f, 96f);
+            var strokeImg = strokeGo.GetComponent<Image>();
+            strokeImg.sprite = circleSprite;
+            strokeImg.type = Image.Type.Simple;
+            strokeImg.preserveAspect = true;
+            strokeImg.color = new Color(1f, 0.92f, 0.2f, 50f / 255f);
+            strokeImg.raycastTarget = false;
+
+            var fillGo = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            fillGo.transform.SetParent(root.transform, false);
+            var fillRt = fillGo.GetComponent<RectTransform>();
+            fillRt.anchorMin = new Vector2(0.5f, 0.5f);
+            fillRt.anchorMax = new Vector2(0.5f, 0.5f);
+            fillRt.pivot = new Vector2(0.5f, 0.5f);
+            var fillSize = 96f - strokeWidthPx * 2f;
+            fillRt.sizeDelta = new Vector2(fillSize, fillSize);
+            var fillImg = fillGo.GetComponent<Image>();
+            fillImg.sprite = circleSprite;
+            fillImg.type = Image.Type.Simple;
+            fillImg.preserveAspect = true;
+            fillImg.color = new Color(1f, 1f, 1f, 0.3f);
+            fillImg.raycastTarget = false;
+
+            var view = root.AddComponent<DigCursorRingView>();
+            view.EditorBind(rootRt, strokeRt, fillRt, strokeWidthPx);
+            return root;
+        }
+
+        private static GameObject BuildDigStageRoot(DigCursorRingView uiCursorRingPrefab)
         {
             var root = new GameObject("DigStageRoot");
             var controller = root.AddComponent<DigStageController>();
@@ -278,10 +376,13 @@ namespace Gravedigger2026.Editor.Dig
             ring.name = "Ring";
             ring.transform.SetParent(cursorGo.transform, false);
             ring.transform.localScale = new Vector3(2.4f, 0.02f, 2.4f);
+            ring.SetActive(false);
             Object.DestroyImmediate(ring.GetComponent<Collider>());
             var cursor = cursorGo.AddComponent<DigCursorView>();
             var cso = new SerializedObject(cursor);
             cso.FindProperty("_ring").objectReferenceValue = ring.transform;
+            cso.FindProperty("_uiRingPrefab").objectReferenceValue = uiCursorRingPrefab;
+            cso.FindProperty("_showWorldRing").boolValue = false;
             cso.ApplyModifiedPropertiesWithoutUndo();
             cursorGo.SetActive(false);
 
@@ -362,6 +463,9 @@ namespace Gravedigger2026.Editor.Dig
             EnsureFolder(PrefabMapsDir);
             EnsureFolder("Assets/Settings");
             EnsureFolder(SettingsDigDir);
+            EnsureFolder("Assets/Art");
+            EnsureFolder("Assets/Art/UI");
+            EnsureFolder(ArtUiDigDir);
             EnsureFolder("Assets/Editor");
             EnsureFolder("Assets/Editor/Dig");
             EnsureFolder("Assets/Scripts/Gameplay");

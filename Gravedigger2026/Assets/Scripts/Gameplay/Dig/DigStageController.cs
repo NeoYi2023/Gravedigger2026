@@ -104,7 +104,7 @@ namespace Gravedigger2026.Gameplay.Dig
                 _digCamera.transform.position = center + new Vector3(0f, 18f, 0f);
                 _digCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
                 _digCamera.orthographic = true;
-                _digCamera.orthographicSize = Mathf.Max(half.x, half.y) + 1.5f;
+                _digCamera.orthographicSize = Mathf.Max(half.x, half.y) - 1.5f;
                 _digCamera.nearClipPlane = 0.1f;
                 _digCamera.farClipPlane = 100f;
                 // Top-down: sort transparent Tilemap vs Sprite by view depth (higher Y draws in front).
@@ -117,21 +117,14 @@ namespace Gravedigger2026.Gameplay.Dig
             if (_cursorView != null)
             {
                 _cursorView.gameObject.SetActive(true);
-                // Prefer DigHud canvas for screen-space ring
+                _cursorView.SetUiRingPrefab(_catalog.UiDigCursorRingPrefab);
+                Canvas hudCanvas = null;
                 if (_hudView != null)
                 {
-                    var hudCanvas = _hudView.GetComponentInParent<Canvas>();
-                    if (hudCanvas != null)
-                    {
-                        var existing = hudCanvas.transform.Find("UiDigCursorRing");
-                        if (existing != null)
-                        {
-                            _cursorView.SetUiRing(existing as RectTransform ?? existing.GetComponent<RectTransform>());
-                        }
-                    }
+                    hudCanvas = _hudView.GetComponentInParent<Canvas>();
                 }
 
-                _cursorView.Configure(_digCamera, caps.DigCursorRadius, center.y);
+                _cursorView.Configure(_digCamera, caps.DigCursorRadius, center.y, hudCanvas);
             }
 
             _hudView?.Show();
@@ -301,7 +294,11 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void HandleTimeUp()
         {
-            _cursorView?.gameObject.SetActive(false);
+            if (_cursorView != null)
+            {
+                _cursorView.DestroySpawnedUiRing();
+                _cursorView.gameObject.SetActive(false);
+            }
             var body = _session != null ? _session.Ledger.BuildSummaryText() : "本阶段未获得奖励。";
             if (_summaryView != null)
             {
@@ -375,7 +372,11 @@ namespace Gravedigger2026.Gameplay.Dig
             _session = null;
             _summaryView?.Hide();
             _hudView?.Hide();
-            _cursorView?.gameObject.SetActive(false);
+            if (_cursorView != null)
+            {
+                _cursorView.DestroySpawnedUiRing();
+                _cursorView.gameObject.SetActive(false);
+            }
 
             if (_digCamera != null)
             {

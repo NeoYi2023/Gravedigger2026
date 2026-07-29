@@ -58,6 +58,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _agent.radius = 0.35f;
             _agent.height = 1.8f;
             _agent.autoBraking = true;
+            _agent.updateRotation = false;
 
             if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 4f, NavMesh.AllAreas))
             {

@@ -4,6 +4,7 @@ using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
+using Gravedigger2026.Gameplay.Formation;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Level
@@ -15,6 +16,7 @@ namespace Gravedigger2026.Core.Level
     {
         private readonly ConfigCsvRepository _configs;
         private readonly DefendPrefabCatalog _catalog;
+        private readonly FormationPrefabCatalog _formationCatalog;
         private readonly Transform _parent;
         private readonly ProtagonistProgressService _progress;
         private readonly WarriorPoolService _warriorPool;
@@ -30,6 +32,7 @@ namespace Gravedigger2026.Core.Level
         public DefendStageModule(
             ConfigCsvRepository configs,
             DefendPrefabCatalog catalog,
+            FormationPrefabCatalog formationCatalog,
             Transform parent,
             ProtagonistProgressService progress,
             WarriorPoolService warriorPool,
@@ -41,6 +44,7 @@ namespace Gravedigger2026.Core.Level
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _formationCatalog = formationCatalog;
             _parent = parent;
             _progress = progress ?? throw new ArgumentNullException(nameof(progress));
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
@@ -88,7 +92,7 @@ namespace Gravedigger2026.Core.Level
                 _controller = _stageRootInstance.AddComponent<DefendStageController>();
             }
 
-            _controller.ConfigureCatalog(_catalog);
+            _controller.ConfigureCatalog(_catalog, _formationCatalog);
             _onDefendPresentationActive?.Invoke(true);
             _controller.Begin(
                 context,

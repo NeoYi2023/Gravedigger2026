@@ -16,11 +16,8 @@ namespace Gravedigger2026.UI
 
         private void Awake()
         {
-            if (_root != null)
-            {
-                _root.SetActive(false);
-            }
-
+            // Prefab starts inactive. Do NOT SetActive(false) here: when _root is this
+            // GameObject, Awake only runs on the first Show(), and hiding again cancels that click.
             if (_settingsButton != null)
             {
                 _settingsButton.onClick.AddListener(() => SettingsClicked?.Invoke());

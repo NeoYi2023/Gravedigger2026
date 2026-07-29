@@ -6,6 +6,7 @@ using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Dig;
+using Gravedigger2026.Gameplay.Formation;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using UnityEngine;
 using UnityEngine.AI;
@@ -19,6 +20,7 @@ namespace Gravedigger2026.Gameplay.Defend
     public sealed class DefendStageController : MonoBehaviour
     {
         [SerializeField] private DefendPrefabCatalog _catalog;
+        [SerializeField] private FormationPrefabCatalog _formationCatalog;
         [SerializeField] private Transform _worldRoot;
         [SerializeField] private Camera _defendCamera;
         [SerializeField] private DefendHudView _hudView;
@@ -51,12 +53,18 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _running;
         private bool _clearVictoryHintShown;
         private bool _driverOutcomeDispatched;
+        private FormationEditorController _formationEditor;
 
-        public void ConfigureCatalog(DefendPrefabCatalog catalog)
+        public void ConfigureCatalog(DefendPrefabCatalog catalog, FormationPrefabCatalog formationCatalog = null)
         {
             if (catalog != null)
             {
                 _catalog = catalog;
+            }
+
+            if (formationCatalog != null)
+            {
+                _formationCatalog = formationCatalog;
             }
         }
 
@@ -138,7 +146,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 _defendCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
                 _defendCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
                 _defendCamera.orthographic = true;
-                _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) + 1.5f;
+                _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
                 _defendCamera.nearClipPlane = 0.1f;
                 _defendCamera.farClipPlane = 100f;
             }
@@ -172,25 +180,24 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_formationPanel != null)
             {
-                _formationPanel.DeployRequested += HandleDeployRequested;
-                _formationPanel.SelectRequested += HandleSelectRequested;
-                _formationPanel.UndeployRequested += HandleUndeployRequested;
-                _formationPanel.NudgeNegXRequested += HandleNudgeNegX;
-                _formationPanel.NudgePosXRequested += HandleNudgePosX;
-                _formationPanel.NudgeNegZRequested += HandleNudgeNegZ;
-                _formationPanel.NudgePosZRequested += HandleNudgePosZ;
+                _formationPanel.gameObject.SetActive(false);
             }
 
             if (_hudView != null)
             {
                 _hudView.StartBattleRequested += HandleStartBattleRequested;
                 _hudView.Show();
-                _hudView.SetPrepareVisible(true);
+                _hudView.SetPrepareVisible(false);
                 _hudView.SetCombatVisible(false);
             }
 
+            if (_defendCamera != null)
+            {
+                _defendCamera.gameObject.SetActive(false);
+            }
+
+            OpenFormationEditor();
             RefreshHud();
-            RefreshFormation();
             _running = true;
 
             context.MapResolveNote =
@@ -271,6 +278,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 _formationPanel.NudgePosZRequested -= HandleNudgePosZ;
             }
 
+            CloseFormationEditor();
+
             if (_hudView != null)
             {
                 _hudView.StartBattleRequested -= HandleStartBattleRequested;
@@ -334,6 +343,16 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            CloseFormationEditor();
+            if (_defendCamera != null)
+            {
+                _defendCamera.gameObject.SetActive(true);
+                _defendCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
+                _defendCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                _defendCamera.orthographic = true;
+                _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
+            }
+
             DeployCombatUnits();
             _session.ResolveStartBattleRebelRolls(_configs);
             if (_hudView != null)
@@ -345,6 +364,57 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             RefreshHud();
+        }
+
+        private void OpenFormationEditor()
+        {
+            CloseFormationEditor();
+            if (_formationCatalog == null || _formationCatalog.FormationEditorRootPrefab == null)
+            {
+                Debug.LogError("[DefendStage] FormationEditorRoot missing — falling back to HUD StartBattle only.");
+                if (_hudView != null)
+                {
+                    _hudView.SetPrepareVisible(true);
+                }
+
+                if (_defendCamera != null)
+                {
+                    _defendCamera.gameObject.SetActive(true);
+                }
+
+                return;
+            }
+
+            var instance = Instantiate(_formationCatalog.FormationEditorRootPrefab, transform);
+            instance.name = "FormationEditorRoot(Clone)";
+            _formationEditor = instance.GetComponent<FormationEditorController>();
+            if (_formationEditor == null)
+            {
+                _formationEditor = instance.AddComponent<FormationEditorController>();
+            }
+
+            _formationEditor.StartBattleRequested += HandleStartBattleRequested;
+            _formationEditor.Begin(
+                FormationEditorMode.DefendPrepare,
+                _catalog,
+                _warriorPool,
+                _formation,
+                _progress,
+                null,
+                _mapInstance);
+        }
+
+        private void CloseFormationEditor()
+        {
+            if (_formationEditor == null)
+            {
+                return;
+            }
+
+            _formationEditor.StartBattleRequested -= HandleStartBattleRequested;
+            _formationEditor.End();
+            Destroy(_formationEditor.gameObject);
+            _formationEditor = null;
         }
 
         private void HandleWaveSpawnRequested(DefendWaveSpawnRequest request)
@@ -634,10 +704,11 @@ namespace Gravedigger2026.Gameplay.Defend
 
                 var go = Instantiate(appearancePrefab, _worldRoot);
                 go.name = $"Warrior_{warrior.Id}";
-                go.transform.position = new Vector3(
+                var formationHome = new Vector3(
                     _mapCenter.x + entry.PositionX,
                     _mapCenter.y,
                     _mapCenter.z + entry.PositionZ);
+                go.transform.position = formationHome;
                 _deployedViews.Add(go);
 
                 var agent = go.GetComponent<WarriorAgentView>();
@@ -655,7 +726,8 @@ namespace Gravedigger2026.Gameplay.Defend
                     _catalog != null ? _catalog.ProjectilePrefab : null,
                     _worldRoot,
                     () => _warriorAgents,
-                    () => _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null);
+                    () => _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null,
+                    formationHome);
                 _warriorAgents.Add(agent);
             }
 
@@ -795,82 +867,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void RefreshFormation()
         {
-            if (_formationPanel == null || _formation == null)
-            {
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(_selectedWarriorId) && !_formation.IsDeployed(_selectedWarriorId))
-            {
-                _selectedWarriorId = null;
-            }
-
-            _poolLabels.Clear();
-            _poolIds.Clear();
-            if (_warriorPool != null)
-            {
-                var warriors = _warriorPool.Warriors;
-                for (var i = 0; i < warriors.Count; i++)
-                {
-                    var w = warriors[i];
-                    if (_formation.IsDeployed(w.Id))
-                    {
-                        continue;
-                    }
-
-                    _poolLabels.Add($"{w.WarriorName} HP={w.RemainingHP:0}");
-                    _poolIds.Add(w.Id);
-                }
-            }
-
-            if (_poolLabels.Count == 0)
-            {
-                _poolLabels.Add("（池中无可上阵士兵）");
-                _poolIds.Add(string.Empty);
-            }
-
-            _formationPanel.SetPoolLines(_poolLabels, _poolIds);
-
-            _formationLabels.Clear();
-            _formationIds.Clear();
-            var entries = _formation.Entries;
-            for (var i = 0; i < entries.Count; i++)
-            {
-                var e = entries[i];
-                var mark = string.Equals(e.WarriorId, _selectedWarriorId, StringComparison.Ordinal) ? "▶ " : string.Empty;
-                var name = e.WarriorId;
-                if (TryFindWarrior(e.WarriorId, out var warrior))
-                {
-                    name = warrior.WarriorName;
-                }
-
-                _formationLabels.Add($"{mark}{name} @({e.PositionX:0.##},{e.PositionZ:0.##}) HP={e.RemainingHP:0}");
-                _formationIds.Add(e.WarriorId);
-            }
-
-            if (_formationLabels.Count == 0)
-            {
-                _formationLabels.Add("（布阵为空：点击左侧士兵上阵）");
-                _formationIds.Add(string.Empty);
-            }
-
-            _formationPanel.SetFormationLines(_formationLabels, _formationIds);
-
-            var cap = _progress != null ? _progress.ControlPowerCap : 0;
-            var used = _formation.SumControlPowerCost();
-            var degree = _formation.ComputeLossOfControlDegree(cap);
-            var degreeText = float.IsInfinity(degree) ? "∞" : degree.ToString("0.##");
-            var selection = "未选中";
-            if (!string.IsNullOrEmpty(_selectedWarriorId) && _formation.TryGetEntry(_selectedWarriorId, out var sel))
-            {
-                selection =
-                    $"选中 {_selectedWarriorId} @({sel.PositionX:0.##},{sel.PositionZ:0.##}) 步进±{BattleFormationService.DefaultNudgeStep:0}";
-            }
-
-            _formationPanel.SetStatusText(
-                $"Prepare 布阵（与 UM 共用 BattleFormation）\n" +
-                $"占用 {used:0.##} / Cap {cap} · Degree {degreeText}\n{selection}");
-            _formationPanel.SetActionInteractable(!string.IsNullOrEmpty(_selectedWarriorId));
+            // Legacy FormationPanelView path retired; FormationEditor owns Prepare UI.
         }
 
         private void HandleDeployRequested(string warriorId)

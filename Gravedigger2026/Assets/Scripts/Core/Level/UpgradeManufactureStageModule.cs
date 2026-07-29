@@ -2,18 +2,22 @@ using System;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Gameplay.Defend;
+using Gravedigger2026.Gameplay.Formation;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Level
 {
     /// <summary>
-    /// UM IStageModule (Approach A / D-030 + D-031 + D-032): Instantiate UpgradeManufactureStageRoot.
+    /// UM IStageModule (D-030 + D-031 + D-032): Instantiate UpgradeManufactureStageRoot.
     /// </summary>
     public sealed class UpgradeManufactureStageModule : IStageModule
     {
         private readonly ConfigCsvRepository _configs;
         private readonly UpgradeManufacturePrefabCatalog _catalog;
+        private readonly FormationPrefabCatalog _formationCatalog;
+        private readonly DefendPrefabCatalog _defendCatalog;
         private readonly Transform _parent;
         private readonly ProtagonistProgressService _progress;
         private readonly ManufactureService _manufacture;
@@ -28,6 +32,8 @@ namespace Gravedigger2026.Core.Level
         public UpgradeManufactureStageModule(
             ConfigCsvRepository configs,
             UpgradeManufacturePrefabCatalog catalog,
+            FormationPrefabCatalog formationCatalog,
+            DefendPrefabCatalog defendCatalog,
             Transform parent,
             ProtagonistProgressService progress,
             ManufactureService manufacture,
@@ -38,6 +44,8 @@ namespace Gravedigger2026.Core.Level
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
+            _formationCatalog = formationCatalog;
+            _defendCatalog = defendCatalog;
             _parent = parent;
             _progress = progress ?? throw new ArgumentNullException(nameof(progress));
             _manufacture = manufacture ?? throw new ArgumentNullException(nameof(manufacture));
@@ -81,7 +89,16 @@ namespace Gravedigger2026.Core.Level
 
             _controller.ConfigureCatalog(_catalog);
             _onUmPresentationActive?.Invoke(true);
-            _controller.Begin(_progress, _manufacture, _warriorPool, _formation, () => _onComplete?.Invoke());
+            _controller.Begin(
+                _configs,
+                _formationCatalog,
+                _defendCatalog,
+                _progress,
+                _manufacture,
+                _warriorPool,
+                _formation,
+                context,
+                () => _onComplete?.Invoke());
 
             Debug.Log(
                 $"[Stage:UM] Enter Level={context?.LevelId} Stage={context?.StageNumber} ConfigIdIgnored={context?.GameplayConfigId} Formation={_formation.Entries.Count} (D-030/D-031/D-032)");

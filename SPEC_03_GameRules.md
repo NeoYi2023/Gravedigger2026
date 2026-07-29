@@ -110,6 +110,7 @@
 | TargetSelect | 目标选择 | 怪物选目标模式：`Nearest` / `PreferWarrior` / `PreferProtagonist`（§3.12 / `MonsterConfig`）。 |
 | AttackPriority | 攻击优先级 | **士兵灵魂**配置字段（§3.11 / `SoulConfig`）；枚举与怪物 `TargetSelect` 对齐：`Nearest` \| `PreferWarrior` \| `PreferProtagonist`；**本批不驱动**选目标（默认见 `EngageZone` 内最近敌人）。怪物侧选目标用 `TargetSelect`（§3.12）。 |
 | EngageZone | 选敌区 | BattleMap 预制体上比地图稍小的 **IsoDiamond**（XZ 菱形）；非叛变士兵仅在此区内选最近敌人；区外不可选（§3.12）。 |
+| FormationHome | 布阵原点 | 开战部署锁定的该士兵布阵世界坐标；无 EngageZone 目标时非叛变士兵自动返回此处（§3.12）。 |
 | AttackRange | 攻击距离 | 近战/远程均有；须进入目标攻击距离内才开始攻击动作（§3.12）。 |
 | CombatDead | 战斗死亡 | 士兵 HP≤0 且无宝石时的战场状态；可被战斗中复活技能拉起；**不**触发物资去向（§3.11、§3.12）。 |
 | PermanentDeath | 彻底死亡 | 实例移除 + 布阵位空 + 执行物资去向；结算于阶段胜利 `Ended` / LevelFailure，或带宝石士兵 HP≤0 立即触发（§3.11、§3.12）。 |
@@ -222,6 +223,7 @@
 | TargetSelect | 目标选择 | Monster targeting mode: `Nearest` / `PreferWarrior` / `PreferProtagonist` (§3.12 / `MonsterConfig`). |
 | AttackPriority | 攻击优先级 | **Soldier Soul** field (§3.11 / `SoulConfig`); same enum as monster `TargetSelect`: `Nearest` \| `PreferWarrior` \| `PreferProtagonist`; **does not drive** targeting this batch (default = nearest enemy inside `EngageZone`). Monster targeting uses `TargetSelect` (§3.12). |
 | EngageZone | 选敌区 | **IsoDiamond** (XZ diamond) on BattleMap Prefab, slightly smaller than the map; non-Rebel soldiers pick nearest enemy **only inside** this zone; outside = not selectable (§3.12). |
+| FormationHome | Formation home | World position locked at StartBattle deploy for that soldier; loyal soldiers auto-return here when EngageZone has no target (§3.12). |
 | AttackRange | 攻击距离 | Both Melee and Ranged; must enter target AttackRange before starting attack action (§3.12). |
 | CombatDead | 战斗死亡 | Battlefield state when soldier HP≤0 and has no gems; revivable by in-combat revive skills; **does not** trigger material fate (§3.11, §3.12). |
 | PermanentDeath | 彻底死亡 | Remove instance + clear formation slot + run material fate; settled on stage victory `Ended` / LevelFailure, or immediately when a gemmed soldier hits HP≤0 (§3.11, §3.12). |
@@ -379,7 +381,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-007 | 设置页 | 已实现（方案 A） | 自工具面板进入；承载科技树画布（UI-012）；其它设置项 TBD |
 | UI-008 | 关卡占位页 | 占位 | 自工具面板进入；非玩法三态 |
 | UI-009 | 开战按钮 | 已定义（Demo 流水线） | Defend 准备态；点击 → StartBattle（§3.12）；验收见 §3.8 D-040 |
-| UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 同屏三区（升级/制造/布阵）+ 底部「完成」；细则控件可简陋；验收见 §3.8 D-030～D-032 |
+| UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 同屏二区（升级/制造）+ 底部「完成」+ 其右「布阵」；布阵打开共享 FormationEditor（士兵栏拖拽）；验收见 §3.8 D-030～D-032 |
 | UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 
@@ -396,7 +398,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-007 | Settings page | Done (Approach A) | From Tools; hosts TechTree canvas (UI-012); other settings TBD |
 | UI-008 | Level stub page | Placeholder | From Tools; Meta may Toast; pipeline must start sample Level (§3.8 D-003/D-010) |
 | UI-009 | StartBattle button | Defined (Demo pipeline) | Defend Prepare; click → StartBattle (§3.12); accept §3.8 D-040 |
-| UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Three panels + bottom Complete; widgets may be rough; accept §3.8 D-030–D-032 |
+| UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Two panels (upgrade/manufacture) + bottom Complete + Formation button to its right; opens shared FormationEditor (soldier-bar drag); accept §3.8 D-030–D-032 |
 | UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 
@@ -448,8 +450,8 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a thr
 | D-020 | Dig 垂直切片可玩：按 `DigMapId` 实例化 `Assets/Prefabs/Maps/{Id}.prefab`；坟墓可挖可掉落；有效时长归零 → DigStageSummary 确认 → 交还关卡驱动 | P0 | 已实现（方案 A：`DigStageModule` + `DigSessionService`） |
 | D-030 | UpgradeManufacture 升级区：可读 `ProtagonistLevelConfig`；注入/入账经验后可连升并看到表字段生效（TechPoints / ControlPowerCap / ProtagonistMaxHP） | P0 | 已实现（方案 A：`UpgradeManufactureStageModule` + `ProtagonistProgressService`；正式入账见 D-043） |
 | D-031 | UpgradeManufacture 制造：至少可制造 1 名士兵实例并入池（临时 Prefab 可；技能不施放） | P0 | 已实现（方案 A：`ManufactureService` + `WarriorPoolService`；严格槽位 / 精魂闸门 / 种族与外观定稿 / 命名；临时 `Prefabs/Defend/Warriors/{AppearanceId}`） |
-| D-032 | UpgradeManufacture 布阵：连续坐标布阵可写回；与 Defend Prepare 共用同一套 BattleFormation | P0 | 已实现（方案 A：`BattleFormationService` + `FormationPanelView`；按钮上阵/下阵/微调坐标；控制力占用展示；存档级持有供 Prepare） |
-| D-040 | Defend Prepare / 开战 / 护盾：加载 `BattleMapId`→`Prefabs/Maps/`；开战须 ≥1 上阵；`Shield` 初值=主角等级行 `ProtagonistMaxHP` | P0 | 已实现（方案 A：`DefendStageModule` + `DefendSessionService`；倒计时可跑；刷怪/战斗见后续片） |
+| D-032 | UpgradeManufacture 布阵：连续坐标布阵可写回；与 Defend Prepare 共用同一套 BattleFormation | P0 | 已实现（共享 `FormationEditorRoot` 拖拽编辑器；UM「布阵/返回」；士兵栏；控制力 HUD；`TryDeployAt`） |
+| D-040 | Defend Prepare / 开战 / 护盾：加载 `BattleMapId`→`Prefabs/Maps/`；开战须 ≥1 上阵；`Shield` 初值=主角等级行 `ProtagonistMaxHP` | P0 | 已实现（Prepare 复用同一 `FormationEditorRoot`+「开战」；地图按 `BattleMapId`；开战 ≥1；护盾/倒计时不变） |
 | D-041 | Defend 刷怪与寻路：样例波次能出怪；Demo 最小出生点（临时固定点或地图内随机）；怪物 NavMesh 接近并以普攻扣主角护盾；精确 OutsideMap 几何 **后置** | P0 | 已实现（方案 A：Session 按剩余秒激活 WaveSpawn + Runtime NavMesh + `MonsterAgentView` 扣盾；`Shield≤0`→Ended 钩子） |
 | D-042 | Defend 士兵战斗：EngageZone 内普攻可选敌并造成伤害（第一版不施放技能） | P0 | 已实现（方案 A：近战前摇 + 远程 `ProjectileView` 软碰撞命中/超时未命中；清场可检测；胜负入账见 D-043） |
 | D-043 | Defend 胜负与结算：清场胜利可入账阶段经验并交还关卡驱动；`Shield ≤ 0` → LevelFailure（可验） | P0 | 已实现（方案 A：开战 Degree/Tier 锁定 + `FinalLossChance` roll→Rebel 就近扣盾；清场 Ended 入账 Demo Exp=100→`TryAdvanceStage`；护盾归零 LevelFailure 不入账并 `AbortLevel`） |
@@ -462,7 +464,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a thr
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
 - 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
 - 工具面板「设置」「关卡」以外的后续功能；完整 polish；未写入本表的需求
-- Editor 打表工具实现（[SPEC_04 §14](SPEC_04_Technical.md) 约定已锁；实现另开）
+- 打表全量 §9 列/类型校验（[SPEC_04 §14](SPEC_04_Technical.md) Demo 仅文件名+表头；schema 校验后置）
 
 实现边界对照：[SPEC_04 §6](SPEC_04_Technical.md)。
 
@@ -482,8 +484,8 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-020 | Dig vertical playable: instantiate `Assets/Prefabs/Maps/{DigMapId}.prefab`; dig + loot; duration → DigStageSummary confirm → return to Level driver | P0 | Done (Approach A: `DigStageModule` + `DigSessionService`) |
 | D-030 | UM upgrade panel: read `ProtagonistLevelConfig`; inject/credit Exp → multi-level up; TechPoints / ControlPowerCap / ProtagonistMaxHP visible | P0 | Done (Approach A: `UpgradeManufactureStageModule` + `ProtagonistProgressService`; formal credit in D-043) |
 | D-031 | UM manufacture: craft ≥1 soldier instance into pool (temp Prefab OK; no skill casts) | P0 | Done (Approach A: `ManufactureService` + `WarriorPoolService`; strict slots / Spirit gate / Race + Appearance finalize / naming; temp `Prefabs/Defend/Warriors/{AppearanceId}`) |
-| D-032 | UM formation: continuous-coord formation writable; shared BattleFormation with Defend Prepare | P0 | Done (Approach A: `BattleFormationService` + `FormationPanelView`; button deploy/undeploy/nudge coords; ControlPower usage; save-scoped for Prepare) |
-| D-040 | Defend Prepare / StartBattle / Shield: load `BattleMapId`→`Prefabs/Maps/`; StartBattle requires ≥1 deployed; Shield init = level-row `ProtagonistMaxHP` | P0 | Done (Approach A: `DefendStageModule` + `DefendSessionService`; countdown runs; spawn/combat in later slices) |
+| D-032 | UM formation: continuous-coord formation writable; shared BattleFormation with Defend Prepare | P0 | Done (shared `FormationEditorRoot` drag editor; UM Formation/Return; soldier bar; ControlPower HUD; `TryDeployAt`) |
+| D-040 | Defend Prepare / StartBattle / Shield: load `BattleMapId`→`Prefabs/Maps/`; StartBattle requires ≥1 deployed; Shield init = level-row `ProtagonistMaxHP` | P0 | Done (Prepare reuses same `FormationEditorRoot`+StartBattle; map by `BattleMapId`; StartBattle ≥1; Shield/countdown unchanged) |
 | D-041 | Defend spawn + path: sample waves spawn; Demo-min spawn (fixed points or in-map random); monsters NavMesh approach and normal-attack Shield; exact OutsideMap geometry **deferred** | P0 | Done (Approach A: Session activates WaveSpawn by remaining seconds + runtime NavMesh + `MonsterAgentView` hits Shield; `Shield≤0`→Ended hook) |
 | D-042 | Defend WarriorCombat: EngageZone normal-attack targeting + damage (no skill casts in v1) | P0 | Done (Approach A: melee windup + ranged `ProjectileView` soft-hit/timeout miss; clear detectable; win/lose credit in D-043) |
 | D-043 | Defend win/lose: clear-spawn victory credits stage Exp and returns to Level driver; `Shield ≤ 0` → LevelFailure (verifiable) | P0 | Done (Approach A: StartBattle Degree/Tier lock + `FinalLossChance`→Rebel nearest Shield hit; clear Ended credits Demo Exp=100→`TryAdvanceStage`; Shield 0 LevelFailure no Exp + `AbortLevel`) |
@@ -496,7 +498,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
 - Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
 - Tools entries beyond Settings / Level; full polish; anything not in this table
-- Editor bake-tool implementation ([SPEC_04 §14](SPEC_04_Technical.md) rules locked; implement separately)
+- Bake full §9 column/type validation ([SPEC_04 §14](SPEC_04_Technical.md) Demo: filename + header only; schema validation deferred)
 
 Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 
@@ -665,9 +667,9 @@ EnterLevel
 
 | 能力 | 说明 |
 |------|------|
-| DigDamage | 单次 DigAction 结束时对该坟的扣血数值；初始默认值来自默认解锁科技项 |
+| DigDamage | 单次 DigAction 结束时对该坟的扣血数值；Demo 初始值 **25**，由默认解锁科技项提供 |
 | DigDurationReductionSum | 所有已解锁「缩短单次挖坟时长」科技效果之和（秒） |
-| DigCursorRadius | 圆圈光标半径（世界单位） |
+| DigCursorRadius | 圆圈光标半径（世界单位）；Demo 初始值 **2.5**，由默认解锁科技项提供 |
 | DiggableQualityIds | 已解锁、可触发挖掘的坟墓品质 ID 集合 |
 | DigStageDurationBonus | 挖坟阶段有效时长的科技加成（秒，加法；见「有效挖坟时长」） |
 
@@ -681,7 +683,8 @@ EnterLevel
 
 | 规则 | 值 |
 |------|-----|
-| 光标形态 | 进入挖坟阶段后，鼠标指针变为「圆圈范围」；半径 = `DigCursorRadius` |
+| 光标形态 | 进入挖坟阶段后，鼠标指针变为「圆圈范围」；半径 = `DigCursorRadius`；判定为圆心到坟的平面距离 ≤ 半径（圆，非方） |
+| 光标表现 | 屏幕空间 UI Prefab `UiDigCursorRing`（`Assets/Prefabs/Dig/`）：外圈描边 + 内区白色半透明填充；圆直径随 `DigCursorRadius` 的屏幕投影变化，**描边像素粗细不随半径缩放** |
 | 触发条件 | 圆圈范围在地图内某座坟上方 **连续停留 ≥ 0.2 秒** → 对该坟触发一次挖掘 |
 | 可挖类型门禁 | 若该坟品质 ID **不在** `DiggableQualityIds` 内 → **不触发** DigAction（该类坟仍可按配置生成） |
 | 忙碌锁 | 若该坟当前处于「挖掘中」，**不刷新 / 不重复触发**，直至本次挖掘流程结束 |
@@ -821,9 +824,9 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 
 | Capability | Notes |
 |------------|-------|
-| DigDamage | Per-DigAction damage to the grave; initial default from default-unlocked tech |
+| DigDamage | Per-DigAction damage to the grave; Demo initial value **25**, provided by default-unlocked tech |
 | DigDurationReductionSum | Sum of all unlocked dig-action-duration shorten effects (seconds) |
-| DigCursorRadius | Circle cursor radius (world units) |
+| DigCursorRadius | Circle cursor radius (world units); Demo initial value **2.5**, provided by default-unlocked tech |
 | DiggableQualityIds | Set of Grave Quality Ids that may trigger DigAction |
 | DigStageDurationBonus | Additive Dig-stage effective-duration bonus (seconds; see Effective Dig duration) |
 
@@ -837,7 +840,8 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 
 | Rule | Value |
 |------|-------|
-| Cursor | On Dig stage enter, pointer becomes a **circle range**; radius = `DigCursorRadius` |
+| Cursor | On Dig stage enter, pointer becomes a **circle range**; radius = `DigCursorRadius`; hit test = planar distance from cursor center to grave ≤ radius (circle, not square) |
+| Cursor visuals | Screen-space UI Prefab `UiDigCursorRing` (`Assets/Prefabs/Dig/`): outer stroke + inner white semi-transparent fill; diameter follows screen projection of `DigCursorRadius`; **stroke thickness in pixels does not scale with radius** |
 | Trigger | Circle continuously dwells on a map grave for **≥ 0.2s** → start one DigAction on that grave |
 | Diggable gate | If that grave's Quality Id is **not** in `DiggableQualityIds` → **do not** start DigAction (such graves may still spawn) |
 | Busy lock | If that grave is already in DigAction, **do not refresh / re-trigger** until the current DigAction ends |
@@ -917,9 +921,10 @@ EffectiveDigDuration countdown → 0
 
 | 规则 | 说明 |
 |------|------|
-| 布局 | **同一屏三区并列**：升级区 / 制造区 / 布阵区（可同时看见与操作，非 Tab、非线性向导） |
+| 布局 | **同一屏二区并列**：升级区 / 制造区（可同时看见与操作，非 Tab）；布阵 **不** 同屏嵌入，由「布阵」按钮打开共享编辑器 |
 | 完成入口 | 屏幕 **底部** 常驻「完成 / 进入下一阶段」按钮；点击即触发阶段结束（§3.11 阶段结束） |
-| 布阵编辑器 | 与 Defend `Prepare` **共用同一套**布阵 UI / 逻辑（写同一 BattleFormation） |
+| 布阵入口 | 「完成」按钮 **右侧**「布阵」；点击打开 **FormationEditor**（见下「战斗布阵」）；编辑器内「返回」关闭编辑器回到本主屏 |
+| 布阵编辑器 | 与 Defend `Prepare` **共用同一套** `FormationEditor` Prefab / 逻辑（写同一 BattleFormation） |
 | 区内外细节控件 | 升级区内具体控件 **TBD**；制造区槽位与预览规则见下「制造士兵」 |
 | UI 清单 | 见 §3.6 `UI-010` |
 
@@ -1151,8 +1156,16 @@ MaxHP = ceil(BodyLife + Str × 3)
 | 功能 | 安排已制造的士兵进入战场 |
 | 持久化字段 | 至少保存：上阵士兵 **ID**、**位置**、**剩余血量** |
 | 坐标系 | **BattleMap 连续坐标**（与 §3.12 连续可走空间一致；非格子） |
-| 可编辑时机 | **两处**写同一套数据：① 升级与制造布阵区；② 防守 `Prepare` |
-| 编辑器复用 | 两处 **同一套**布阵 UI / 逻辑 |
+| 载体 | 共享 Prefab `FormationEditorRoot`（非独立 `.unity`）；画面与战斗地图一致（`Ground_*`） |
+| UM 地图 | 当前关卡内查找 **下一** `GameplayType=Defend` 的 `BattleMapId`；找不到则 Demo 回退 `Ground_01` |
+| Defend 地图 | 使用本阶段 `BattleMapId` 已 Instantiate 的地图实例（编辑器挂 UI，不重复造地图） |
+| 可编辑时机 | **两处**写同一套数据：① UM「布阵」编辑器；② 防守 `Prepare` |
+| 编辑器复用 | 两处 **同一套** `FormationEditor` UI / 逻辑 |
+| 士兵栏 | 画面底部 UI：池内士兵以 **80×80** 方格左对齐向右排列（**已上阵也保留在栏内**）；栏内按住左右拖 = 横滑 |
+| 上阵操作 | 左键按住方格 **向上拖** → 该格 **变亮**；拖出士兵栏后光标处出现 **Idle 待机模型** 跟手；在地图内松手 → `TryDeployAt` 写坐标（放下即存）；上阵后栏内该格 **保持变亮且不隐藏** |
+| 改位 / 下阵 | 已上阵可在战场再拖改位（`TrySetPosition`）；拖回士兵栏或松手在 **地图外**（`DigMapBounds` 外）→ `TryUndeploy` / 取消上阵并回栏，同时 **关闭** 该格变亮 |
+| 控制力 HUD | 画面左上角显示 `ΣControlPowerCost / ControlPowerCap` |
+| 离开 | UM：「返回」关编辑器回主屏；Defend：「开战」（UI-009，≥1）关编辑器进 Combat |
 | 准备态可做 | 调整位置、上下阵（从已有士兵实例池选入/撤下）；**不可**在 Prepare 制造新士兵 |
 | 与防守关系 | `Prepare` 加载并允许改写布阵；开战瞬间按**当前**布阵部署（见 §3.12） |
 | 控制力 | 上下阵变更后立即重算控制力占用 / 失控档次 |
@@ -1201,9 +1214,10 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 
 | Rule | Notes |
 |------|-------|
-| Layout | **One screen, three side-by-side panels**: Upgrade / Manufacture / Formation |
+| Layout | **One screen, two side-by-side panels**: Upgrade / Manufacture; formation is **not** embedded — opened via Formation button |
 | Complete entry | **Bottom** "Complete / Next stage"; ends stage |
-| Formation editor | **Same** UI/logic shared with Defend `Prepare` (same BattleFormation) |
+| Formation entry | "Formation" button to the **right** of Complete; opens **FormationEditor**; "Return" closes editor back to this main screen |
+| Formation editor | **Same** `FormationEditor` Prefab/logic shared with Defend `Prepare` (same BattleFormation) |
 | In-panel controls | Upgrade widgets **TBD**; Manufacture slots & preview below |
 | UI inventory | §3.6 `UI-010` |
 
@@ -1435,8 +1449,16 @@ MaxHP = ceil(BodyLife + Str × 3)
 | Function | Assign soldier instances onto the battlefield |
 | Persisted fields | Warrior **Id**, **position**, **remaining HP** |
 | Coordinates | **BattleMap continuous space** (same as §3.12; not a cell grid) |
-| Editable in | UpgradeManufacture panel **and** Defend `Prepare` (one dataset) |
-| Editor reuse | **Same** formation UI/logic in both places |
+| Carrier | Shared Prefab `FormationEditorRoot` (not a separate `.unity`); visuals match battle map (`Ground_*`) |
+| UM map | Look up **next** `GameplayType=Defend` `BattleMapId` in the current Level; Demo fallback `Ground_01` |
+| Defend map | Reuse this stage's already-instantiated `BattleMapId` map (editor hosts UI only) |
+| Editable in | UM Formation editor **and** Defend `Prepare` (one dataset) |
+| Editor reuse | **Same** `FormationEditor` UI/logic in both places |
+| Soldier bar | Bottom UI: pool soldiers as **80×80** cells left-aligned (**deployed cells remain in bar**); horizontal drag inside bar = scroll |
+| Deploy | LMB hold cell, drag **up** → cell **highlights**; after leaving bar, Idle model follows cursor; release on map → `TryDeployAt` (persist immediately); deployed cell **stays highlighted and visible** |
+| Reposition / undeploy | Drag deployed units to move (`TrySetPosition`); drag back to bar or release **outside map** (`DigMapBounds`) → `TryUndeploy` / cancel and **clear** cell highlight |
+| ControlPower HUD | Top-left: `ΣControlPowerCost / ControlPowerCap` |
+| Leave | UM: Return closes editor; Defend: StartBattle (UI-009, ≥1) closes editor → Combat |
 | Prepare may | Positions + deploy/undeploy from instance pool; **no** manufacture |
 | Defend link | StartBattle deploys from **current** formation |
 | ControlPower | Recalculate immediately after deploy changes |
@@ -1498,7 +1520,7 @@ UpgradeManufacture stage
 | 规则 | 说明 |
 |------|------|
 | 数据 | 与升级与制造共用 **同一套** BattleFormation 持久化 |
-| 编辑器 | 与 §3.11 布阵区 **同一套** UI / 逻辑 |
+| 编辑器 | 与 §3.11 **同一套** `FormationEditor` Prefab / 逻辑（士兵栏拖拽；含「开战」） |
 | 坐标系 | BattleMap **连续坐标**（§3.11 / §3.12） |
 | 允许 | 调整上阵士兵 **位置**；从已有士兵 **实例**池 **上阵 / 下阵** |
 | 禁止 | 在 `Prepare` **制造**新士兵（制造仅 §3.11） |
@@ -1604,12 +1626,16 @@ UpgradeManufacture stage
 | Demo 边界 | **第一版 Demo**：士兵 **仅普通攻击**；不读/不施放灵魂、宝石、额外装备的技能列表；**不**触发「释放技能后失控二次 roll」。`SkillCooldown` / `SkillConfig` / `Skills` 字段 **保留** 供后续扩展，本版 **不驱动** |
 | 适用范围 | 非叛变士兵在 `Combat` 中的普攻 / 攻速流程；技能**效果**（含复活）仍 **TBD**（Demo 不施放） |
 | EngageZone | 候选敌人 = 存活且 **位置在 EngageZone 内** 的怪物；区外（含仍在 `OutsideMap` 外围、尚未进入选敌区的怪）**不可选** |
-| 选目标 | **默认**：EngageZone 内 **距离最近** 的存活敌人；无候选则待机 / 不追区外目标 |
+| 选目标 | **默认**：EngageZone 内 **距离最近** 的存活敌人 |
+| FormationHome | 开战部署时锁定的布阵世界坐标（该士兵 `BattleFormation` 上阵位）；战斗中不随 Prepare 再编辑变化 |
+| 无目标 → 自动返回 | **非叛变**士兵：当前目标死亡（或其它原因）后若 EngageZone **无**下一可选目标 → **自动返回** `FormationHome`（NavMesh 寻路）；抵达后无目标则在该点待机；**不**追区外目标 |
+| 返回途中选敌 | 自动返回过程中仍按 `TargetRetargetInterval` **继续搜索** EngageZone；一旦出现可选目标 → **立即中断返回**，改为追击 / 进入攻击流程 |
+| 叛变与返回 | **Rebel 不**自动返回布阵点（仍就近打主角/兵/怪） |
 | AttackPriority | `SoulConfig.AttackPriority` **本批不参与**选目标；枚举与 `TargetSelect` 对齐，字段保留 |
 | AttackMode | 取自 `SoulConfig.AttackMode`（`Melee` / `Ranged`）；决定普攻走方案 D 的近战或远程分支。配置示例（非 ClassName 硬编码）：战士类→`Melee`+`Strength`；射手类→`Ranged`+`Agility`；法师类→`Ranged`+`Intelligence`（主属性维取自 `ClassConfig.PrimaryStat`） |
 | 法师与射手 | **同为远程通道**（进距 → 弹道 → 碰撞命中/超时未命中）；规则层 **唯一差异** 是 `NormalAttackPower` 所用 `PrimaryStat` 维（法师智力 / 射手数敏捷）；不另做法师技能或不同弹道规则；View 特效可区分，**不**改变结算 |
 | AttackRange | 近战与远程均有攻击距离（士兵取 `ClassConfig.AttackRange`；怪物取 `MonsterConfig.AttackRange`）；须先移动至目标 `AttackRange` 内，再进入攻击态并播放攻击动作 |
-| 重选 / 寻路 | 与怪物共用 `TargetRetargetInterval`：周期性在 EngageZone 内重选最近敌人，并重算可攻击点 + NavMesh 重寻路 |
+| 重选 / 寻路 | 与怪物共用 `TargetRetargetInterval`：周期性在 EngageZone 内重选最近敌人并重算可攻击点 + NavMesh；无候选时目的地改为 `FormationHome` |
 | 命中方案 D | **近战**（`AttackMode=Melee`）：`AttackWindup` 计时结束 → `HitConfirm`：若目标仍存活且仍在 `AttackRange` 内则结算伤害，否则挥空；**远程**（`AttackMode=Ranged`）：生成弹道，**碰撞命中** 或 **超时未命中** 后再结算 / 判定未命中；规则层确认伤害，View 只播动作与弹道 |
 | 普攻伤害 | `HitConfirm`（或远程命中）后：对怪物 `HP -= NormalAttackPower`（本批无护甲）；见下公式 |
 | 攻速 | 两次攻击**开始**间隔 = `1 / AttackSpeed`；`AttackWindup` **计入**该周期内（不另加在周期外） |
@@ -1649,6 +1675,7 @@ Idle/Move → (target in EngageZone) → Move to AttackRange
   → AttackWindup (within interval)
   → AttackMode=Melee: HitConfirm → monster HP -= NormalAttackPower (if still valid + in range) → Recovery
   → AttackMode=Ranged: spawn projectile → hit: HP -= NormalAttackPower; or timeout miss → Recovery
+  → no EngageZone target (loyal) → ReturnToFormationHome (keep retargeting; abort on new target)
   // Demo: no skill cast; SkillCooldown / skill effects deferred
   → HP≤0 + no gems → CombatDead（revivable TBD）
   → HP≤0 + has gems → PermanentDeath（immediate）
@@ -1692,13 +1719,14 @@ Defend stage
   → Each non-Rebel soldier (WarriorCombat):
        candidates = living monsters inside EngageZone (outside not selectable)
        target = nearest candidate (AttackPriority unused this batch)
+       if no candidate → NavMesh to FormationHome (StartBattle deploy pos); keep retargeting; abort return on new target
        AttackMode from SoulConfig; Primary=FinalStat(ClassConfig.PrimaryStat via ClassId); NormalAttackPower=Primary×1.5
        AttackSpeed=0.5+60/max(Agi,1); interval=1/AttackSpeed; windup within interval
        // Demo: no skill cast; SkillCooldown formula retained but unused
        move into AttackRange → AttackWindup
        Melee: HitConfirm → monster HP -= NormalAttackPower; Ranged: projectile hit same / timeout miss
        HP≤0 + no gems → CombatDead; HP≤0 + gems → immediate PermanentDeath (§3.11)
-       every TargetRetargetInterval: reselect nearest in EngageZone / repath
+       every TargetRetargetInterval: reselect nearest in EngageZone / repath (or FormationHome if none)
   → // Demo: no skill-cast LossOfControl re-roll (skills not cast)
   → Each Rebel soldier:
        nearest target among living protagonist / other soldiers / enemies (exclude self; **no EngageZone limit**)
@@ -1732,7 +1760,7 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | Rule | Notes |
 |------|-------|
 | Data | Shared **same** BattleFormation persistence as UpgradeManufacture |
-| Editor | **Same** UI/logic as §3.11 formation panel |
+| Editor | **Same** `FormationEditor` Prefab/logic as §3.11 (soldier-bar drag; includes StartBattle) |
 | Coordinates | BattleMap **continuous** space (§3.11 / §3.12) |
 | Allowed | Change soldier **positions**; **deploy / undeploy** from existing soldier **instance** pool |
 | Forbidden | **Manufacture** new soldiers in `Prepare` (manufacture only in §3.11) |
@@ -1838,12 +1866,16 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | Demo scope | **Demo v1**: soldiers use **normal attacks only**; do not read/cast Soul/Gem/ExtraEquipment skill lists; **no** skill-cast LossOfControl re-roll. `SkillCooldown` / `SkillConfig` / `Skills` fields **kept** for later; **unused** this Demo |
 | Scope | Non-Rebel soldiers’ normal-attack / ASPD flow in `Combat`; skill **effects** (incl. revive) still **TBD** (not cast in Demo) |
 | EngageZone | Candidate enemies = living monsters **inside EngageZone**; outside (incl. still-`OutsideMap` spawns not yet in zone) **not selectable** |
-| Target select | **Default**: nearest living enemy inside EngageZone; if none, idle / do not chase outside |
+| Target select | **Default**: nearest living enemy inside EngageZone |
+| FormationHome | World position locked at StartBattle deploy (that soldier’s `BattleFormation` slot); does not change from Prepare edits mid-combat |
+| No target → auto-return | **Loyal** (non-Rebel) soldiers: after current target dies (or otherwise) if EngageZone has **no** next candidate → **auto-return** to `FormationHome` via NavMesh; idle there if still no target; **do not** chase outside zone |
+| Retarget while returning | During auto-return, still search EngageZone every `TargetRetargetInterval`; on a new candidate → **abort return** and chase / attack |
+| Rebel vs return | **Rebels do not** auto-return to formation (keep nearest protagonist / soldiers / enemies) |
 | AttackPriority | `SoulConfig.AttackPriority` **unused** for targeting this batch; same enum as `TargetSelect`; field kept |
 | AttackMode | From `SoulConfig.AttackMode` (`Melee` / `Ranged`); selects Melee vs Ranged branch of scheme D. Config examples (not ClassName hardcoding): Warrior-like→`Melee`+`Strength`; Archer-like→`Ranged`+`Agility`; Mage-like→`Ranged`+`Intelligence` (PrimaryStat dim from `ClassConfig.PrimaryStat`) |
 | Mage vs Archer | **Same Ranged channel** (enter range → projectile → collision hit / timeout miss); rules-layer **only** difference is which `PrimaryStat` feeds `NormalAttackPower` (Mage Intelligence / Archer Agility); no separate mage skill or different projectile rules; View VFX may differ without changing settlement |
 | AttackRange | Both Melee and Ranged have AttackRange (soldiers: `ClassConfig.AttackRange`; monsters: `MonsterConfig.AttackRange`); must move into target `AttackRange` before attack state / attack anim |
-| Retarget / path | Same `TargetRetargetInterval` as monsters: periodically reselect nearest in EngageZone and recompute attackable point + NavMesh repath |
+| Retarget / path | Same `TargetRetargetInterval` as monsters: periodically reselect nearest in EngageZone + NavMesh; if none, destination = `FormationHome` |
 | Hit scheme D | **Melee** (`AttackMode=Melee`): end of `AttackWindup` → `HitConfirm` if target still alive and in `AttackRange`, else miss; **Ranged** (`AttackMode=Ranged`): spawn projectile, settle on **collision hit** or **timeout miss**; rules layer confirms damage; View plays anim/projectile only |
 | Normal damage | On `HitConfirm` (or ranged hit): monster `HP -= NormalAttackPower` (no armor this batch); see formulas below |
 | Attack speed | Interval between attack **starts** = `1 / AttackSpeed`; `AttackWindup` is **inside** that interval (not added outside) |
@@ -1883,6 +1915,7 @@ Idle/Move → (target in EngageZone) → Move to AttackRange
   → AttackWindup (within interval)
   → AttackMode=Melee: HitConfirm → monster HP -= NormalAttackPower (if still valid + in range) → Recovery
   → AttackMode=Ranged: spawn projectile → hit: HP -= NormalAttackPower; or timeout miss → Recovery
+  → no EngageZone target (loyal) → ReturnToFormationHome (keep retargeting; abort on new target)
   // Demo: no skill cast; SkillCooldown / skill effects deferred
   → HP≤0 + no gems → CombatDead (revivable TBD)
   → HP≤0 + has gems → PermanentDeath (immediate)
@@ -1926,13 +1959,14 @@ Defend stage
   → Each non-Rebel soldier (WarriorCombat):
        candidates = living monsters inside EngageZone (outside not selectable)
        target = nearest candidate (AttackPriority unused this batch)
+       if no candidate → NavMesh to FormationHome (StartBattle deploy pos); keep retargeting; abort return on new target
        AttackMode from SoulConfig; Primary=FinalStat(ClassConfig.PrimaryStat via ClassId); NormalAttackPower=Primary×1.5
        AttackSpeed=0.5+60/max(Agi,1); interval=1/AttackSpeed; windup within interval
        // Demo: no skill cast; SkillCooldown formula retained but unused
        move into AttackRange → AttackWindup
        Melee: HitConfirm → monster HP -= NormalAttackPower; Ranged: projectile hit same / timeout miss
        HP≤0 + no gems → CombatDead; HP≤0 + gems → immediate PermanentDeath (§3.11)
-       every TargetRetargetInterval: reselect nearest in EngageZone / repath
+       every TargetRetargetInterval: reselect nearest in EngageZone / repath (or FormationHome if none)
   → // Demo: no skill-cast LossOfControl re-roll (skills not cast)
   → Each Rebel soldier:
        nearest target among living protagonist / other soldiers / enemies (exclude self; **no EngageZone limit**)
@@ -2129,8 +2163,8 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [ ] 挖坟帧动画具体数量与资源命名清单
 - [x] 升级与制造框架（§3.11；原 SewRevive 更名 UpgradeManufacture）— **框架已关闭**
 - [x] 升级与制造阶段结束=玩家确认；**无独立阶段结算**
-- [x] 升级与制造主屏布局（同屏三区 + 底部完成；UI-010）；升级/制造区控件仍 TBD
-- [x] BattleFormation：§3.11 与 Defend Prepare **同一编辑器**；连续坐标；Prepare 不可制造
+- [x] 升级与制造主屏布局（同屏升级/制造二区 + 底部完成 + 布阵入口；UI-010）；升级/制造区控件仍 TBD
+- [x] BattleFormation：§3.11 与 Defend Prepare **同一 FormationEditor**；连续坐标；拖拽士兵栏；Prepare 不可制造
 - [x] 经验：Defend 阶段胜利统一入账至 `LifetimeExperience`；升级不扣减累计经验；科技树消费见 §3.13
 - [x] 士兵=独立实例；**士兵制造流程/槽位/最低要求/精魂闸门/命名已关闭**（§3.11）
 - [x] 躯体材料表 `BodyPartConfig` 完整字段 + `Base(S)=Σ StatBonus`；躯体外观表与选取/保底算法（§3.11 / SPEC_04 §9.12–§9.13）；具体数值行仍 TBD
@@ -2184,8 +2218,8 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [ ] Dig frame-anim count and asset naming list
 - [x] UpgradeManufacture framework closed (§3.11)
 - [x] UpgradeManufacture: player confirm end; **no** independent stage settlement
-- [x] UI-010 three panels + Complete; Upgrade widgets still TBD; Manufacture slots/preview closed
-- [x] BattleFormation: shared editor; continuous coords; no manufacture in Prepare
+- [x] UI-010 two panels + Complete + Formation entry; Upgrade widgets still TBD; Manufacture slots/preview closed
+- [x] BattleFormation: shared FormationEditor; continuous coords; soldier-bar drag; no manufacture in Prepare
 - [x] Exp: Defend victory → `LifetimeExperience`; level-up does not deduct cumulative Exp; TechTree spend in §3.13
 - [x] Warrior = instance; **manufacture flow/slots/min requirements/Spirit gate/naming closed** (§3.11)
 - [x] BodyPartConfig full schema + `Base(S)=Σ StatBonus`; BodyAppearance pick/fallback (§3.11 / SPEC_04 §9.12–§9.13); concrete value rows still TBD

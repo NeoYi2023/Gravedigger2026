@@ -50,6 +50,15 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
         public bool TryDeploy(string warriorId, out string error)
         {
+            var pos = NextAutoPosition();
+            return TryDeployAt(warriorId, pos.x, pos.z, out error);
+        }
+
+        /// <summary>
+        /// Deploy at continuous BattleMap-relative XZ (FormationEditor drag-drop).
+        /// </summary>
+        public bool TryDeployAt(string warriorId, float positionX, float positionZ, out string error)
+        {
             error = null;
             if (string.IsNullOrEmpty(warriorId))
             {
@@ -69,12 +78,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 return false;
             }
 
-            var pos = NextAutoPosition();
             _entries.Add(new BattleFormationEntry
             {
                 WarriorId = warriorId,
-                PositionX = pos.x,
-                PositionZ = pos.z,
+                PositionX = positionX,
+                PositionZ = positionZ,
                 RemainingHP = warrior.RemainingHP
             });
             Changed?.Invoke();

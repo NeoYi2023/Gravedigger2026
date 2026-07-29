@@ -27,12 +27,14 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private GameObject _digStageRootPrefab;
         [SerializeField] private GameObject _diggerPrefab;
         [SerializeField] private GameObject _rewardFlyerPrefab;
+        [SerializeField] private DigCursorRingView _uiDigCursorRingPrefab;
         [SerializeField] private List<MapEntry> _maps = new List<MapEntry>();
         [SerializeField] private List<GraveEntry> _graves = new List<GraveEntry>();
 
         public GameObject DigStageRootPrefab => _digStageRootPrefab;
         public GameObject DiggerPrefab => _diggerPrefab;
         public GameObject RewardFlyerPrefab => _rewardFlyerPrefab;
+        public DigCursorRingView UiDigCursorRingPrefab => _uiDigCursorRingPrefab;
 
         public bool TryGetMap(string mapId, out GameObject prefab)
         {
@@ -81,12 +83,14 @@ namespace Gravedigger2026.Gameplay.Dig
             GameObject digStageRoot,
             GameObject digger,
             GameObject rewardFlyer,
+            DigCursorRingView uiDigCursorRing,
             List<MapEntry> maps,
             List<GraveEntry> graves)
         {
             _digStageRootPrefab = digStageRoot;
             _diggerPrefab = digger;
             _rewardFlyerPrefab = rewardFlyer;
+            _uiDigCursorRingPrefab = uiDigCursorRing;
             _maps = maps ?? new List<MapEntry>();
             _graves = graves ?? new List<GraveEntry>();
         }

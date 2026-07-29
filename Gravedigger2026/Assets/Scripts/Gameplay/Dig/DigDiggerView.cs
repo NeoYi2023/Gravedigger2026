@@ -1,68 +1,176 @@
+using System;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
+    /// <summary>
+    /// Dig protagonist presentation. Drives Art Animator: Idle vs looping Dig (mapped Trigger).
+    /// </summary>
     public sealed class DigDiggerView : MonoBehaviour
     {
-        [SerializeField] private Transform _visual;
-        [SerializeField] private Color _idleColor = new Color(0.35f, 0.55f, 0.85f, 1f);
-        [SerializeField] private Color _digColor = new Color(0.95f, 0.70f, 0.25f, 1f);
+        private const string DirIndexParam = "DirIndex";
+        private const string IdleStateName = "IdleBT";
 
-        private Renderer _renderer;
-        private MaterialPropertyBlock _block;
-        private static readonly int ColorId = Shader.PropertyToID("_Color");
-        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-        private float _pulse;
+        private static readonly string[] LocomotionBools =
+        {
+            "IsRun", "IsWalk", "IsStrafeLeft", "IsStrafeRight", "IsRunBackwards",
+            "IsCrouching", "IsMounted", "UseIdle2", "UseIdle3", "UseIdle4"
+        };
+
+        [SerializeField] private Animator _animator;
+        [Tooltip("View-layer Dig→export Trigger mapping (SPEC_04 §15.5). Rules must not hardcode this.")]
+        [SerializeField] private string _digTriggerParam = "Special1";
+        [SerializeField] private int _fixedDirIndex = 2;
+        [SerializeField] private float _retriggerNormalizedTime = 0.92f;
+
+        private bool _digging;
+        private int _dirIndexHash;
+        private int _digTriggerHash;
+        private bool _hasDirIndex;
+        private bool _hasDigTrigger;
+        private string _digTriggerName = "Special1";
 
         private void Awake()
         {
-            if (_visual == null)
+            if (_animator == null)
             {
-                _visual = transform;
+                _animator = GetComponentInChildren<Animator>(true);
             }
 
-            _renderer = GetComponentInChildren<Renderer>();
+            CacheParamHashes();
+            ApplyFixedFacing();
             SetDigging(false);
         }
 
         private void Update()
         {
-            if (_pulse <= 0f || _visual == null)
+            if (!_digging || _animator == null || !_hasDigTrigger)
             {
                 return;
             }
 
-            var s = 1f + Mathf.Sin(Time.time * 8f) * 0.08f;
-            _visual.localScale = Vector3.one * s;
+            if (!IsPlayingDigClip())
+            {
+                _animator.SetTrigger(_digTriggerHash);
+                return;
+            }
+
+            var info = _animator.GetCurrentAnimatorStateInfo(0);
+            if (!info.loop && info.normalizedTime >= _retriggerNormalizedTime)
+            {
+                _animator.Play(info.fullPathHash, 0, 0f);
+            }
         }
 
         public void SetDigging(bool digging)
         {
-            _pulse = digging ? 1f : 0f;
-            if (_visual != null && !digging)
-            {
-                _visual.localScale = Vector3.one;
-            }
-
-            ApplyColor(digging ? _digColor : _idleColor);
-        }
-
-        private void ApplyColor(Color color)
-        {
-            if (_renderer == null)
+            _digging = digging;
+            if (_animator == null)
             {
                 return;
             }
 
-            if (_block == null)
+            ClearLocomotionBools();
+            ApplyFixedFacing();
+
+            if (digging)
             {
-                _block = new MaterialPropertyBlock();
+                if (_hasDigTrigger)
+                {
+                    _animator.ResetTrigger(_digTriggerHash);
+                    _animator.SetTrigger(_digTriggerHash);
+                }
+
+                return;
             }
 
-            _renderer.GetPropertyBlock(_block);
-            _block.SetColor(ColorId, color);
-            _block.SetColor(BaseColorId, color);
-            _renderer.SetPropertyBlock(_block);
+            if (_hasDigTrigger)
+            {
+                _animator.ResetTrigger(_digTriggerHash);
+            }
+
+            _animator.Play(IdleStateName, 0, 0f);
+        }
+
+        private bool IsPlayingDigClip()
+        {
+            var count = _animator.GetCurrentAnimatorClipInfoCount(0);
+            if (count <= 0)
+            {
+                return false;
+            }
+
+            var clips = _animator.GetCurrentAnimatorClipInfo(0);
+            for (var i = 0; i < clips.Length; i++)
+            {
+                var clip = clips[i].clip;
+                if (clip != null
+                    && clip.name.StartsWith(_digTriggerName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void CacheParamHashes()
+        {
+            _hasDirIndex = false;
+            _hasDigTrigger = false;
+            _digTriggerName = string.IsNullOrEmpty(_digTriggerParam) ? "Special1" : _digTriggerParam;
+
+            if (_animator == null || _animator.runtimeAnimatorController == null)
+            {
+                return;
+            }
+
+            _dirIndexHash = Animator.StringToHash(DirIndexParam);
+            _digTriggerHash = Animator.StringToHash(_digTriggerName);
+
+            foreach (var p in _animator.parameters)
+            {
+                if (p.nameHash == _dirIndexHash)
+                {
+                    _hasDirIndex = true;
+                }
+
+                if (p.nameHash == _digTriggerHash)
+                {
+                    _hasDigTrigger = true;
+                }
+            }
+        }
+
+        private void ApplyFixedFacing()
+        {
+            if (_animator == null || !_hasDirIndex)
+            {
+                return;
+            }
+
+            _animator.SetInteger(_dirIndexHash, _fixedDirIndex);
+        }
+
+        private void ClearLocomotionBools()
+        {
+            if (_animator == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < LocomotionBools.Length; i++)
+            {
+                var name = LocomotionBools[i];
+                foreach (var p in _animator.parameters)
+                {
+                    if (p.type == AnimatorControllerParameterType.Bool && p.name == name)
+                    {
+                        _animator.SetBool(p.nameHash, false);
+                        break;
+                    }
+                }
+            }
         }
     }
 }

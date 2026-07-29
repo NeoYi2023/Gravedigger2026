@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.46.2
-**最后更新 / Last Updated:** 2026-07-27  
+**文档版本 / Document Version:** v0.49.3
+**最后更新 / Last Updated:** 2026-07-29  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,20 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-29 | v0.49.4 | 修复 ToolsButton 首次点击无效：禁止初始隐藏面板在 `Awake` 对自身 `_root` 再 `SetActive(false)`；同步 SPEC_04 §3、ToolsPanel/ConfirmDialog/DigStageSummary |
+| 2026-07-29 | v0.49.3 | Defend 士兵无 EngageZone 目标时自动返回开战 `FormationHome`（途中继续选敌；Rebel 不返回）；同步 SPEC_03 §3.12、SPEC_04 §6、CONTEXT |
+| 2026-07-29 | v0.49.2 | 修复 UM 库存列行数增多时标签空白：`InventoryColumn`/`SlotColumn` 纵向 ScrollRect + 行 minHeight；同步 SPEC_04 §6 D-031 |
+| 2026-07-29 | v0.49.1 | UM Debug「注入制造套件」改为发放 `SoulConfig` 全行各 ×1（Demo `Soul_01`…`Soul_10`）；同步 SPEC_04 §6 D-031 |
+| 2026-07-29 | v0.49.0 | Defend 士兵动画驱动：`WarriorAnimView` 播 `IsRun`/`Attack1`/`Die` + 动态 `DirIndex`；`WarriorAgentView` 接线；同步 SPEC_04 §6/§15.5、CONTEXT |
+| 2026-07-28 | v0.48.1 | FormationEditor：士兵栏保留已上阵方格+变亮；拖出栏后 Idle 世界跟手；下阵关亮；同步 SPEC_03 §3.11 |
+| 2026-07-28 | v0.48.0 | 布阵拖拽编辑器：UM 主屏二区+「布阵/返回」；共享 `FormationEditorRoot`（士兵栏 80×80、拖放上阵/改位/下阵、控制力 HUD）；Defend Prepare 复用；`TryDeployAt`；同步 SPEC_03 §3.6/§3.8/§3.11/§3.12、SPEC_04 §6、CONTEXT |
+| 2026-07-28 | v0.47.3 | 怪物 ModelId 有 Art 时组装 `Visual`（Sprite/Animator）并移除占位立方体；`MonsterModelPrefabAssembler` + DefendAssetBuilder；本片 `MonsterModel_01`…`04`；同步 SPEC_04 §15.2 / D-041 |
+| 2026-07-28 | v0.47.2 | 修复默认解锁科技未提供 `DigCursorRadius`，导致 Dig 圆圈仅显示最小尺寸且无法命中坟墓；锁定 Demo 初始 `DigDamage=25`、`DigCursorRadius=2.5`；同步 SPEC_03 §3.10 / TechEffectConfig |
+| 2026-07-28 | v0.47.1 | Defend HUD：`DefendRoot` 上 Image 关闭且不使用（无全屏遮罩）；同步 Prefab / DefendAssetBuilder / SPEC_04 §6 D-040 |
+| 2026-07-28 | v0.47.0 | Editor 打表工具方案 A：`Gravedigger2026/Config/Bake Tables`；纯 C# Open XML 解析 Excel→Csv；四段名映射 + 表头校验；全量 schema 校验后置；同步 SPEC_04 §14/§6、SPEC_03 §3.8、CONTEXT |
+| 2026-07-28 | v0.46.5 | 角色 spritesheet 切片误用 NPOT 2048 宽（格宽≈136.53，应为 128）致换帧左漂：导出/Repair 强制源尺寸重切；批量修复 `Art/Characters` meta；同步 SPEC_04 §15.3 |
+| 2026-07-28 | v0.46.4 | Digger / BattleProtagonist 换 2D 烘焙整角：游戏 Prefab 根 + `Visual`（Sprite/Animator，`localEuler(90,0,0)`）；Dig 语义→`Special1`；固定 `DirIndex=2`（南）；`DigDiggerView` 驱动循环；Assembler + Builder 禁 Capsule 回退；同步 SPEC_04 §15.2/§15.5 |
+| 2026-07-28 | v0.46.3 | Dig 圆圈光标 UI Prefab：`UiDigCursorRing`（双层圆：白半透明填充 + 像素恒定描边）；`DigPrefabCatalog` 绑定；规则仍按圆半径判定；同步 SPEC_03 §3.10 / SPEC_04 §6/§9 |
 | 2026-07-27 | v0.46.2 | IsoDiamond 半尺寸改为 `PaintRadius*(cellSize.x,cellSize.y)`（可各向异性；Demo `cellSize≈(1,0.5)`→`(5,2.5)`）；`WalkSurface`/NavMesh 改同形菱形薄网格，修正相对 Tilemap 上下差一半 |
 | 2026-07-27 | v0.46.1 | 地图逻辑足迹统一为 IsoDiamond（XZ 曼哈顿菱形，与 Isometric Tilemap 外轮廓对齐）：`DigMapBounds`/`EngageZone`/`WalkSurface`（Y=45° 扁盒）/ NavMesh 旋转盒 / 钟点刷怪边 / Dig 可放置采样；半尺寸=菱形顶点到中心距离；同步 SPEC_03/04、CONTEXT |
 | 2026-07-27 | v0.46.0 | 关卡地图表现改为 Unity Isometric Tilemap（正交顶视 XZ；逻辑仍连续非格子）；Tile/Sprite 落 `Art/Maps/Tiles/`（自 Example Environment 复制）；`Ground_*` Prefab 含 Grid+Tilemap+WalkSurface；须 `com.unity.2d.tilemap`；同步 SPEC_03 DigMap、SPEC_04 §2/§9/§13 |
@@ -127,6 +141,19 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-29 | v0.49.4 | Fix ToolsButton needing a second click: do not `SetActive(false)` on self `_root` in `Awake` for initially inactive panels; synced SPEC_04 §3, ToolsPanel/ConfirmDialog/DigStageSummary |
+| 2026-07-29 | v0.49.3 | Defend: loyal soldiers with no EngageZone target auto-return to StartBattle `FormationHome` (keep retargeting; Rebels do not return); synced SPEC_03 §3.12, SPEC_04 §6, CONTEXT |
+| 2026-07-29 | v0.49.2 | Fix UM inventory blank labels when kit grows: vertical ScrollRect + row minHeight on `InventoryColumn`/`SlotColumn`; synced SPEC_04 §6 D-031 |
+| 2026-07-29 | v0.49.1 | UM Debug "grant starter kit" now grants every `SoulConfig` row ×1 (Demo `Soul_01`…`Soul_10`); synced SPEC_04 §6 D-031 |
+| 2026-07-29 | v0.49.0 | Defend warrior anim drive: `WarriorAnimView` plays `IsRun`/`Attack1`/`Die` + dynamic `DirIndex`; wired from `WarriorAgentView`; synced SPEC_04 §6/§15.5, CONTEXT |
+| 2026-07-28 | v0.48.1 | FormationEditor: keep deployed bar cells + highlight; Idle world follow after leaving bar; clear highlight on undeploy; synced SPEC_03 §3.11 |
+| 2026-07-28 | v0.48.0 | Formation drag editor: UM two panels + Formation/Return; shared `FormationEditorRoot` (80×80 soldier bar, drag deploy/reposition/undeploy, ControlPower HUD); Defend Prepare reuses; `TryDeployAt`; synced SPEC_03 §3.6/§3.8/§3.11/§3.12, SPEC_04 §6, CONTEXT |
+| 2026-07-28 | v0.47.2 | Fixed default-unlocked tech missing `DigCursorRadius`, which left the Dig circle at minimum visual size and prevented grave hits; locked Demo initial `DigDamage=25` and `DigCursorRadius=2.5`; synced SPEC_03 §3.10 / TechEffectConfig |
+| 2026-07-28 | v0.47.1 | Defend HUD: disable unused `Image` on `DefendRoot` (no fullscreen overlay); synced Prefab / DefendAssetBuilder / SPEC_04 §6 D-040 |
+| 2026-07-28 | v0.47.0 | Editor Bake Tables Approach A: `Gravedigger2026/Config/Bake Tables`; pure-C# Open XML Excel→Csv; four-part name map + header check; full §9 schema validation deferred; synced SPEC_04 §14/§6, SPEC_03 §3.8, CONTEXT |
+| 2026-07-28 | v0.46.5 | Character spritesheet sliced with NPOT-padded 2048 width (~136.53 cells vs correct 128) caused leftward frame drift: export/Repair force source-size reslice; batch-fix `Art/Characters` metas; synced SPEC_04 §15.3 |
+| 2026-07-28 | v0.46.4 | Digger / BattleProtagonist → 2D baked whole characters: game Prefab root + `Visual` (Sprite/Animator, `localEuler(90,0,0)`); Dig semantics→`Special1`; fixed `DirIndex=2` (South); `DigDiggerView` loops dig; Assembler + Builders ban Capsule regen; synced SPEC_04 §15.2/§15.5 |
+| 2026-07-28 | v0.46.3 | Dig circle-cursor UI Prefab `UiDigCursorRing` (dual circle: white semi-transparent fill + fixed-pixel stroke); bound on `DigPrefabCatalog`; hit test remains circular radius; synced SPEC_03 §3.10 / SPEC_04 §6/§9 |
 | 2026-07-27 | v0.46.2 | IsoDiamond half-extents = `PaintRadius*(cellSize.x,cellSize.y)` (anisotropic OK; Demo `cellSize≈(1,0.5)`→`(5,2.5)`); `WalkSurface`/NavMesh use matching thin diamond mesh — fixes Z extent ~2× vs Tilemap |
 | 2026-07-27 | v0.46.1 | Unify map logic footprint as IsoDiamond (XZ Manhattan diamond aligned to Isometric Tilemap silhouette): `DigMapBounds`/`EngageZone`/`WalkSurface` (Y=45° flat box) / rotated NavMesh box / clock-rim spawns / Dig placeable sampling; half-extents = vertex-to-center distance; synced SPEC_03/04, CONTEXT |
 | 2026-07-27 | v0.46.0 | Map presentation → Unity Isometric Tilemap (orthographic XZ top-down; logic still continuous non-grid); Tiles/Sprites under `Art/Maps/Tiles/` (copied from Example Environment); `Ground_*` Prefabs include Grid+Tilemap+WalkSurface; require `com.unity.2d.tilemap`; synced SPEC_03 DigMap, SPEC_04 §2/§9/§13 |
