@@ -125,6 +125,7 @@ namespace Gravedigger2026.Gameplay.Dig
                 }
 
                 _cursorView.Configure(_digCamera, caps.DigCursorRadius, center.y, hudCanvas);
+                Debug.Log($"[DigStageController] Cursor radius={caps.DigCursorRadius:0.###} camera ortho={_digCamera.orthographicSize:0.##} canvasScale={(hudCanvas != null ? hudCanvas.scaleFactor : -1f):0.###}");
             }
 
             _hudView?.Show();

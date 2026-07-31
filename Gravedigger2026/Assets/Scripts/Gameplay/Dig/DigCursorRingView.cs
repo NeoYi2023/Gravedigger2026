@@ -15,16 +15,18 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public RectTransform Root => _root != null ? _root : transform as RectTransform;
 
+        /// <summary>Stroke gap in the same units as <see cref="ApplyDiameter"/> (canvas units after scaleFactor conversion).</summary>
         public float StrokeWidthPx
         {
             get => _strokeWidthPx;
-            set => _strokeWidthPx = Mathf.Max(1f, value);
+            set => _strokeWidthPx = Mathf.Max(0.01f, value);
         }
 
-        public void ApplyDiameter(float diameterPx)
+        /// <param name="diameterCanvasUnits">Outer diameter in Canvas / RectTransform units (not raw screen pixels).</param>
+        public void ApplyDiameter(float diameterCanvasUnits)
         {
-            var stroke = Mathf.Max(1f, _strokeWidthPx);
-            var d = Mathf.Max(diameterPx, stroke * 2f + 1f);
+            var stroke = Mathf.Max(0.01f, _strokeWidthPx);
+            var d = Mathf.Max(diameterCanvasUnits, stroke * 2f + 1f);
             var root = Root;
             if (root != null)
             {

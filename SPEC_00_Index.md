@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.49.3
-**最后更新 / Last Updated:** 2026-07-29  
+**文档版本 / Document Version:** v0.49.7
+**最后更新 / Last Updated:** 2026-07-31  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,10 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-07-31 | v0.49.8 | Dig 光标半径内可挖坟**并行** DigAction（取消单坟全局忙锁；按坟独立时长与扣血）；同步 SPEC_03 §3.10 |
+| 2026-07-31 | v0.49.7 | Demo 初始 `DigCursorRadius` **1.5→0.6**（`Tech_Root` / `DigProtagonistCapabilities` 默认）；同步 SPEC_03 §3.10 / TechEffectConfig |
+| 2026-07-31 | v0.49.6 | Demo 初始 `DigCursorRadius` **2.5→1.5**（`Tech_Root` / `DigProtagonistCapabilities` 默认）；同步 SPEC_03 §3.10 / TechEffectConfig |
+| 2026-07-31 | v0.49.5 | 修复 `UiDigCursorRing` 直径被 CanvasScaler 二次放大：屏幕投影像素 ÷ `canvas.scaleFactor` 写入 `sizeDelta`；描边按屏幕像素恒定换算；同步 SPEC_03 §3.10 / SPEC_04 §9 |
 | 2026-07-29 | v0.49.4 | 修复 ToolsButton 首次点击无效：禁止初始隐藏面板在 `Awake` 对自身 `_root` 再 `SetActive(false)`；同步 SPEC_04 §3、ToolsPanel/ConfirmDialog/DigStageSummary |
 | 2026-07-29 | v0.49.3 | Defend 士兵无 EngageZone 目标时自动返回开战 `FormationHome`（途中继续选敌；Rebel 不返回）；同步 SPEC_03 §3.12、SPEC_04 §6、CONTEXT |
 | 2026-07-29 | v0.49.2 | 修复 UM 库存列行数增多时标签空白：`InventoryColumn`/`SlotColumn` 纵向 ScrollRect + 行 minHeight；同步 SPEC_04 §6 D-031 |
@@ -141,6 +145,10 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-07-31 | v0.49.8 | Dig: **parallel** DigAction for all diggable graves in cursor radius (drop global busy lock; per-grave duration & damage); synced SPEC_03 §3.10 |
+| 2026-07-31 | v0.49.7 | Demo initial `DigCursorRadius` **1.5→0.6** (`Tech_Root` / `DigProtagonistCapabilities` defaults); synced SPEC_03 §3.10 / TechEffectConfig |
+| 2026-07-31 | v0.49.6 | Demo initial `DigCursorRadius` **2.5→1.5** (`Tech_Root` / `DigProtagonistCapabilities` defaults); synced SPEC_03 §3.10 / TechEffectConfig |
+| 2026-07-31 | v0.49.5 | Fix `UiDigCursorRing` diameter double-scaled by CanvasScaler: convert screen-projected pixels ÷ `canvas.scaleFactor` into `sizeDelta`; keep stroke constant in screen pixels; synced SPEC_03 §3.10 / SPEC_04 §9 |
 | 2026-07-29 | v0.49.4 | Fix ToolsButton needing a second click: do not `SetActive(false)` on self `_root` in `Awake` for initially inactive panels; synced SPEC_04 §3, ToolsPanel/ConfirmDialog/DigStageSummary |
 | 2026-07-29 | v0.49.3 | Defend: loyal soldiers with no EngageZone target auto-return to StartBattle `FormationHome` (keep retargeting; Rebels do not return); synced SPEC_03 §3.12, SPEC_04 §6, CONTEXT |
 | 2026-07-29 | v0.49.2 | Fix UM inventory blank labels when kit grows: vertical ScrollRect + row minHeight on `InventoryColumn`/`SlotColumn`; synced SPEC_04 §6 D-031 |

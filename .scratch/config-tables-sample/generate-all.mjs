@@ -673,7 +673,7 @@ const outline = (q) => `Outline_${q}`;
 {
   const headers = ["TechId", "AttributeModifiers", "UnlockedFeatureSystemName"];
   const rows = [
-    { TechId: "Tech_Root", AttributeModifiers: "DigDamage_25|DigCursorRadius_2.5", UnlockedFeatureSystemName: "" },
+    { TechId: "Tech_Root", AttributeModifiers: "DigDamage_25|DigCursorRadius_0.6", UnlockedFeatureSystemName: "" },
     { TechId: "Tech_DigDamage", AttributeModifiers: "DigDamage_2", UnlockedFeatureSystemName: "" },
     { TechId: "Tech_DigSpeed", AttributeModifiers: "DigDurationReductionSum_0.1", UnlockedFeatureSystemName: "" },
     { TechId: "Tech_DigRadius", AttributeModifiers: "DigCursorRadius_0.2", UnlockedFeatureSystemName: "" },

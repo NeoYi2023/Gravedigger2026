@@ -351,7 +351,7 @@ DigGameplayConfig {
 
 **落点：** 在 DigMap 整体可放置区域内采样；须避开 `DigObstacle`（Digger + 未消除 Grave）的圆形障碍半径（半径在对应 Prefab 上配置）。单次生成采样失败最多重试 **32** 次，仍失败则放弃该次生成。
 
-**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下 Digger 与各品质 Grave 预制体暴露圆形障碍半径；每种 `QualityId` 对应专属 Grave Prefab。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
+**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下 Digger 与各品质 Grave 预制体暴露圆形障碍半径；每种 `QualityId` 对应专属 Grave Prefab。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
 
 #### 9.3 坟墓品质定义表 `GraveQualityConfig`
 
@@ -1171,7 +1171,7 @@ All config **Weight** values follow:
 
 **Placement:** sample DigMap continuous placeable space; avoid `DigObstacle` circles (Digger + uncleared Graves; radii on Prefabs). Retry up to **32** times per spawn; then abandon that spawn.
 
-**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, Digger and per-quality Grave Prefabs expose circle obstacle radius; one Grave Prefab per `QualityId`. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas; circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
+**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, Digger and per-quality Grave Prefabs expose circle obstacle radius; one Grave Prefab per `QualityId`. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
 
 #### 9.3 GraveQualityConfig
 

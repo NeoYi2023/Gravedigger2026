@@ -40,10 +40,10 @@ namespace Gravedigger2026.Core.Dig
 
         private Vector3 _cursorWorld;
         private bool _cursorValid;
-        private int _dwellGraveId = -1;
         private float _dwellSeconds;
-        private int _activeDigGraveId = -1;
-        private float _activeDigRemaining;
+        private readonly Dictionary<int, float> _activeDigRemainingById = new Dictionary<int, float>();
+        private readonly List<DigGraveRuntime> _eligibleScratch = new List<DigGraveRuntime>(16);
+        private readonly List<int> _activeIdScratch = new List<int>(16);
 
         public event Action<float, float> RemainingTimeChanged;
         public event Action<DigGraveRuntime> GraveSpawned;
@@ -76,7 +76,7 @@ namespace Gravedigger2026.Core.Dig
         public WarehouseService Warehouse => _warehouse;
         public Vector3 DiggerPosition => _diggerPosition;
         public IReadOnlyList<DigGraveRuntime> Graves => _graves;
-        public bool HasBusyGrave => _activeDigGraveId >= 0;
+        public bool HasBusyGrave => _activeDigRemainingById.Count > 0;
 
         public void Begin(
             DigGameplayConfigRow config,
@@ -238,63 +238,62 @@ namespace Gravedigger2026.Core.Dig
 
         private void TickDigAction(float deltaTime)
         {
-            if (_activeDigGraveId < 0)
+            if (_activeDigRemainingById.Count == 0)
             {
                 return;
             }
 
-            if (!_gravesById.TryGetValue(_activeDigGraveId, out var grave) || grave.IsCleared)
+            _activeIdScratch.Clear();
+            foreach (var id in _activeDigRemainingById.Keys)
             {
-                CancelActiveDigAction(settleDamage: false);
-                return;
+                _activeIdScratch.Add(id);
             }
 
-            _activeDigRemaining -= deltaTime;
-            if (_activeDigRemaining > 0f)
+            for (var i = 0; i < _activeIdScratch.Count; i++)
             {
-                return;
+                var id = _activeIdScratch[i];
+                if (!_activeDigRemainingById.TryGetValue(id, out var remaining))
+                {
+                    continue;
+                }
+
+                if (!_gravesById.TryGetValue(id, out var grave) || grave.IsCleared)
+                {
+                    _activeDigRemainingById.Remove(id);
+                    continue;
+                }
+
+                remaining -= deltaTime;
+                if (remaining > 0f)
+                {
+                    _activeDigRemainingById[id] = remaining;
+                    continue;
+                }
+
+                _activeDigRemainingById.Remove(id);
+                grave.IsBusy = false;
+                DigActionEnded?.Invoke(grave);
+                ApplyDamage(grave);
             }
 
-            var finished = grave;
-            finished.IsBusy = false;
-            _activeDigGraveId = -1;
-            _activeDigRemaining = 0f;
-            DigActionEnded?.Invoke(finished);
-            DiggingPresenceChanged?.Invoke(false);
-
-            ApplyDamage(finished);
+            if (_activeDigRemainingById.Count == 0)
+            {
+                DiggingPresenceChanged?.Invoke(false);
+            }
         }
 
         private void TickCursorDwell(float deltaTime)
         {
-            if (_inputLocked || !_cursorValid || _activeDigGraveId >= 0)
+            if (_inputLocked || !_cursorValid)
             {
                 return;
             }
 
-            var target = FindGraveUnderCursor();
-            if (target == null)
+            CollectEligibleGravesUnderCursor(_eligibleScratch);
+            if (_eligibleScratch.Count == 0)
             {
-                ClearCursorState();
-                return;
-            }
-
-            if (!_caps.DiggableQualityIds.Contains(target.QualityId))
-            {
-                ClearCursorState();
-                return;
-            }
-
-            if (target.IsBusy || target.IsCleared)
-            {
-                ClearCursorState();
-                return;
-            }
-
-            if (_dwellGraveId != target.InstanceId)
-            {
-                _dwellGraveId = target.InstanceId;
                 _dwellSeconds = 0f;
+                return;
             }
 
             _dwellSeconds += deltaTime;
@@ -303,55 +302,87 @@ namespace Gravedigger2026.Core.Dig
                 return;
             }
 
-            StartDigAction(target);
+            var hadBusy = HasBusyGrave;
+            for (var i = 0; i < _eligibleScratch.Count; i++)
+            {
+                StartDigAction(_eligibleScratch[i], invokePresence: false);
+            }
+
+            if (!hadBusy && HasBusyGrave)
+            {
+                DiggingPresenceChanged?.Invoke(true);
+            }
+
             _dwellSeconds = 0f;
         }
 
-        private DigGraveRuntime FindGraveUnderCursor()
+        private void CollectEligibleGravesUnderCursor(List<DigGraveRuntime> into)
         {
-            DigGraveRuntime best = null;
-            var bestDist = float.MaxValue;
+            into.Clear();
             var radius = _caps.DigCursorRadius;
 
             for (var i = 0; i < _graves.Count; i++)
             {
                 var g = _graves[i];
-                if (g.IsCleared)
+                if (g.IsCleared || g.IsBusy)
+                {
+                    continue;
+                }
+
+                if (!_caps.DiggableQualityIds.Contains(g.QualityId))
                 {
                     continue;
                 }
 
                 var flat = g.WorldPosition;
                 flat.y = _cursorWorld.y;
-                var dist = Vector3.Distance(_cursorWorld, flat);
-                if (dist <= radius && dist < bestDist)
+                if (Vector3.Distance(_cursorWorld, flat) <= radius)
                 {
-                    bestDist = dist;
-                    best = g;
+                    into.Add(g);
                 }
             }
-
-            return best;
         }
 
-        private void StartDigAction(DigGraveRuntime grave)
+        private void StartDigAction(DigGraveRuntime grave, bool invokePresence = true)
         {
-            grave.IsBusy = true;
-            _activeDigGraveId = grave.InstanceId;
-            _activeDigRemaining = _caps.DigActionDuration;
-            DigActionStarted?.Invoke(grave);
-            DiggingPresenceChanged?.Invoke(true);
-        }
-
-        private void CancelActiveDigAction(bool settleDamage)
-        {
-            if (_activeDigGraveId < 0)
+            if (grave == null || grave.IsBusy || grave.IsCleared)
             {
                 return;
             }
 
-            if (_gravesById.TryGetValue(_activeDigGraveId, out var grave))
+            var wasBusy = HasBusyGrave;
+            grave.IsBusy = true;
+            _activeDigRemainingById[grave.InstanceId] = _caps.DigActionDuration;
+            DigActionStarted?.Invoke(grave);
+            if (invokePresence && !wasBusy)
             {
+                DiggingPresenceChanged?.Invoke(true);
+            }
+        }
+
+        private void CancelActiveDigAction(bool settleDamage)
+        {
+            if (_activeDigRemainingById.Count == 0)
+            {
+                return;
+            }
+
+            _activeIdScratch.Clear();
+            foreach (var id in _activeDigRemainingById.Keys)
+            {
+                _activeIdScratch.Add(id);
+            }
+
+            _activeDigRemainingById.Clear();
+
+            for (var i = 0; i < _activeIdScratch.Count; i++)
+            {
+                var id = _activeIdScratch[i];
+                if (!_gravesById.TryGetValue(id, out var grave))
+                {
+                    continue;
+                }
+
                 grave.IsBusy = false;
                 DigActionEnded?.Invoke(grave);
                 if (settleDamage)
@@ -360,9 +391,7 @@ namespace Gravedigger2026.Core.Dig
                 }
             }
 
-            _activeDigGraveId = -1;
-            _activeDigRemaining = 0f;
-            DiggingPresenceChanged?.Invoke(HasBusyGrave);
+            DiggingPresenceChanged?.Invoke(false);
         }
 
         private void ApplyDamage(DigGraveRuntime grave)
@@ -481,7 +510,6 @@ namespace Gravedigger2026.Core.Dig
 
         private void ClearCursorState()
         {
-            _dwellGraveId = -1;
             _dwellSeconds = 0f;
             _cursorValid = false;
         }

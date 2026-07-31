@@ -22,7 +22,7 @@ namespace Gravedigger2026.Core.Dig
                 new Dictionary<string, float>(StringComparer.Ordinal)
                 {
                     ["DigDamage"] = 25f,
-                    ["DigCursorRadius"] = 2.5f
+                    ["DigCursorRadius"] = 0.6f
                 },
                 allQualityIds);
             return caps;

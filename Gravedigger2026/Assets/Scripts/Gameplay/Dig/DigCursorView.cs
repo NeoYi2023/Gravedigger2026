@@ -72,12 +72,7 @@ namespace Gravedigger2026.Gameplay.Dig
                 ApplyRingScale();
             }
 
-            var activeUi = ActiveUiRing;
-            if (activeUi != null)
-            {
-                activeUi.Root.position = screenPosition;
-                activeUi.ApplyDiameter(ScreenRadiusToUiSize());
-            }
+            SyncUiRing(screenPosition);
         }
 
         public void DestroySpawnedUiRing()
@@ -178,18 +173,74 @@ namespace Gravedigger2026.Gameplay.Dig
             _spawnedUiRing.ApplyDiameter(96f);
         }
 
-        private float ScreenRadiusToUiSize()
+        private void SyncUiRing(Vector3 screenPosition)
+        {
+            var activeUi = ActiveUiRing;
+            if (activeUi == null)
+            {
+                return;
+            }
+
+            var root = activeUi.Root;
+            if (_uiCanvas == null)
+            {
+                _uiCanvas = activeUi.GetComponentInParent<Canvas>();
+            }
+
+            var canvas = _uiCanvas;
+            var canvasRt = canvas != null ? canvas.transform as RectTransform : null;
+            if (canvasRt != null)
+            {
+                Camera eventCam = null;
+                if (canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                {
+                    eventCam = canvas.worldCamera != null ? canvas.worldCamera : _digCamera;
+                }
+
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        canvasRt, screenPosition, eventCam, out var localPoint))
+                {
+                    root.anchoredPosition = localPoint;
+                }
+            }
+            else
+            {
+                root.position = screenPosition;
+            }
+
+            // World→screen projection yields pixels; CanvasScaler sizeDelta is in canvas units.
+            // Without /scaleFactor the ring is scaled twice and looks mysteriously oversized.
+            var scale = canvas != null ? Mathf.Max(1e-4f, canvas.scaleFactor) : 1f;
+            const float strokeScreenPx = 3f;
+            activeUi.StrokeWidthPx = strokeScreenPx / scale;
+            activeUi.ApplyDiameter(ScreenDiameterToCanvasSize(scale));
+        }
+
+        /// <summary>Screen-pixel diameter of DigCursorRadius, converted to CanvasScaler units.</summary>
+        private float ScreenDiameterToCanvasSize(float canvasScaleFactor)
         {
             if (_digCamera == null)
             {
                 return 96f;
             }
 
-            var worldEdge = WorldPosition + _digCamera.transform.right * _radius;
-            var a = _digCamera.WorldToScreenPoint(WorldPosition);
-            var b = _digCamera.WorldToScreenPoint(worldEdge);
-            var px = Vector2.Distance(new Vector2(a.x, a.y), new Vector2(b.x, b.y));
-            return Mathf.Max(64f, px * 2f);
+            float diameterScreenPx;
+            if (_digCamera.orthographic)
+            {
+                var pixelHeight = Mathf.Max(1f, _digCamera.pixelHeight);
+                var worldHeight = Mathf.Max(1e-4f, _digCamera.orthographicSize * 2f);
+                diameterScreenPx = _radius * 2f * (pixelHeight / worldHeight);
+            }
+            else
+            {
+                var worldEdge = WorldPosition + _digCamera.transform.right * _radius;
+                var a = _digCamera.WorldToScreenPoint(WorldPosition);
+                var b = _digCamera.WorldToScreenPoint(worldEdge);
+                diameterScreenPx = Vector2.Distance(new Vector2(a.x, a.y), new Vector2(b.x, b.y)) * 2f;
+            }
+
+            var canvasUnits = diameterScreenPx / Mathf.Max(1e-4f, canvasScaleFactor);
+            return Mathf.Max(64f / Mathf.Max(1e-4f, canvasScaleFactor), canvasUnits);
         }
 
         private void ApplyRingScale()

@@ -17,7 +17,7 @@ namespace Gravedigger2026.Editor.Formation
         private const string CatalogPath = SettingsDir + "/FormationPrefabCatalog.asset";
         private const string EditorRootPath = PrefabDir + "/FormationEditorRoot.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0482";
+        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0483";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -185,20 +185,12 @@ namespace Gravedigger2026.Editor.Formation
 
             var barView = barPanel.AddComponent<FormationSoldierBarView>();
 
-            var catcherGo = new GameObject("PointerCatcher", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            catcherGo.transform.SetParent(barPanel.transform, false);
-            var catcherRt = catcherGo.GetComponent<RectTransform>();
-            Stretch(catcherRt);
-            var catcherImg = catcherGo.GetComponent<Image>();
-            catcherImg.color = new Color(1f, 1f, 1f, 0.01f);
-            catcherImg.raycastTarget = true;
-
+            // PointerCatcher removed: bar drives input via Update (see FormationSoldierBarView).
             var barSo = new SerializedObject(barView);
             barSo.FindProperty("_barRoot").objectReferenceValue = barRt;
             barSo.FindProperty("_scrollRect").objectReferenceValue = scroll;
             barSo.FindProperty("_content").objectReferenceValue = contentRt;
             barSo.FindProperty("_slotTemplate").objectReferenceValue = slotView;
-            barSo.FindProperty("_pointerCatcher").objectReferenceValue = catcherRt;
             barSo.ApplyModifiedPropertiesWithoutUndo();
 
             var ghostGo = new GameObject("DragGhost", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));

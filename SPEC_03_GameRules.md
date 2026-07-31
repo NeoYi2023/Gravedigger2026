@@ -23,7 +23,7 @@
 | VictorySettlement | 胜利结算 | 关卡**最后一阶段**结束后触发的关卡级结算反馈。 |
 | DigMap | 挖坟地图 | 表现上用 Unity **Isometric Tilemap** 铺斜 45° 菱形地板（正交/无透视）；**逻辑足迹 IsoDiamond**（XZ 曼哈顿菱形，与砖面外轮廓对齐；连续可放置，非格子网格）；表现 Prefab 逻辑名 `Ground_01`…`Ground_05`（`DigMapId`）。 |
 | Digger | 挖坟主角 | 挖坟阶段在地图中心点生成的角色；待机 / 挖坟循环动画由场上是否有坟正在被挖驱动（§3.10）；外观为 Character Creator **烘焙整角**，见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
-| DigAction | 挖掘流程 | 圆圈光标在坟上停留 ≥0.2s 触发；坟上播放 `DigActionDuration` 挖掘帧动画后结算扣血；该坟挖掘中不可重复触发（§3.10）。 |
+| DigAction | 挖掘流程 | 圆圈光标在半径内可挖坟上停留 ≥0.2s 触发；半径内全部满足条件的坟**同时**各启 DigAction；每坟独立 `DigActionDuration` 后结算扣血；该坟挖掘中不可重复触发（§3.10）。 |
 | DigObstacle | 挖坟障碍物 | Dig 阶段仅两类：Digger 与未消除 Grave；圆形障碍半径在各自预制体上配置（§3.10）。 |
 | DigProtagonistCapabilities | 挖坟主角能力 | 存档主角派生：挖坟伤害、挖坟阶段时长加成、时长缩短和、光标半径、可挖品质集合；由科技树学会写入（§3.10、§3.13）。 |
 | GraveHP | 坟墓血量 | 坟墓当前/最大生命；maxHP 来自坟墓品质定义表；扣至 0 触发挖掘成功与奖励（§3.10）。 |
@@ -136,7 +136,7 @@
 | VictorySettlement | 胜利结算 | Level-level settlement feedback after the **last** stage ends. |
 | DigMap | 挖坟地图 | Presentation uses Unity **Isometric Tilemap** diamond floor tiles (orthographic / no perspective); **logic footprint IsoDiamond** (XZ Manhattan diamond aligned to tile silhouette; continuous placeable, not a cell grid); presentation Prefab logical names `Ground_01`…`Ground_05` (`DigMapId`). |
 | Digger | 挖坟主角 | Avatar spawned at DigMap center when Dig stage starts; idle vs looping dig anim driven by whether ≥1 grave is being dug (§3.10); visuals are Character Creator **baked whole characters** — [SPEC_04 §15](SPEC_04_Technical.md). |
-| DigAction | 挖掘流程 | Circle cursor dwell ≥0.2s on a grave triggers dig; dig frame anim for `DigActionDuration` then damage resolve; busy grave cannot re-trigger (§3.10). |
+| DigAction | 挖掘流程 | Circle cursor dwell ≥0.2s over diggable graves in radius triggers dig; **all** eligible graves in radius start DigAction **in parallel**; each resolves damage after its own `DigActionDuration`; busy grave cannot re-trigger (§3.10). |
 | DigObstacle | 挖坟障碍物 | Dig-stage obstacles only: Digger and uncleared Graves; circle obstacle radius on each Prefab (§3.10). |
 | DigProtagonistCapabilities | 挖坟主角能力 | Save-slot protagonist derived stats: dig damage, Dig stage duration bonus, duration-reduction sum, cursor radius, diggable quality set; written by tech-tree learns (§3.10, §3.13). |
 | GraveHP | 坟墓血量 | Current/max HP; maxHP from GraveQualityConfig; 0 HP → dig success + reward (§3.10). |
@@ -669,7 +669,7 @@ EnterLevel
 |------|------|
 | DigDamage | 单次 DigAction 结束时对该坟的扣血数值；Demo 初始值 **25**，由默认解锁科技项提供 |
 | DigDurationReductionSum | 所有已解锁「缩短单次挖坟时长」科技效果之和（秒） |
-| DigCursorRadius | 圆圈光标半径（世界单位）；Demo 初始值 **2.5**，由默认解锁科技项提供 |
+| DigCursorRadius | 圆圈光标半径（世界单位）；Demo 初始值 **0.6**，由默认解锁科技项提供 |
 | DiggableQualityIds | 已解锁、可触发挖掘的坟墓品质 ID 集合 |
 | DigStageDurationBonus | 挖坟阶段有效时长的科技加成（秒，加法；见「有效挖坟时长」） |
 
@@ -683,11 +683,11 @@ EnterLevel
 
 | 规则 | 值 |
 |------|-----|
-| 光标形态 | 进入挖坟阶段后，鼠标指针变为「圆圈范围」；半径 = `DigCursorRadius`；判定为圆心到坟的平面距离 ≤ 半径（圆，非方） |
-| 光标表现 | 屏幕空间 UI Prefab `UiDigCursorRing`（`Assets/Prefabs/Dig/`）：外圈描边 + 内区白色半透明填充；圆直径随 `DigCursorRadius` 的屏幕投影变化，**描边像素粗细不随半径缩放** |
-| 触发条件 | 圆圈范围在地图内某座坟上方 **连续停留 ≥ 0.2 秒** → 对该坟触发一次挖掘 |
-| 可挖类型门禁 | 若该坟品质 ID **不在** `DiggableQualityIds` 内 → **不触发** DigAction（该类坟仍可按配置生成） |
-| 忙碌锁 | 若该坟当前处于「挖掘中」，**不刷新 / 不重复触发**，直至本次挖掘流程结束 |
+| 光标形态 | 进入挖坟阶段后，鼠标指针变为「圆圈范围」；半径 = `DigCursorRadius`；圆心平面距离 ≤ 半径的**全部**未清除坟均为候选（圆，非方） |
+| 光标表现 | 屏幕空间 UI Prefab `UiDigCursorRing`（`Assets/Prefabs/Dig/`）：外圈描边 + 内区白色半透明填充；圆直径 = `DigCursorRadius` 的屏幕投影像素 ÷ Dig HUD `Canvas.scaleFactor`（写入 `sizeDelta`，避免 CanvasScaler 二次放大），**描边屏幕像素粗细不随半径/分辨率缩放** |
+| 触发条件 | 半径内存在至少一座「可挖且非忙碌」坟，圆圈 **连续停留 ≥ 0.2 秒** → 对当时半径内**所有**满足条件的坟**同时**各启一次 DigAction |
+| 可挖类型门禁 | 若该坟品质 ID **不在** `DiggableQualityIds` 内 → **不**纳入本次触发（该类坟仍可按配置生成） |
+| 忙碌锁 | **按坟**：该坟处于「挖掘中」则不可再触发，直至本次 DigAction 结束；**无**「场上已有任意 DigAction 则禁止新触发」的全局锁。挖进行中若光标又盖住新的空闲可挖坟，可再积 0.2s 后对其启动；离开半径**不**中断已开始的 DigAction |
 
 **单次挖掘流程（DigAction）**
 
@@ -826,7 +826,7 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 |------------|-------|
 | DigDamage | Per-DigAction damage to the grave; Demo initial value **25**, provided by default-unlocked tech |
 | DigDurationReductionSum | Sum of all unlocked dig-action-duration shorten effects (seconds) |
-| DigCursorRadius | Circle cursor radius (world units); Demo initial value **2.5**, provided by default-unlocked tech |
+| DigCursorRadius | Circle cursor radius (world units); Demo initial value **0.6**, provided by default-unlocked tech |
 | DiggableQualityIds | Set of Grave Quality Ids that may trigger DigAction |
 | DigStageDurationBonus | Additive Dig-stage effective-duration bonus (seconds; see Effective Dig duration) |
 
@@ -840,11 +840,11 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 
 | Rule | Value |
 |------|-------|
-| Cursor | On Dig stage enter, pointer becomes a **circle range**; radius = `DigCursorRadius`; hit test = planar distance from cursor center to grave ≤ radius (circle, not square) |
-| Cursor visuals | Screen-space UI Prefab `UiDigCursorRing` (`Assets/Prefabs/Dig/`): outer stroke + inner white semi-transparent fill; diameter follows screen projection of `DigCursorRadius`; **stroke thickness in pixels does not scale with radius** |
-| Trigger | Circle continuously dwells on a map grave for **≥ 0.2s** → start one DigAction on that grave |
-| Diggable gate | If that grave's Quality Id is **not** in `DiggableQualityIds` → **do not** start DigAction (such graves may still spawn) |
-| Busy lock | If that grave is already in DigAction, **do not refresh / re-trigger** until the current DigAction ends |
+| Cursor | On Dig stage enter, pointer becomes a **circle range**; radius = `DigCursorRadius`; **all** uncleared graves with planar distance from cursor center ≤ radius are candidates (circle, not square) |
+| Cursor visuals | Screen-space UI Prefab `UiDigCursorRing` (`Assets/Prefabs/Dig/`): outer stroke + inner white semi-transparent fill; diameter = screen projection of `DigCursorRadius` in pixels ÷ Dig HUD `Canvas.scaleFactor` (written to `sizeDelta`, avoiding CanvasScaler double-scale); **stroke thickness stays constant in screen pixels** |
+| Trigger | While ≥1 diggable non-busy grave is in radius, circle continuously dwells **≥ 0.2s** → start one DigAction on **each** currently eligible grave in radius **in parallel** |
+| Diggable gate | If that grave's Quality Id is **not** in `DiggableQualityIds` → **exclude** from this trigger (such graves may still spawn) |
+| Busy lock | **Per grave**: if that grave is already in DigAction, **do not** re-trigger until it ends; **no** global lock that blocks new DigActions while any dig is active. New idle diggable graves entering the radius may start after another 0.2s dwell; leaving the radius does **not** cancel in-progress DigActions |
 
 **Single DigAction**
 

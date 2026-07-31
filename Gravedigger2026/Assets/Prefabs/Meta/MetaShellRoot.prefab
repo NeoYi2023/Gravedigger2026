@@ -2515,7 +2515,7 @@ MonoBehaviour:
   _inSaveShellView: {fileID: 4932908225866930955}
   _confirmDialog: {fileID: 7201967105899540884}
   _toastView: {fileID: 5611202959432344584}
-  _techTreeCanvasView: {fileID: 1182703685489423699}
+  _techTreeCanvasView: {fileID: 5833822143144566840}
   _digPrefabCatalog: {fileID: 11400000, guid: 232d1c74e71a765409212ad1a6cd3cc4, type: 2}
   _digWorldParent: {fileID: 2155152180490997452}
   _umPrefabCatalog: {fileID: 11400000, guid: 22a343f39edd1b84681b9b3e85239c8c, type: 2}
@@ -5994,7 +5994,7 @@ RectTransform:
   - {fileID: 278203834482969361}
   - {fileID: 583357639323057964}
   - {fileID: 3524392205786670498}
-  - {fileID: 7790096696013589516}
+  - {fileID: 3208765544492783975}
   m_Father: {fileID: 369539248246339876}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -6227,7 +6227,7 @@ MonoBehaviour:
   _messageText: {fileID: 5121391766027300995}
   _confirmButton: {fileID: 2665127124393531901}
   _cancelButton: {fileID: 1241346780161415618}
---- !u!1001 &2228461836310495074
+--- !u!1001 &6805289589504862729
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -6324,10 +6324,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 92d6be12e74e4294c92828f22151c5d9, type: 3}
---- !u!114 &1182703685489423699 stripped
+--- !u!224 &3208765544492783975 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 8284069769189569390, guid: 92d6be12e74e4294c92828f22151c5d9, type: 3}
+  m_PrefabInstance: {fileID: 6805289589504862729}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5833822143144566840 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1046199091763694129, guid: 92d6be12e74e4294c92828f22151c5d9, type: 3}
-  m_PrefabInstance: {fileID: 2228461836310495074}
+  m_PrefabInstance: {fileID: 6805289589504862729}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
@@ -6335,8 +6340,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: db011de06ca06394fa1667efce8ec7b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!224 &7790096696013589516 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 8284069769189569390, guid: 92d6be12e74e4294c92828f22151c5d9, type: 3}
-  m_PrefabInstance: {fileID: 2228461836310495074}
-  m_PrefabAsset: {fileID: 0}
