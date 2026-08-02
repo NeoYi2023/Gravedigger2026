@@ -77,6 +77,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _upgradePanel.Inject500Requested += HandleInject500;
                 _upgradePanel.CompleteRequested += HandleComplete;
                 _upgradePanel.FormationRequested += HandleOpenFormation;
+                _upgradePanel.OpenUpgradeModalRequested += HandleOpenUpgradeModal;
+                _upgradePanel.CloseUpgradeModalRequested += HandleCloseUpgradeModal;
                 _upgradePanel.Show();
             }
 
@@ -84,6 +86,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             {
                 _manufacture.Changed += HandleManufactureChanged;
                 _manufacturePanel.ItemPlaceRequested += HandleItemPlaceRequested;
+                _manufacturePanel.ItemPlaceAtRequested += HandleItemPlaceAtRequested;
                 _manufacturePanel.SlotClearRequested += HandleSlotClearRequested;
                 _manufacturePanel.GrantKitRequested += HandleGrantKitRequested;
                 _manufacturePanel.ClearSlotsRequested += HandleClearSlotsRequested;
@@ -127,6 +130,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _upgradePanel.Inject500Requested -= HandleInject500;
                 _upgradePanel.CompleteRequested -= HandleComplete;
                 _upgradePanel.FormationRequested -= HandleOpenFormation;
+                _upgradePanel.OpenUpgradeModalRequested -= HandleOpenUpgradeModal;
+                _upgradePanel.CloseUpgradeModalRequested -= HandleCloseUpgradeModal;
                 _upgradePanel.Hide();
             }
 
@@ -134,6 +139,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             {
                 _manufacture.Changed -= HandleManufactureChanged;
                 _manufacturePanel.ItemPlaceRequested -= HandleItemPlaceRequested;
+                _manufacturePanel.ItemPlaceAtRequested -= HandleItemPlaceAtRequested;
                 _manufacturePanel.SlotClearRequested -= HandleSlotClearRequested;
                 _manufacturePanel.GrantKitRequested -= HandleGrantKitRequested;
                 _manufacturePanel.ClearSlotsRequested -= HandleClearSlotsRequested;
@@ -251,6 +257,16 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
         }
 
+        private void HandleOpenUpgradeModal()
+        {
+            _upgradePanel?.ShowUpgradeModal();
+        }
+
+        private void HandleCloseUpgradeModal()
+        {
+            _upgradePanel?.HideUpgradeModal();
+        }
+
         private void HandleInject100()
         {
             Inject(100);
@@ -314,6 +330,20 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
 
             if (!_manufacture.TryPlace(itemId, out var error))
+            {
+                Debug.Log($"[UM Manufacture] 放入失败：{error}");
+                RefreshManufacture();
+            }
+        }
+
+        private void HandleItemPlaceAtRequested(int slotIndex, string itemId)
+        {
+            if (_manufacture == null)
+            {
+                return;
+            }
+
+            if (!_manufacture.TryPlaceAt(slotIndex, itemId, out var error))
             {
                 Debug.Log($"[UM Manufacture] 放入失败：{error}");
                 RefreshManufacture();
@@ -416,6 +446,26 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             _manufacturePanel.SetPreviewText(BuildPreviewText(preview));
             _manufacturePanel.SetManufactureInteractable(preview.CanManufacture);
             _manufacturePanel.SetPoolText(BuildPoolText());
+            RefreshWarriorVisual(preview);
+        }
+
+        private void RefreshWarriorVisual(ManufacturePreview preview)
+        {
+            if (_manufacturePanel == null || _manufacture == null)
+            {
+                return;
+            }
+
+            var show = _manufacture.AreNonGemSlotsFilled();
+            GameObject prefab = null;
+            if (show
+                && !string.IsNullOrEmpty(preview.TrialAppearanceId)
+                && _catalog != null)
+            {
+                _catalog.TryGetWarriorAppearance(preview.TrialAppearanceId, out prefab);
+            }
+
+            _manufacturePanel.SetWarriorVisualPreview(show, prefab, preview.TrialAppearanceId);
         }
 
         private static string BuildPreviewText(ManufacturePreview preview)

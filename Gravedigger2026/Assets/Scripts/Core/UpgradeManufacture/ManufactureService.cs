@@ -64,6 +64,29 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
         public event Action Changed;
 
+        /// <summary>
+        /// Visual BodyAppearance gate (SPEC_03 §3.11): all non-gem slots filled.
+        /// Does not change manufacture commit requirements.
+        /// </summary>
+        public bool AreNonGemSlotsFilled()
+        {
+            for (var i = 0; i < _slots.Count; i++)
+            {
+                var slot = _slots[i];
+                if (slot.Kind == ManufactureSlotKind.Gem)
+                {
+                    continue;
+                }
+
+                if (slot.IsEmpty)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public void ClearAllSlots()
         {
             for (var i = 0; i < _slots.Count; i++)
@@ -92,13 +115,69 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public bool TryPlace(string itemId, out string error)
         {
             error = null;
+            if (!TryValidatePlace(itemId, out var slotKind, out error))
+            {
+                return false;
+            }
+
+            var index = FindEmptySlot(slotKind);
+            if (index < 0)
+            {
+                error = $"{DescribeSlotKind(slotKind)} 槽位已满";
+                return false;
+            }
+
+            _slots[index].ItemId = itemId;
+            MarkChanged();
+            return true;
+        }
+
+        /// <summary>
+        /// Places into a specific empty slot when kinds match (drag-drop onto a cell).
+        /// </summary>
+        public bool TryPlaceAt(int slotIndex, string itemId, out string error)
+        {
+            error = null;
+            if (slotIndex < 0 || slotIndex >= _slots.Count)
+            {
+                error = "无效槽位";
+                return false;
+            }
+
+            if (!TryValidatePlace(itemId, out var slotKind, out error))
+            {
+                return false;
+            }
+
+            var slot = _slots[slotIndex];
+            if (slot.Kind != slotKind)
+            {
+                error = $"类型不符：需要 {DescribeSlotKind(slot.Kind)}";
+                return false;
+            }
+
+            if (!slot.IsEmpty)
+            {
+                error = $"{DescribeSlotKind(slot.Kind)} 槽位已占用";
+                return false;
+            }
+
+            slot.ItemId = itemId;
+            MarkChanged();
+            return true;
+        }
+
+        private bool TryValidatePlace(string itemId, out ManufactureSlotKind slotKind, out string error)
+        {
+            error = null;
+            slotKind = ManufactureSlotKind.Head;
             if (string.IsNullOrEmpty(itemId))
             {
                 error = "无效材料 Id";
                 return false;
             }
 
-            if (!TryResolveSlotKind(itemId, out var slotKind))
+            if (!TryResolveSlotKind(itemId, out slotKind))
             {
                 error = $"未知材料 {itemId}（不属于躯体/灵魂/宝石/外置装备表）";
                 return false;
@@ -118,15 +197,6 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 return false;
             }
 
-            var index = FindEmptySlot(slotKind);
-            if (index < 0)
-            {
-                error = $"{DescribeSlotKind(slotKind)} 槽位已满";
-                return false;
-            }
-
-            _slots[index].ItemId = itemId;
-            MarkChanged();
             return true;
         }
 

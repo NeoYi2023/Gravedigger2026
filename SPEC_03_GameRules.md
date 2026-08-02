@@ -381,7 +381,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-007 | 设置页 | 已实现（方案 A） | 自工具面板进入；承载科技树画布（UI-012）；其它设置项 TBD |
 | UI-008 | 关卡占位页 | 占位 | 自工具面板进入；非玩法三态 |
 | UI-009 | 开战按钮 | 已定义（Demo 流水线） | Defend 准备态；点击 → StartBattle（§3.12）；验收见 §3.8 D-040 |
-| UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 同屏二区（升级/制造）+ 底部「完成」+ 其右「布阵」；布阵打开共享 FormationEditor（士兵栏拖拽）；验收见 §3.8 D-030～D-032 |
+| UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 默认全屏制造区；顶部「GM升级」打开升级 Modal（右上 X 关闭）；底栏库存方格拖拽 +「完成」与其右「布阵」；布阵打开共享 FormationEditor；验收见 §3.8 D-030～D-032 |
 | UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 
@@ -398,7 +398,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-007 | Settings page | Done (Approach A) | From Tools; hosts TechTree canvas (UI-012); other settings TBD |
 | UI-008 | Level stub page | Placeholder | From Tools; Meta may Toast; pipeline must start sample Level (§3.8 D-003/D-010) |
 | UI-009 | StartBattle button | Defined (Demo pipeline) | Defend Prepare; click → StartBattle (§3.12); accept §3.8 D-040 |
-| UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Two panels (upgrade/manufacture) + bottom Complete + Formation button to its right; opens shared FormationEditor (soldier-bar drag); accept §3.8 D-030–D-032 |
+| UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Full-screen manufacture by default; top "GM Upgrade" opens upgrade Modal (top-right X closes); bottom inventory square bar + drag + Complete with Formation to its right; opens shared FormationEditor; accept §3.8 D-030–D-032 |
 | UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 
@@ -921,12 +921,25 @@ EffectiveDigDuration countdown → 0
 
 | 规则 | 说明 |
 |------|------|
-| 布局 | **同一屏二区并列**：升级区 / 制造区（可同时看见与操作，非 Tab）；布阵 **不** 同屏嵌入，由「布阵」按钮打开共享编辑器 |
-| 完成入口 | 屏幕 **底部** 常驻「完成 / 进入下一阶段」按钮；点击即触发阶段结束（§3.11 阶段结束） |
+| 布局 | **默认全屏制造区（ManufactureZone）**；升级区为 **Modal 弹窗**（非同屏并列、非 Tab）；布阵 **不** 同屏嵌入，由「布阵」按钮打开共享编辑器 |
+| 升级入口 | 主屏 **顶部左侧**「GM升级」打开升级 Modal；Modal **右上角「X」** 关闭；Modal 内为升级状态与 Debug 注入等控件 |
+| 完成入口 | 屏幕 **底部** 常驻「完成 / 进入下一阶段」按钮（与制造操作钮同底栏分区）；点击即触发阶段结束（§3.11 阶段结束） |
 | 布阵入口 | 「完成」按钮 **右侧**「布阵」；点击打开 **FormationEditor**（见下「战斗布阵」）；编辑器内「返回」关闭编辑器回到本主屏 |
 | 布阵编辑器 | 与 Defend `Prepare` **共用同一套** `FormationEditor` Prefab / 逻辑（写同一 BattleFormation） |
-| 区内外细节控件 | 升级区内具体控件 **TBD**；制造区槽位与预览规则见下「制造士兵」 |
+| 制造区控件 | 见下「制造区布局」与「制造士兵」；Prefab：`Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab` |
 | UI 清单 | 见 §3.6 `UI-010` |
+
+**制造区布局（ManufactureZone）**
+
+| 区域 | 说明 |
+|------|------|
+| PreviewPanel | 界面 **最左侧**（库存栏左侧）：属性/精魂等 **文本预览** |
+| 中心槽位环 | 中部：中心为「士兵预览」；周围方格为各部位 `SlotRowTemplate` |
+| 槽位环方位 | **左**（上→下）：头、手臂1、腿1、**翅膀**；**右**（上→下）：躯干、手臂2、腿2、**坐骑**；**预览区内底部**：灵魂；**预览下方**：6 宝石格（边长为其它部位格的 **一半**） |
+| PoolPanel | 界面 **最右侧**（库存栏右侧）：士兵池摘要 |
+| InventoryColumn | **底部** 横滑方格栏（交互/尺寸对齐布阵 `SoldierBar`）；每项一格 |
+| 操作钮 | `GrantKitButton` / `ClearSlotsButton` / `ManufactureButton` 在库存栏 **下方**；再与「完成 / 布阵」同属底栏分区 |
+| 交互 | 库存 → 槽位为 **拖拽**（对齐 Formation 士兵栏 Input 驱动）；类型不符拒绝；可从已填槽位移出 |
 
 **资源依赖**
 
@@ -963,15 +976,17 @@ EffectiveDigDuration countdown → 0
 **制造步骤（流水线）**
 
 ```
-材料按槽拖入 → 每次成功拖入/移除后刷新预览（角色信息、属性变更、精魂消耗）
+材料按槽拖入 → 每次成功拖入/移除后刷新文本预览（角色信息、属性变更、精魂消耗）
+→（可选）非宝石槽全满时展示躯体外观可视预览
 → 玩家点「制造」（最低材料齐 + 精魂足够）→ 播放制造动画 → 生成士兵实例
 ```
 
 | 步骤 | 规则 |
 |------|------|
 | 拖入 | 仅接受对应槽位类型的材料；类型不符 → 拒绝 |
-| 预览刷新 | 每次槽位变化后展示：角色信息（含可预览字段）、相对当前方案的属性变更、**当前总精魂消耗**、按同算法试算的 **躯体外观** |
-| 制造按钮 | 最低材料要求满足 **且** `SpiritEssence ≥` 总精魂消耗 → 可点；否则 **不可制造**（按钮禁用或点击无效，二选一即可） |
+| 文本预览 | 每次槽位变化后在 PreviewPanel 展示：角色信息、相对当前方案的属性变更、**当前总精魂消耗**、试算种族/外观 Id / 命名 |
+| 躯体外观可视预览 | **闸门**：除宝石外全部槽位已填（头+躯干+臂×2+腿×2+灵魂+坐骑+翅膀）。未满足 → 显示静态占位图（资源可后换）；满足 → 按试算 `AppearanceId` 展示士兵外观，先播一遍攻击再循环待机（无 Animator 则静态降级） |
+| 制造按钮 | 最低材料要求满足 **且** `SpiritEssence ≥` 总精魂消耗 → 可点；否则 **不可制造**（按钮禁用或点击无效，二选一即可）。**制造闸门不变**（头/宝石/坐骑/翅膀对提交仍可选） |
 | 动画 | 制造动画为表现层；规则层在确认消耗后提交生成 |
 | 完成时 | 扣除材料与精魂；定稿种族与 **躯体外观**；写入属性快照、`AppearanceId` 与 `WarriorName`；实例进入可上阵池 |
 
@@ -1214,12 +1229,25 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 
 | Rule | Notes |
 |------|-------|
-| Layout | **One screen, two side-by-side panels**: Upgrade / Manufacture; formation is **not** embedded — opened via Formation button |
-| Complete entry | **Bottom** "Complete / Next stage"; ends stage |
+| Layout | **Full-screen ManufactureZone by default**; Upgrade is a **Modal** (not side-by-side, not tabs); formation is **not** embedded — opened via Formation button |
+| Upgrade entry | Top-left **"GM Upgrade"** opens upgrade Modal; Modal **top-right "X"** closes; Modal holds upgrade status + Debug inject |
+| Complete entry | **Bottom** "Complete / Next stage" (same bottom band as manufacture action buttons); ends stage |
 | Formation entry | "Formation" button to the **right** of Complete; opens **FormationEditor**; "Return" closes editor back to this main screen |
 | Formation editor | **Same** `FormationEditor` Prefab/logic shared with Defend `Prepare` (same BattleFormation) |
-| In-panel controls | Upgrade widgets **TBD**; Manufacture slots & preview below |
+| Manufacture widgets | See 「ManufactureZone layout」 and manufacture rules below; Prefab: `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab` |
 | UI inventory | §3.6 `UI-010` |
+
+**ManufactureZone layout**
+
+| Region | Notes |
+|--------|-------|
+| PreviewPanel | **Far left** (left of inventory bar): attribute / Spirit **text preview** |
+| Center slot ring | Middle: center **soldier visual preview**; surrounding squares are slot cells |
+| Slot ring positions | **Left** (top→bottom): Head, Arm1, Leg1, **Wing**; **Right** (top→bottom): Torso, Arm2, Leg2, **Mount**; **bottom inside preview**: Soul; **below preview**: 6 gem cells (half the side length of other slot cells) |
+| PoolPanel | **Far right** (right of inventory bar): warrior pool summary |
+| InventoryColumn | **Bottom** horizontal square bar (interaction/size aligned with Formation `SoldierBar`); one cell per item |
+| Action buttons | `GrantKit` / `ClearSlots` / `Manufacture` **below** inventory; Complete / Formation share the bottom band |
+| Interaction | Inventory → slots via **drag** (Formation soldier-bar Input style); reject type mismatch; can remove from filled slots |
 
 **Resource dependencies**
 
@@ -1256,15 +1284,17 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 **Manufacture pipeline**
 
 ```
-Drag materials into slots → on each successful add/remove, refresh preview (info, stat delta, Spirit cost)
+Drag materials into slots → on each successful add/remove, refresh text preview (info, stat delta, Spirit cost)
+→ (optional) when all non-gem slots filled, show BodyAppearance visual preview
 → player taps Manufacture (min parts filled + enough Spirit) → manufacture VFX → create soldier instance
 ```
 
 | Step | Rules |
 |------|-------|
 | Drag | Accept only matching slot type; reject mismatches |
-| Preview | After each slot change: character info, attribute deltas for current plan, **total Spirit cost**, **BodyAppearance** trial-pick with same algorithm |
-| Manufacture button | Enabled only if min requirements met **and** `SpiritEssence ≥` total Spirit cost; else **cannot manufacture** (disable or no-op) |
+| Text preview | After each slot change, PreviewPanel shows character info, attribute deltas, **total Spirit cost**, trial Race / Appearance Id / name |
+| Visual BodyAppearance preview | **Gate**: all non-gem slots filled (Head+Torso+Arm×2+Leg×2+Soul+Mount+Wing). Else → static placeholder image (art swappable later); when met → show trial `AppearanceId` warrior, play attack once then loop idle (static fallback if no Animator) |
+| Manufacture button | Enabled only if min requirements met **and** `SpiritEssence ≥` total Spirit cost; else **cannot manufacture**. **Manufacture commit gate unchanged** (Head/gems/Mount/Wing still optional for submit) |
 | VFX | Presentation only; rules commit after cost confirmation |
 | On complete | Deduct materials + Spirit; finalize Race and **BodyAppearance**; write snapshot, `AppearanceId`, `WarriorName`; add to deployable pool |
 
@@ -2163,7 +2193,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [ ] 挖坟帧动画具体数量与资源命名清单
 - [x] 升级与制造框架（§3.11；原 SewRevive 更名 UpgradeManufacture）— **框架已关闭**
 - [x] 升级与制造阶段结束=玩家确认；**无独立阶段结算**
-- [x] 升级与制造主屏布局（同屏升级/制造二区 + 底部完成 + 布阵入口；UI-010）；升级/制造区控件仍 TBD
+- [x] 升级与制造主屏布局（默认全屏制造 + 升级 Modal「GM升级」+ 底部完成/布阵；UI-010）；制造区方格拖拽与外观可视预览见 §3.11
 - [x] BattleFormation：§3.11 与 Defend Prepare **同一 FormationEditor**；连续坐标；拖拽士兵栏；Prepare 不可制造
 - [x] 经验：Defend 阶段胜利统一入账至 `LifetimeExperience`；升级不扣减累计经验；科技树消费见 §3.13
 - [x] 士兵=独立实例；**士兵制造流程/槽位/最低要求/精魂闸门/命名已关闭**（§3.11）
@@ -2183,7 +2213,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [ ] 灵魂 / 职业表具体数值（结构与编码已锁：CombatConvertCoeffs / MoveStyle / AttackPriority；本批 AttackPriority 不驱动选目标）
 - [ ] 宝石获取途径、五维 GemMult/技能具体数值、镶嵌 UI 与回仓表现（另专题；GemType 六类与 ComboKey 编码已锁）
 - [ ] 种族列表与各维 RaceAdjustCoeff 具体数值（另专题）
-- [ ] 升级区内具体控件与数值展示；制造区控件细节（槽位规则已定）
+- [x] 升级 Modal（GM升级 / X）与制造区布局（方格拖拽、环绕槽、外观可视预览闸门）；升级区数值展示 polish 仍可迭代
 - [x] 防守（Defend）框架：准备/开战/部署/NavMesh 寻路/阶段胜利与关卡失败（§3.12）
 - [x] 防守刷怪波次表、倒计时激活节奏与出现位置/方式（§3.12 / SPEC_04 §9.18）；**Demo 最小刷怪点/NavMesh 已关闭**；精确 OutsideMap 几何后置
 - [x] Demo 验收扩大：Meta 壳 + Dig→UM→Defend 流水线（SPEC_03 §3.8 D-001～D-043）；UM `GameplayConfigId`=忽略
@@ -2218,7 +2248,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [ ] Dig frame-anim count and asset naming list
 - [x] UpgradeManufacture framework closed (§3.11)
 - [x] UpgradeManufacture: player confirm end; **no** independent stage settlement
-- [x] UI-010 two panels + Complete + Formation entry; Upgrade widgets still TBD; Manufacture slots/preview closed
+- [x] UI-010 full-screen manufacture + upgrade Modal + Complete/Formation; square drag inventory + visual appearance gate (§3.11)
 - [x] BattleFormation: shared FormationEditor; continuous coords; soldier-bar drag; no manufacture in Prepare
 - [x] Exp: Defend victory → `LifetimeExperience`; level-up does not deduct cumulative Exp; TechTree spend in §3.13
 - [x] Warrior = instance; **manufacture flow/slots/min requirements/Spirit gate/naming closed** (§3.11)
@@ -2238,7 +2268,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 - [ ] Soul / Class table concrete numbers (schema/encodings locked: CombatConvertCoeffs / MoveStyle / AttackPriority; AttackPriority unused for targeting this batch)
 - [ ] Gem acquisition, five-dim GemMult/skills, socket UI & return VFX (later topic; GemType six types + ComboKey encoding locked)
 - [ ] Race list and concrete per-dim RaceAdjustCoeff values (later topic)
-- [ ] Upgrade in-panel widgets; Manufacture widget polish (slot rules closed)
+- [x] Upgrade Modal (GM Upgrade / X) + ManufactureZone layout (square drag, slot ring, visual appearance gate); upgrade numeric polish still iterable
 - [x] Defend framework (§3.12)
 - [x] Defend wave spawn table, countdown activation, appear location/mode (§3.12 / SPEC_04 §9.18); **Demo-min spawn/NavMesh closed**; exact OutsideMap geometry deferred
 - [x] MonsterConfig + TargetSelect (§3.12 / SPEC_04 §9.19); monster vs soldier: `AttackPower` subtracts HP directly (no armor this batch); AttackRange hit columns locked

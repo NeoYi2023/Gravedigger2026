@@ -1,32 +1,67 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.UpgradeManufacture
 {
     /// <summary>
-    /// Rough manufacture panel UI (SPEC_03 UI-010 / D-031): inventory rows, slot rows, preview, actions.
-    /// Clicking an inventory row places the item; clicking a filled slot row clears it.
+    /// Full-screen manufacture UI: center slot ring, bottom inventory drag bar, visual preview gate.
     /// </summary>
+    [DefaultExecutionOrder(-100)]
     public sealed class ManufacturePanelView : MonoBehaviour
     {
-        private const float RowHeight = 18f;
+        public const float InventorySlotSize = 80f;
+        public const float BodySlotSize = 72f;
+        public const float GemSlotSize = 36f;
+        private const float SlotSpacing = 8f;
+        private const float DecideThresholdPx = 8f;
 
         [SerializeField] private RectTransform _inventoryContent;
         [SerializeField] private Button _inventoryRowTemplate;
-        [SerializeField] private RectTransform _slotContent;
-        [SerializeField] private Button _slotRowTemplate;
+        [SerializeField] private ScrollRect _inventoryScroll;
+        [SerializeField] private RectTransform _inventoryBarRoot;
+        [SerializeField] private Button[] _slotCells = new Button[15];
         [SerializeField] private Text _previewText;
         [SerializeField] private Text _poolText;
         [SerializeField] private Button _grantKitButton;
         [SerializeField] private Button _clearSlotsButton;
         [SerializeField] private Button _manufactureButton;
+        [SerializeField] private Image _placeholderImage;
+        [SerializeField] private RawImage _previewRawImage;
+        [SerializeField] private Transform _previewModelAnchor;
+        [SerializeField] private Camera _previewCamera;
+        [SerializeField] private RectTransform _dragGhost;
 
-        private readonly List<Button> _inventoryRows = new List<Button>();
-        private readonly List<Button> _slotRows = new List<Button>();
+        private readonly List<Button> _inventoryCells = new List<Button>();
+        private readonly List<string> _inventoryItemIds = new List<string>();
+        private readonly string[] _slotLabels = new string[15];
+
+        private enum PointerMode
+        {
+            Idle,
+            Pressed,
+            Scrolling,
+            DraggingInventory,
+            DraggingSlot
+        }
+
+        private PointerMode _mode;
+        private Vector2 _pressScreen;
+        private Vector2 _lastScreen;
+        private int _pressedInventoryIndex = -1;
+        private int _pressedSlotIndex = -1;
+        private string _dragItemId;
+        private Canvas _canvas;
+        private GameObject _previewInstance;
+        private string _previewAppearanceId;
+        private Coroutine _previewAnimRoutine;
+        private RenderTexture _previewRt;
 
         public event Action<string> ItemPlaceRequested;
+        public event Action<int, string> ItemPlaceAtRequested;
         public event Action<int> SlotClearRequested;
         public event Action GrantKitRequested;
         public event Action ClearSlotsRequested;
@@ -34,12 +69,35 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
 
         private void Awake()
         {
-            // Legacy Prefabs stretched Content into a fixed panel; many kit rows crushed height to ~0
-            // (blank labels). Heal once at runtime so existing assets work without a full rebuild.
-            _inventoryContent = EnsureVerticalScrollColumn(_inventoryContent);
-            _slotContent = EnsureVerticalScrollColumn(_slotContent);
-            HardenRowTemplate(_inventoryRowTemplate);
-            HardenRowTemplate(_slotRowTemplate);
+            _canvas = GetComponentInParent<Canvas>();
+            EnsureInventoryScroll();
+            if (_slotCells == null || _slotCells.Length != 15)
+            {
+                _slotCells = new Button[15];
+            }
+
+            if (_dragGhost != null)
+            {
+                _dragGhost.gameObject.SetActive(false);
+            }
+
+            SetupPreviewRenderTexture();
+        }
+
+        private void OnDestroy()
+        {
+            ClearPreviewModel();
+            if (_previewRt != null)
+            {
+                if (_previewCamera != null)
+                {
+                    _previewCamera.targetTexture = null;
+                }
+
+                _previewRt.Release();
+                Destroy(_previewRt);
+                _previewRt = null;
+            }
         }
 
         private void OnEnable()
@@ -76,45 +134,76 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             {
                 _manufactureButton.onClick.RemoveListener(HandleManufacture);
             }
+
+            EndDrag();
+        }
+
+        private void Update()
+        {
+            if (!isActiveAndEnabled)
+            {
+                return;
+            }
+
+            var mouse = (Vector2)Input.mousePosition;
+            if (Input.GetMouseButtonDown(0))
+            {
+                TryBeginPress(mouse);
+                return;
+            }
+
+            if (_mode == PointerMode.Idle)
+            {
+                return;
+            }
+
+            if (Input.GetMouseButton(0))
+            {
+                UpdatePress(mouse);
+                return;
+            }
+
+            FinishPress(mouse);
         }
 
         public void SetInventoryLines(IReadOnlyList<string> labels, IReadOnlyList<string> itemIds)
         {
-            EnsureRowCount(_inventoryRows, _inventoryRowTemplate, _inventoryContent, labels.Count);
-            for (var i = 0; i < _inventoryRows.Count; i++)
+            EnsureInventoryCellCount(labels.Count);
+            _inventoryItemIds.Clear();
+            for (var i = 0; i < _inventoryCells.Count; i++)
             {
-                var row = _inventoryRows[i];
+                var cell = _inventoryCells[i];
                 if (i >= labels.Count)
                 {
-                    row.gameObject.SetActive(false);
+                    cell.gameObject.SetActive(false);
                     continue;
                 }
 
-                var itemId = itemIds[i];
-                row.gameObject.SetActive(true);
-                SetRowLabel(row, labels[i]);
-                row.onClick.RemoveAllListeners();
-                row.onClick.AddListener(() => ItemPlaceRequested?.Invoke(itemId));
+                var itemId = i < itemIds.Count ? itemIds[i] : string.Empty;
+                _inventoryItemIds.Add(itemId);
+                cell.gameObject.SetActive(true);
+                SetCellLabel(cell, labels[i]);
+                cell.onClick.RemoveAllListeners();
             }
+
+            RefreshInventoryContentWidth();
         }
 
         public void SetSlotLines(IReadOnlyList<string> labels)
         {
-            EnsureRowCount(_slotRows, _slotRowTemplate, _slotContent, labels.Count);
-            for (var i = 0; i < _slotRows.Count; i++)
+            for (var i = 0; i < 15; i++)
             {
-                var row = _slotRows[i];
-                if (i >= labels.Count)
+                var cell = _slotCells != null && i < _slotCells.Length ? _slotCells[i] : null;
+                if (cell == null)
                 {
-                    row.gameObject.SetActive(false);
                     continue;
                 }
 
-                var index = i;
-                row.gameObject.SetActive(true);
-                SetRowLabel(row, labels[i]);
-                row.onClick.RemoveAllListeners();
-                row.onClick.AddListener(() => SlotClearRequested?.Invoke(index));
+                var label = i < labels.Count ? labels[i] : string.Empty;
+                _slotLabels[i] = label;
+                cell.gameObject.SetActive(true);
+                SetCellLabel(cell, ShortSlotLabel(label));
+                cell.onClick.RemoveAllListeners();
             }
         }
 
@@ -142,147 +231,502 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
         }
 
-        private void EnsureRowCount(List<Button> rows, Button template, RectTransform content, int required)
-        {
-            if (template == null || content == null)
-            {
-                return;
-            }
-
-            while (rows.Count < required)
-            {
-                var clone = Instantiate(template, content);
-                HardenRowTemplate(clone);
-                clone.gameObject.SetActive(true);
-                rows.Add(clone);
-            }
-        }
-
-        private static void HardenRowTemplate(Button row)
-        {
-            if (row == null)
-            {
-                return;
-            }
-
-            var layoutElement = row.GetComponent<LayoutElement>();
-            if (layoutElement == null)
-            {
-                layoutElement = row.gameObject.AddComponent<LayoutElement>();
-            }
-
-            layoutElement.preferredHeight = RowHeight;
-            layoutElement.minHeight = RowHeight;
-        }
-
         /// <summary>
-        /// Upgrades a legacy list Content (stretched inside a fixed column) into Scroll/Viewport/Content
-        /// so row preferred heights stay readable when the Debug kit adds many inventory lines.
+        /// Visual appearance gate: show placeholder or instantiate trial appearance Prefab.
         /// </summary>
-        private static RectTransform EnsureVerticalScrollColumn(RectTransform content)
+        public void SetWarriorVisualPreview(bool showAppearance, GameObject appearancePrefab, string appearanceId)
         {
-            if (content == null)
+            if (!showAppearance || appearancePrefab == null)
             {
-                return null;
+                ClearPreviewModel();
+                SetPlaceholderVisible(true);
+                return;
             }
 
-            if (content.GetComponentInParent<ScrollRect>() != null)
+            if (_previewInstance != null
+                && string.Equals(_previewAppearanceId, appearanceId, StringComparison.Ordinal))
             {
-                HardenListContent(content);
-                return content;
+                SetPlaceholderVisible(false);
+                return;
             }
 
-            var column = content.parent as RectTransform;
-            if (column == null)
+            ClearPreviewModel();
+            SetPlaceholderVisible(false);
+
+            if (_previewModelAnchor == null)
             {
-                HardenListContent(content);
-                return content;
+                Debug.LogWarning("[UM Manufacture] Preview model anchor missing.");
+                SetPlaceholderVisible(true);
+                return;
             }
 
-            var columnMask = column.GetComponent<RectMask2D>();
-            if (columnMask != null)
+            _previewAppearanceId = appearanceId;
+            _previewInstance = Instantiate(appearancePrefab, _previewModelAnchor);
+            _previewInstance.name = $"UmPreview_{appearanceId}";
+            _previewInstance.transform.localPosition = Vector3.zero;
+            _previewInstance.transform.localRotation = Quaternion.identity;
+            _previewInstance.transform.localScale = Vector3.one;
+
+            var anim = _previewInstance.GetComponent<WarriorAnimView>();
+            if (anim == null)
             {
-                Destroy(columnMask);
+                anim = _previewInstance.GetComponentInChildren<WarriorAnimView>();
             }
 
-            var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
-            scrollGo.transform.SetParent(column, false);
-            scrollGo.transform.SetSiblingIndex(content.GetSiblingIndex());
-            var scrollRt = scrollGo.GetComponent<RectTransform>();
-            StretchFill(scrollRt, 2f);
-            var scrollImg = scrollGo.GetComponent<Image>();
-            scrollImg.color = new Color(1f, 1f, 1f, 0.02f);
-            scrollImg.raycastTarget = true;
+            if (anim == null)
+            {
+                anim = _previewInstance.AddComponent<WarriorAnimView>();
+            }
 
-            var scroll = scrollGo.GetComponent<ScrollRect>();
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 24f;
+            if (_previewAnimRoutine != null)
+            {
+                StopCoroutine(_previewAnimRoutine);
+            }
 
-            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
-            viewportGo.transform.SetParent(scrollGo.transform, false);
-            var viewportRt = viewportGo.GetComponent<RectTransform>();
-            StretchFill(viewportRt, 0f);
-            var viewportImg = viewportGo.GetComponent<Image>();
-            viewportImg.color = new Color(1f, 1f, 1f, 0.02f);
-            viewportImg.raycastTarget = true;
-
-            content.SetParent(viewportGo.transform, false);
-            HardenListContent(content);
-
-            scroll.content = content;
-            scroll.viewport = viewportRt;
-            return content;
+            _previewAnimRoutine = StartCoroutine(PlayAttackThenIdle(anim));
         }
 
-        private static void HardenListContent(RectTransform content)
+        private IEnumerator PlayAttackThenIdle(WarriorAnimView anim)
         {
-            content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
-            content.anchoredPosition = Vector2.zero;
-            content.sizeDelta = Vector2.zero;
-
-            var layout = content.GetComponent<VerticalLayoutGroup>();
-            if (layout == null)
+            if (anim == null)
             {
-                layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+                yield break;
             }
 
-            layout.childAlignment = TextAnchor.UpperLeft;
-            layout.spacing = 1f;
-            layout.padding = new RectOffset(2, 2, 2, 2);
-            layout.childControlHeight = true;
-            layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
+            anim.ResetToIdle();
+            yield return null;
+            anim.PlayAttack();
+            yield return new WaitForSeconds(0.85f);
+            anim.ResetToIdle();
+            _previewAnimRoutine = null;
+        }
 
-            var fitter = content.GetComponent<ContentSizeFitter>();
-            if (fitter == null)
+        private void ClearPreviewModel()
+        {
+            if (_previewAnimRoutine != null)
             {
-                fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+                StopCoroutine(_previewAnimRoutine);
+                _previewAnimRoutine = null;
             }
 
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            if (_previewInstance != null)
+            {
+                Destroy(_previewInstance);
+                _previewInstance = null;
+            }
+
+            _previewAppearanceId = null;
         }
 
-        private static void StretchFill(RectTransform rt, float padding)
+        private void SetPlaceholderVisible(bool visible)
         {
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = new Vector2(padding, padding);
-            rt.offsetMax = new Vector2(-padding, -padding);
+            if (_placeholderImage != null)
+            {
+                _placeholderImage.enabled = visible;
+                _placeholderImage.gameObject.SetActive(true);
+            }
+
+            if (_previewRawImage != null)
+            {
+                _previewRawImage.enabled = !visible;
+            }
         }
 
-        private static void SetRowLabel(Button row, string label)
+        private void SetupPreviewRenderTexture()
         {
-            var text = row.GetComponentInChildren<Text>(true);
+            if (_previewCamera == null || _previewRawImage == null)
+            {
+                return;
+            }
+
+            _previewRt = new RenderTexture(256, 256, 16);
+            _previewRt.Create();
+            _previewCamera.targetTexture = _previewRt;
+            _previewRawImage.texture = _previewRt;
+            _previewRawImage.enabled = false;
+        }
+
+        private void TryBeginPress(Vector2 mouse)
+        {
+            _pressScreen = mouse;
+            _lastScreen = mouse;
+            _pressedInventoryIndex = FindInventoryIndexAt(mouse);
+            _pressedSlotIndex = FindSlotIndexAt(mouse);
+
+            if (_pressedInventoryIndex >= 0)
+            {
+                _mode = PointerMode.Pressed;
+                return;
+            }
+
+            if (_pressedSlotIndex >= 0 && !IsSlotEmptyLabel(_slotLabels[_pressedSlotIndex]))
+            {
+                _mode = PointerMode.Pressed;
+                return;
+            }
+
+            _mode = PointerMode.Idle;
+        }
+
+        private void UpdatePress(Vector2 mouse)
+        {
+            var delta = mouse - _lastScreen;
+            _lastScreen = mouse;
+
+            if (_mode == PointerMode.Pressed)
+            {
+                var total = mouse - _pressScreen;
+                if (total.sqrMagnitude < DecideThresholdPx * DecideThresholdPx)
+                {
+                    return;
+                }
+
+                if (_pressedInventoryIndex >= 0)
+                {
+                    if (Mathf.Abs(total.x) >= Mathf.Abs(total.y))
+                    {
+                        _mode = PointerMode.Scrolling;
+                    }
+                    else if (total.y > 0f)
+                    {
+                        BeginInventoryDrag();
+                    }
+                    else
+                    {
+                        _mode = PointerMode.Scrolling;
+                    }
+                }
+                else if (_pressedSlotIndex >= 0)
+                {
+                    BeginSlotDrag();
+                }
+            }
+
+            if (_mode == PointerMode.Scrolling)
+            {
+                ApplyInventoryScroll(delta.x);
+                return;
+            }
+
+            if (_mode == PointerMode.DraggingInventory || _mode == PointerMode.DraggingSlot)
+            {
+                UpdateGhost(mouse);
+            }
+        }
+
+        private void FinishPress(Vector2 mouse)
+        {
+            if (_mode == PointerMode.DraggingInventory)
+            {
+                var slotIndex = FindSlotIndexAt(mouse);
+                if (slotIndex >= 0 && !string.IsNullOrEmpty(_dragItemId))
+                {
+                    ItemPlaceAtRequested?.Invoke(slotIndex, _dragItemId);
+                }
+                else if (!string.IsNullOrEmpty(_dragItemId))
+                {
+                    ItemPlaceRequested?.Invoke(_dragItemId);
+                }
+            }
+            else if (_mode == PointerMode.DraggingSlot)
+            {
+                var overInventory = IsOverInventory(mouse);
+                var overSlot = FindSlotIndexAt(mouse);
+                if (overInventory || overSlot < 0)
+                {
+                    SlotClearRequested?.Invoke(_pressedSlotIndex);
+                }
+            }
+            else if (_mode == PointerMode.Pressed)
+            {
+                if (_pressedSlotIndex >= 0)
+                {
+                    SlotClearRequested?.Invoke(_pressedSlotIndex);
+                }
+            }
+
+            EndDrag();
+        }
+
+        private void BeginInventoryDrag()
+        {
+            if (_pressedInventoryIndex < 0 || _pressedInventoryIndex >= _inventoryItemIds.Count)
+            {
+                _mode = PointerMode.Idle;
+                return;
+            }
+
+            _dragItemId = _inventoryItemIds[_pressedInventoryIndex];
+            if (string.IsNullOrEmpty(_dragItemId))
+            {
+                _mode = PointerMode.Idle;
+                return;
+            }
+
+            _mode = PointerMode.DraggingInventory;
+            ShowGhost(GetCellLabel(_inventoryCells[_pressedInventoryIndex]));
+        }
+
+        private void BeginSlotDrag()
+        {
+            if (_pressedSlotIndex < 0)
+            {
+                _mode = PointerMode.Idle;
+                return;
+            }
+
+            _mode = PointerMode.DraggingSlot;
+            ShowGhost(ShortSlotLabel(_slotLabels[_pressedSlotIndex]));
+        }
+
+        private void EndDrag()
+        {
+            _mode = PointerMode.Idle;
+            _pressedInventoryIndex = -1;
+            _pressedSlotIndex = -1;
+            _dragItemId = null;
+            if (_dragGhost != null)
+            {
+                _dragGhost.gameObject.SetActive(false);
+            }
+        }
+
+        private void ShowGhost(string label)
+        {
+            if (_dragGhost == null)
+            {
+                return;
+            }
+
+            _dragGhost.gameObject.SetActive(true);
+            var text = _dragGhost.GetComponentInChildren<Text>(true);
             if (text != null)
             {
                 text.text = label ?? string.Empty;
             }
+
+            UpdateGhost(Input.mousePosition);
+        }
+
+        private void UpdateGhost(Vector2 screen)
+        {
+            if (_dragGhost == null)
+            {
+                return;
+            }
+
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _dragGhost.parent as RectTransform,
+                screen,
+                _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay ? _canvas.worldCamera : null,
+                out var local);
+            _dragGhost.anchoredPosition = local;
+        }
+
+        private void ApplyInventoryScroll(float deltaX)
+        {
+            if (_inventoryScroll == null || _inventoryContent == null)
+            {
+                return;
+            }
+
+            var contentW = _inventoryContent.rect.width;
+            var viewW = _inventoryScroll.viewport != null
+                ? _inventoryScroll.viewport.rect.width
+                : ((RectTransform)_inventoryScroll.transform).rect.width;
+            var overflow = Mathf.Max(0f, contentW - viewW);
+            if (overflow <= 0.01f)
+            {
+                return;
+            }
+
+            var pos = _inventoryContent.anchoredPosition;
+            pos.x = Mathf.Clamp(pos.x + deltaX, -overflow, 0f);
+            _inventoryContent.anchoredPosition = pos;
+        }
+
+        private void EnsureInventoryScroll()
+        {
+            if (_inventoryScroll != null)
+            {
+                _inventoryScroll.enabled = false;
+            }
+        }
+
+        private void EnsureInventoryCellCount(int required)
+        {
+            if (_inventoryRowTemplate == null || _inventoryContent == null)
+            {
+                return;
+            }
+
+            while (_inventoryCells.Count < required)
+            {
+                var clone = Instantiate(_inventoryRowTemplate, _inventoryContent);
+                HardenSquareCell(clone, InventorySlotSize);
+                clone.gameObject.SetActive(true);
+                _inventoryCells.Add(clone);
+            }
+        }
+
+        private void RefreshInventoryContentWidth()
+        {
+            if (_inventoryContent == null)
+            {
+                return;
+            }
+
+            var active = 0;
+            for (var i = 0; i < _inventoryCells.Count; i++)
+            {
+                if (_inventoryCells[i] != null && _inventoryCells[i].gameObject.activeSelf)
+                {
+                    active++;
+                }
+            }
+
+            var width = active * (InventorySlotSize + SlotSpacing) + SlotSpacing;
+            _inventoryContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+        }
+
+        private static void HardenSquareCell(Button cell, float size)
+        {
+            if (cell == null)
+            {
+                return;
+            }
+
+            var le = cell.GetComponent<LayoutElement>();
+            if (le == null)
+            {
+                le = cell.gameObject.AddComponent<LayoutElement>();
+            }
+
+            le.preferredWidth = size;
+            le.preferredHeight = size;
+            le.minWidth = size;
+            le.minHeight = size;
+            le.flexibleWidth = 0f;
+            le.flexibleHeight = 0f;
+
+            var text = cell.GetComponentInChildren<Text>(true);
+            if (text != null)
+            {
+                text.fontSize = size <= GemSlotSize + 1f ? 10 : 12;
+                text.alignment = TextAnchor.MiddleCenter;
+                text.horizontalOverflow = HorizontalWrapMode.Wrap;
+                text.verticalOverflow = VerticalWrapMode.Truncate;
+            }
+        }
+
+        private int FindInventoryIndexAt(Vector2 screen)
+        {
+            for (var i = 0; i < _inventoryCells.Count; i++)
+            {
+                var cell = _inventoryCells[i];
+                if (cell == null || !cell.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if (RectContainsScreen(cell.GetComponent<RectTransform>(), screen))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private int FindSlotIndexAt(Vector2 screen)
+        {
+            if (_slotCells == null)
+            {
+                return -1;
+            }
+
+            for (var i = 0; i < _slotCells.Length; i++)
+            {
+                var cell = _slotCells[i];
+                if (cell == null || !cell.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if (RectContainsScreen(cell.GetComponent<RectTransform>(), screen))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private bool IsOverInventory(Vector2 screen)
+        {
+            var root = _inventoryBarRoot != null ? _inventoryBarRoot : _inventoryContent;
+            return root != null && RectContainsScreen(root, screen);
+        }
+
+        private bool RectContainsScreen(RectTransform rt, Vector2 screen)
+        {
+            if (rt == null)
+            {
+                return false;
+            }
+
+            var cam = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+            return RectTransformUtility.RectangleContainsScreenPoint(rt, screen, cam);
+        }
+
+        private static bool IsSlotEmptyLabel(string label)
+        {
+            return string.IsNullOrEmpty(label) || label.Contains("（空）") || label.Contains("(empty)");
+        }
+
+        private static string ShortSlotLabel(string label)
+        {
+            if (string.IsNullOrEmpty(label))
+            {
+                return string.Empty;
+            }
+
+            var colon = label.IndexOf('：');
+            if (colon < 0)
+            {
+                colon = label.IndexOf(':');
+            }
+
+            if (colon < 0)
+            {
+                return label;
+            }
+
+            var kind = label.Substring(0, colon);
+            var rest = label.Substring(colon + 1).Trim();
+            if (rest.Contains("空"))
+            {
+                return kind;
+            }
+
+            return kind + "\n" + rest;
+        }
+
+        private static void SetCellLabel(Button cell, string label)
+        {
+            var text = cell.GetComponentInChildren<Text>(true);
+            if (text != null)
+            {
+                text.text = label ?? string.Empty;
+            }
+        }
+
+        private static string GetCellLabel(Button cell)
+        {
+            var text = cell != null ? cell.GetComponentInChildren<Text>(true) : null;
+            return text != null ? text.text : string.Empty;
         }
 
         private void HandleGrantKit()

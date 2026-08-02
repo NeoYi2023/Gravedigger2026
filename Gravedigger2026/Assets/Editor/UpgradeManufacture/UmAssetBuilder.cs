@@ -23,7 +23,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
         private const string StageRootPath = PrefabUmDir + "/UpgradeManufactureStageRoot.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0480";
+        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0500";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -169,6 +169,26 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             var root = new GameObject("UpgradeManufactureStageRoot");
             var controller = root.AddComponent<UpgradeManufactureStageController>();
 
+            // Off-screen warrior preview world (RenderTexture → RawImage)
+            var previewWorld = new GameObject("WarriorPreviewWorld");
+            previewWorld.transform.SetParent(root.transform, false);
+            previewWorld.transform.position = new Vector3(500f, 0f, 0f);
+            var previewAnchor = new GameObject("PreviewAnchor").transform;
+            previewAnchor.SetParent(previewWorld.transform, false);
+            previewAnchor.localPosition = Vector3.zero;
+            var previewCamGo = new GameObject("PreviewCamera", typeof(Camera));
+            previewCamGo.transform.SetParent(previewWorld.transform, false);
+            previewCamGo.transform.localPosition = new Vector3(0f, 2.2f, -4f);
+            previewCamGo.transform.LookAt(previewAnchor);
+            var previewCam = previewCamGo.GetComponent<Camera>();
+            previewCam.clearFlags = CameraClearFlags.SolidColor;
+            previewCam.backgroundColor = new Color(0.12f, 0.14f, 0.18f, 1f);
+            previewCam.orthographic = true;
+            previewCam.orthographicSize = 1.6f;
+            previewCam.nearClipPlane = 0.1f;
+            previewCam.farClipPlane = 20f;
+            previewCam.depth = -20;
+
             var canvasGo = new GameObject("UmCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.transform.SetParent(root.transform, false);
             var canvas = canvasGo.GetComponent<Canvas>();
@@ -181,43 +201,62 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             var panelRoot = CreateUiPanel(canvasGo.transform, "UmRoot", new Color(0.08f, 0.09f, 0.14f, 0.92f));
             Stretch(panelRoot.GetComponent<RectTransform>());
 
-            var title = CreateUiText(panelRoot.transform, "Title", "升级与制造（UpgradeManufacture）", 30, TextAnchor.UpperCenter);
+            var title = CreateUiText(panelRoot.transform, "Title", "升级与制造（UpgradeManufacture）", 28, TextAnchor.UpperCenter);
             Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -18f), new Vector2(900f, 42f));
+                new Vector2(0f, -16f), new Vector2(900f, 40f));
 
-            // Two panels: Upgrade / Manufacture (formation via 布阵 button)
-            var upgradeZone = CreateUiPanel(panelRoot.transform, "UpgradeZone", new Color(0.18f, 0.22f, 0.32f, 0.95f));
-            StretchFill(upgradeZone.GetComponent<RectTransform>(), new Vector2(0f, 0.18f), new Vector2(0.49f, 0.88f), 8f);
+            var gmUpgrade = CreateUiButton(panelRoot.transform, "GmUpgradeButton", "GM升级", new Color(0.35f, 0.45f, 0.7f, 1f));
+            Place(gmUpgrade.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(16f, -12f), new Vector2(140f, 44f));
+            SetButtonFontSize(gmUpgrade, 18);
 
-            var manufactureZone = CreateUiPanel(panelRoot.transform, "ManufactureZone", new Color(0.2f, 0.2f, 0.26f, 0.95f));
-            StretchFill(manufactureZone.GetComponent<RectTransform>(), new Vector2(0.51f, 0.18f), new Vector2(1f, 0.88f), 8f);
-            var manufactureView = BuildManufactureZone(manufactureZone.transform);
+            // Full-screen manufacture
+            var manufactureZone = CreateUiPanel(panelRoot.transform, "ManufactureZone", new Color(0.16f, 0.17f, 0.22f, 0.95f));
+            StretchFill(manufactureZone.GetComponent<RectTransform>(), new Vector2(0f, 0.12f), new Vector2(1f, 0.92f), 8f);
+            var manufactureView = BuildManufactureZone(manufactureZone.transform, previewAnchor, previewCam);
 
-            var status = CreateUiText(upgradeZone.transform, "Status", "升级区", 20, TextAnchor.UpperLeft);
-            StretchFill(status.GetComponent<RectTransform>(), new Vector2(0.04f, 0.38f), new Vector2(0.96f, 0.96f), 0f);
+            // Upgrade Modal (ConfirmDialog-style)
+            var upgradeModal = CreateUiPanel(panelRoot.transform, "UpgradeModal", new Color(0f, 0f, 0f, 0.55f));
+            Stretch(upgradeModal.GetComponent<RectTransform>());
+            var upgradeBox = CreateUiPanel(upgradeModal.transform, "UpgradeZone", new Color(0.18f, 0.22f, 0.32f, 0.98f));
+            Place(upgradeBox.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(640f, 420f));
 
-            var inject100 = CreateUiButton(upgradeZone.transform, "Inject100", "+100 经验", new Color(0.32f, 0.48f, 0.72f, 1f));
+            var closeX = CreateUiButton(upgradeBox.transform, "CloseButton", "X", new Color(0.55f, 0.28f, 0.28f, 1f));
+            Place(closeX.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-12f, -12f), new Vector2(44f, 44f));
+            SetButtonFontSize(closeX, 22);
+
+            var status = CreateUiText(upgradeBox.transform, "Status", "升级区", 20, TextAnchor.UpperLeft);
+            StretchFill(status.GetComponent<RectTransform>(), new Vector2(0.06f, 0.28f), new Vector2(0.94f, 0.88f), 0f);
+
+            var inject100 = CreateUiButton(upgradeBox.transform, "Inject100", "+100 经验", new Color(0.32f, 0.48f, 0.72f, 1f));
             Place(inject100.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(-90f, 70f), new Vector2(160f, 40f));
+                new Vector2(0.5f, 0f), new Vector2(-90f, 48f), new Vector2(160f, 40f));
 
-            var inject500 = CreateUiButton(upgradeZone.transform, "Inject500", "+500 经验", new Color(0.32f, 0.55f, 0.42f, 1f));
+            var inject500 = CreateUiButton(upgradeBox.transform, "Inject500", "+500 经验", new Color(0.32f, 0.55f, 0.42f, 1f));
             Place(inject500.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(90f, 70f), new Vector2(160f, 40f));
+                new Vector2(0.5f, 0f), new Vector2(90f, 48f), new Vector2(160f, 40f));
+
+            upgradeModal.SetActive(false);
 
             var complete = CreateUiButton(panelRoot.transform, "CompleteButton", "完成 / 进入下一阶段",
                 new Color(0.45f, 0.35f, 0.22f, 1f));
             Place(complete.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(-100f, 28f), new Vector2(320f, 52f));
+                new Vector2(0.5f, 0f), new Vector2(-100f, 28f), new Vector2(320f, 48f));
 
             var formationBtn = CreateUiButton(panelRoot.transform, "FormationButton", "布阵",
                 new Color(0.28f, 0.42f, 0.55f, 1f));
             Place(formationBtn.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(160f, 28f), new Vector2(140f, 52f));
+                new Vector2(0.5f, 0f), new Vector2(160f, 28f), new Vector2(140f, 48f));
 
             var upgradeView = panelRoot.AddComponent<UpgradePanelView>();
             var vso = new SerializedObject(upgradeView);
             vso.FindProperty("_root").objectReferenceValue = panelRoot;
+            vso.FindProperty("_upgradeModal").objectReferenceValue = upgradeModal;
             vso.FindProperty("_statusText").objectReferenceValue = status;
+            vso.FindProperty("_gmUpgradeButton").objectReferenceValue = gmUpgrade.GetComponent<Button>();
+            vso.FindProperty("_closeModalButton").objectReferenceValue = closeX.GetComponent<Button>();
             vso.FindProperty("_inject100Button").objectReferenceValue = inject100.GetComponent<Button>();
             vso.FindProperty("_inject500Button").objectReferenceValue = inject500.GetComponent<Button>();
             vso.FindProperty("_completeButton").objectReferenceValue = complete.GetComponent<Button>();
@@ -235,116 +274,191 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             return root;
         }
 
-        private static FormationPanelView BuildFormationZoneUnused(Transform zone)
+        private static ManufacturePanelView BuildManufactureZone(Transform zone, Transform previewAnchor, Camera previewCam)
         {
-            // Kept for reference; UM formation is FormationEditorRoot (v0.48).
-            var header = CreateUiText(zone, "Header", "布阵区（已迁移至独立编辑器）", 15,
-                TextAnchor.UpperCenter);
-            StretchFill(header.GetComponent<RectTransform>(), new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), 0f);
-
-            var poolContent = CreateListColumn(zone, "PoolColumn",
-                new Vector2(0.02f, 0.42f), new Vector2(0.49f, 0.93f));
-            var poolTemplate = CreateRowTemplate(poolContent, "PoolRowTemplate");
-
-            var formationContent = CreateListColumn(zone, "FormationColumn",
-                new Vector2(0.51f, 0.42f), new Vector2(0.98f, 0.93f));
-            var formationTemplate = CreateRowTemplate(formationContent, "FormationRowTemplate");
-
-            var statusPanel = CreateUiPanel(zone, "StatusPanel", new Color(0.13f, 0.14f, 0.18f, 0.95f));
-            StretchFill(statusPanel.GetComponent<RectTransform>(), new Vector2(0.02f, 0.18f), new Vector2(0.98f, 0.41f), 0f);
-            var statusText = CreateUiText(statusPanel.transform, "StatusText", "布阵区", 13, TextAnchor.UpperLeft);
-            StretchFill(statusText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 4f);
-
-            var undeploy = CreateUiButton(zone, "UndeployButton", "下阵", new Color(0.5f, 0.3f, 0.3f, 1f));
-            StretchFill(undeploy.GetComponent<RectTransform>(), new Vector2(0.02f, 0.01f), new Vector2(0.22f, 0.16f), 2f);
-            SetButtonFontSize(undeploy, 14);
-
-            var negX = CreateUiButton(zone, "NudgeNegX", "−X", new Color(0.3f, 0.4f, 0.55f, 1f));
-            StretchFill(negX.GetComponent<RectTransform>(), new Vector2(0.23f, 0.01f), new Vector2(0.40f, 0.16f), 2f);
-            SetButtonFontSize(negX, 14);
-
-            var posX = CreateUiButton(zone, "NudgePosX", "+X", new Color(0.3f, 0.4f, 0.55f, 1f));
-            StretchFill(posX.GetComponent<RectTransform>(), new Vector2(0.41f, 0.01f), new Vector2(0.58f, 0.16f), 2f);
-            SetButtonFontSize(posX, 14);
-
-            var negZ = CreateUiButton(zone, "NudgeNegZ", "−Z", new Color(0.3f, 0.45f, 0.4f, 1f));
-            StretchFill(negZ.GetComponent<RectTransform>(), new Vector2(0.59f, 0.01f), new Vector2(0.76f, 0.16f), 2f);
-            SetButtonFontSize(negZ, 14);
-
-            var posZ = CreateUiButton(zone, "NudgePosZ", "+Z", new Color(0.3f, 0.45f, 0.4f, 1f));
-            StretchFill(posZ.GetComponent<RectTransform>(), new Vector2(0.77f, 0.01f), new Vector2(0.98f, 0.16f), 2f);
-            SetButtonFontSize(posZ, 14);
-
-            var view = zone.gameObject.AddComponent<FormationPanelView>();
-            var so = new SerializedObject(view);
-            so.FindProperty("_poolContent").objectReferenceValue = poolContent;
-            so.FindProperty("_poolRowTemplate").objectReferenceValue = poolTemplate;
-            so.FindProperty("_formationContent").objectReferenceValue = formationContent;
-            so.FindProperty("_formationRowTemplate").objectReferenceValue = formationTemplate;
-            so.FindProperty("_statusText").objectReferenceValue = statusText;
-            so.FindProperty("_undeployButton").objectReferenceValue = undeploy.GetComponent<Button>();
-            so.FindProperty("_nudgeNegXButton").objectReferenceValue = negX.GetComponent<Button>();
-            so.FindProperty("_nudgePosXButton").objectReferenceValue = posX.GetComponent<Button>();
-            so.FindProperty("_nudgeNegZButton").objectReferenceValue = negZ.GetComponent<Button>();
-            so.FindProperty("_nudgePosZButton").objectReferenceValue = posZ.GetComponent<Button>();
-            so.ApplyModifiedPropertiesWithoutUndo();
-            return view;
-        }
-
-        private static FormationPanelView BuildFormationZone(Transform zone)
-        {
-            return BuildFormationZoneUnused(zone);
-        }
-
-        private static ManufacturePanelView BuildManufactureZone(Transform zone)
-        {
-            var header = CreateUiText(zone, "Header", "制造区（严格槽位 · 点击库存放入 / 点击槽位取出）", 15,
-                TextAnchor.UpperCenter);
-            StretchFill(header.GetComponent<RectTransform>(), new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1f), 0f);
-
-            var inventoryContent = CreateListColumn(zone, "InventoryColumn",
-                new Vector2(0.02f, 0.56f), new Vector2(0.49f, 0.93f));
-            var inventoryTemplate = CreateRowTemplate(inventoryContent, "InventoryRowTemplate");
-
-            var slotContent = CreateListColumn(zone, "SlotColumn",
-                new Vector2(0.51f, 0.56f), new Vector2(0.98f, 0.93f));
-            var slotTemplate = CreateRowTemplate(slotContent, "SlotRowTemplate");
-
+            // Left PreviewPanel
             var previewPanel = CreateUiPanel(zone, "PreviewPanel", new Color(0.13f, 0.14f, 0.18f, 0.95f));
-            StretchFill(previewPanel.GetComponent<RectTransform>(), new Vector2(0.02f, 0.26f), new Vector2(0.98f, 0.55f), 0f);
+            StretchFill(previewPanel.GetComponent<RectTransform>(), new Vector2(0.01f, 0.22f), new Vector2(0.22f, 0.98f), 2f);
             var previewText = CreateUiText(previewPanel.transform, "PreviewText", "制造区预览", 13, TextAnchor.UpperLeft);
-            StretchFill(previewText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 4f);
+            StretchFill(previewText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 6f);
 
+            // Right PoolPanel
             var poolPanel = CreateUiPanel(zone, "PoolPanel", new Color(0.13f, 0.16f, 0.14f, 0.95f));
-            StretchFill(poolPanel.GetComponent<RectTransform>(), new Vector2(0.02f, 0.1f), new Vector2(0.98f, 0.25f), 0f);
+            StretchFill(poolPanel.GetComponent<RectTransform>(), new Vector2(0.78f, 0.22f), new Vector2(0.99f, 0.98f), 2f);
             var poolText = CreateUiText(poolPanel.transform, "PoolText", "士兵池：空", 13, TextAnchor.UpperLeft);
-            StretchFill(poolText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 4f);
+            StretchFill(poolText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 6f);
 
+            // Center SlotColumn + soldier preview
+            var slotColumn = CreateUiPanel(zone, "SlotColumn", new Color(0.14f, 0.15f, 0.2f, 0.9f));
+            StretchFill(slotColumn.GetComponent<RectTransform>(), new Vector2(0.23f, 0.22f), new Vector2(0.77f, 0.98f), 2f);
+
+            var soldierPreview = CreateUiPanel(slotColumn.transform, "SoldierPreview", new Color(0.1f, 0.11f, 0.14f, 0.95f));
+            StretchFill(soldierPreview.GetComponent<RectTransform>(), new Vector2(0.32f, 0.42f), new Vector2(0.68f, 0.92f), 4f);
+
+            var placeholder = new GameObject("PlaceholderImage", typeof(RectTransform), typeof(Image));
+            placeholder.transform.SetParent(soldierPreview.transform, false);
+            Stretch(placeholder.GetComponent<RectTransform>());
+            var placeholderImg = placeholder.GetComponent<Image>();
+            placeholderImg.color = new Color(0.25f, 0.28f, 0.34f, 1f);
+
+            var rawGo = new GameObject("PreviewRawImage", typeof(RectTransform), typeof(RawImage));
+            rawGo.transform.SetParent(soldierPreview.transform, false);
+            Stretch(rawGo.GetComponent<RectTransform>());
+            var rawImage = rawGo.GetComponent<RawImage>();
+            rawImage.color = Color.white;
+            rawImage.enabled = false;
+
+            var slotCells = new Button[15];
+            // Left: Head(0), Arm1(2), Leg1(4), Wing(14)
+            slotCells[0] = CreateSquareSlot(slotColumn.transform, "Slot_Head", new Vector2(0.04f, 0.78f), new Vector2(0.28f, 0.96f), false);
+            slotCells[2] = CreateSquareSlot(slotColumn.transform, "Slot_Arm1", new Vector2(0.04f, 0.58f), new Vector2(0.28f, 0.76f), false);
+            slotCells[4] = CreateSquareSlot(slotColumn.transform, "Slot_Leg1", new Vector2(0.04f, 0.38f), new Vector2(0.28f, 0.56f), false);
+            slotCells[14] = CreateSquareSlot(slotColumn.transform, "Slot_Wing", new Vector2(0.04f, 0.18f), new Vector2(0.28f, 0.36f), false);
+            // Right: Torso(1), Arm2(3), Leg2(5), Mount(13)
+            slotCells[1] = CreateSquareSlot(slotColumn.transform, "Slot_Torso", new Vector2(0.72f, 0.78f), new Vector2(0.96f, 0.96f), false);
+            slotCells[3] = CreateSquareSlot(slotColumn.transform, "Slot_Arm2", new Vector2(0.72f, 0.58f), new Vector2(0.96f, 0.76f), false);
+            slotCells[5] = CreateSquareSlot(slotColumn.transform, "Slot_Leg2", new Vector2(0.72f, 0.38f), new Vector2(0.96f, 0.56f), false);
+            slotCells[13] = CreateSquareSlot(slotColumn.transform, "Slot_Mount", new Vector2(0.72f, 0.18f), new Vector2(0.96f, 0.36f), false);
+            // Soul inside preview bottom
+            slotCells[6] = CreateSquareSlot(soldierPreview.transform, "Slot_Soul", new Vector2(0.2f, 0.02f), new Vector2(0.8f, 0.22f), false);
+            // Gems half-size below preview
+            for (var g = 0; g < 6; g++)
+            {
+                var x0 = 0.2f + g * 0.1f;
+                slotCells[7 + g] = CreateSquareSlot(slotColumn.transform, $"Slot_Gem{g}",
+                    new Vector2(x0, 0.02f), new Vector2(x0 + 0.09f, 0.16f), true);
+            }
+
+            // Bottom inventory bar
+            var inventoryColumn = CreateUiPanel(zone, "InventoryColumn", new Color(0.12f, 0.13f, 0.17f, 0.95f));
+            StretchFill(inventoryColumn.GetComponent<RectTransform>(), new Vector2(0.01f, 0.09f), new Vector2(0.99f, 0.21f), 2f);
+            var invScrollContent = CreateHorizontalScrollBar(inventoryColumn.transform, out var invScroll);
+            var inventoryTemplate = CreateSquareTemplate(invScrollContent, "InventoryRowTemplate", ManufacturePanelView.InventorySlotSize);
+
+            // Action buttons under inventory
             var grantKit = CreateUiButton(zone, "GrantKitButton", "注入制造套件(Debug)", new Color(0.3f, 0.42f, 0.6f, 1f));
-            StretchFill(grantKit.GetComponent<RectTransform>(), new Vector2(0.02f, 0.01f), new Vector2(0.36f, 0.09f), 2f);
+            StretchFill(grantKit.GetComponent<RectTransform>(), new Vector2(0.02f, 0.01f), new Vector2(0.36f, 0.08f), 2f);
             SetButtonFontSize(grantKit, 14);
 
             var clearSlots = CreateUiButton(zone, "ClearSlotsButton", "清空槽位", new Color(0.45f, 0.3f, 0.3f, 1f));
-            StretchFill(clearSlots.GetComponent<RectTransform>(), new Vector2(0.37f, 0.01f), new Vector2(0.63f, 0.09f), 2f);
+            StretchFill(clearSlots.GetComponent<RectTransform>(), new Vector2(0.37f, 0.01f), new Vector2(0.63f, 0.08f), 2f);
             SetButtonFontSize(clearSlots, 14);
 
             var manufacture = CreateUiButton(zone, "ManufactureButton", "制造", new Color(0.3f, 0.55f, 0.38f, 1f));
-            StretchFill(manufacture.GetComponent<RectTransform>(), new Vector2(0.64f, 0.01f), new Vector2(0.98f, 0.09f), 2f);
+            StretchFill(manufacture.GetComponent<RectTransform>(), new Vector2(0.64f, 0.01f), new Vector2(0.98f, 0.08f), 2f);
             SetButtonFontSize(manufacture, 16);
+
+            // Drag ghost
+            var ghost = CreateUiPanel(zone, "DragGhost", new Color(0.4f, 0.55f, 0.75f, 0.85f));
+            Place(ghost.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(88f, 88f));
+            var ghostLabel = CreateUiText(ghost.transform, "Label", "", 12, TextAnchor.MiddleCenter);
+            Stretch(ghostLabel.GetComponent<RectTransform>());
+            ghost.SetActive(false);
 
             var view = zone.gameObject.AddComponent<ManufacturePanelView>();
             var so = new SerializedObject(view);
-            so.FindProperty("_inventoryContent").objectReferenceValue = inventoryContent;
+            so.FindProperty("_inventoryContent").objectReferenceValue = invScrollContent;
             so.FindProperty("_inventoryRowTemplate").objectReferenceValue = inventoryTemplate;
-            so.FindProperty("_slotContent").objectReferenceValue = slotContent;
-            so.FindProperty("_slotRowTemplate").objectReferenceValue = slotTemplate;
+            so.FindProperty("_inventoryScroll").objectReferenceValue = invScroll;
+            so.FindProperty("_inventoryBarRoot").objectReferenceValue = inventoryColumn.GetComponent<RectTransform>();
+            var slotProp = so.FindProperty("_slotCells");
+            slotProp.arraySize = 15;
+            for (var i = 0; i < 15; i++)
+            {
+                slotProp.GetArrayElementAtIndex(i).objectReferenceValue = slotCells[i];
+            }
+
             so.FindProperty("_previewText").objectReferenceValue = previewText;
             so.FindProperty("_poolText").objectReferenceValue = poolText;
             so.FindProperty("_grantKitButton").objectReferenceValue = grantKit.GetComponent<Button>();
             so.FindProperty("_clearSlotsButton").objectReferenceValue = clearSlots.GetComponent<Button>();
             so.FindProperty("_manufactureButton").objectReferenceValue = manufacture.GetComponent<Button>();
+            so.FindProperty("_placeholderImage").objectReferenceValue = placeholderImg;
+            so.FindProperty("_previewRawImage").objectReferenceValue = rawImage;
+            so.FindProperty("_previewModelAnchor").objectReferenceValue = previewAnchor;
+            so.FindProperty("_previewCamera").objectReferenceValue = previewCam;
+            so.FindProperty("_dragGhost").objectReferenceValue = ghost.GetComponent<RectTransform>();
             so.ApplyModifiedPropertiesWithoutUndo();
             return view;
+        }
+
+        private static Button CreateSquareSlot(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, bool gem)
+        {
+            var size = gem ? ManufacturePanelView.GemSlotSize : ManufacturePanelView.BodySlotSize;
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = new Color(0.24f, 0.27f, 0.34f, 0.95f);
+            StretchFill(go.GetComponent<RectTransform>(), anchorMin, anchorMax, 2f);
+            var le = go.GetComponent<LayoutElement>();
+            le.preferredWidth = size;
+            le.preferredHeight = size;
+            le.minWidth = size;
+            le.minHeight = size;
+            var text = CreateUiText(go.transform, "Label", name.Replace("Slot_", ""), gem ? 10 : 12, TextAnchor.MiddleCenter);
+            Stretch(text.GetComponent<RectTransform>());
+            return go.GetComponent<Button>();
+        }
+
+        private static RectTransform CreateHorizontalScrollBar(Transform parent, out ScrollRect scroll)
+        {
+            var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
+            scrollGo.transform.SetParent(parent, false);
+            StretchFill(scrollGo.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 2f);
+            scrollGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.enabled = false;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            StretchFill(viewportGo.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 0f);
+            viewportGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var content = contentGo.GetComponent<RectTransform>();
+            content.anchorMin = new Vector2(0f, 0f);
+            content.anchorMax = new Vector2(0f, 1f);
+            content.pivot = new Vector2(0f, 0.5f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = new Vector2(0f, 0f);
+
+            var layout = contentGo.GetComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.spacing = 8f;
+            layout.padding = new RectOffset(8, 8, 4, 4);
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+            layout.childForceExpandHeight = true;
+            layout.childForceExpandWidth = false;
+
+            var fitter = contentGo.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            scroll.content = content;
+            scroll.viewport = viewportGo.GetComponent<RectTransform>();
+            return content;
+        }
+
+        private static Button CreateSquareTemplate(Transform content, string name, float size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            go.transform.SetParent(content, false);
+            go.GetComponent<Image>().color = new Color(0.24f, 0.27f, 0.34f, 0.95f);
+            var le = go.GetComponent<LayoutElement>();
+            le.preferredWidth = size;
+            le.preferredHeight = size;
+            le.minWidth = size;
+            le.minHeight = size;
+            var text = CreateUiText(go.transform, "Label", "item", 11, TextAnchor.MiddleCenter);
+            Stretch(text.GetComponent<RectTransform>());
+            go.SetActive(false);
+            return go.GetComponent<Button>();
         }
 
         private static RectTransform CreateListColumn(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax)
