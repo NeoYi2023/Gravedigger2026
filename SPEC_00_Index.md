@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.49.7
-**最后更新 / Last Updated:** 2026-07-31  
+**文档版本 / Document Version:** v0.49.9
+**最后更新 / Last Updated:** 2026-08-02  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-02 | v0.49.9 | 地图 Tile Palette 迁入 `Art/Maps/Palettes/SurvivorTiles`；确认 `Ground_01`…`05` Tile/Sprite GUID 使用 `Art/Maps/Tiles`（不再依赖被 ignore 的 SmallScaleInt）；`MapTilemapAssetBuilder` 加固 EnsurePalette |
 | 2026-07-31 | v0.49.8 | Dig 光标半径内可挖坟**并行** DigAction（取消单坟全局忙锁；按坟独立时长与扣血）；同步 SPEC_03 §3.10 |
 | 2026-07-31 | v0.49.7 | Demo 初始 `DigCursorRadius` **1.5→0.6**（`Tech_Root` / `DigProtagonistCapabilities` 默认）；同步 SPEC_03 §3.10 / TechEffectConfig |
 | 2026-07-31 | v0.49.6 | Demo 初始 `DigCursorRadius` **2.5→1.5**（`Tech_Root` / `DigProtagonistCapabilities` 默认）；同步 SPEC_03 §3.10 / TechEffectConfig |
@@ -145,6 +146,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-02 | v0.49.9 | Move Tile Palette to `Art/Maps/Palettes/SurvivorTiles`; confirm `Ground_01`…`05` Tile/Sprite GUIDs use `Art/Maps/Tiles` (no dependency on gitignored SmallScaleInt); harden `MapTilemapAssetBuilder` EnsurePalette |
 | 2026-07-31 | v0.49.8 | Dig: **parallel** DigAction for all diggable graves in cursor radius (drop global busy lock; per-grave duration & damage); synced SPEC_03 §3.10 |
 | 2026-07-31 | v0.49.7 | Demo initial `DigCursorRadius` **1.5→0.6** (`Tech_Root` / `DigProtagonistCapabilities` defaults); synced SPEC_03 §3.10 / TechEffectConfig |
 | 2026-07-31 | v0.49.6 | Demo initial `DigCursorRadius` **2.5→1.5** (`Tech_Root` / `DigProtagonistCapabilities` defaults); synced SPEC_03 §3.10 / TechEffectConfig |
