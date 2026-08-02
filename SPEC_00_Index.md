@@ -66,6 +66,7 @@
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
 | 2026-08-02 | v0.50.0 | UM 主屏 UI 重做：默认全屏制造 + 升级 Modal（GM升级/X）；底栏库存方格拖拽；中心环绕槽（含坐骑/翅膀方位）；非宝石全满才显示外观预览（Attack→Idle）；同步 SPEC_03 UI-010/§3.11、SPEC_04 §6 |
+| 2026-08-02 | v0.49.9 | 地图 Tile Palette 迁入 `Art/Maps/Palettes/SurvivorTiles`；确认 `Ground_01`…`05` Tile/Sprite GUID 使用 `Art/Maps/Tiles`（不再依赖被 ignore 的 SmallScaleInt）；`MapTilemapAssetBuilder` 加固 EnsurePalette |
 | 2026-07-31 | v0.49.8 | Dig 光标半径内可挖坟**并行** DigAction（取消单坟全局忙锁；按坟独立时长与扣血）；同步 SPEC_03 §3.10 |
 | 2026-07-31 | v0.49.7 | Demo 初始 `DigCursorRadius` **1.5→0.6**（`Tech_Root` / `DigProtagonistCapabilities` 默认）；同步 SPEC_03 §3.10 / TechEffectConfig |
 | 2026-07-31 | v0.49.6 | Demo 初始 `DigCursorRadius` **2.5→1.5**（`Tech_Root` / `DigProtagonistCapabilities` 默认）；同步 SPEC_03 §3.10 / TechEffectConfig |
@@ -147,6 +148,7 @@
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
 | 2026-08-02 | v0.50.0 | UM main UI redo: full-screen manufacture + upgrade Modal (GM Upgrade/X); bottom square inventory drag; center slot ring (Mount/Wing positions); visual appearance only when all non-gem slots filled (Attack→Idle); synced SPEC_03 UI-010/§3.11, SPEC_04 §6 |
+| 2026-08-02 | v0.49.9 | Move Tile Palette to `Art/Maps/Palettes/SurvivorTiles`; confirm `Ground_01`…`05` Tile/Sprite GUIDs use `Art/Maps/Tiles` (no dependency on gitignored SmallScaleInt); harden `MapTilemapAssetBuilder` EnsurePalette |
 | 2026-07-31 | v0.49.8 | Dig: **parallel** DigAction for all diggable graves in cursor radius (drop global busy lock; per-grave duration & damage); synced SPEC_03 §3.10 |
 | 2026-07-31 | v0.49.7 | Demo initial `DigCursorRadius` **1.5→0.6** (`Tech_Root` / `DigProtagonistCapabilities` defaults); synced SPEC_03 §3.10 / TechEffectConfig |
 | 2026-07-31 | v0.49.6 | Demo initial `DigCursorRadius` **2.5→1.5** (`Tech_Root` / `DigProtagonistCapabilities` defaults); synced SPEC_03 §3.10 / TechEffectConfig |

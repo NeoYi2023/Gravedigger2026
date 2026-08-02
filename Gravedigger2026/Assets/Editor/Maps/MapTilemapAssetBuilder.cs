@@ -17,10 +17,28 @@ namespace Gravedigger2026.Editor.Maps
     {
         public const string ArtTilesDir = "Assets/Art/Maps/Tiles";
         public const string ArtSpritesDir = ArtTilesDir + "/Sprites";
+        public const string ArtPalettesDir = "Assets/Art/Maps/Palettes";
         public const string PrefabMapsDir = "Assets/Prefabs/Maps";
 
-        private const string VendorSpritesDir =
-            "Assets/SmallScaleInt/Character creator - Fantasy/Example Scene/Environment/Sprites";
+        private const string VendorEnvironmentDir =
+            "Assets/SmallScaleInt/Character creator - Fantasy/Example Scene/Environment";
+        private const string VendorSpritesDir = VendorEnvironmentDir + "/Sprites";
+        private const string VendorPalettePath = VendorEnvironmentDir + "/SurvivorTiles.prefab";
+        private const string ArtPalettePath = ArtPalettesDir + "/SurvivorTiles.prefab";
+
+        /// <summary>
+        /// SmallScaleInt Example Environment GUID → Art/Maps/Tiles GUID.
+        /// Committed Ground_* / Palette must never keep vendor GUIDs (SmallScaleInt is gitignored).
+        /// </summary>
+        private static readonly (string Vendor, string Art)[] VendorToArtGuids =
+        {
+            ("b7ce7409a10dd0d43a6326ef5002f691", "7ff226dcb8a8c42463aaea45edf8cf06"), // BLACK TILE.asset
+            ("6129fa3fe380975428349814c6104108", "cd3afce6972f0c243d9684873b8858fa"), // Ground G1_E.asset
+            ("24869aca5543a31488921b8679b663d1", "6dcbc7b01aa6449474f56ce044070616"), // Ground TestRoom.asset
+            ("564f43cb1020ece4aa0c9c795569b7f2", "4f873d9fc00ecf5c5e58350c23f797ac"), // BLACK TILE.png
+            ("842ffd04f649bb941b69e4c05841f00b", "65f9597453b0dac395bd854cd25bc228"), // Ground G1_E.png
+            ("99062c2de5932b14fa17bf165ff30af8", "1e8af6c9e6f7735252b8526c6f4f6efb"), // Ground TestRoom.png
+        };
 
         private static readonly string[] SpriteFileNames =
         {
@@ -92,6 +110,7 @@ namespace Gravedigger2026.Editor.Maps
             EnsureFolders();
             EnsureSpritesCopied();
             EnsureTileAssets();
+            EnsurePaletteCopied();
             for (var i = 0; i < MapIds.Length; i++)
             {
                 EnsureMapPrefab(MapIds[i], i, forceRepaint: true);
@@ -124,9 +143,10 @@ namespace Gravedigger2026.Editor.Maps
             EnsureFolders();
             EnsureSpritesCopied();
             EnsureTileAssets();
+            EnsurePaletteCopied();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[MapTilemapAssetBuilder] Tiles/Sprites ensured under Art/Maps/Tiles.");
+            Debug.Log("[MapTilemapAssetBuilder] Tiles/Sprites/Palette ensured under Art/Maps.");
         }
 
         /// <summary>Called by DigAssetBuilder: ensure tiles exist and map Prefabs have Tilemap (preserve hand paint).</summary>
@@ -135,6 +155,7 @@ namespace Gravedigger2026.Editor.Maps
             EnsureFolders();
             EnsureSpritesCopied();
             EnsureTileAssets();
+            EnsurePaletteCopied();
             for (var i = 0; i < MapIds.Length; i++)
             {
                 EnsureMapPrefab(MapIds[i], i, forceRepaint);
@@ -147,6 +168,7 @@ namespace Gravedigger2026.Editor.Maps
             EnsureFolder("Assets/Art/Maps");
             EnsureFolder(ArtTilesDir);
             EnsureFolder(ArtSpritesDir);
+            EnsureFolder(ArtPalettesDir);
             EnsureFolder("Assets/Prefabs");
             EnsureFolder(PrefabMapsDir);
         }
@@ -199,6 +221,68 @@ namespace Gravedigger2026.Editor.Maps
             }
 
             AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// Ensures Art/Maps/Palettes/SurvivorTiles.prefab exists with Art tile GUIDs (never vendor GUIDs).
+        /// </summary>
+        public static void EnsurePaletteCopied()
+        {
+            EnsureFolder(ArtPalettesDir);
+            if (AssetFileExists(ArtPalettePath) || AssetDatabase.LoadAssetAtPath<Object>(ArtPalettePath) != null)
+            {
+                RemapVendorGuidsInTextAssetFile(ArtPalettePath);
+                return;
+            }
+
+            if (!AssetFileExists(VendorPalettePath) &&
+                AssetDatabase.LoadAssetAtPath<Object>(VendorPalettePath) == null)
+            {
+                Debug.LogWarning(
+                    $"[MapTilemapAssetBuilder] Vendor palette missing ({VendorPalettePath}); skip EnsurePaletteCopied.");
+                return;
+            }
+
+            // CopyAsset assigns a new GUID (no collision with SmallScaleInt).
+            if (!AssetDatabase.CopyAsset(VendorPalettePath, ArtPalettePath))
+            {
+                Debug.LogError($"[MapTilemapAssetBuilder] CopyAsset failed: {VendorPalettePath} → {ArtPalettePath}");
+                return;
+            }
+
+            AssetDatabase.Refresh();
+            RemapVendorGuidsInTextAssetFile(ArtPalettePath);
+            AssetDatabase.ImportAsset(ArtPalettePath);
+            Debug.Log($"[MapTilemapAssetBuilder] Palette ensured at {ArtPalettePath} (vendor GUIDs remapped to Art/Maps).");
+        }
+
+        private static void RemapVendorGuidsInTextAssetFile(string assetPath)
+        {
+            if (!AssetFileExists(assetPath))
+            {
+                return;
+            }
+
+            var full = Path.Combine(Application.dataPath, assetPath.Substring("Assets/".Length));
+            var text = File.ReadAllText(full);
+            var changed = false;
+            for (var i = 0; i < VendorToArtGuids.Length; i++)
+            {
+                var pair = VendorToArtGuids[i];
+                if (text.Contains(pair.Vendor))
+                {
+                    text = text.Replace(pair.Vendor, pair.Art);
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                return;
+            }
+
+            File.WriteAllText(full, text);
+            Debug.Log($"[MapTilemapAssetBuilder] Remapped vendor Tile/Sprite GUIDs → Art in {assetPath}.");
         }
 
         private static bool AssetFileExists(string assetPath)
