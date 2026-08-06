@@ -42,7 +42,7 @@
 |------|----------------|----------------|
 | Meta 存档（固定 3 槽） | [§3.4](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 持久化意图 |
 | 工具面板 / 进档壳层 | [§3.5](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 壳层 UI |
-| GameplayState（Dig / UpgradeManufacture / Defend） | [§3.1](../../SPEC_03_GameRules.md)、[§3.7](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
+| GameplayState（Dig / UpgradeManufacture / Defend / PushMap） | [§3.1](../../SPEC_03_GameRules.md)、[§3.7](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
 | 关卡阶段流水线 / LevelOperation | [§3.9](../../SPEC_03_GameRules.md) | [§9](../../SPEC_04_Technical.md) |
 | 挖坟 Dig / DigMap / Grave | [§3.10](../../SPEC_03_GameRules.md) | [§9.2](../../SPEC_04_Technical.md) DigMapId→`Prefabs/Maps/Ground_*`；[§13](../../SPEC_04_Technical.md)；[§15](../../SPEC_04_Technical.md) Digger 烘焙整角 |
 | 升级与制造 UpgradeManufacture | [§3.11](../../SPEC_03_GameRules.md) | [§9.8](../../SPEC_04_Technical.md) ProtagonistLevelConfig；[§9.9](../../SPEC_04_Technical.md) SoulConfig / WarriorInstance；[§9.9b](../../SPEC_04_Technical.md) ClassConfig；[§9.10](../../SPEC_04_Technical.md) GemConfig；[§9.11](../../SPEC_04_Technical.md) RaceConfig；[§9.12](../../SPEC_04_Technical.md) BodyPartConfig；[§9.13](../../SPEC_04_Technical.md) BodyAppearanceConfig；[§9.14](../../SPEC_04_Technical.md) ExtraEquipmentConfig；[§9.15](../../SPEC_04_Technical.md) GemSuffixNameConfig；[§9.20](../../SPEC_04_Technical.md) LossOfControlConfig；[§9.21](../../SPEC_04_Technical.md) SkillConfig 骨架 |
@@ -52,6 +52,7 @@
 | 防守 Defend / BattleMap / StartBattle / Shield / 刷怪 | [§3.12](../../SPEC_03_GameRules.md) | [§9.7](../../SPEC_04_Technical.md) DefendGameplayConfig（`BattleMapId`→`Prefabs/Maps/Ground_*`）；[§9.18](../../SPEC_04_Technical.md) WaveSpawnConfig；[§9.19](../../SPEC_04_Technical.md) MonsterConfig + NavMesh；失控见 [§9.20](../../SPEC_04_Technical.md)；角色视觉 [§15](../../SPEC_04_Technical.md) |
 | 士兵战斗 / EngageZone / 命中方案 D / 死亡分层 / 战斗派生公式 | [§3.12](../../SPEC_03_GameRules.md) WarriorCombat、[§3.11](../../SPEC_03_GameRules.md) 士兵死亡与材料去向 | EngageZone Prefab；SoulConfig.AttackMode；ClassConfig.PrimaryStat + AttackRange 等；近战前摇 / 远程弹道；法师=远程+Intelligence（同射手通道）；**Demo v1 仅普攻**；CombatDead vs PermanentDeath；宝石特例；NormalAttackPower / AttackSpeed / SkillCooldown（CombatConvertCoeffs；Demo 不驱动技能） |
 | 科技树 TechTree / TechItem / TechEffect | [§3.13](../../SPEC_03_GameRules.md) | [§9.16](../../SPEC_04_Technical.md) TechTreeConfig；[§9.17](../../SPEC_04_Technical.md) TechEffectConfig |
+| 推图战 PushMap / ObjectivePoint / CaptureZone / AggroMode | [§3.14](../../SPEC_03_GameRules.md) | [§9.22](../../SPEC_04_Technical.md) PushMapGameplayConfig；[§9.23](../../SPEC_04_Technical.md) PushMapSpawnConfig；[§9.19](../../SPEC_04_Technical.md) MonsterConfig.AggroMode/AlertRadius；地图标记 [§13](../../SPEC_04_Technical.md) |
 | Demo 验收 D-001～D-043 | [§3.8](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) |
 
 ## Changelog

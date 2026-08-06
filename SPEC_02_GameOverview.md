@@ -40,7 +40,7 @@
 
 | 属性 | 状态 | 说明 |
 |------|------|------|
-| 游戏类型 / Genre | 方向已标 | 局内三段式玩法状态（挖坟 / 升级与制造 / 防守）；完整类型标签 TBD |
+| 游戏类型 / Genre | 方向已标 | 局内玩法状态含挖坟 / 升级与制造 / 防守 / 推图战；完整类型标签 TBD |
 | 题材 / Theme | 方向已标 | 掘墓者相关：挖坟、升级与制造、防守；细节 TBD |
 | 视角 / Camera | 未定义 | TBD |
 | 目标受众 | 未定义 | TBD |
@@ -50,7 +50,7 @@
 
 | Attribute | Status | Notes |
 |-----------|--------|-------|
-| Genre | Direction noted | Three in-session gameplay states (Dig / UpgradeManufacture / Defend); full genre label TBD |
+| Genre | Direction noted | In-session gameplay states Dig / UpgradeManufacture / Defend / PushMap; full genre label TBD |
 | Theme | Direction noted | Gravedigger-related: dig, upgrade-manufacture, defend; details TBD |
 | Camera | Undefined | TBD |
 | Target audience | Undefined | TBD |
@@ -62,19 +62,19 @@
 
 ### 简体中文
 
-**状态：最小 Demo 已概述；关卡 / 挖坟 / 升级与制造 / 防守框架已指向 SPEC_03**
+**状态：最小 Demo 已概述；关卡 / 挖坟 / 升级与制造 / 防守 / 推图战框架已指向 SPEC_03**
 
-- **局内主循环：** 三种 `GameplayState` — 挖坟（Dig）、升级与制造（UpgradeManufacture；原 SewRevive）、防守（Defend）。关卡内由阶段玩法类型驱动；壳层手动切换 **TBD**。挖坟见 [SPEC_03 §3.10](SPEC_03_GameRules.md)；升级与制造见 [§3.11](SPEC_03_GameRules.md)；防守见 [§3.12](SPEC_03_GameRules.md)。
-- **关卡阶段：** 关卡运作表按阶段编号升序执行；阶段结束（挖坟为有效时长倒计时归零 → DigStageSummary；防守见 §3.12 胜负）→ 阶段结算（若有）→ 下一阶段；无下一阶段 → **胜利结算**；关卡失败与胜利结算互斥。见 [SPEC_03 §3.9](SPEC_03_GameRules.md)。
+- **局内主循环：** `GameplayState` — 挖坟（Dig）、升级与制造（UpgradeManufacture；原 SewRevive）、防守（Defend）、推图战（PushMap）。关卡内由阶段玩法类型驱动；壳层手动切换 **TBD**。挖坟见 [SPEC_03 §3.10](SPEC_03_GameRules.md)；升级与制造见 [§3.11](SPEC_03_GameRules.md)；防守见 [§3.12](SPEC_03_GameRules.md)；推图战见 [§3.14](SPEC_03_GameRules.md)。
+- **关卡阶段：** 关卡运作表按阶段编号升序执行；阶段结束（挖坟为有效时长倒计时归零 → DigStageSummary；防守见 §3.12；推图战见 §3.14）→ 阶段结算（若有）→ 下一阶段；无下一阶段 → **胜利结算**；关卡失败与胜利结算互斥。见 [SPEC_03 §3.9](SPEC_03_GameRules.md)。
 - **外围 Meta：** 启动后先进入固定 3 槽存档；进档后为壳层，含浮动「工具」面板（设置、关卡占位）。Demo 工具「关卡」仍仅占位。详见 [SPEC_03 §3.3–§3.5](SPEC_03_GameRules.md)。
 - **Demo 验收：** [SPEC_03 §3.8](SPEC_03_GameRules.md) D-001～D-004（不含完整挖坟/关卡实现）。
 
 ### English
 
-**Status: Minimal Demo overview; Level / Dig / UpgradeManufacture / Defend framework pointed in SPEC_03**
+**Status: Minimal Demo overview; Level / Dig / UpgradeManufacture / Defend / PushMap framework pointed in SPEC_03**
 
-- **In-session loop:** Three `GameplayState`s — Dig, UpgradeManufacture (was SewRevive), Defend. In Level, driven by stage gameplay type; manual shell switch **TBD**. Dig: [SPEC_03 §3.10](SPEC_03_GameRules.md); UpgradeManufacture: [§3.11](SPEC_03_GameRules.md); Defend: [§3.12](SPEC_03_GameRules.md).
-- **Level stages:** Level Operation table runs stages ascending; stage end (Dig: effective duration hits 0 → DigStageSummary; Defend: win/lose per §3.12) → stage settlement if any → next stage; no next → **VictorySettlement**; LevelFailure mutually exclusive with VictorySettlement. See [SPEC_03 §3.9](SPEC_03_GameRules.md).
+- **In-session loop:** `GameplayState`s — Dig, UpgradeManufacture (was SewRevive), Defend, PushMap. In Level, driven by stage gameplay type; manual shell switch **TBD**. Dig: [SPEC_03 §3.10](SPEC_03_GameRules.md); UpgradeManufacture: [§3.11](SPEC_03_GameRules.md); Defend: [§3.12](SPEC_03_GameRules.md); PushMap: [§3.14](SPEC_03_GameRules.md).
+- **Level stages:** Level Operation table runs stages ascending; stage end (Dig: effective duration hits 0 → DigStageSummary; Defend: §3.12; PushMap: §3.14) → stage settlement if any → next stage; no next → **VictorySettlement**; LevelFailure mutually exclusive with VictorySettlement. See [SPEC_03 §3.9](SPEC_03_GameRules.md).
 - **Meta shell:** Boot → 3 fixed save slots; after enter, InSaveShell with floating Tools (Settings, Level stubs). Demo Tools Level still stub-only. See [SPEC_03 §3.3–§3.5](SPEC_03_GameRules.md).
 - **Demo acceptance:** [SPEC_03 §3.8](SPEC_03_GameRules.md) D-001–D-004 (full Dig/Level implementation out of Demo).
 

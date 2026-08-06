@@ -218,6 +218,21 @@ namespace Gravedigger2026.Gameplay.Dig
                 grave.ObstacleRadius = radiusComp.Radius;
             }
 
+            var hitShape = go.GetComponent<DigHitShape>();
+            if (hitShape != null && hitShape.HasValidPolygon)
+            {
+                var src = hitShape.LocalXZ;
+                var copy = new Vector2[src.Length];
+                Array.Copy(src, copy, src.Length);
+                grave.HitLocalXZ = copy;
+                grave.HitBoundingRadius = hitShape.BoundingRadius;
+            }
+            else
+            {
+                grave.HitLocalXZ = null;
+                grave.HitBoundingRadius = Mathf.Max(0.05f, grave.ObstacleRadius);
+            }
+
             var view = go.GetComponent<DigGraveView>();
             if (view == null)
             {

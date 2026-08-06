@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.50.0
-**最后更新 / Last Updated:** 2026-08-02  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-043 + 可选 TechTree UI-012 落地）  
+**文档版本 / Document Version:** v0.53.0
+**最后更新 / Last Updated:** 2026-08-06  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -30,7 +30,7 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | 总索引、变更日志（本文件） |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | 三阶段开发流程与协作约定 |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | 游戏概述、平台与定位 |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树框架） |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战框架） |
 | 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | 技术规范、Demo 边界、配置表字段与工程约定（§14） |
 
 **建议阅读顺序：** 01 → 02 → 03 → 04。
@@ -42,7 +42,7 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | Master index, changelog |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | Three-phase workflow |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | Game overview |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree framework) |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree / PushMap framework) |
 | 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | Technical standards, Demo boundary, config tables + engineering rules (§14) |
 
 ---
@@ -65,6 +65,9 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-06 | v0.53.0 | Dig 命中形方案 B：`DigHitShape` 离线烘焙本地 XZ 凸包；光标圆 ∩ 凸包触发 DigAction（与障碍圆分离）；同步 SPEC_03 §3.10、SPEC_04 §6/§9.2、CONTEXT |
+| 2026-08-06 | v0.52.0 | 推图战 PushMap 规则录入：新增 SPEC_03 §3.14（GameplayType；复用 Defend 布阵/护盾/失控/士兵战斗；目标点链+判定圈占领；空气墙/刷怪点/陷阱/BOSS；AggroMode）；SPEC_04 §9.22–§9.23 + MonsterConfig.AggroMode/AlertRadius；边界锁定见待澄清；同步 CONTEXT/SPEC_02/spec-map；issues `.scratch/push-map/` |
+| 2026-08-06 | v0.51.0 | 战斗阶段入口增加模式/选关闸门（D-044）：`DefendPhase.ModeSelect`；模式1「保卫战」=现 §3.12；模式2「推图战」占位；关卡列表=该模式全部玩法配置；运作表 Defend 行 `GameplayConfigId`=Recommended；任一模式通关→`TryAdvanceStage`；同步 SPEC_03/04、CONTEXT |
 | 2026-08-02 | v0.50.0 | UM 主屏 UI 重做：默认全屏制造 + 升级 Modal（GM升级/X）；底栏库存方格拖拽；中心环绕槽（含坐骑/翅膀方位）；非宝石全满才显示外观预览（Attack→Idle）；同步 SPEC_03 UI-010/§3.11、SPEC_04 §6 |
 | 2026-08-02 | v0.49.9 | 地图 Tile Palette 迁入 `Art/Maps/Palettes/SurvivorTiles`；确认 `Ground_01`…`05` Tile/Sprite GUID 使用 `Art/Maps/Tiles`（不再依赖被 ignore 的 SmallScaleInt）；`MapTilemapAssetBuilder` 加固 EnsurePalette |
 | 2026-07-31 | v0.49.8 | Dig 光标半径内可挖坟**并行** DigAction（取消单坟全局忙锁；按坟独立时长与扣血）；同步 SPEC_03 §3.10 |
@@ -147,6 +150,9 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-06 | v0.53.0 | Dig hit-shape Approach B: offline-baked `DigHitShape` local-XZ convex hull; cursor circle ∩ hull triggers DigAction (separate from obstacle circle); synced SPEC_03 §3.10, SPEC_04 §6/§9.2, CONTEXT |
+| 2026-08-06 | v0.52.0 | PushMap rule intake: SPEC_03 §3.14 (GameplayType; reuse Defend formation/Shield/LOC/WarriorCombat; objective CaptureZone; AirWall/Spawn/Trap/Boss; AggroMode); SPEC_04 §9.22–§9.23 + MonsterConfig.AggroMode/AlertRadius; CONTEXT/SPEC_02/spec-map; issues `.scratch/push-map/` |
+| 2026-08-06 | v0.51.0 | Battle-stage Mode/Level select gate (D-044): `DefendPhase.ModeSelect`; Mode1 Defend=existing §3.12; Mode2 PushMap stub; level list=all mode configs; LevelOperation Defend `GameplayConfigId`=Recommended; either-mode clear→`TryAdvanceStage`; synced SPEC_03/04, CONTEXT |
 | 2026-08-02 | v0.50.0 | UM main UI redo: full-screen manufacture + upgrade Modal (GM Upgrade/X); bottom square inventory drag; center slot ring (Mount/Wing positions); visual appearance only when all non-gem slots filled (Attack→Idle); synced SPEC_03 UI-010/§3.11, SPEC_04 §6 |
 | 2026-08-02 | v0.49.9 | Move Tile Palette to `Art/Maps/Palettes/SurvivorTiles`; confirm `Ground_01`…`05` Tile/Sprite GUIDs use `Art/Maps/Tiles` (no dependency on gitignored SmallScaleInt); harden `MapTilemapAssetBuilder` EnsurePalette |
 | 2026-07-31 | v0.49.8 | Dig: **parallel** DigAction for all diggable graves in cursor radius (drop global busy lock; per-grave duration & damage); synced SPEC_03 §3.10 |

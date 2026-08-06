@@ -179,7 +179,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **关卡驱动（方案 A，D-010）：** `ConfigCsvRepository` 只读 CSV（路径见 [§14.5](#145-运行时-csv-加载路径demo)）；`LevelOperationDriver` 按 `LevelId` 取行、`StageNumber` 升序运行；进入阶段时设置 `GameplayState`，经 `IStageModule` 进入/离开钩子挂各玩法（Dig / UM / Defend 见下；士兵战斗与胜负仍待后续片）。`GameplayType=UpgradeManufacture` 时 **忽略** `GameplayConfigId`（不查 Dig/Defend 表）。Dig/Defend 解析对应表行后校验 `DigMapId` / `BattleMapId` ∈ `Ground_01`…`Ground_05`，逻辑路径 `Assets/Prefabs/Maps/{Id}.prefab`。UI/日志须可见 LevelId、StageNumber、GameplayType。
 
-**Dig 垂直切片（方案 A，D-020）：** `DigStageModule`（`IStageModule`）Enter 时按 `DigMapId` Instantiate `Assets/Prefabs/Maps/{Id}.prefab`，并挂 `DigStageRoot`（`Assets/Prefabs/Dig/`）。规则层 `DigSessionService`（纯 C#）负责有效时长倒计时、开局/过程生成、DigAction 停留触发与忙碌锁、扣血、仓库/精魂入账、阶段奖励汇总；`DigProtagonistCapabilities` 由 **科技树** 重算后注入（见 UI-012）。表现：`DigPrefabCatalog` 绑定 Digger / `Grave_{QualityId}` / 地图变体 / `UiDigCursorRing`；圆圈光标（Prefab 双层、描边像素恒定）、坟墓 HP 样式、DigReward 飞向、DigStageSummary 由 View 订阅。时长归零 → 取消进行中 DigAction（不结算扣血）→ DigStageSummary 确认 → `LevelOperationDriver.TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
+**Dig 垂直切片（方案 A，D-020）：** `DigStageModule`（`IStageModule`）Enter 时按 `DigMapId` Instantiate `Assets/Prefabs/Maps/{Id}.prefab`，并挂 `DigStageRoot`（`Assets/Prefabs/Dig/`）。规则层 `DigSessionService`（纯 C#）负责有效时长倒计时、开局/过程生成、DigAction 停留触发与忙碌锁、扣血、仓库/精魂入账、阶段奖励汇总；`DigProtagonistCapabilities` 由 **科技树** 重算后注入（见 UI-012）。DigAction 候选：光标圆 ∩ 坟 `DigHitShape` 本地 XZ 凸包（世界变换后；粗筛用 `BoundingRadius`）；无凸包则回退障碍圆。表现：`DigPrefabCatalog` 绑定 Digger / `Grave_{QualityId}` / 地图变体 / `UiDigCursorRing`；圆圈光标（Prefab 双层、描边像素恒定）、坟墓 HP 样式、DigReward 飞向、DigStageSummary 由 View 订阅。时长归零 → 取消进行中 DigAction（不结算扣血）→ DigStageSummary 确认 → `LevelOperationDriver.TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`；规则层禁止读 Sprite/像素。
 
 **科技树画布（方案 A，UI-012 可选）：** `ConfigCsvRepository` 追加加载 `Tech_TechTreeConfig.csv` / `Tech_TechEffectConfig.csv`。规则层纯 C# `TechTreeService`（存档级，挂 Meta 壳）持有已学会集合与 `UnlockedFeatureSystems`；进档/`Reset` 时对 `InitiallyUnlocked` 自动学会并应用效果；学习闸门 = 未学会 ∧ TechPoint≥LearnCost ∧ ≥1 已学会前置（由 `UnlockNextTechIds` 求逆）；学会扣点 → 标记 → 解析 `AttributeModifiers` 加法求和 → 写入 `DigProtagonistCapabilities`（Demo `DiggableQualityIds` 仍取全品质表，便于挖坟手验）。表现：临时 `Assets/Prefabs/Meta/TechTreeCanvasRoot.prefab`（节点坐标 Prefab 摆放；uGUI 空白处 LMB 拖移；悬停名+效果描述；连线按正向边；三态框色）；工具「设置」打开画布；Debug 可注入 TechPoints。禁止运行时引用 `SmallScaleInt/`。
 
@@ -189,7 +189,9 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM 布阵区（方案 A→拖拽编辑器，D-032）：** 纯 C# `BattleFormationService`（存档级）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）。UM 主屏全屏制造 + Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend Prepare **共用**。禁止运行时引用 `SmallScaleInt/`。
 
-**Defend Prepare / 开战 / 护盾（方案 A→共享编辑器，D-040）：** `DefendStageModule` Enter 仍 Instantiate `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`；Prepare 挂同一 `FormationEditorRoot` UI（复用本阶段地图，不双开地图）；开战 ≥1 → 销毁预览后按布阵正式部署；`Shield`/`CombatDurationSeconds` 逻辑不变。禁止运行时引用 `SmallScaleInt/`。
+**战斗模式选关（方案 A，D-044）：** `DefendStageModule` Enter 先 Instantiate `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab`（或运行时等价 UI）；`DefendPhase=ModeSelect`；模式1「保卫战」列出全部 `DefendGameplayConfig`；运作表 `GameplayConfigId` 作 Recommended 默认高亮；确认后用所选行覆盖 `LevelStageContext.DefendConfig` 再进入现有 Prepare。模式2「推图战」入口占位（确认禁用/Toast）。禁止运行时引用 `SmallScaleInt/`。
+
+**Defend Prepare / 开战 / 护盾（方案 A→共享编辑器，D-040）：** `DefendStageModule` 在 ModeSelect 确认保卫战后 Instantiate `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`；Prepare 挂同一 `FormationEditorRoot` UI（复用本阶段地图，不双开地图）；开战 ≥1 → 销毁预览后按布阵正式部署；`Shield`/`CombatDurationSeconds` 逻辑不变。禁止运行时引用 `SmallScaleInt/`。
 
 **Defend 刷怪与寻路（方案 A，D-041）：** `ConfigCsvRepository` 追加加载 `Defend_WaveSpawnConfig.csv` / `Defend_MonsterConfig.csv`。开战时 `DefendSessionService` 按 `WaveConfigId` 装载刷怪行；`Combat` 中每当 `RemainingCombatSeconds` 变为某整秒（含开战瞬间）时，触发尚未触发且 `SpawnRemainingSeconds` 相等的行（同秒按 `SpawnOrder` 升序），经事件交给 View Instantiate。Demo 最小出生点：地图 Prefab 上 `DefendSpawnPointSet` 固定点（`ClockDirection`→钟点位；`RegionRandom`→点池随机；Inside/Outside 本片均用固定点，精确 OutsideMap **后置**）。Instantiate 地图后 Runtime 烘焙最小可走 NavMesh（覆盖地图活动区 + 出生点）。怪物 Prefab：`Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（有 Art 则 §15.2 `Visual` 组装；否则临时立方体；Catalog 绑定）。`MonsterAgentView`（`NavMeshAgent`）按 `TargetSelect` 选目的地（本片士兵位可作为 PreferWarrior/Nearest 候选；无士兵则回退主角），按 `TargetRetargetIntervalSeconds` 重寻路；进 `AttackRange` 后按 `AttackSpeed` 普攻 → `Shield -= 1`（忽略 AttackPower）。`Shield ≤ 0` → `DefendPhase.Ended` + LevelFailure 钩子（打日志；完整关卡中止见 D-043）。士兵普攻 / 清场胜利 **不做**。禁止运行时引用 `SmallScaleInt/`。
 
@@ -205,7 +207,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Status: Aligned with SPEC_03 §3.8 (Meta shell + Level-pipeline vertical slice)**
 
-**In scope (D-001–D-043):** 3 fixed slots with local occupied flag + minimal pipeline fields; InSaveShell default Dig placeholder + floating Tools; sample Level start from shell (D-003/D-010); CSV-only LevelOperation drive Dig→UM→Defend; Dig / UM / Defend verticals per §3.8 (temp art OK); UM stage `GameplayConfigId` **ignored** (§9.1); Defend Demo-min spawn + NavMesh.
+**In scope (D-001–D-044):** 3 fixed slots with local occupied flag + minimal pipeline fields; InSaveShell default Dig placeholder + floating Tools; sample Level start from shell (D-003/D-010); CSV-only LevelOperation drive Dig→UM→Defend; Dig / UM / Defend verticals per §3.8 (temp art OK); UM stage `GameplayConfigId` **ignored** (§9.1); Defend ModeSelect gate (D-044); Defend Demo-min spawn + NavMesh.
 
 **Out of scope:** Full skill casts / effect tables; formal art polish; exact OutsideMap geometry; full save schema; concrete TechTree node values/icon polish & full feature-system enum; future Tools entries; bake full §9 column/type validation (Demo: filename + header only); anything not in §3.8.
 
@@ -215,7 +217,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Level driver (Approach A, D-010):** `ConfigCsvRepository` reads CSV only (paths: [§14.5](#145-runtime-csv-load-paths-demo)); `LevelOperationDriver` loads rows by `LevelId`, runs ascending `StageNumber`; sets `GameplayState` and calls `IStageModule` enter/leave hooks (Dig / UM / Defend below; warrior combat and win/lose still later). When `GameplayType=UpgradeManufacture`, **ignore** `GameplayConfigId` (no Dig/Defend lookup). Dig/Defend rows validate `DigMapId` / `BattleMapId` ∈ `Ground_01`…`Ground_05` and resolve `Assets/Prefabs/Maps/{Id}.prefab`. UI/log must show LevelId, StageNumber, GameplayType.
 
-**Dig vertical (Approach A, D-020):** `DigStageModule` (`IStageModule`) on Enter instantiates `Assets/Prefabs/Maps/{DigMapId}.prefab` and mounts `DigStageRoot` (`Assets/Prefabs/Dig/`). Rules: pure-C# `DigSessionService` owns effective-duration countdown, initial/process spawn, DigAction dwell + busy lock, damage, Warehouse/Spirit credit, stage reward aggregate; `DigProtagonistCapabilities` injected from **TechTree** recalc (see UI-012). Presentation: `DigPrefabCatalog` binds Digger / `Grave_{QualityId}` / map variants / `UiDigCursorRing`; circle cursor (Prefab dual-layer, fixed-pixel stroke), grave HP styles, DigReward fly-to, DigStageSummary via Views. Duration 0 → cancel in-progress DigAction (no damage) → DigStageSummary confirm → `LevelOperationDriver.TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
+**Dig vertical (Approach A, D-020):** `DigStageModule` (`IStageModule`) on Enter instantiates `Assets/Prefabs/Maps/{DigMapId}.prefab` and mounts `DigStageRoot` (`Assets/Prefabs/Dig/`). Rules: pure-C# `DigSessionService` owns effective-duration countdown, initial/process spawn, DigAction dwell + busy lock, damage, Warehouse/Spirit credit, stage reward aggregate; `DigProtagonistCapabilities` injected from **TechTree** recalc (see UI-012). DigAction candidates: cursor circle ∩ grave `DigHitShape` local-XZ convex hull (world-transformed; broadphase `BoundingRadius`); no hull → fall back to obstacle circle. Presentation: `DigPrefabCatalog` binds Digger / `Grave_{QualityId}` / map variants / `UiDigCursorRing`; circle cursor (Prefab dual-layer, fixed-pixel stroke), grave HP styles, DigReward fly-to, DigStageSummary via Views. Duration 0 → cancel in-progress DigAction (no damage) → DigStageSummary confirm → `LevelOperationDriver.TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`; rules must not read Sprite/pixels.
 
 **TechTree canvas (Approach A, UI-012 optional):** `ConfigCsvRepository` additionally loads `Tech_TechTreeConfig.csv` / `Tech_TechEffectConfig.csv`. Rules: pure-C# `TechTreeService` (save-scoped on Meta shell) holds learned set + `UnlockedFeatureSystems`; on enter-save/`Reset`, auto-learns `InitiallyUnlocked` and applies effects; learn gate = not learned ∧ TechPoint≥LearnCost ∧ ≥1 learned prerequisite (inverse of `UnlockNextTechIds`); on learn spend → mark → parse additive `AttributeModifiers` → write `DigProtagonistCapabilities` (Demo keeps `DiggableQualityIds` = all grave qualities for Dig hand-check). Presentation: temp `Assets/Prefabs/Meta/TechTreeCanvasRoot.prefab` (node positions on Prefab; uGUI LMB-drag pan; hover name+effect desc; edges from forward ids; three-state frame colors); Tools Settings opens canvas; Debug can inject TechPoints. Do not runtime-reference `SmallScaleInt/`.
 
@@ -225,7 +227,9 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM formation panel (Approach A→drag editor, D-032):** Pure-C# `BattleFormationService` (save-scoped) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap`. Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle). UM main = full-screen manufacture + Formation right of Complete; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared with Defend Prepare. Do not runtime-reference `SmallScaleInt/`.
 
-**Defend Prepare / StartBattle / Shield (Approach A→shared editor, D-040):** `DefendStageModule` still instantiates `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`; Prepare hosts same `FormationEditorRoot` UI on that map (no second map); StartBattle ≥1 → destroy preview then formal deploy; Shield/countdown unchanged. Do not runtime-reference `SmallScaleInt/`.
+**Battle ModeSelect (Approach A, D-044):** `DefendStageModule` Enter first instantiates `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab` (or runtime-equivalent UI); `DefendPhase=ModeSelect`; Mode1「保卫战」lists all `DefendGameplayConfig`; LevelOperation `GameplayConfigId` = Recommended default highlight; on confirm overwrite `LevelStageContext.DefendConfig` then enter existing Prepare. Mode2「推图战」entry stub (confirm disabled / Toast). Do not runtime-reference `SmallScaleInt/`.
+
+**Defend Prepare / StartBattle / Shield (Approach A→shared editor, D-040):** After ModeSelect confirms Mode1, `DefendStageModule` instantiates `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`; Prepare hosts same `FormationEditorRoot` UI on that map (no second map); StartBattle ≥1 → destroy preview then formal deploy; Shield/countdown unchanged. Do not runtime-reference `SmallScaleInt/`.
 
 **Defend spawn + path (Approach A, D-041):** `ConfigCsvRepository` additionally loads `Defend_WaveSpawnConfig.csv` / `Defend_MonsterConfig.csv`. On StartBattle, `DefendSessionService` loads rows for `WaveConfigId`; in `Combat`, whenever `RemainingCombatSeconds` becomes a whole second (including StartBattle instant), fires unfired rows with matching `SpawnRemainingSeconds` (`SpawnOrder` ascending within the same second) via events to View. Demo-min spawn: fixed `DefendSpawnPointSet` on map Prefab (`ClockDirection`→clock markers; `RegionRandom`→pool pick; Inside/Outside both use fixed points this slice; exact OutsideMap **deferred**). After map instantiate, runtime-bake a minimal walkable NavMesh covering activity area + spawn points. Monster Prefabs: `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (§15.2 `Visual` when Art ready; else temp cubes; Catalog-bound). `MonsterAgentView` (`NavMeshAgent`) picks destination by `TargetSelect` (warrior transforms are PreferWarrior/Nearest candidates; fall back to protagonist), repaths on `TargetRetargetIntervalSeconds`; when in `AttackRange`, normal-attacks at `AttackSpeed` → `Shield -= 1` (ignore AttackPower). `Shield ≤ 0` → `DefendPhase.Ended` + LevelFailure hook (log; full Level abort in D-043). Soldier attacks / clear-spawn victory **out of scope**. Do not runtime-reference `SmallScaleInt/`.
 
@@ -263,7 +267,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 ---
 
-## 9. 配置表（关卡运作 / 挖坟 / 坟墓品质 / 材料 / 货币 / 挖坟能力 / 防守 / 刷怪波次 / 怪物 / 主角升级 / 灵魂 / 宝石 / 种族 / 制造部件 / 躯体外观 / 科技树 / 失控 / 技能骨架）
+## 9. 配置表（关卡运作 / 挖坟 / 坟墓品质 / 材料 / 货币 / 挖坟能力 / 防守 / 刷怪波次 / 怪物 / 主角升级 / 灵魂 / 宝石 / 种族 / 制造部件 / 躯体外观 / 科技树 / 失控 / 技能骨架 / 推图战）
 
 ### 简体中文
 
@@ -294,15 +298,15 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 |-----------|------|------------|------|
 | LevelId | 关卡ID | `string` 或 `int` | 同 ID 多行 = 该关全部阶段 |
 | StageNumber | 阶段编号 | `int` | 同关卡内升序执行；建议同关卡内唯一 |
-| GameplayType | 玩法类型 | `enum` / `string` | 如 `Dig` / `UpgradeManufacture` / `Defend` |
-| GameplayConfigId | 玩法配置ID | `string` 或 `int` | **Dig** → `DigGameplayConfig` 主键；**Defend** → `DefendGameplayConfig` 主键；**UpgradeManufacture** → **忽略**（可不空；运行时**不**查表、**不**解析为 Dig/Defend 行；本阶段读全局表如 `ProtagonistLevelConfig` 等）。**不另开** `UpgradeManufactureGameplayConfig`（见 [SPEC_03 §3.9](SPEC_03_GameRules.md)） |
+| GameplayType | 玩法类型 | `enum` / `string` | 如 `Dig` / `UpgradeManufacture` / `Defend` / `PushMap` |
+| GameplayConfigId | 玩法配置ID | `string` 或 `int` | **Dig** → `DigGameplayConfig` 主键；**Defend** → **RecommendedConfigId**（ModeSelect 默认高亮；见 [SPEC_03 §3.12](SPEC_03_GameRules.md) D-044）；**PushMap** → `PushMapGameplayConfig` 主键；**UpgradeManufacture** → **忽略**（可不空；运行时**不**查表、**不**解析为 Dig/Defend/PushMap 行；本阶段读全局表如 `ProtagonistLevelConfig` 等）。**不另开** `UpgradeManufactureGameplayConfig`（见 [SPEC_03 §3.9](SPEC_03_GameRules.md)） |
 
 ```
 LevelOperationConfig {
   LevelId: Id
   StageNumber: int
-  GameplayType: Dig | UpgradeManufacture | Defend | ...
-  GameplayConfigId: Id   // ignored when GameplayType = UpgradeManufacture
+  GameplayType: Dig | UpgradeManufacture | Defend | PushMap | ...
+  GameplayConfigId: Id   // ignored when GameplayType = UpgradeManufacture; PushMap → PushMapGameplayConfig
 }
 ```
 
@@ -351,7 +355,7 @@ DigGameplayConfig {
 
 **落点：** 在 DigMap 整体可放置区域内采样；须避开 `DigObstacle`（Digger + 未消除 Grave）的圆形障碍半径（半径在对应 Prefab 上配置）。单次生成采样失败最多重试 **32** 次，仍失败则放弃该次生成。
 
-**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下 Digger 与各品质 Grave 预制体暴露圆形障碍半径；每种 `QualityId` 对应专属 Grave Prefab。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
+**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下 Digger 与各品质 Grave 预制体暴露圆形障碍半径（`DigObstacleRadius`）；每种 `QualityId` 对应专属 Grave Prefab。Grave 根另挂 `DigHitShape`：本地 XZ 凸包顶点（≤12）+ `BoundingRadius`，由 Editor 菜单 `Gravedigger2026/Dig/Bake All Grave Hit Shapes` 离线烘焙（优先 `Sprite.GetPhysicsShape`，否则 alpha 扫边 → 凸包 → 简化）；换图后须重烘焙。规则层只读烘焙顶点，禁止运行时读 Sprite/像素。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
 
 #### 9.3 坟墓品质定义表 `GraveQualityConfig`
 
@@ -1024,6 +1028,8 @@ WaveSpawnConfig {
 | DisplayName | 怪物名称 | `string` | 展示名或本地化 Key（若启用 i18n） |
 | TargetSelect | 目标选择 | `enum` / `string` | `Nearest` \| `PreferWarrior` \| `PreferProtagonist`（与 `SoulConfig.AttackPriority` 同枚举） |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged` |
+| AggroMode | 仇恨模式 | `enum` / `string` | `ActiveChase` \| `PassiveChase` \| `StationaryActive` \| `StationaryPassive`；见 [SPEC_03 §3.14](SPEC_03_GameRules.md)；Defend 可缺省 `ActiveChase` |
+| AlertRadius | 警戒半径 | `float` | ≥ 0；主动发现半径；缺省可 = AttackRange |
 | MaxHP | 怪物血量 | `int` 或 `float` | 生成时初始化怪物 maxHP / 当前 HP |
 | MoveSpeed | 怪物移动速度 | `float` | 世界单位/秒或项目统一速度单位 |
 | AttackPower | 怪物攻击力 | `int` 或 `float` | **仅**攻击士兵时用于伤害结算；对主角普通攻击不用本字段 |
@@ -1052,6 +1058,8 @@ MonsterConfig {
   DisplayName: string
   TargetSelect: Nearest | PreferWarrior | PreferProtagonist
   AttackMode: Melee | Ranged
+  AggroMode: ActiveChase | PassiveChase | StationaryActive | StationaryPassive
+  AlertRadius: number              // default may = AttackRange
   MaxHP: number
   MoveSpeed: number
   AttackPower: number              // soldiers only
@@ -1116,11 +1124,78 @@ SkillConfig {
 
 **说明：** 当士兵 `ΣSkillBonus ≠ 0` 时，每次释放技能额外用完整 `FinalLossChance` 再判定一次（§3.11）。技能效果、等级成长等其余列 **另专题**（文件名不变）。
 
+
+#### 9.22 推图战配置表 `PushMapGameplayConfig`
+
+规则语义：[SPEC_03 §3.14](SPEC_03_GameRules.md)。一行 = 一个推图战关卡配置。
+
+**磁盘名：**
+- **Excel：** `推图战_推图战配置表_PushMap_PushMapGameplayConfig.xlsx`
+- **CSV：** `PushMap_PushMapGameplayConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| GameplayConfigId | 玩法配置ID | `string` 或 `int` | 主键；被 `LevelOperationConfig` / ModeSelect 引用 |
+| MapId | 地图编号 | `string` | Prefab 逻辑名；合法值 **`Ground_01`…`Ground_05`** 或 **`PushMap_*`**；解析 → `Assets/Prefabs/Maps/{MapId}.prefab`；**≠** LevelId |
+| DisplayName | 关卡显示名 | `string` | 展示名或本地化 Key |
+| StageExpReward | 阶段经验奖励 | `int` | BOSS 通关入账 `LifetimeExperience` 的数值；Demo 可固定 |
+| CaptureLoot | 占领默认掉落 | 见编码 | 可选；各目标点占领时发放（若目标点无独立覆盖）；编码同 Dig `LootDrop`：`Id_Count\|…` |
+| DungeonUnlockIds | 副本解锁ID列表 | 见编码 | 通关或占领写入存档钩子；段分隔 `\|`；空=无；**副本玩法 TBD** |
+| CaptureSeconds | 占领所需秒 | `float` | 缺省 **5**；判定圈连续无怪秒数 |
+| Notes | 备注 | `string` | 可选 |
+
+```
+PushMapGameplayConfig {
+  GameplayConfigId: Id
+  MapId: Ground_01 | PushMap_*   // Prefabs/Maps/{MapId}.prefab
+  DisplayName: string
+  StageExpReward: int
+  CaptureLoot: "Id_Count|Id_Count|..."
+  DungeonUnlockIds: "DungeonId|DungeonId|..."
+  CaptureSeconds: number         // default 5
+}
+```
+
+**地图 Prefab 标记契约（与 §13 配套）：** 根或子节点须可挂 `ObjectivePoint`（`ObjectiveOrder` + `CaptureZone` 半径默认 2）、`AirWall`（可 Y 旋转 45°）、`SpawnPoint`（`SpawnPointId`）、`TrapZone`（`TrapZoneId`）、`BossPoint`、`EngageZone`、`WalkSurface`。
+
+#### 9.23 推图战刷怪配置表 `PushMapSpawnConfig`
+
+规则语义：[SPEC_03 §3.14](SPEC_03_GameRules.md)。一行 = 某关卡某刷怪点的一次刷怪定义；同点可多行（多种怪物）。
+
+**磁盘名：**
+- **Excel：** `推图战_刷怪配置表_PushMap_PushMapSpawnConfig.xlsx`
+- **CSV：** `PushMap_PushMapSpawnConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| GameplayConfigId | 玩法配置ID | `string` 或 `int` | FK → `PushMapGameplayConfig` |
+| SpawnPointId | 刷怪点编号 | `string` 或 `int` | 与地图 Prefab `SpawnPoint` 标记匹配 |
+| MonsterId | 怪物ID | `string` 或 `int` | FK → `MonsterConfig` |
+| SpawnCount | 数量 | `int` | ≥ 1 |
+| LinkedObjectiveOrder | 关联目标点序号 | `int` | 可选；该目标占领后本行停刷；空/0=开战即符合「未占领」语义的全局点 |
+| TrapZoneId | 陷阱区域编号 | `string` 或 `int` | 可选；空=无陷阱，开战且关联目标未占领时刷；非空=忠诚士兵进入该陷阱才刷 |
+| IsBoss | 是否BOSS | `bool` / `0\|1` | 1=该刷怪为 BossPoint 通关目标（须与地图 BossPoint 一致） |
+| SpawnOrder | 同点出怪顺序 | `int` | 同 SpawnPointId 多行时升序 |
+
+```
+PushMapSpawnConfig {
+  GameplayConfigId: Id
+  SpawnPointId: Id
+  MonsterId: Id
+  SpawnCount: int
+  LinkedObjectiveOrder: int      // 0 = global / start-eligible
+  TrapZoneId: Id | ""            // empty = non-trap StartBattle spawn
+  IsBoss: 0 | 1
+  SpawnOrder: int
+}
+```
+
+
 ### English
 
 **Status: Fields and encodings defined; config carrier closed** — table-driven data uses **Excel source + CSV output** (paths / naming / bake: [§14](#14-配置表工程约定与打表工具)). Non-table singleton tunables may still use ScriptableObject under `Assets/Settings/<Module>/` ([§13](#13-资源编排与可扩展性)).
 
-Rules authority: [SPEC_03 §3.9](SPEC_03_GameRules.md), [§3.10](SPEC_03_GameRules.md), [§3.11](SPEC_03_GameRules.md), [§3.12](SPEC_03_GameRules.md), [§3.13](SPEC_03_GameRules.md).
+Rules authority: [SPEC_03 §3.9](SPEC_03_GameRules.md), [§3.10](SPEC_03_GameRules.md), [§3.11](SPEC_03_GameRules.md), [§3.12](SPEC_03_GameRules.md), [§3.13](SPEC_03_GameRules.md), [§3.14](SPEC_03_GameRules.md).
 
 Logical short names (e.g. `DigGameplayConfig`) are for SPEC / pseudocode / type ids; **on-disk filenames** — see each subsection’s **Disk name** lines and [§14](#14-配置表工程约定与打表工具) (Excel: `{SystemZH}_{TableZH}_{SystemEN}_{TableEN}`; CSV: `{SystemEN}_{TableEN}`).
 
@@ -1145,8 +1220,8 @@ All config **Weight** values follow:
 |------------|-----|---------------|-------|
 | LevelId | 关卡ID | `string` or `int` | Multiple rows per Level |
 | StageNumber | 阶段编号 | `int` | Ascending within Level; unique per Level recommended |
-| GameplayType | 玩法类型 | `enum` / `string` | e.g. `Dig` / `UpgradeManufacture` / `Defend` |
-| GameplayConfigId | 玩法配置ID | `string` or `int` | **Dig** → `DigGameplayConfig` PK; **Defend** → `DefendGameplayConfig` PK; **UpgradeManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config / Dig/Defend rows; stage reads global tables such as `ProtagonistLevelConfig`). **No** separate `UpgradeManufactureGameplayConfig` (see [SPEC_03 §3.9](SPEC_03_GameRules.md)) |
+| GameplayType | 玩法类型 | `enum` / `string` | e.g. `Dig` / `UpgradeManufacture` / `Defend` / `PushMap` |
+| GameplayConfigId | 玩法配置ID | `string` or `int` | **Dig** → `DigGameplayConfig` PK; **Defend** → **RecommendedConfigId** (ModeSelect default highlight; UM next-battle map preview; combat config = player pick — [SPEC_03 §3.12](SPEC_03_GameRules.md) D-044); **UpgradeManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config / Dig/Defend rows; stage reads global tables such as `ProtagonistLevelConfig`). **No** separate `UpgradeManufactureGameplayConfig` (see [SPEC_03 §3.9](SPEC_03_GameRules.md)) |
 
 #### 9.2 DigGameplayConfig
 
@@ -1171,7 +1246,7 @@ All config **Weight** values follow:
 
 **Placement:** sample DigMap continuous placeable space; avoid `DigObstacle` circles (Digger + uncleared Graves; radii on Prefabs). Retry up to **32** times per spawn; then abandon that spawn.
 
-**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, Digger and per-quality Grave Prefabs expose circle obstacle radius; one Grave Prefab per `QualityId`. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
+**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, Digger and per-quality Grave Prefabs expose circle obstacle radius (`DigObstacleRadius`); one Grave Prefab per `QualityId`. Grave roots also carry `DigHitShape`: local XZ convex hull (≤12 verts) + `BoundingRadius`, offline-baked via Editor menu `Gravedigger2026/Dig/Bake All Grave Hit Shapes` (prefer `Sprite.GetPhysicsShape`, else alpha outline → hull → simplify); re-bake after art changes. Rules read baked verts only — no runtime Sprite/pixel reads. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
 
 #### 9.3 GraveQualityConfig
 
@@ -1806,6 +1881,8 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 | DisplayName | 怪物名称 | `string` | Display name or localization key (if i18n enabled) |
 | TargetSelect | 目标选择 | `enum` / `string` | `Nearest` \| `PreferWarrior` \| `PreferProtagonist` (same enum as `SoulConfig.AttackPriority`) |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged` |
+| AggroMode | 仇恨模式 | `enum` / `string` | `ActiveChase` \| `PassiveChase` \| `StationaryActive` \| `StationaryPassive`; see [SPEC_03 §3.14](SPEC_03_GameRules.md); Defend may default `ActiveChase` |
+| AlertRadius | 警戒半径 | `float` | ≥ 0; active detect radius; default may = AttackRange |
 | MaxHP | 怪物血量 | `int` or `float` | Init monster maxHP / current HP on spawn |
 | MoveSpeed | 怪物移动速度 | `float` | World units/sec or project-unified speed unit |
 | AttackPower | 怪物攻击力 | `int` or `float` | Used **only** when attacking soldiers; not used for normal attacks on protagonist |
@@ -1834,6 +1911,8 @@ MonsterConfig {
   DisplayName: string
   TargetSelect: Nearest | PreferWarrior | PreferProtagonist
   AttackMode: Melee | Ranged
+  AggroMode: ActiveChase | PassiveChase | StationaryActive | StationaryPassive
+  AlertRadius: number              // default may = AttackRange
   MaxHP: number
   MoveSpeed: number
   AttackPower: number              // soldiers only
@@ -1900,13 +1979,80 @@ SkillConfig {
 
 ---
 
+
+#### 9.22 PushMapGameplayConfig
+
+Rules: [SPEC_03 §3.14](SPEC_03_GameRules.md). One row = one PushMap level config.
+
+**Disk name:**
+- **Excel:** `推图战_推图战配置表_PushMap_PushMapGameplayConfig.xlsx`
+- **CSV:** `PushMap_PushMapGameplayConfig.csv`
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| GameplayConfigId | 玩法配置ID | `string` or `int` | PK; referenced by LevelOperation / ModeSelect |
+| MapId | 地图编号 | `string` | Prefab logical name; allowed **`Ground_01`…`Ground_05`** or **`PushMap_*`**; resolve → `Assets/Prefabs/Maps/{MapId}.prefab`; **≠** LevelId |
+| DisplayName | 关卡显示名 | `string` | Display or i18n key |
+| StageExpReward | 阶段经验奖励 | `int` | Exp credited on Boss clear; Demo may use fixed |
+| CaptureLoot | 占领默认掉落 | encoding | Optional; Dig-style `Id_Count\|…` |
+| DungeonUnlockIds | 副本解锁ID列表 | encoding | `\|`-separated; empty=none; dungeon gameplay **TBD** |
+| CaptureSeconds | 占领所需秒 | `float` | Default **5** |
+| Notes | 备注 | `string` | Optional |
+
+```
+PushMapGameplayConfig {
+  GameplayConfigId: Id
+  MapId: Ground_01 | PushMap_*
+  DisplayName: string
+  StageExpReward: int
+  CaptureLoot: "Id_Count|Id_Count|..."
+  DungeonUnlockIds: "DungeonId|..."
+  CaptureSeconds: number
+}
+```
+
+**Map Prefab marker contract:** `ObjectivePoint` (`ObjectiveOrder` + `CaptureZone` default radius 2), `AirWall` (Y rot 45°), `SpawnPoint`, `TrapZone`, `BossPoint`, `EngageZone`, `WalkSurface`.
+
+#### 9.23 PushMapSpawnConfig
+
+Rules: [SPEC_03 §3.14](SPEC_03_GameRules.md). One row = one spawn definition; multi-rows per SpawnPointId OK.
+
+**Disk name:**
+- **Excel:** `推图战_刷怪配置表_PushMap_PushMapSpawnConfig.xlsx`
+- **CSV:** `PushMap_PushMapSpawnConfig.csv`
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| GameplayConfigId | 玩法配置ID | `string` or `int` | FK → PushMapGameplayConfig |
+| SpawnPointId | 刷怪点编号 | `string` or `int` | Matches Prefab marker |
+| MonsterId | 怪物ID | `string` or `int` | FK → MonsterConfig |
+| SpawnCount | 数量 | `int` | ≥ 1 |
+| LinkedObjectiveOrder | 关联目标点序号 | `int` | Optional; stop spawn after Capture; 0=global |
+| TrapZoneId | 陷阱区域编号 | `string` or `int` | Empty=non-trap StartBattle; else trap-triggered |
+| IsBoss | 是否BOSS | `bool` / `0\|1` | 1=Boss clear target |
+| SpawnOrder | 同点出怪顺序 | `int` | Ascending within same SpawnPointId |
+
+```
+PushMapSpawnConfig {
+  GameplayConfigId: Id
+  SpawnPointId: Id
+  MonsterId: Id
+  SpawnCount: int
+  LinkedObjectiveOrder: int
+  TrapZoneId: Id | ""
+  IsBoss: 0 | 1
+  SpawnOrder: int
+}
+```
+
+
 ## 13. 资源编排与可扩展性
 
 ### 简体中文
 
 **原则（强制倾向）：预制体优先（Prefab-first）。** 实际代码与场景开发中，凡会以 GameObject 层级出现的玩法实体、可复用 UI、可生成物、可摆放交互物，**默认用 Prefab + 挂载 Controller** 制作与引用，放在 `Assets/Prefabs/<模块>/`。优先在编辑器中拼装 Prefab，再由代码 `Instantiate` / 引用槽位驱动；**避免**在代码里动态 `new GameObject` 拼层级，或在多个 Scene 中手工复制同一套层级。
 
-**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
+**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。PushMap `MapId` 亦可为 `PushMap_*`，同目录解析；PushMap 地图 Prefab 另须支持标记：`ObjectivePoint`/`CaptureZone`/`AirWall`（可 45°）/`SpawnPoint`/`TrapZone`/`BossPoint`（见 §9.22 / [SPEC_03 §3.14](SPEC_03_GameRules.md)）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
 
 **可不做成 Prefab 的例外：** Scene 唯一常驻 Manager / 引导用一次性布局；纯逻辑无表现的 Service（非 MonoBehaviour 或仅场景单例入口）。
 
@@ -1981,6 +2127,7 @@ Gravedigger2026/Assets/ConfigTables/
 | `Level` | 关卡 | `Level_LevelOperationConfig` |
 | `Dig` | 挖坟 | `Dig_DigGameplayConfig`、`Dig_GraveQualityConfig`、`Dig_MaterialConfig`、`Dig_CurrencyConfig` |
 | `Defend` | 防守 | `Defend_DefendGameplayConfig`、`Defend_WaveSpawnConfig`、`Defend_MonsterConfig` |
+| `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`、`PushMap_PushMapSpawnConfig` |
 | `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`、`Manufacture_SoulConfig`、`Manufacture_ClassConfig`、`Manufacture_GemConfig`、`Manufacture_RaceConfig`、`Manufacture_BodyPartConfig`、`Manufacture_BodyAppearanceConfig`、`Manufacture_ExtraEquipmentConfig`、`Manufacture_GemSuffixNameConfig` |
 | `Tech` | 科技 | `Tech_TechTreeConfig`、`Tech_TechEffectConfig` |
 | `Combat` | 战斗 | `Combat_LossOfControlConfig`、`Combat_SkillConfig` |
@@ -2054,6 +2201,8 @@ Gravedigger2026/Assets/ConfigTables/
 | `Level` | 关卡 | `Level_LevelOperationConfig` |
 | `Dig` | 挖坟 | `Dig_DigGameplayConfig`, `Dig_GraveQualityConfig`, `Dig_MaterialConfig`, `Dig_CurrencyConfig` |
 | `Defend` | 防守 | `Defend_DefendGameplayConfig`, `Defend_WaveSpawnConfig`, `Defend_MonsterConfig` |
+| `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`, `PushMap_PushMapSpawnConfig` |
+| `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`, `PushMap_PushMapSpawnConfig` |
 | `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`, `Manufacture_SoulConfig`, `Manufacture_ClassConfig`, `Manufacture_GemConfig`, `Manufacture_RaceConfig`, `Manufacture_BodyPartConfig`, `Manufacture_BodyAppearanceConfig`, `Manufacture_ExtraEquipmentConfig`, `Manufacture_GemSuffixNameConfig` |
 | `Tech` | 科技 | `Tech_TechTreeConfig`, `Tech_TechEffectConfig` |
 | `Combat` | 战斗 | `Combat_LossOfControlConfig`, `Combat_SkillConfig` |

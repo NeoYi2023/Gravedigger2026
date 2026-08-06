@@ -228,23 +228,27 @@ namespace Gravedigger2026.Core.Level
                     return true;
 
                 case GameplayState.Defend:
-                    if (!_configs.TryGetDefend(row.GameplayConfigId, out var defend))
+                    // GameplayConfigId = Recommended only (ModeSelect picks actual config — D-044).
+                    if (!string.IsNullOrEmpty(row.GameplayConfigId)
+                        && _configs.TryGetDefend(row.GameplayConfigId, out var recommended))
                     {
-                        error = $"DefendGameplayConfig '{row.GameplayConfigId}' not found.";
-                        return false;
+                        context.DefendConfig = recommended;
+                        context.ResolvedMapId = recommended.BattleMapId;
+                        if (MapPrefabPaths.TryResolveAssetPath(
+                                recommended.BattleMapId, out var battlePath, out _))
+                        {
+                            context.ResolvedMapPrefabPath = battlePath;
+                        }
+
+                        context.MapResolveNote =
+                            $"ModeSelect pending; Recommended={row.GameplayConfigId} Map={recommended.BattleMapId}.";
+                    }
+                    else
+                    {
+                        context.MapResolveNote =
+                            $"ModeSelect pending; Recommended '{row.GameplayConfigId}' missing or empty.";
                     }
 
-                    context.DefendConfig = defend;
-                    context.ResolvedMapId = defend.BattleMapId;
-                    if (!MapPrefabPaths.TryResolveAssetPath(defend.BattleMapId, out var battlePath, out var battleErr))
-                    {
-                        error = battleErr;
-                        return false;
-                    }
-
-                    context.ResolvedMapPrefabPath = battlePath;
-                    context.MapResolveNote =
-                        $"BattleMapId={defend.BattleMapId} → {battlePath} (Instantiate by DefendStageModule).";
                     return true;
 
                 default:

@@ -29,12 +29,14 @@ namespace Gravedigger2026.Gameplay.Defend
             public GameObject Prefab;
         }
         [SerializeField] private GameObject _defendStageRootPrefab;
+        [SerializeField] private GameObject _battleModeSelectRootPrefab;
         [SerializeField] private GameObject _battleProtagonistPrefab;
         [SerializeField] private GameObject _projectilePrefab;
         [SerializeField] private List<MapEntry> _maps = new List<MapEntry>();
         [SerializeField] private List<WarriorAppearanceEntry> _warriorAppearances = new List<WarriorAppearanceEntry>();
         [SerializeField] private List<MonsterModelEntry> _monsterModels = new List<MonsterModelEntry>();
         public GameObject DefendStageRootPrefab => _defendStageRootPrefab;
+        public GameObject BattleModeSelectRootPrefab => _battleModeSelectRootPrefab;
         public GameObject BattleProtagonistPrefab => _battleProtagonistPrefab;
         public GameObject ProjectilePrefab => _projectilePrefab;
         public bool TryGetMap(string mapId, out GameObject prefab)
@@ -94,6 +96,7 @@ namespace Gravedigger2026.Gameplay.Defend
 #if UNITY_EDITOR
         public void EditorSet(
             GameObject stageRoot,
+            GameObject battleModeSelectRoot,
             GameObject battleProtagonist,
             GameObject projectile,
             List<MapEntry> maps,
@@ -101,6 +104,7 @@ namespace Gravedigger2026.Gameplay.Defend
             List<MonsterModelEntry> monsterModels)
         {
             _defendStageRootPrefab = stageRoot;
+            _battleModeSelectRootPrefab = battleModeSelectRoot;
             _battleProtagonistPrefab = battleProtagonist;
             _projectilePrefab = projectile;
             _maps = maps ?? new List<MapEntry>();

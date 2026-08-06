@@ -28,6 +28,7 @@ namespace Gravedigger2026.Editor.Defend
         private const string SettingsDefendDir = "Assets/Settings/Defend";
         private const string CatalogPath = SettingsDefendDir + "/DefendPrefabCatalog.asset";
         private const string StageRootPath = PrefabDefendDir + "/DefendStageRoot.prefab";
+        private const string BattleModeSelectRootPath = PrefabDefendDir + "/BattleModeSelectRoot.prefab";
         private const string BattleProtagonistPath = PrefabDefendDir + "/BattleProtagonist.prefab";
         private const string ProjectilePath = PrefabDefendDir + "/Projectile.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
@@ -101,6 +102,11 @@ namespace Gravedigger2026.Editor.Defend
             UnityEngine.Object.DestroyImmediate(stageGo);
             var stagePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath);
 
+            var modeSelectGo = BuildBattleModeSelectRoot();
+            PrefabUtility.SaveAsPrefabAsset(modeSelectGo, BattleModeSelectRootPath);
+            UnityEngine.Object.DestroyImmediate(modeSelectGo);
+            var modeSelectPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BattleModeSelectRootPath);
+
             var mapEntries = new List<DefendPrefabCatalog.MapEntry>();
             for (var i = 0; i < MapIds.Length; i++)
             {
@@ -126,7 +132,14 @@ namespace Gravedigger2026.Editor.Defend
                 AssetDatabase.CreateAsset(catalog, CatalogPath);
             }
 
-            catalog.EditorSet(stagePrefab, battlePrefab, projectilePrefab, mapEntries, warriorEntries, monsterEntries);
+            catalog.EditorSet(
+                stagePrefab,
+                modeSelectPrefab,
+                battlePrefab,
+                projectilePrefab,
+                mapEntries,
+                warriorEntries,
+                monsterEntries);
             EditorUtility.SetDirty(catalog);
 
             var stageContents = PrefabUtility.LoadPrefabContents(StageRootPath);
@@ -363,6 +376,76 @@ namespace Gravedigger2026.Editor.Defend
             }
 
             root.AddComponent<ProjectileView>();
+            return root;
+        }
+
+        private static GameObject BuildBattleModeSelectRoot()
+        {
+            var root = new GameObject("BattleModeSelectRoot");
+            var view = root.AddComponent<BattleModeSelectView>();
+
+            var canvasGo = new GameObject(
+                "BattleModeSelectCanvas",
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+            canvasGo.transform.SetParent(root.transform, false);
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 80;
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+
+            var panel = CreateUiPanel(canvasGo.transform, "Panel", new Color(0.06f, 0.07f, 0.1f, 0.94f));
+            Stretch(panel.GetComponent<RectTransform>());
+
+            var title = CreateUiText(panel.transform, "Title", "选择战斗模式与关卡", 32, TextAnchor.UpperCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -36f), new Vector2(900f, 48f));
+
+            var defendMode = CreateUiButton(panel.transform, "DefendModeButton", "模式1 保卫战",
+                new Color(0.45f, 0.32f, 0.18f, 1f));
+            Place(defendMode.GetComponent<RectTransform>(), new Vector2(0.32f, 0.82f), new Vector2(0.32f, 0.82f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 56f));
+
+            var pushMapMode = CreateUiButton(panel.transform, "PushMapModeButton", "模式2 推图战",
+                new Color(0.22f, 0.24f, 0.28f, 1f));
+            Place(pushMapMode.GetComponent<RectTransform>(), new Vector2(0.68f, 0.82f), new Vector2(0.68f, 0.82f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(280f, 56f));
+
+            var listHost = CreateUiPanel(panel.transform, "LevelListHost", new Color(0.1f, 0.12f, 0.15f, 0.95f));
+            StretchFill(listHost.GetComponent<RectTransform>(), new Vector2(0.12f, 0.22f), new Vector2(0.88f, 0.74f), 0f);
+
+            var content = CreateListColumn(listHost.transform, "LevelContent",
+                new Vector2(0.02f, 0.02f), new Vector2(0.98f, 0.98f));
+            var rowTemplateButton = CreateRowTemplate(content, "LevelRowTemplate");
+            var rowLe = rowTemplateButton.GetComponent<LayoutElement>();
+            if (rowLe != null)
+            {
+                rowLe.preferredHeight = 48f;
+                rowLe.minHeight = 48f;
+            }
+
+            var confirm = CreateUiButton(panel.transform, "ConfirmButton", "进入保卫战",
+                new Color(0.55f, 0.32f, 0.22f, 1f));
+            Place(confirm.GetComponent<RectTransform>(), new Vector2(0.5f, 0.1f), new Vector2(0.5f, 0.1f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(320f, 60f));
+
+            var status = CreateUiText(panel.transform, "Status", string.Empty, 18, TextAnchor.LowerCenter);
+            Place(status.GetComponent<RectTransform>(), new Vector2(0.5f, 0.04f), new Vector2(0.5f, 0.04f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1000f, 36f));
+
+            view.EditorBind(
+                panel,
+                defendMode.GetComponent<Button>(),
+                pushMapMode.GetComponent<Button>(),
+                content,
+                rowTemplateButton.gameObject,
+                confirm.GetComponent<Button>(),
+                status,
+                title);
+
             return root;
         }
 

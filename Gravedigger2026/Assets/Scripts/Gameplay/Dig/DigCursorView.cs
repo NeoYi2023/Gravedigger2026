@@ -4,7 +4,7 @@ namespace Gravedigger2026.Gameplay.Dig
 {
     /// <summary>
     /// Dig circle cursor: screen-space Prefab ring (UiDigCursorRing) + optional world ring.
-    /// Hit radius is circular (DigSessionService); UI diameter tracks DigCursorRadius projection.
+    /// Hit test: DigSessionService circle ∩ DigHitShape hull; UI diameter tracks DigCursorRadius projection.
     /// </summary>
     public sealed class DigCursorView : MonoBehaviour
     {

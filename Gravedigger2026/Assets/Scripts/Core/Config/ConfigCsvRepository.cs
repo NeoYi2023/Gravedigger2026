@@ -144,6 +144,19 @@ namespace Gravedigger2026.Core.Config
             return _defendById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
         }
 
+        /// <summary>All DefendGameplayConfig rows (ModeSelect Mode1 list / D-044).</summary>
+        public IReadOnlyList<DefendGameplayConfigRow> GetAllDefendRows()
+        {
+            var list = new List<DefendGameplayConfigRow>(_defendById.Count);
+            foreach (var kv in _defendById)
+            {
+                list.Add(kv.Value);
+            }
+
+            list.Sort((a, b) => string.CompareOrdinal(a.GameplayConfigId, b.GameplayConfigId));
+            return list;
+        }
+
         public List<WaveSpawnConfigRow> GetWaveSpawnRows(string waveConfigId)
         {
             var result = new List<WaveSpawnConfigRow>();

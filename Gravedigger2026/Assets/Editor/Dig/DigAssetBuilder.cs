@@ -115,6 +115,8 @@ namespace Gravedigger2026.Editor.Dig
                 });
             }
 
+            DigHitShapeBaker.BakeAllGraves();
+
             var rewardGo = BuildRewardFlyer();
             PrefabUtility.SaveAsPrefabAsset(rewardGo, RewardPath);
             Object.DestroyImmediate(rewardGo);
@@ -238,6 +240,8 @@ namespace Gravedigger2026.Editor.Dig
             var oso = new SerializedObject(obstacle);
             oso.FindProperty("_radius").floatValue = 0.55f;
             oso.ApplyModifiedPropertiesWithoutUndo();
+
+            root.AddComponent<DigHitShape>();
 
             var view = root.AddComponent<DigGraveView>();
             var vso = new SerializedObject(view);

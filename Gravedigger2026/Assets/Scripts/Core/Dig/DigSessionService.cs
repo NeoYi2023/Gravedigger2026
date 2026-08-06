@@ -320,6 +320,7 @@ namespace Gravedigger2026.Core.Dig
         {
             into.Clear();
             var radius = _caps.DigCursorRadius;
+            var cursorXZ = new Vector2(_cursorWorld.x, _cursorWorld.z);
 
             for (var i = 0; i < _graves.Count; i++)
             {
@@ -334,12 +335,32 @@ namespace Gravedigger2026.Core.Dig
                     continue;
                 }
 
-                var flat = g.WorldPosition;
-                flat.y = _cursorWorld.y;
-                if (Vector3.Distance(_cursorWorld, flat) <= radius)
+                var graveXZ = new Vector2(g.WorldPosition.x, g.WorldPosition.z);
+                var broadR = g.HasHitPolygon
+                    ? g.HitBoundingRadius
+                    : Mathf.Max(0.05f, g.ObstacleRadius);
+                var dx = cursorXZ.x - graveXZ.x;
+                var dz = cursorXZ.y - graveXZ.y;
+                var broad = radius + broadR;
+                if (dx * dx + dz * dz > broad * broad)
                 {
-                    into.Add(g);
+                    continue;
                 }
+
+                if (g.HasHitPolygon)
+                {
+                    if (!DigHitShapeMath.CircleIntersectsConvexPolygonLocal(
+                            cursorXZ, radius, g.HitLocalXZ, graveXZ))
+                    {
+                        continue;
+                    }
+                }
+                else if (!DigHitShapeMath.CircleIntersectsCircle(cursorXZ, radius, graveXZ, broadR))
+                {
+                    continue;
+                }
+
+                into.Add(g);
             }
         }
 
