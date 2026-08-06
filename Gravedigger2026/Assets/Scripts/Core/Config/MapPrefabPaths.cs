@@ -3,11 +3,13 @@ using System;
 namespace Gravedigger2026.Core.Config
 {
     /// <summary>
-    /// DigMapId / BattleMapId → Assets/Prefabs/Maps/{Id}.prefab (SPEC_04 §9.2 / §9.7 / §13).
+    /// DigMapId / BattleMapId / PushMap MapId → Assets/Prefabs/Maps/{Id}.prefab
+    /// (SPEC_04 §9.2 / §9.7 / §9.22 / §13). Allowed: Ground_01…05 or PushMap_* prefix.
     /// </summary>
     public static class MapPrefabPaths
     {
         public const string PrefabFolder = "Assets/Prefabs/Maps";
+        public const string PushMapIdPrefix = "PushMap_";
 
         private static readonly string[] AllowedIds =
         {
@@ -19,6 +21,11 @@ namespace Gravedigger2026.Core.Config
             if (string.IsNullOrEmpty(mapId))
             {
                 return false;
+            }
+
+            if (mapId.StartsWith(PushMapIdPrefix, StringComparison.Ordinal))
+            {
+                return true;
             }
 
             for (var i = 0; i < AllowedIds.Length; i++)
@@ -37,7 +44,7 @@ namespace Gravedigger2026.Core.Config
             assetPath = null;
             if (!IsAllowed(mapId))
             {
-                error = $"MapId '{mapId}' is not in Ground_01…Ground_05.";
+                error = $"MapId '{mapId}' is not Ground_01…Ground_05 or PushMap_*.";
                 return false;
             }
 

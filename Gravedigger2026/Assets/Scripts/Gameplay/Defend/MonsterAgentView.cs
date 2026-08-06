@@ -27,6 +27,32 @@ namespace Gravedigger2026.Gameplay.Defend
         public string RuntimeId => _runtimeId;
         public bool IsAlive => _alive;
 
+        private bool _probeOnly;
+
+        /// <summary>
+        /// PM-05 shim: presence-probe placeholder for PushMap (no DefendSessionService wired).
+        /// Update/Retarget stay inert; IsAlive is driven via SyncAliveFrom by the real agent view.
+        /// </summary>
+        public void BindProbeOnly()
+        {
+            _probeOnly = true;
+            _session = null;
+            _config = null;
+            _runtimeId = string.Empty;
+            _protagonist = null;
+            _warriorsProvider = null;
+            _alive = true;
+        }
+
+        /// <summary>Probe-shim liveness mirror (called by the owning PushMap agent view).</summary>
+        public void SyncAliveFrom(bool alive)
+        {
+            if (_probeOnly)
+            {
+                _alive = alive;
+            }
+        }
+
         public void Bind(
             DefendSessionService session,
             string runtimeId,
@@ -87,6 +113,11 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void Update()
         {
+            if (_probeOnly)
+            {
+                return; // presence shim for PushMap; Defend behaviour disabled
+            }
+
             if (!_alive || _session == null || !_session.IsActive || _session.Phase != DefendPhase.Combat
                 || _config == null)
             {
@@ -150,7 +181,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void Retarget()
         {
-            if (_agent == null || !_agent.isOnNavMesh || !_alive)
+            if (_probeOnly || _agent == null || !_agent.isOnNavMesh || !_alive)
             {
                 return;
             }

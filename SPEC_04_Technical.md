@@ -189,7 +189,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM 布阵区（方案 A→拖拽编辑器，D-032）：** 纯 C# `BattleFormationService`（存档级）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）。UM 主屏全屏制造 + Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend Prepare **共用**。禁止运行时引用 `SmallScaleInt/`。
 
-**战斗模式选关（方案 A，D-044）：** `DefendStageModule` Enter 先 Instantiate `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab`（或运行时等价 UI）；`DefendPhase=ModeSelect`；模式1「保卫战」列出全部 `DefendGameplayConfig`；运作表 `GameplayConfigId` 作 Recommended 默认高亮；确认后用所选行覆盖 `LevelStageContext.DefendConfig` 再进入现有 Prepare。模式2「推图战」入口占位（确认禁用/Toast）。禁止运行时引用 `SmallScaleInt/`。
+**战斗模式选关（方案 A，D-044）：** `DefendStageModule` Enter 先 Instantiate `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab`（或运行时等价 UI）；`DefendPhase=ModeSelect`；模式1「保卫战」列出全部 `DefendGameplayConfig`；运作表 `GameplayConfigId` 作 Recommended 默认高亮；确认后用所选行覆盖 `LevelStageContext.DefendConfig` 再进入现有 Prepare。模式2「推图战」列出全部 `PushMapGameplayConfig`；确认后调用 `LevelOperationDriver.TryHandoffModeSelectToPushMap(configId)`：`Exit` 当前 Defend 模块 → 保留 `LevelId`/`StageNumber` 改写 `GameplayType=PushMap` + `PushMapConfig` + 地图路径 → `SetState(PushMap)` → `PushMapStageModule.Enter` → `StageChanged`。禁止运行时引用 `SmallScaleInt/`。
 
 **Defend Prepare / 开战 / 护盾（方案 A→共享编辑器，D-040）：** `DefendStageModule` 在 ModeSelect 确认保卫战后 Instantiate `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`；Prepare 挂同一 `FormationEditorRoot` UI（复用本阶段地图，不双开地图）；开战 ≥1 → 销毁预览后按布阵正式部署；`Shield`/`CombatDurationSeconds` 逻辑不变。禁止运行时引用 `SmallScaleInt/`。
 
@@ -200,6 +200,18 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 **Defend 士兵远程弹道（方案 A，D-042 远程 / 05c2）：** 开战登记同时写入 `ClassConfig.RangedProjectileSpeed` / `RangedTimeoutSeconds`。`AttackMode=Ranged` 士兵与近战共用 EngageZone 最近选敌、`AttackSpeed` 周期与无目标时返回 `FormationHome`；进 `AttackRange` 后 Instantiate 临时 `Assets/Prefabs/Defend/Projectile.prefab`（Catalog 绑定）；开火时 `WarriorAnimView` 播普攻 Trigger。`ProjectileView` 运动学飞向锁定怪 RuntimeId：**距离 ≤ hitRadius** 视为碰撞命中 → Session `TryConfirmRangedHit` → 怪 `HP -= NormalAttackPower`；**超时**销毁且不扣血。法师/射手同远程通道（仅 `PrimaryStat` 不同）。禁止运行时引用 `SmallScaleInt/`。
 
 **Defend 失控开战 roll 与胜负结算（方案 A，D-043）：** `ConfigCsvRepository` 加载 `Combat_LossOfControlConfig.csv`。开战瞬间按布阵 `ΣCost/Cap−1` **锁定** Degree/Tier（超额不挡开战）；`Degree>0` 时对各上阵士兵用 `FinalLossChance=clamp(0,1,TierChance+RaceBonus+ΣGemBonus)`（Demo `ΣSkillBonus=0`）独立 roll → `IsRebel`（日志可观察）。Rebel **不受 EngageZone 限制**，就近打存活主角/其他士兵/敌人；对主角普攻 → `Shield-=1`；对兵/怪走士兵普攻通道。清场条件满足 → `DefendPhase.Ended` + PermanentDeath 最小结算（宝石回仓、清布阵、移出池）→ `ProtagonistProgressService.AddExperience(100)`（Demo 固定阶段经验）→ `LevelOperationDriver.TryAdvanceStage`。`Shield≤0` → Ended + 同 PermanentDeath 结算 → **不**入账本阶段经验 → `AbortLevelAsFailure`（无关卡胜利结算；已有资源保留）。禁止运行时引用 `SmallScaleInt/`。
+
+**PushMap 配置表加载（方案 A，PM-02）：** `ConfigCsvRepository` 追加加载 `PushMap_PushMapGameplayConfig.csv` / `PushMap_PushMapSpawnConfig.csv`；`Defend_MonsterConfig` 解析 `AggroMode` / `AlertRadius`（缺省见 §9.19）。样例至少 1 个 `GameplayConfigId` + 多 Spawn 行（无陷阱/陷阱/BOSS）。StageModule / AI / 占领逻辑 **后置**（PM-03+）。禁止运行时引用 `SmallScaleInt/`。
+
+**PushMap Stage 接线（方案 A，PM-03 + D-044 Mode2）：** `LevelOperationDriver.TryBuildContext` 支持 `GameplayType=PushMap`：`GameplayConfigId` → `PushMapGameplayConfig` 主键（直查），`LevelStageContext.PushMapConfig` + `MapPrefabPaths` 允许 `PushMap_*`（同解析 `Assets/Prefabs/Maps/{MapId}.prefab`）。`PushMapStageModule`（`IStageModule`；无独立 ModeSelect）：`GameplayType=PushMap` 直进 `PushMapPhase=Prepare`；亦可由 Defend `BattleModeSelect` 模式2经 `TryHandoffModeSelectToPushMap` 进入同一模块。薄规则 `PushMapSessionService`（**独立但语义对齐 §3.12**：Prepare→Combat；开战 ≥1 上阵；`Shield=ProtagonistMaxHP`；`Shield≤0`→LevelFailure；开战锁定 Degree/Tier 并对上阵士兵按 `FinalLossChance` roll→Rebel 日志可观察）+ `PushMapStageController`（Instantiate `Maps/{MapId}`，复用共享 `FormationEditorRoot` 同一 BattleFormation）。样例：`Level_LevelOperationConfig` `Level_01,4,PushMap,PushMap_01`（直进）与 Defend 阶段 Mode2 选 `PushMap_01`（handoff）等价进入 Prepare。禁止运行时引用 `SmallScaleInt/`。
+
+**PushMap 刷怪与陷阱（方案 A，PM-05）：** `PushMapSessionService` 开战装载 `PushMapSpawnConfig` 行；无陷阱且关联目标未占 → `PushMapSpawnRequested` 事件（位置由 View 解析）；绑定 `TrapZoneId` 的点 → `TryNotifyTrapEnter` 首次触发；`ObjectiveCaptured` → 该关联点本场停刷（已刷保留）。`PushMapStageController` 收集 `SpawnPoint`/`TrapZone`，Instantiate 怪（含 Boss）入 `_monsters`（`PushMapMonsterAgentView`），Update 探测忠诚兵首次进圈。怪物 AI 暂用 Defend 默认追击语义；对主角扣盾经 `PushMapSessionService.ApplyShieldHit`。AggroMode 四态落地 **PM-06**；BOSS 通关结算后置（PM-07）；**不使用** `WaveSpawnConfig` 倒计时。运行时契约见 §9.23。样例 `TrapZoneId` 对齐为 `TZ_01`。禁止运行时引用 `SmallScaleInt/`。
+
+**PushMap AggroMode 四态（方案 A，PM-06）：** `PushMapMonsterAgentView` 按 `config.AggroMode` 分支。`ActiveChase`：忠诚士兵进 `AlertRadius` → NavMesh 追击该兵直至怪死；`PassiveChase`：未挑衅静止，`NotifyProvoked()` 后追击；`StationaryActive`：永不移动，忠诚兵进 `AttackRange` 攻击、离开停；`StationaryPassive`：永不移动，须先 `NotifyProvoked()` 且目标仍在 `AttackRange` 才攻。主动发现与挑衅**仅**对忠诚士兵（`!IsRebel`）。挑衅 Demo 契约：`PushMapStageController` 检测忠诚 `PushMapAdvanceView` 首次进入某被动怪 `AttackRange` → 调其 `NotifyProvoked()`（等效「士兵先攻击」；士兵 HP / 命中结算后置）。命中仍 `AttackMode` 方案 D；主动态对主角不进 `AlertRadius` 主动发现，但已交战命中主角仍 `ApplyShieldHit`。普通怪真实士兵伤害 / 技能施放 / 副本玩法正文 **不做**。禁止运行时引用 `SmallScaleInt/`。
+
+**PushMap BOSS 通关与奖励钩子（方案 A，PM-07）：** `PushMapSessionService` 对 `IsBoss` 刷出行累计待击杀数；`TryNotifyBossKilled` 递减，归零 → `PushMapPhase=Ended` + `VictorySettled(StageExpReward)`；表现层对齐 Defend：`AddExperience` → `_onVictoryAdvance`（`TryAdvanceStage`）。`Shield≤0` → 已有 `LevelFailureRequested`，**不**入账。占领：`CaptureLoot` 经 `LootDropParser`/`Warehouse` 入账（无经验）；`DungeonUnlockIds` 写入 `DungeonUnlockService` 存档集合（PlayerPrefs + 日志可验）；通关同样写解锁钩子。Demo 击杀契约：忠诚兵首次进 BOSS `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`。`IsBoss` 与 `BossPoint` 一致性：缺标记 warn。副本玩法正文 / 完整失败 UI **不做**。禁止运行时引用 `SmallScaleInt/`。
+
+**PushMap 空气墙 NavMesh（方案 A，PM-08）：** 开战 Runtime Bake 在 IsoDiamond 可走面之外，收集地图 `AirWall`，以 `NavMeshBuildSourceShape.Box` + area=`Not Walkable` 注入（尺寸=`HalfExtents×2`；`Matrix4x4.TRS(position, rotation, 1)` → **含 Y 轴 45°**）。扩展 `DefendNavMeshBaker.Bake(..., notWalkableBoxes)`；`PushMapStageController` 开战传入；敌我 `NavMeshAgent`（士兵推进 / 怪物追击）均不可穿。**不做** `NavMeshObstacle` Carve、复杂多层障碍 polish。契约见 §9.22。禁止运行时引用 `SmallScaleInt/`。
 
 **架构提示：** `ToolsPanel` 属 Meta 壳层 UI；玩法状态由规则层持有，View 只订阅展示（见 §13）。挖坟：规则层负责生成、计时、DigAction 触发/忙碌锁与扣血；菱形地图与圆圈光标、帧动画、奖励飞向为主角由 View 表现；逻辑层为整体可放置空间（非格子）。UM 阶段不查玩法配置表主键；升级进度本片内存持有。Defend：规则层输出目标/目的地；NavMeshAgent 移动；Demo 最小可走面见 §9.7 / SPEC_03 §3.12。
 
@@ -227,7 +239,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM formation panel (Approach A→drag editor, D-032):** Pure-C# `BattleFormationService` (save-scoped) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap`. Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle). UM main = full-screen manufacture + Formation right of Complete; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared with Defend Prepare. Do not runtime-reference `SmallScaleInt/`.
 
-**Battle ModeSelect (Approach A, D-044):** `DefendStageModule` Enter first instantiates `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab` (or runtime-equivalent UI); `DefendPhase=ModeSelect`; Mode1「保卫战」lists all `DefendGameplayConfig`; LevelOperation `GameplayConfigId` = Recommended default highlight; on confirm overwrite `LevelStageContext.DefendConfig` then enter existing Prepare. Mode2「推图战」entry stub (confirm disabled / Toast). Do not runtime-reference `SmallScaleInt/`.
+**Battle ModeSelect (Approach A, D-044):** `DefendStageModule` Enter first instantiates `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab` (or runtime-equivalent UI); `DefendPhase=ModeSelect`; Mode1「保卫战」lists all `DefendGameplayConfig`; LevelOperation `GameplayConfigId` = Recommended default highlight; on confirm overwrite `LevelStageContext.DefendConfig` then enter existing Prepare. Mode2「推图战」lists all `PushMapGameplayConfig`; on confirm call `LevelOperationDriver.TryHandoffModeSelectToPushMap(configId)`: `Exit` current Defend module → keep `LevelId`/`StageNumber`, rewrite `GameplayType=PushMap` + `PushMapConfig` + map path → `SetState(PushMap)` → `PushMapStageModule.Enter` → `StageChanged`. Do not runtime-reference `SmallScaleInt/`.
 
 **Defend Prepare / StartBattle / Shield (Approach A→shared editor, D-040):** After ModeSelect confirms Mode1, `DefendStageModule` instantiates `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`; Prepare hosts same `FormationEditorRoot` UI on that map (no second map); StartBattle ≥1 → destroy preview then formal deploy; Shield/countdown unchanged. Do not runtime-reference `SmallScaleInt/`.
 
@@ -238,6 +250,18 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 **Defend warrior ranged projectile (Approach A, D-042 ranged / 05c2):** StartBattle registration also stores `ClassConfig.RangedProjectileSpeed` / `RangedTimeoutSeconds`. `AttackMode=Ranged` shares EngageZone nearest targeting, `AttackSpeed` cadence, and no-target return to `FormationHome` with melee; when in `AttackRange`, Instantiate temp `Assets/Prefabs/Defend/Projectile.prefab` (Catalog-bound); fire also triggers `WarriorAnimView` attack. `ProjectileView` flies kinematically toward locked monster RuntimeId: **distance ≤ hitRadius** = collision hit → Session `TryConfirmRangedHit` → monster `HP -= NormalAttackPower`; **timeout** destroys with no damage. Mage/Archer share the same ranged channel (`PrimaryStat` only differs). Do not runtime-reference `SmallScaleInt/`.
 
 **Defend LossOfControl StartBattle roll + win/lose settle (Approach A, D-043):** `ConfigCsvRepository` loads `Combat_LossOfControlConfig.csv`. At StartBattle lock Degree/Tier from formation `ΣCost/Cap−1` (overflow does not block StartBattle); when `Degree>0`, each deployed soldier rolls once with `FinalLossChance=clamp(0,1,TierChance+RaceBonus+ΣGemBonus)` (Demo `ΣSkillBonus=0`) → `IsRebel` (logged). Rebels **ignore EngageZone**, pick nearest living protagonist / other soldiers / enemies; normal hit on protagonist → `Shield-=1`; hits on soldiers/monsters use soldier attack channel. Clear condition → `DefendPhase.Ended` + minimal PermanentDeath (gems→warehouse, clear formation, remove pool) → `ProtagonistProgressService.AddExperience(100)` (Demo fixed stage Exp) → `LevelOperationDriver.TryAdvanceStage`. `Shield≤0` → Ended + same PermanentDeath settle → **no** stage Exp → `AbortLevelAsFailure` (no VictorySettlement; keep already-owned). Do not runtime-reference `SmallScaleInt/`.
+
+**PushMap config load (Approach A, PM-02):** `ConfigCsvRepository` additionally loads `PushMap_PushMapGameplayConfig.csv` / `PushMap_PushMapSpawnConfig.csv`; `Defend_MonsterConfig` parses `AggroMode` / `AlertRadius` (defaults §9.19). Sample ≥1 `GameplayConfigId` + spawn rows (non-trap / trap / BOSS). StageModule / AI / Capture **deferred** (PM-03+). Do not runtime-reference `SmallScaleInt/`.
+
+**PushMap stage wiring (Approach A, PM-03 + D-044 Mode2):** `LevelOperationDriver.TryBuildContext` supports `GameplayType=PushMap`: `GameplayConfigId` → `PushMapGameplayConfig` PK (direct lookup), `LevelStageContext.PushMapConfig`, and `MapPrefabPaths` accepts `PushMap_*` (same `Assets/Prefabs/Maps/{MapId}.prefab` resolve). `PushMapStageModule` (`IStageModule`; no in-stage ModeSelect): `GameplayType=PushMap` enters `PushMapPhase=Prepare` directly; also reachable from Defend `BattleModeSelect` Mode2 via `TryHandoffModeSelectToPushMap`. Thin rule `PushMapSessionService` (**separate but semantically aligned with §3.12**: Prepare→Combat; StartBattle ≥1 deployed; `Shield=ProtagonistMaxHP`; `Shield≤0`→LevelFailure; locks Degree/Tier at StartBattle and rolls each deployed soldier's `FinalLossChance`→Rebel, log-observable) + `PushMapStageController` (instantiates `Maps/{MapId}`, reuses shared `FormationEditorRoot` on the same BattleFormation). Sample: `Level_01,4,PushMap,PushMap_01` (direct) and Defend Mode2 pick `PushMap_01` (handoff) both enter Prepare. Do not runtime-reference `SmallScaleInt/`.
+
+**PushMap spawn & trap (Approach A, PM-05):** `PushMapSessionService` loads `PushMapSpawnConfig` rows at StartBattle; non-trap rows with uncaptured linked objective → `PushMapSpawnRequested` (position resolved by View); trap-bound points → `TryNotifyTrapEnter` first-enter; `ObjectiveCaptured` → linked points stop spawning (living kept). `PushMapStageController` collects `SpawnPoint`/`TrapZone`, instantiates monsters (incl. Boss) into `_monsters` (`PushMapMonsterAgentView`), and polls loyal soldiers for first trap entry. Monster AI uses Defend default-chase semantics; protagonist shield via `PushMapSessionService.ApplyShieldHit`. AggroMode four-state lands in **PM-06**; Boss-clear settlement deferred (PM-07); **no** `WaveSpawnConfig` countdown. Runtime contract: §9.23. Sample `TrapZoneId` aligned to `TZ_01`. Do not runtime-reference `SmallScaleInt/`.
+
+**PushMap AggroMode four-state (Approach A, PM-06):** `PushMapMonsterAgentView` branches on `config.AggroMode`. `ActiveChase`: loyal soldier enters `AlertRadius` → NavMesh chase that soldier until monster death. `PassiveChase`: idle until `NotifyProvoked()`, then chase. `StationaryActive`: never moves; attacks loyal soldier inside `AttackRange`, stops on leave. `StationaryPassive`: never moves; attacks only after `NotifyProvoked()` and target still in `AttackRange`. Active detection + provocation are **loyal-only** (`!IsRebel`). Provocation Demo contract: `PushMapStageController` fires a loyal `PushMapAdvanceView`'s first entry into a passive monster's `AttackRange` → `NotifyProvoked()` (stands in for "soldier attacks first"; soldier HP / hit settlement still deferred). Hits keep `AttackMode` scheme D; active stances do not proactively detect the protagonist via `AlertRadius`, but an engaged protagonist hit still applies `ApplyShieldHit`. Real soldier damage on normal monsters / skill casts / dungeon gameplay body **not** done. Do not runtime-reference `SmallScaleInt/`.
+
+**PushMap Boss clear & reward hooks (Approach A, PM-07):** `PushMapSessionService` tracks pending count from fired `IsBoss` rows; `TryNotifyBossKilled` decrements → at 0: `PushMapPhase=Ended` + `VictorySettled(StageExpReward)`; presentation aligns with Defend: `AddExperience` → `_onVictoryAdvance` (`TryAdvanceStage`). `Shield≤0` → existing `LevelFailureRequested`, **no** Exp. Capture: credit `CaptureLoot` via `LootDropParser`/`Warehouse` (no Exp); write `DungeonUnlockIds` into `DungeonUnlockService` save set (PlayerPrefs + log-verifiable); Boss-clear also writes unlocks. Demo kill contract: first loyal entry into Boss `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`. Missing `BossPoint` with `IsBoss` → warn. Dungeon gameplay body / full failure UI **not** done. Do not runtime-reference `SmallScaleInt/`.
+
+**PushMap AirWall NavMesh (Approach A, PM-08):** StartBattle runtime bake, in addition to the IsoDiamond walkable mesh, collects map `AirWall`s and injects `NavMeshBuildSourceShape.Box` + area=`Not Walkable` (size=`HalfExtents×2`; `Matrix4x4.TRS(position, rotation, 1)` → **incl. Y 45°**). Extends `DefendNavMeshBaker.Bake(..., notWalkableBoxes)`; `PushMapStageController` passes walls at StartBattle; both factions' `NavMeshAgent`s (soldier advance / monster chase) cannot path through. **No** `NavMeshObstacle` Carve or multi-layer obstacle polish. Contract: §9.22. Do not runtime-reference `SmallScaleInt/`.
 
 **Architecture note:** ToolsPanel is Meta shell UI; gameplay state owned by rules layer; View subscribes only (§13). Dig: rules owns spawn/timer/DigAction/busy/damage; diamond map, circle cursor, dig anims, DigReward fly-to are View; continuous placeable space. UM stages do not resolve mode-config PKs; upgrade progress is in-memory this slice. Defend: rules outputs target/destination; NavMeshAgent moves; Demo-min walkable surface in §9.7 / SPEC_03 §3.12.
 
@@ -498,7 +522,7 @@ DefendGameplayConfig {
 - **移动层**（NavMeshAgent 或等价）执行 `SetDestination`；每隔 `TargetRetargetIntervalSeconds` 由规则层触发目的地重算并请求重寻路（怪物与士兵均适用）。
 - **EngageZone**：挂在 BattleMap **Prefab** 上的 **IsoDiamond（XZ 菱形）选敌区**（比地图稍小；策划调位置/尺寸）；非叛变士兵仅在此区内选最近敌人。见 [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat。
 - 士兵命中方案 D：按 `SoulConfig.AttackMode`（制造写入实例）走近战前摇或远程弹道；`AttackRange` / 前摇 / 弹速 / 超时取自 [§9.9b `ClassConfig`](#99b-职业配置表-classconfig)（规则层确认伤害；View 播动作/弹道）。**第一版 Demo**：士兵与怪物仅普通攻击，不施放技能。
-- 障碍烘焙与 NavMesh 表面范围：**Demo 最小** — 按 `DigMapBounds` **IsoDiamond** 半尺寸（`PaintRadius*(cellSize.x,cellSize.y)`，可各向异性；Demo `cellSize≈(1,0.5)`→`(5,2.5)`）Runtime 烘焙 **同形菱形薄网格**可走面（或 Prefab 上不可见 `WalkSurface` 菱形 Mesh）；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点进入可走区。复杂障碍与精确 OutsideMap 外围衔接 **后置**（规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)）。
+- 障碍烘焙与 NavMesh 表面范围：**Demo 最小** — 按 `DigMapBounds` **IsoDiamond** 半尺寸（`PaintRadius*(cellSize.x,cellSize.y)`，可各向异性；Demo `cellSize≈(1,0.5)`→`(5,2.5)`）Runtime 烘焙 **同形菱形薄网格**可走面（或 Prefab 上不可见 `WalkSurface` 菱形 Mesh）；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点进入可走区。PushMap `AirWall`：开战 Bake 追加 **Not Walkable Box** sources（§9.22 PM-08）。复杂障碍与精确 OutsideMap 外围衔接 **后置**（规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)）。
 - **Demo 刷怪点最小：** 地图 Prefab 上临时固定出生点（SerializeField / 子节点标记）或 `InsideMap` 可走面随机；`ClockDirection` 可映射到固定点；精确 OutsideMap 几何后置。
 
 **刷怪 / 怪物表：** 见 §9.18 `WaveSpawnConfig`、§9.19 `MonsterConfig`；失控见 §9.20 `LossOfControlConfig`、§9.21 `SkillConfig`（骨架）；规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)。
@@ -1028,8 +1052,8 @@ WaveSpawnConfig {
 | DisplayName | 怪物名称 | `string` | 展示名或本地化 Key（若启用 i18n） |
 | TargetSelect | 目标选择 | `enum` / `string` | `Nearest` \| `PreferWarrior` \| `PreferProtagonist`（与 `SoulConfig.AttackPriority` 同枚举） |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged` |
-| AggroMode | 仇恨模式 | `enum` / `string` | `ActiveChase` \| `PassiveChase` \| `StationaryActive` \| `StationaryPassive`；见 [SPEC_03 §3.14](SPEC_03_GameRules.md)；Defend 可缺省 `ActiveChase` |
-| AlertRadius | 警戒半径 | `float` | ≥ 0；主动发现半径；缺省可 = AttackRange |
+| AggroMode | 仇恨模式 | `enum` / `string` | `ActiveChase` \| `PassiveChase` \| `StationaryActive` \| `StationaryPassive`；见 [SPEC_03 §3.14](SPEC_03_GameRules.md)；**加载缺省：** 列缺失或空单元格 → `ActiveChase`；非法值 → 加载失败 |
+| AlertRadius | 警戒半径 | `float` | ≥ 0；主动发现半径；**加载缺省：** 列缺失或空 → `AttackRange`；若解析值 < 0 → 加载失败 |
 | MaxHP | 怪物血量 | `int` 或 `float` | 生成时初始化怪物 maxHP / 当前 HP |
 | MoveSpeed | 怪物移动速度 | `float` | 世界单位/秒或项目统一速度单位 |
 | AttackPower | 怪物攻击力 | `int` 或 `float` | **仅**攻击士兵时用于伤害结算；对主角普通攻击不用本字段 |
@@ -1058,8 +1082,8 @@ MonsterConfig {
   DisplayName: string
   TargetSelect: Nearest | PreferWarrior | PreferProtagonist
   AttackMode: Melee | Ranged
-  AggroMode: ActiveChase | PassiveChase | StationaryActive | StationaryPassive
-  AlertRadius: number              // default may = AttackRange
+  AggroMode: ActiveChase | PassiveChase | StationaryActive | StationaryPassive  // empty → ActiveChase
+  AlertRadius: number              // empty → AttackRange
   MaxHP: number
   MoveSpeed: number
   AttackPower: number              // soldiers only
@@ -1072,6 +1096,8 @@ MonsterConfig {
   LootDrop: "Id_Count|Id_Count|..."
 }
 ```
+
+**加载约定（`ConfigCsvRepository`）：** `AggroMode` / `AlertRadius` 缺省如上；非法枚举或 `AlertRadius < 0` 整表加载失败（§14.5）。PushMap 与 Defend 共用本表。
 
 #### 9.20 失控配置表 `LossOfControlConfig`
 
@@ -1141,7 +1167,7 @@ SkillConfig {
 | StageExpReward | 阶段经验奖励 | `int` | BOSS 通关入账 `LifetimeExperience` 的数值；Demo 可固定 |
 | CaptureLoot | 占领默认掉落 | 见编码 | 可选；各目标点占领时发放（若目标点无独立覆盖）；编码同 Dig `LootDrop`：`Id_Count\|…` |
 | DungeonUnlockIds | 副本解锁ID列表 | 见编码 | 通关或占领写入存档钩子；段分隔 `\|`；空=无；**副本玩法 TBD** |
-| CaptureSeconds | 占领所需秒 | `float` | 缺省 **5**；判定圈连续无怪秒数 |
+| CaptureSeconds | 占领所需秒 | `float` | **加载缺省 5**（列缺失或空）；判定圈连续无怪秒数；< 0 → 加载失败 |
 | Notes | 备注 | `string` | 可选 |
 
 ```
@@ -1156,7 +1182,85 @@ PushMapGameplayConfig {
 }
 ```
 
-**地图 Prefab 标记契约（与 §13 配套）：** 根或子节点须可挂 `ObjectivePoint`（`ObjectiveOrder` + `CaptureZone` 半径默认 2）、`AirWall`（可 Y 旋转 45°）、`SpawnPoint`（`SpawnPointId`）、`TrapZone`（`TrapZoneId`）、`BossPoint`、`EngageZone`、`WalkSurface`。
+**地图 Prefab 标记契约（与 §13 配套；方案 A / PM-01）：**
+
+- **脚本：** `Assets/Scripts/Gameplay/PushMap/`，命名空间 `Gravedigger2026.Gameplay.PushMap`
+- **样例地图：** `Assets/Prefabs/Maps/PushMap_Demo_01.prefab`（`MapId=PushMap_Demo_01`）；由 Editor 菜单 `Gravedigger2026/PushMap/Ensure Sample Map Prefab` 从 `Ground_01` 复制并挂齐标记；**不**改写 Dig/Defend 共用的 `Ground_*`
+- **复用：** `EngageZone`（`Gameplay.Defend`）、`WalkSurface`（`WalkSurfaceIsoDiamond` / `Gameplay.Maps`）；地面仍为 Isometric Tilemap（可用 Tile Palette）
+- **本片边界：** 仅标记契约与可 Instantiate 样例；占领/刷怪/空气墙 NavMesh **不做**（PM-04/05/08）
+
+| 组件 | 字段（SerializeField） | 说明 |
+|------|------------------------|------|
+| `ObjectivePoint` | `ObjectiveOrder:int`（≥1）；引用 `CaptureZone` | 有序目标点；`CaptureZone` 可同节点或子节点 |
+| `CaptureZone` | `Radius:float` 默认 **2** | XZ 圆形判定圈；`ContainsXZ`；半径可改 |
+| `AirWall` | `HalfExtents:Vector3`（薄墙占位） | 阻挡体作者点；**Y 轴欧拉角**支持 0°/45°/90°…；运行时阻挡见下「空气墙 NavMesh 契约（PM-08）」 |
+| `SpawnPoint` | `SpawnPointId:string` | 与 `PushMapSpawnConfig.SpawnPointId` 匹配 |
+| `TrapZone` | `TrapZoneId:string`；`Radius:float` | XZ 圆形区域占位；与刷怪表 `TrapZoneId` 匹配 |
+| `BossPoint` | （无必填字段；位置=`Transform`） | BOSS 生成点占位；通关逻辑见后续片 |
+
+```
+// Prefab marker components (authoring; no capture/spawn runtime in PM-01)
+ObjectivePoint { ObjectiveOrder: int>=1; CaptureZone }
+CaptureZone    { Radius: number = 2 }          // XZ circle
+AirWall        { HalfExtents: Vector3 }      // Transform.eulerAngles.y = 0|45|90|…
+SpawnPoint     { SpawnPointId: string }
+TrapZone       { TrapZoneId: string; Radius: number }
+BossPoint      { }                           // transform.position
+// + EngageZone, WalkSurface (existing)
+```
+
+**占领运行时契约（方案 A / PM-04）：**
+
+- **规则归属：** 目标链与计时在 `PushMapSessionService`（`Core/PushMap/`）；`ObjectivePoint`/`CaptureZone` 仅标记，运行时不自管 Tick
+- **Session 面：** `CaptureSecondsRequired`（`Config.CaptureSeconds`，钳 ≥0.01）；`CurrentObjectiveOrder`（未开或全占=0）；`IsObjectiveCaptured(order)`；`TryBeginObjectiveChain(IEnumerable<int> orders)`（开战调用；排序去重 → 最小未占）；`TickCapture(float dt, bool hasLivingMonsterInCurrentZone)`（有怪清零；否则累计；达标→标记已占+事件+切下一目标）
+- **事件：** `ObjectiveCaptured(int order)`（停刷钩子 → PM-05）；`CurrentObjectiveChanged(int newOrder)`（推进/表现）
+- **表现：** `PushMapStageController` Combat 收 `ObjectivePoint` 排序喂 Session；每秒 `Update` 探测当前圈内存活怪（默认扫描 `_monsters`：`IsAlive && CaptureZone.ContainsXZ(position)`；Rebel 不算阻挡）；探测经 `PushMapMonsterPresenceProbe`（同目录薄组件，可注入/重置验收占位）；占领日志+HUD 状态
+- **推进：** 忠诚士兵 `PushMapAdvanceView`（NavMeshAgent）：目标=当前 `ObjectivePoint.transform`；探测到存活怪则停步让位（Engage 打断语义占位，完整选敌随 PM-05/06）；Rebel 不推进
+- **边界：** 本片不生成刷怪；无怪时连续 `CaptureSeconds` → 1→2 切换；停刷仅事件/日志；占领奖励/副本解锁见 PM-07
+
+```
+// PM-04 rules/presentation touchpoints
+session.TryBeginObjectiveChain(sortedOrders)
+session.TickCapture(dt, probe.HasLivingMonster(currentZone))
+event ObjectiveCaptured(order)   // PM-05 stops linked spawns; PM-07 capture loot/unlock
+event CurrentObjectiveChanged(order)
+PushMapMonsterPresenceProbe { HasLivingMonster(CaptureZone) }
+PushMapAdvanceView       { CurrentObjectiveProvider }  // loyal only
+```
+
+**BOSS 通关与奖励运行时契约（方案 A / PM-07）：**
+
+- **规则归属：** 胜负与待击杀 BOSS 计数在 `PushMapSessionService`；`BossPoint` 仅位置标记
+- **计数：** `FireRow` 且 `IsBoss` → `_pendingBossCount += SpawnCount`；开战后若 `_pendingBossCount>0` 且表现层报告无 `BossPoint` → warn（一致性约定）
+- **击杀：** `TryNotifyBossKilled()`（Combat 且未结算）→ 递减；归零 → `Ended` + `VictorySettled(Config.StageExpReward)`；同时写 `DungeonUnlockIds` 钩子事件/回调
+- **失败：** 既有 `RequestLevelFailure` → `LevelFailureRequested`；**禁止**再发 `VictorySettled`
+- **占领奖励：** `Capture` 时解析 `Config.CaptureLoot`（`LootDropParser`）经表现层/`Warehouse` 入账；写 `DungeonUnlockIds`；**不**加经验
+- **存档钩子：** `DungeonUnlockService`（`Core/PushMap/` 或 Meta）：按存档槽 `HashSet` + PlayerPrefs；`TryUnlock(id)` 日志可验；副本玩法正文不做
+- **表现：** `PushMapMonsterAgentView.IsBoss`；`PushMapStageController` Demo 击杀＝忠诚兵首次进 BOSS `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`；订阅 `VictorySettled` → `AddExperience` → `_onVictoryAdvance`；LevelFailure 路径不变
+
+```
+// PM-07 rules/presentation touchpoints
+session.TryNotifyBossKilled()
+event VictorySettled(stageExp)           // StageExpReward
+event CaptureRewardsRequested(loot, unlockIds)  // or credit in controller on ObjectiveCaptured
+DungeonUnlockService { BindSlot; TryUnlock; UnlockedIds }
+PushMapMonsterAgentView.IsBoss
+```
+
+**空气墙 NavMesh 契约（方案 A / PM-08）：**
+
+- **权威阻挡：** 开战 Runtime Bake（复用 `DefendNavMeshBaker`）在 IsoDiamond 可走 `Mesh` source 之外，收集地图 `AirWall`，追加 `NavMeshBuildSource`：`shape=Box`、`size=HalfExtents×2`、`transform=TRS(position, rotation, 1)`、`area=Not Walkable`（`NavMesh.GetAreaFromName`；失败回退 `1`）
+- **旋转：** Prefab `Transform.eulerAngles.y` 支持 0°/45°/90°…；样例 `AirWall_45` 为 45°
+- **作用对象：** 敌我士兵与怪物凡走 `NavMeshAgent` 的路径均不可穿（含 `PushMapAdvanceView` / `PushMapMonsterAgentView`）
+- **接线：** `PushMapStageController` StartBattle 收集 `GetComponentsInChildren<AirWall>` → `Bake(center, halfExtents, notWalkableBoxes)`
+- **边界：** **不做** `NavMeshObstacle` Carve、复杂多层障碍 polish；Defend 无 AirWall 时仍走无障碍重载
+
+```
+// PM-08 bake touchpoints
+DefendNavMeshBaker.Bake(center, halfExtents, notWalkableBoxes)
+NavMeshBoxObstacle { Center, Size=HalfExtents*2, Rotation }
+AirWall { HalfExtents }  // authoring; Y euler 0|45|90|…
+```
 
 #### 9.23 推图战刷怪配置表 `PushMapSpawnConfig`
 
@@ -1190,6 +1294,26 @@ PushMapSpawnConfig {
 }
 ```
 
+**刷怪运行时契约（方案 A / PM-05）：**
+
+- **规则归属：** 刷怪资格与触发状态在 `PushMapSessionService`（`Core/PushMap/`）；`SpawnPoint`/`TrapZone` 仅作者标记，运行时不自管判定
+- **装载：** `TryStartBattle` 时装载本 `GameplayConfigId` 全部行；无陷阱且关联目标未占的行 → 立即发 `PushMapSpawnRequested`（同 `SpawnPointId` 按 `SpawnOrder` 升序）；陷阱绑定点进入 `Pending` 待触发
+- **事件：** `PushMapSpawnRequested(PushMapSpawnRequest)`；负载含 `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger`（`StartBattle` / `Trap`）；**位置由 View 按 `SpawnPointId` / `BossPoint` 解析**
+- **陷阱触发：** `TryNotifyTrapEnter(trapZoneId)`（View 探测忠诚兵首次进圈）→ 未占领 + 未触发 → 该 `SpawnPointId` 全部行触发；每点本场仅一次
+- **占领停刷：** `ObjectiveCaptured(order)` → 标记 `LinkedObjectiveOrder == order` 的点本场停刷；已触发怪的生死不受影响；`IsBoss=1` 的行 **不** 受占领停刷（BOSS 见 PM-07）
+- **表现：** `PushMapStageController` 收集 `SpawnPoint`（`SpawnPointId`→`Transform.position`）与 `TrapZone`；订阅事件 Instantiate 怪 → `PushMapMonsterAgentView`（入 `_monsters`；Boss 用 `BossPoint` 位置）；Update 探测忠诚（`!IsRebel`）`PushMapAdvanceView` 首次进入 `TrapZone` → `TryNotifyTrapEnter`
+- **怪物 AI 边界：** 本片怪用 Defend 默认追击语义（就近忠诚兵/主角；进 `AttackRange` 普攻；对主角 `ApplyShieldHit`；对兵日志）；AggroMode 四态后置 **PM-06**（见下「AggroMode 运行时契约」）；`MonsterAgentView` 仍绑定 `DefendSessionService` 不接入
+- **AggroMode 运行时契约（PM-06）：** 四态在 `PushMapMonsterAgentView` 按 `config.AggroMode` 分支；`ActiveChase`：忠诚士兵进 `AlertRadius`→移动追击该兵直至怪死；`PassiveChase`：`_provoked=false` 静止，`NotifyProvoked()` 后移动追击；`StationaryActive`：永不移动，忠诚兵进 `AttackRange` 攻击、离开停；`StationaryPassive`：永不移动，须先 `NotifyProvoked()` 且目标仍在 `AttackRange` 才攻。主动发现与挑衅均**仅**对忠诚士兵（`!IsRebel`）。挑衅来源（Demo）：`PushMapStageController` 检测忠诚 `PushMapAdvanceView` 首次进入某被动怪 `AttackRange` → 调其 `NotifyProvoked()`（等效「士兵先攻击」；士兵 HP 后置）。命中仍 `AttackMode` 方案 D；主动态对主角不进 `AlertRadius` 主动发现（仅忠诚兵），但已被追击/就近规则命中主角时仍 `ApplyShieldHit`。普通怪真实士兵伤害 **不做**
+- **边界：** 不使用 `WaveSpawnConfig` 倒计时；BOSS 通关 / 经验 / 占领奖励 / 副本解锁钩子见 §9.22 PM-07 契约
+
+```
+// PM-05 rules/presentation touchpoints
+session.TryNotifyTrapEnter(trapZoneId)        // view first loyal-enter
+event PushMapSpawnRequested(request)          // StartBattle | Trap
+PushMapSpawnRequest { SpawnPointId, MonsterId, SpawnCount,
+                      LinkedObjectiveOrder, IsBoss, SpawnOrder, Trigger }
+PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitProtagonist) }
+```
 
 ### English
 
@@ -1385,7 +1509,7 @@ DefendGameplayConfig {
 - **Movement layer** (NavMeshAgent or equiv.) runs `SetDestination`; every `TargetRetargetIntervalSeconds` the rules layer recomputes destination and requests repath (monsters **and soldiers**).
 - **EngageZone**: **IsoDiamond** (XZ diamond) on the BattleMap **Prefab** (slightly smaller than the map; designer-tuned); non-Rebel soldiers pick nearest enemy only inside it. See [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat.
 - Soldier hit scheme D: branch by `SoulConfig.AttackMode` (copied onto instance at manufacture) — melee windup or ranged projectile; `AttackRange` / windup / projectile speed / timeout from [§9.9b `ClassConfig`](#99b-职业配置表-classconfig) (rules confirm damage; View plays anim/projectile). **Demo v1**: soldiers and monsters use normal attacks only; no skill casts.
-- Obstacle bake / NavMesh surface: **Demo-min** — runtime bake from `DigMapBounds` **IsoDiamond** half-extents (`PaintRadius*(cellSize.x,cellSize.y)`, anisotropic OK; Demo `cellSize≈(1,0.5)`→`(5,2.5)`) using a **matching thin diamond mesh** (or invisible Prefab `WalkSurface` diamond Mesh); must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. Complex obstacles and exact OutsideMap perimeter linkage **deferred** (rules: [SPEC_03 §3.12](SPEC_03_GameRules.md)).
+- Obstacle bake / NavMesh surface: **Demo-min** — runtime bake from `DigMapBounds` **IsoDiamond** half-extents (`PaintRadius*(cellSize.x,cellSize.y)`, anisotropic OK; Demo `cellSize≈(1,0.5)`→`(5,2.5)`) using a **matching thin diamond mesh** (or invisible Prefab `WalkSurface` diamond Mesh); must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. PushMap `AirWall`: StartBattle bake appends **Not Walkable Box** sources (§9.22 PM-08). Complex obstacles and exact OutsideMap perimeter linkage **deferred** (rules: [SPEC_03 §3.12](SPEC_03_GameRules.md)).
 - **Demo-min spawn points:** temp fixed markers on map Prefab (SerializeField / child markers) or `InsideMap` random on walkable surface; `ClockDirection` may map to fixed points; exact OutsideMap geometry deferred.
 
 **Spawn / monster tables:** see §9.18 `WaveSpawnConfig`, §9.19 `MonsterConfig`; LossOfControl: §9.20 `LossOfControlConfig`, §9.21 `SkillConfig` (skeleton); rules in [SPEC_03 §3.12](SPEC_03_GameRules.md).
@@ -1881,8 +2005,8 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 | DisplayName | 怪物名称 | `string` | Display name or localization key (if i18n enabled) |
 | TargetSelect | 目标选择 | `enum` / `string` | `Nearest` \| `PreferWarrior` \| `PreferProtagonist` (same enum as `SoulConfig.AttackPriority`) |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged` |
-| AggroMode | 仇恨模式 | `enum` / `string` | `ActiveChase` \| `PassiveChase` \| `StationaryActive` \| `StationaryPassive`; see [SPEC_03 §3.14](SPEC_03_GameRules.md); Defend may default `ActiveChase` |
-| AlertRadius | 警戒半径 | `float` | ≥ 0; active detect radius; default may = AttackRange |
+| AggroMode | 仇恨模式 | `enum` / `string` | `ActiveChase` \| `PassiveChase` \| `StationaryActive` \| `StationaryPassive`; see [SPEC_03 §3.14](SPEC_03_GameRules.md); **load default:** missing/empty → `ActiveChase`; illegal → load fail |
+| AlertRadius | 警戒半径 | `float` | ≥ 0; active detect radius; **load default:** missing/empty → `AttackRange`; value < 0 → load fail |
 | MaxHP | 怪物血量 | `int` or `float` | Init monster maxHP / current HP on spawn |
 | MoveSpeed | 怪物移动速度 | `float` | World units/sec or project-unified speed unit |
 | AttackPower | 怪物攻击力 | `int` or `float` | Used **only** when attacking soldiers; not used for normal attacks on protagonist |
@@ -1911,8 +2035,8 @@ MonsterConfig {
   DisplayName: string
   TargetSelect: Nearest | PreferWarrior | PreferProtagonist
   AttackMode: Melee | Ranged
-  AggroMode: ActiveChase | PassiveChase | StationaryActive | StationaryPassive
-  AlertRadius: number              // default may = AttackRange
+  AggroMode: ActiveChase | PassiveChase | StationaryActive | StationaryPassive  // empty → ActiveChase
+  AlertRadius: number              // empty → AttackRange
   MaxHP: number
   MoveSpeed: number
   AttackPower: number              // soldiers only
@@ -1925,6 +2049,8 @@ MonsterConfig {
   LootDrop: "Id_Count|Id_Count|..."
 }
 ```
+
+**Load rules (`ConfigCsvRepository`):** `AggroMode` / `AlertRadius` defaults as above; illegal enum or `AlertRadius < 0` fails whole-table load (§14.5). PushMap and Defend share this table.
 
 #### 9.20 LossOfControlConfig
 
@@ -1996,7 +2122,7 @@ Rules: [SPEC_03 §3.14](SPEC_03_GameRules.md). One row = one PushMap level confi
 | StageExpReward | 阶段经验奖励 | `int` | Exp credited on Boss clear; Demo may use fixed |
 | CaptureLoot | 占领默认掉落 | encoding | Optional; Dig-style `Id_Count\|…` |
 | DungeonUnlockIds | 副本解锁ID列表 | encoding | `\|`-separated; empty=none; dungeon gameplay **TBD** |
-| CaptureSeconds | 占领所需秒 | `float` | Default **5** |
+| CaptureSeconds | Capture seconds | `float` | **load default 5** (missing/empty); < 0 → load fail |
 | Notes | 备注 | `string` | Optional |
 
 ```
@@ -2011,7 +2137,83 @@ PushMapGameplayConfig {
 }
 ```
 
-**Map Prefab marker contract:** `ObjectivePoint` (`ObjectiveOrder` + `CaptureZone` default radius 2), `AirWall` (Y rot 45°), `SpawnPoint`, `TrapZone`, `BossPoint`, `EngageZone`, `WalkSurface`.
+**Map Prefab marker contract (Approach A / PM-01):**
+
+- **Scripts:** `Assets/Scripts/Gameplay/PushMap/`, namespace `Gravedigger2026.Gameplay.PushMap`
+- **Sample map:** `Assets/Prefabs/Maps/PushMap_Demo_01.prefab` (`MapId=PushMap_Demo_01`); Editor menu `Gravedigger2026/PushMap/Ensure Sample Map Prefab` copies `Ground_01` and attaches markers; **do not** rewrite Dig/Defend shared `Ground_*`
+- **Reuse:** `EngageZone` (`Gameplay.Defend`), `WalkSurface` (`WalkSurfaceIsoDiamond` / `Gameplay.Maps`); ground remains Isometric Tilemap (Tile Palette OK)
+- **Slice boundary:** marker contract + instantiable sample only; capture/spawn/AirWall NavMesh **out of scope** (PM-04/05/08)
+
+| Component | Fields (SerializeField) | Notes |
+|-----------|-------------------------|-------|
+| `ObjectivePoint` | `ObjectiveOrder:int` (≥1); ref `CaptureZone` | Ordered objective; `CaptureZone` on same or child |
+| `CaptureZone` | `Radius:float` default **2** | XZ circle; `ContainsXZ`; tunable |
+| `AirWall` | `HalfExtents:Vector3` | Authoring blocker; **Y euler** 0°/45°/90°…; runtime block → "AirWall NavMesh contract (PM-08)" below |
+| `SpawnPoint` | `SpawnPointId:string` | Matches `PushMapSpawnConfig.SpawnPointId` |
+| `TrapZone` | `TrapZoneId:string`; `Radius:float` | XZ circle; matches spawn-table `TrapZoneId` |
+| `BossPoint` | (none required; pose=`Transform`) | Boss spawn placeholder |
+
+```
+ObjectivePoint { ObjectiveOrder: int>=1; CaptureZone }
+CaptureZone    { Radius: number = 2 }
+AirWall        { HalfExtents: Vector3 }      // Transform.eulerAngles.y = 0|45|90|…
+SpawnPoint     { SpawnPointId: string }
+TrapZone       { TrapZoneId: string; Radius: number }
+BossPoint      { }
+// + EngageZone, WalkSurface (existing)
+```
+
+**Capture runtime contract (Approach A / PM-04):**
+
+- **Rules ownership:** objective chain + timer live in `PushMapSessionService` (`Core/PushMap/`); `ObjectivePoint`/`CaptureZone` are authoring markers, no runtime self-tick
+- **Session surface:** `CaptureSecondsRequired` (`Config.CaptureSeconds`, clamped ≥0.01); `CurrentObjectiveOrder` (0 = none/all captured); `IsObjectiveCaptured(order)`; `TryBeginObjectiveChain(IEnumerable<int> orders)`; `TickCapture(float dt, bool hasLivingMonsterInCurrentZone)`
+- **Events:** `ObjectiveCaptured(int order)` (stop-spawn hook → PM-05); `CurrentObjectiveChanged(int newOrder)`
+- **Presentation:** `PushMapStageController` collects sorted `ObjectivePoint`s; per `Update` probes living monsters in current zone (default scan `_monsters`: `IsAlive && CaptureZone.ContainsXZ`); probe via `PushMapMonsterPresenceProbe` (injectable placeholder for reset acceptance); capture logs + HUD
+- **Advance:** loyal soldiers use `PushMapAdvanceView` (NavMeshAgent) toward current objective; pause if living monster detected (Engage interrupt placeholder; full targeting with PM-05/06); Rebels do not advance
+- **Boundary:** no spawn generation this slice; no monsters → 1→2 switch after `CaptureSeconds`; stop-spawn is event/log only; capture loot/unlock → PM-07
+
+```
+// PM-04 rules/presentation touchpoints
+session.TryBeginObjectiveChain(sortedOrders)
+session.TickCapture(dt, probe.HasLivingMonster(currentZone))
+event ObjectiveCaptured(order)   // PM-05 stops linked spawns; PM-07 capture loot/unlock
+event CurrentObjectiveChanged(order)
+PushMapMonsterPresenceProbe { HasLivingMonster(CaptureZone) }
+PushMapAdvanceView       { CurrentObjectiveProvider }  // loyal only
+```
+
+**Boss-clear & reward runtime contract (Approach A / PM-07):**
+
+- **Rules ownership:** win/lose + pending Boss count in `PushMapSessionService`; `BossPoint` is position-only
+- **Count:** `FireRow` with `IsBoss` → `_pendingBossCount += SpawnCount`; if pending > 0 and View reports no `BossPoint` → warn
+- **Kill:** `TryNotifyBossKilled()` (Combat, not settled) → decrement; at 0 → `Ended` + `VictorySettled(Config.StageExpReward)` + write `DungeonUnlockIds` hook
+- **Fail:** existing `RequestLevelFailure` → `LevelFailureRequested`; **must not** also fire `VictorySettled`
+- **Capture rewards:** on `Capture`, parse `Config.CaptureLoot` (`LootDropParser`) → credit via presentation/`Warehouse`; write `DungeonUnlockIds`; **no** Exp
+- **Save hook:** `DungeonUnlockService` (`Core/PushMap/`): per-slot `HashSet` + PlayerPrefs; `TryUnlock(id)` log-verifiable; dungeon gameplay body not done
+- **Presentation:** `PushMapMonsterAgentView.IsBoss`; Demo kill = first loyal entry into Boss `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`; subscribe `VictorySettled` → `AddExperience` → `_onVictoryAdvance`
+
+```
+// PM-07 rules/presentation touchpoints
+session.TryNotifyBossKilled()
+event VictorySettled(stageExp)
+DungeonUnlockService { BindSlot; TryUnlock; UnlockedIds }
+PushMapMonsterAgentView.IsBoss
+```
+
+**AirWall NavMesh contract (Approach A / PM-08):**
+
+- **Authoritative block:** StartBattle runtime bake (shared `DefendNavMeshBaker`) adds, besides the IsoDiamond walkable `Mesh` source, one `NavMeshBuildSource` per map `AirWall`: `shape=Box`, `size=HalfExtents×2`, `transform=TRS(position, rotation, 1)`, `area=Not Walkable` (`NavMesh.GetAreaFromName`; fallback `1`)
+- **Rotation:** Prefab `Transform.eulerAngles.y` supports 0°/45°/90°…; sample `AirWall_45` is 45°
+- **Applies to:** both factions' `NavMeshAgent` pathing (incl. `PushMapAdvanceView` / `PushMapMonsterAgentView`)
+- **Wiring:** `PushMapStageController` StartBattle collects `GetComponentsInChildren<AirWall>` → `Bake(center, halfExtents, notWalkableBoxes)`
+- **Boundary:** **no** `NavMeshObstacle` Carve or multi-layer obstacle polish; Defend without AirWalls still uses the no-obstacle overload
+
+```
+// PM-08 bake touchpoints
+DefendNavMeshBaker.Bake(center, halfExtents, notWalkableBoxes)
+NavMeshBoxObstacle { Center, Size=HalfExtents*2, Rotation }
+AirWall { HalfExtents }  // authoring; Y euler 0|45|90|…
+```
 
 #### 9.23 PushMapSpawnConfig
 
@@ -2045,6 +2247,17 @@ PushMapSpawnConfig {
 }
 ```
 
+**Spawn runtime contract (Approach A / PM-05):**
+
+- **Rules ownership:** spawn eligibility + trigger state live in `PushMapSessionService` (`Core/PushMap/`); `SpawnPoint`/`TrapZone` are authoring markers only
+- **Load & fire:** `TryStartBattle` loads all rows for the current `GameplayConfigId`; non-trap rows whose linked objective is uncaptured fire `PushMapSpawnRequested` immediately (ascending `SpawnOrder` per `SpawnPointId`); trap-bound points go `Pending`
+- **Event:** `PushMapSpawnRequested(PushMapSpawnRequest)`; payload carries `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger` (`StartBattle` / `Trap`); **position resolved by View** via `SpawnPointId` / `BossPoint`
+- **Trap trigger:** `TryNotifyTrapEnter(trapZoneId)` (View detects first loyal-enter) → if objective uncaptured + not yet fired → all rows for that `SpawnPointId` fire; once per point per battle
+- **Capture stop:** `ObjectiveCaptured(order)` → marks points with `LinkedObjectiveOrder == order` to stop; already-spawned monsters unaffected; `IsBoss=1` rows are **not** capture-stopped (Boss in PM-07)
+- **Presentation:** `PushMapStageController` collects `SpawnPoint` (`SpawnPointId`→position) and `TrapZone`; subscribes to events to instantiate monsters → `PushMapMonsterAgentView` (into `_monsters`; Boss uses `BossPoint`); Update polls loyal (`!IsRebel`) `PushMapAdvanceView` first entry into `TrapZone` → `TryNotifyTrapEnter`
+- **Monster AI boundary:** this slice uses Defend default-chase semantics (nearest loyal warrior / protagonist; normal attack in `AttackRange`; protagonist via `ApplyShieldHit`; warrior damage logged); AggroMode four-state deferred to **PM-06** (contract below); `MonsterAgentView` (bound to `DefendSessionService`) is not wired in
+- **AggroMode runtime contract (PM-06):** `PushMapMonsterAgentView` branches on `config.AggroMode`; `ActiveChase`: loyal soldier enters `AlertRadius` → chase that soldier until death; `PassiveChase`: `_provoked=false` idle, `NotifyProvoked()` → chase; `StationaryActive`: never moves, attacks loyal soldier inside `AttackRange`, stops on leave; `StationaryPassive`: never moves, attacks only after `NotifyProvoked()` and target still in `AttackRange`. Active detection and provocation are **loyal-only** (`!IsRebel`). Provocation source (Demo): `PushMapStageController` fires a loyal `PushMapAdvanceView`'s first entry into a passive monster's `AttackRange` → `NotifyProvoked()` (stands in for "soldier attacks first"; soldier HP deferred). Hits still use `AttackMode` scheme D; active stances do **not** proactively detect the protagonist via `AlertRadius` (loyal soldiers only), but a pursued/nearest-rule protagonist hit still applies `ApplyShieldHit`. Real soldier damage on normal monsters **not** done
+- **Boundary:** no `WaveSpawnConfig` countdown; Boss-clear / Exp / capture loot / dungeon unlock hooks → §9.22 PM-07 contract
 
 ## 13. 资源编排与可扩展性
 
@@ -2052,7 +2265,7 @@ PushMapSpawnConfig {
 
 **原则（强制倾向）：预制体优先（Prefab-first）。** 实际代码与场景开发中，凡会以 GameObject 层级出现的玩法实体、可复用 UI、可生成物、可摆放交互物，**默认用 Prefab + 挂载 Controller** 制作与引用，放在 `Assets/Prefabs/<模块>/`。优先在编辑器中拼装 Prefab，再由代码 `Instantiate` / 引用槽位驱动；**避免**在代码里动态 `new GameObject` 拼层级，或在多个 Scene 中手工复制同一套层级。
 
-**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。PushMap `MapId` 亦可为 `PushMap_*`，同目录解析；PushMap 地图 Prefab 另须支持标记：`ObjectivePoint`/`CaptureZone`/`AirWall`（可 45°）/`SpawnPoint`/`TrapZone`/`BossPoint`（见 §9.22 / [SPEC_03 §3.14](SPEC_03_GameRules.md)）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
+**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。PushMap `MapId` 亦可为 `PushMap_*`，同目录解析；Demo 样例 **`PushMap_Demo_01`**（Editor Ensure，见 §9.22）；PushMap 地图 Prefab 另须支持标记：`ObjectivePoint`/`CaptureZone`/`AirWall`（可 45°；开战 Bake 注入 Not Walkable Box，见 §9.22 PM-08）/`SpawnPoint`/`TrapZone`/`BossPoint`（见 §9.22 / [SPEC_03 §3.14](SPEC_03_GameRules.md)）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
 
 **可不做成 Prefab 的例外：** Scene 唯一常驻 Manager / 引导用一次性布局；纯逻辑无表现的 Service（非 MonoBehaviour 或仅场景单例入口）。
 
@@ -2074,7 +2287,7 @@ PushMapSpawnConfig {
 
 **Principle (strong default): Prefab-first.** For gameplay entities, reusable UI, spawnables, and placeable interactables that exist as GameObject hierarchies, **author and reference Prefabs + Controllers** under `Assets/Prefabs/<Module>/`. Prefer assembling Prefabs in the Editor and driving them via `Instantiate` / serialized slots. **Do not** build visual hierarchies with runtime `new GameObject` trees, or hand-duplicate the same hierarchy across Scenes.
 
-**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here). Map **presentation** is Unity **Isometric Tilemap** (`CellLayout=Isometric`, Demo `CellSize≈(1,0.5,2)`, Grid rotated onto XZ for Dig/Defend orthographic top-down); Tile/Sprite sources under `Assets/Art/Maps/Tiles/` (copied from Example Scene `Environment/Tiles`+`Sprites`); Prefab also has invisible `WalkSurface` (**IsoDiamond**: thin XZ diamond mesh for Demo NavMesh), `DigMapBounds` / EngageZone (same diamond footprint; half-extents=`PaintRadius*(cellSize.x,cellSize.y)`), spawn points. Editor: Tile Palette hand-paint or Builder default fill; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角). Require `com.unity.2d.tilemap` for editor painting. Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
+**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here). PushMap `MapId` may also be `PushMap_*` in the same folder; Demo sample **`PushMap_Demo_01`** (Editor Ensure; marker contract §9.22; `AirWall` StartBattle bake → Not Walkable Box, §9.22 PM-08). Map **presentation** is Unity **Isometric Tilemap** (`CellLayout=Isometric`, Demo `CellSize≈(1,0.5,2)`, Grid rotated onto XZ for Dig/Defend orthographic top-down); Tile/Sprite sources under `Assets/Art/Maps/Tiles/` (copied from Example Scene `Environment/Tiles`+`Sprites`); Prefab also has invisible `WalkSurface` (**IsoDiamond**: thin XZ diamond mesh for Demo NavMesh), `DigMapBounds` / EngageZone (same diamond footprint; half-extents=`PaintRadius*(cellSize.x,cellSize.y)`), spawn points. Editor: Tile Palette hand-paint or Builder default fill; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角). Require `com.unity.2d.tilemap` for editor painting. Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
 
 **Exceptions:** Scene-unique Managers / one-off layout; pure logic Services (non-MonoBehaviour or single scene entry).
 
@@ -2150,7 +2363,7 @@ Gravedigger2026/Assets/ConfigTables/
 | 脚本 | `Assets/Editor/Config/ConfigTableBaker.cs` + `XlsxSheetReader.cs` |
 | 失败策略 | 文件名不符四段规则 / 首 Sheet 无表头时**整批中止**；先全部解析入内存再写盘（避免半成品）；Console 报错须含**完整 Excel 名** |
 | Demo 校验 | 仅文件名四段 + 首 Sheet 非空表头；§9 缺列 / 类型非法校验 **后置**（运行时 `ConfigCsvRepository` 仍做加载期校验） |
-| Excel 库 | 方案 A：Editor 纯 C# 解析 Open XML（`System.IO.Compression` + XML）；零第三方包；读 workbook 第一个 worksheet |
+| Excel 库 | 方案 A：Editor 纯 C# 解析 Open XML（`System.IO.Compression` + XML）；零第三方包；读 workbook 第一个 worksheet；**Zip 条目路径**须同时兼容 `/` 与 `\`（部分 Windows Excel 写出反斜杠；`ZipArchive.GetEntry` 按原文精确匹配） |
 | 忽略 | `~$*.xlsx`（Excel 锁文件） |
 
 ```
@@ -2225,7 +2438,7 @@ Gravedigger2026/Assets/ConfigTables/
 | Scripts | `Assets/Editor/Config/ConfigTableBaker.cs` + `XlsxSheetReader.cs` |
 | Failure | Abort whole batch on non-four-part Excel names / empty first-sheet header; parse all into memory before writing (no partial writes); Console errors must include **full Excel name** |
 | Demo validation | Filename four-part + non-empty first-sheet header only; §9 missing-column / illegal-type checks **deferred** (runtime `ConfigCsvRepository` still validates on load) |
-| Excel lib | Approach A: Editor pure-C# Open XML (`System.IO.Compression` + XML); zero third-party packages; first worksheet in workbook |
+| Excel lib | Approach A: Editor pure-C# Open XML (`System.IO.Compression` + XML); zero third-party packages; first worksheet in workbook; **Zip entry paths** must accept both `/` and `\` (some Windows Excel writers store backslashes; `ZipArchive.GetEntry` matches literally) |
 | Ignore | `~$*.xlsx` (Excel lock files) |
 
 ```

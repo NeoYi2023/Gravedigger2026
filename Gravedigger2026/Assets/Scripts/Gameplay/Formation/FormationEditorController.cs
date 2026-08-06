@@ -120,7 +120,8 @@ namespace Gravedigger2026.Gameplay.Formation
 
             if (_startBattleButton != null)
             {
-                _startBattleButton.gameObject.SetActive(mode == FormationEditorMode.DefendPrepare);
+                _startBattleButton.gameObject.SetActive(
+                    mode == FormationEditorMode.DefendPrepare || mode == FormationEditorMode.PushMapPrepare);
                 _startBattleButton.onClick.AddListener(HandleStartBattle);
             }
 
@@ -468,7 +469,8 @@ namespace Gravedigger2026.Gameplay.Formation
                 _battlefieldPreview.Sync(_formation, _pool);
             }
 
-            if (_startBattleButton != null && _mode == FormationEditorMode.DefendPrepare)
+            if (_startBattleButton != null
+                && (_mode == FormationEditorMode.DefendPrepare || _mode == FormationEditorMode.PushMapPrepare))
             {
                 _startBattleButton.interactable = _formation != null && _formation.Entries.Count >= 1;
             }

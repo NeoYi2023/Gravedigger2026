@@ -98,7 +98,7 @@
 | BattleFormation | 战斗布阵 | 安排士兵上阵；持久化士兵 ID、位置、剩余血量；可在 §3.11 与 Defend / PushMap `Prepare` 编辑同一套数据（§3.11、§3.12、§3.14）。 |
 | Defend | 防守 / 保卫战 | 关卡玩法类型 / `GameplayState`；亦为战斗模式1「保卫战」；进入阶段可经 ModeSelect 选关，再 Prepare→开战→战斗；见 §3.12。 |
 | BattleMode | 战斗模式 | 战斗阶段可选模式：`Defend`（保卫战，模式1）/ `PushMap`（推图战，模式2）；模式2 规则见 §3.14。 |
-| BattleModeSelect | 战斗模式选关 | 进入 Defend 阶段后的选模式+选关 UI（UI-013）；模式1→§3.12；模式2→§3.14（Demo 入口可仍占位，见 §3.8 D-044）。 |
+| BattleModeSelect | 战斗模式选关 | 进入 Defend 阶段后的选模式+选关 UI（UI-013）；模式1→§3.12；模式2确认后→§3.14 Prepare（见 §3.8 D-044）。 |
 | PushMap | 推图战 | 关卡玩法类型 / `GameplayState`；亦可作战斗模式2；目标点链占领 + 刷怪点/陷阱/BOSS 通关；复用 Defend 布阵/护盾/失控/士兵战斗；见 §3.14。 |
 | PushMapPhase | 推图战子状态 | 阶段内子状态：`Prepare` → `Combat` → `Ended`（与 DefendPhase 对齐；见 §3.14）。 |
 | MapId | 地图编号 | 推图战地图 Prefab 逻辑名（≠ LevelId）；多关卡可共用；合法池见 [SPEC_04](SPEC_04_Technical.md)；解析 → `Assets/Prefabs/Maps/{MapId}.prefab`（§3.14）。 |
@@ -227,7 +227,7 @@
 | BattleFormation | 战斗布阵 | Assign soldiers to battlefield; persists soldier Id, position, remaining HP; editable in §3.11 and Defend / PushMap `Prepare` on the same dataset (§3.11, §3.12, §3.14). |
 | Defend | 防守 / 保卫战 | Stage type / `GameplayState`; also BattleMode 1「保卫战」; enter stage may ModeSelect then Prepare → StartBattle → Combat; §3.12. |
 | BattleMode | 战斗模式 | Battle-stage modes: `Defend` (Mode1) / `PushMap` (Mode2); Mode2 rules in §3.14. |
-| BattleModeSelect | 战斗模式选关 | Mode+Level select UI after entering Defend (UI-013); Mode1→§3.12; Mode2→§3.14 (Demo entry may stub, §3.8 D-044). |
+| BattleModeSelect | 战斗模式选关 | Mode+Level select UI after entering Defend (UI-013); Mode1→§3.12; Mode2 confirm→§3.14 Prepare (§3.8 D-044). |
 | PushMap | 推图战 | Stage type / `GameplayState`; also BattleMode 2; objective capture + spawn/trap/Boss clear; reuses Defend formation/Shield/LOC/WarriorCombat; §3.14. |
 | PushMapPhase | 推图战子状态 | In-stage phases: `Prepare` → `Combat` → `Ended` (aligned with DefendPhase; §3.14). |
 | MapId | 地图编号 | PushMap map Prefab logical name (≠ LevelId); shared across levels; resolve → `Assets/Prefabs/Maps/{MapId}.prefab` (§3.14). |
@@ -416,7 +416,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 默认全屏制造区；顶部「GM升级」打开升级 Modal（右上 X 关闭）；底栏库存方格拖拽 +「完成」与其右「布阵」；布阵打开共享 FormationEditor；验收见 §3.8 D-030～D-032 |
 | UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
-| UI-013 | 战斗模式选关 | 已定义（Demo 流水线） | 进入 Defend 阶段后：选 `BattleMode` + 关卡（该模式全部玩法配置）；模式1进保卫战 Prepare；模式2占位不可开战；验收见 §3.8 D-044 |
+| UI-013 | 战斗模式选关 | 已定义（Demo 流水线） | 进入 Defend 阶段后：选 `BattleMode` + 关卡（该模式全部玩法配置）；模式1进保卫战 Prepare；模式2选 `PushMapGameplayConfig` 后进 §3.14 Prepare；验收见 §3.8 D-044 |
 
 ### English
 
@@ -434,7 +434,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Full-screen manufacture by default; top "GM Upgrade" opens upgrade Modal (top-right X closes); bottom inventory square bar + drag + Complete with Formation to its right; opens shared FormationEditor; accept §3.8 D-030–D-032 |
 | UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
-| UI-013 | Battle mode/level select | Defined (Demo pipeline) | After entering Defend: pick `BattleMode` + level (all configs for mode); Mode1 → Defend Prepare; Mode2 stub cannot start; accept §3.8 D-044 |
+| UI-013 | Battle mode/level select | Defined (Demo pipeline) | After entering Defend: pick `BattleMode` + level (all configs for mode); Mode1 → Defend Prepare; Mode2 pick `PushMapGameplayConfig` → §3.14 Prepare; accept §3.8 D-044 |
 
 ---
 
@@ -491,11 +491,11 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fou
 | D-041 | Defend 刷怪与寻路：样例波次能出怪；Demo 最小出生点（临时固定点或地图内随机）；怪物 NavMesh 接近并以普攻扣主角护盾；精确 OutsideMap 几何 **后置** | P0 | 已实现（方案 A：Session 按剩余秒激活 WaveSpawn + Runtime NavMesh + `MonsterAgentView` 扣盾；`Shield≤0`→Ended 钩子） |
 | D-042 | Defend 士兵战斗：EngageZone 内普攻可选敌并造成伤害（第一版不施放技能） | P0 | 已实现（方案 A：近战前摇 + 远程 `ProjectileView` 软碰撞命中/超时未命中；清场可检测；胜负入账见 D-043） |
 | D-043 | Defend 胜负与结算：清场胜利可入账阶段经验并交还关卡驱动；`Shield ≤ 0` → LevelFailure（可验） | P0 | 已实现（方案 A：开战 Degree/Tier 锁定 + `FinalLossChance` roll→Rebel 就近扣盾；清场 Ended 入账 Demo Exp=100→`TryAdvanceStage`；护盾归零 LevelFailure 不入账并 `AbortLevel`） |
-| D-044 | 战斗模式选关闸门：进入 Defend 须先 `ModeSelect`；可选保卫战全部 `DefendGameplayConfig`；推图战入口占位不可开战；保卫战通关→`TryAdvanceStage` | P0 | 已实现（方案 A：`BattleModeSelectRoot` + `DefendStageModule` 先选关再 Prepare） |
+| D-044 | 战斗模式选关闸门：进入 Defend 须先 `ModeSelect`；可选保卫战全部 `DefendGameplayConfig`；模式2列出全部 `PushMapGameplayConfig`，确认后交接进 §3.14 Prepare；任一模式通关→`TryAdvanceStage` | P0 | 已实现（方案 A：`BattleModeSelectRoot` + Mode2→`TryHandoffModeSelectToPushMap`→`PushMapStageModule`） |
 
 **Demo 范围外（仍排除）：**
 
-- 推图战（PushMap）**Demo 实现**（规则已录入 §3.14 / SPEC_04 §9.22–§9.23；本版 §3.8 仍仅选关入口占位，实现见 `.scratch/push-map/issues/`）
+- 推图战（PushMap）完整 polish / 副本玩法正文（规则与 ModeSelect 模式2入口已落地 §3.14 / D-044；细节见 `.scratch/push-map/issues/`）
 - 完整技能施放与技能效果表驱动（士兵/怪物第一版仅普通攻击；`SkillConfig` / CD 公式保留不驱动）
 - 正式美术与动画 polish（临时 Prefab / 占位资源允许；禁止运行时引用 `SmallScaleInt/`）
 - 完整存档序列化 schema（超出槽占用及流水线所需的最小持久化字段）
@@ -527,11 +527,11 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-041 | Defend spawn + path: sample waves spawn; Demo-min spawn (fixed points or in-map random); monsters NavMesh approach and normal-attack Shield; exact OutsideMap geometry **deferred** | P0 | Done (Approach A: Session activates WaveSpawn by remaining seconds + runtime NavMesh + `MonsterAgentView` hits Shield; `Shield≤0`→Ended hook) |
 | D-042 | Defend WarriorCombat: EngageZone normal-attack targeting + damage (no skill casts in v1) | P0 | Done (Approach A: melee windup + ranged `ProjectileView` soft-hit/timeout miss; clear detectable; win/lose credit in D-043) |
 | D-043 | Defend win/lose: clear-spawn victory credits stage Exp and returns to Level driver; `Shield ≤ 0` → LevelFailure (verifiable) | P0 | Done (Approach A: StartBattle Degree/Tier lock + `FinalLossChance`→Rebel nearest Shield hit; clear Ended credits Demo Exp=100→`TryAdvanceStage`; Shield 0 LevelFailure no Exp + `AbortLevel`) |
-| D-044 | Battle ModeSelect gate: entering Defend requires `ModeSelect` first; list all DefendGameplayConfig for Mode1; Mode2 PushMap stub cannot start; Mode1 clear→`TryAdvanceStage` | P0 | Done (Approach A: `BattleModeSelectRoot` + `DefendStageModule` select then Prepare) |
+| D-044 | Battle ModeSelect gate: entering Defend requires `ModeSelect` first; list all DefendGameplayConfig for Mode1; Mode2 lists all PushMapGameplayConfig then handoff → §3.14 Prepare; either-mode clear→`TryAdvanceStage` | P0 | Done (Approach A: `BattleModeSelectRoot` + Mode2→`TryHandoffModeSelectToPushMap`→`PushMapStageModule`) |
 
 **Out of Demo scope (still excluded):**
 
-- Full PushMap playable session from ModeSelect (Demo entry stub only; rules authority §3.14)
+- PushMap polish / dungeon gameplay body (rules + ModeSelect Mode2 entry landed §3.14 / D-044; details in `.scratch/push-map/issues/`)
 - Full skill casts / skill-effect table drive (soldiers/monsters: normal attacks only in v1; `SkillConfig` / CD formula retained unused)
 - Formal art / animation polish (temp Prefabs OK; **no** runtime refs to `SmallScaleInt/`)
 - Full save schema beyond occupied flag + minimal fields needed by the pipeline
@@ -1591,16 +1591,16 @@ UpgradeManufacture stage
 |------|------|
 | 进入 | 进入 Defend 阶段后 **必须** 先 `DefendPhase = ModeSelect`，**不可**直接进入 `Prepare` |
 | 模式1 | `BattleMode = Defend`，玩家可见名「**保卫战**」；规则 = 本节 Prepare→Combat 全套；关卡列表 = `DefendGameplayConfig` **全部**主键行 |
-| 模式2 | `BattleMode = PushMap`，玩家可见名「**推图战**」；规则权威见 **§3.14**；Demo 选关入口可仍占位（确认进入/开战禁用或 Toast，见 §3.8 D-044）；授权后按所选 `PushMapGameplayConfig` 进入 §3.14 Prepare |
-| 关卡 | 列表随当前模式切换；保卫战列出全部 `DefendGameplayConfig`；运作表 `GameplayConfigId` 仅作 **Recommended** 默认高亮；UM 布阵预览地图仍可读 Recommended→`BattleMapId`（可与玩家最终所选关卡不一致，本版可接受） |
-| 确认 | 模式1 + 已选关卡 → 用所选行覆盖本阶段开战配置 → 进入 `Prepare`；模式2 → Demo 占位不进 Prepare；正式实现后加载 `PushMapGameplayConfig` 并按 §3.14 进入 Prepare |
+| 模式2 | `BattleMode = PushMap`，玩家可见名「**推图战**」；规则权威见 **§3.14**；关卡列表 = `PushMapGameplayConfig` **全部**主键行；确认后按所选行进入 §3.14 Prepare |
+| 关卡 | 列表随当前模式切换；保卫战列出全部 `DefendGameplayConfig`；推图战列出全部 `PushMapGameplayConfig`；运作表 `GameplayConfigId` 仅作保卫战 **Recommended** 默认高亮；UM 布阵预览地图仍可读 Recommended→`BattleMapId`（可与玩家最终所选关卡不一致，本版可接受） |
+| 确认 | 模式1 + 已选关卡 → 用所选行覆盖本阶段开战配置 → 进入保卫战 `Prepare`；模式2 + 已选关卡 → `LevelOperationDriver.TryHandoffModeSelectToPushMap` 卸 Defend ModeSelect，改写上下文为 PushMap，进入 `PushMapStageModule` §3.14 Prepare |
 | 通关 | **任一模式**关卡胜利 → 本阶段胜利结算 → §3.9 `TryAdvanceStage`；失败：保卫战与推图战均为 Shield≤0→LevelFailure（推图战胜负见 §3.14） |
 
 **阶段内子状态（DefendPhase）**
 
 | 子状态 | 说明 |
 |--------|------|
-| `ModeSelect` | 进入 Defend 后的默认态：展示战斗模式与关卡选择（UI-013）；确认保卫战后才进入 `Prepare` |
+| `ModeSelect` | 进入 Defend 后的默认态：展示战斗模式与关卡选择（UI-013）；确认保卫战后进入保卫战 `Prepare`；确认推图战后交接离开本模块 |
 | `Prepare` | 加载布阵、展示准备 UI（含「开战」）；**可编辑布阵**（与 §3.11 **同一套**布阵 UI/逻辑）；写回同一 BattleFormation；不可制造新士兵 |
 | `Combat` | 点击「开战」后：按**当前**布阵部署单位、护盾与战斗倒计时、刷怪、寻路与战斗结算运行中 |
 | `Ended` | 本阶段已因胜利结束，或因关卡失败中止 |
@@ -1845,16 +1845,16 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 |------|-------|
 | Enter | After entering Defend, **must** start at `DefendPhase = ModeSelect`; **must not** jump straight to `Prepare` |
 | Mode1 | `BattleMode = Defend`, player label「保卫战」; rules = this section Prepare→Combat; level list = **all** `DefendGameplayConfig` rows |
-| Mode2 | `BattleMode = PushMap`, player label「推图战」; rules authority **§3.14**; Demo entry may stub (confirm/start disabled or Toast, §3.8 D-044); after auth load `PushMapGameplayConfig` → §3.14 Prepare |
-| Levels | List follows current mode; Defend lists all `DefendGameplayConfig`; LevelOperation `GameplayConfigId` is **Recommended** default highlight only; UM formation preview map may still read Recommended→`BattleMapId` (may differ from player's final pick; OK this version) |
-| Confirm | Mode1 + selected level → overwrite stage start config with selected row → `Prepare`; Mode2 → **no** Prepare, **no** stage advance |
+| Mode2 | `BattleMode = PushMap`, player label「推图战」; rules authority **§3.14**; level list = **all** `PushMapGameplayConfig` rows; confirm → §3.14 Prepare |
+| Levels | List follows current mode; Defend lists all `DefendGameplayConfig`; PushMap lists all `PushMapGameplayConfig`; LevelOperation `GameplayConfigId` is Defend **Recommended** default highlight only; UM formation preview map may still read Recommended→`BattleMapId` (may differ from player's final pick; OK this version) |
+| Confirm | Mode1 + selected level → overwrite stage start config with selected row → Defend `Prepare`; Mode2 + selected level → `LevelOperationDriver.TryHandoffModeSelectToPushMap` exits Defend ModeSelect, rewrites context to PushMap, enters `PushMapStageModule` §3.14 Prepare |
 | Clear | Victory in **either** mode → stage settlement → §3.9 `TryAdvanceStage`; failure: both modes Shield≤0→LevelFailure (PushMap win/lose §3.14) |
 
 **In-stage phases (DefendPhase)**
 
 | Phase | Notes |
 |-------|-------|
-| `ModeSelect` | Default on enter: show mode + level select (UI-013); Mode1 confirm → `Prepare` |
+| `ModeSelect` | Default on enter: show mode + level select (UI-013); Mode1 confirm → Defend `Prepare`; Mode2 confirm → handoff leave this module |
 | `Prepare` | Load formation, show prepare UI (incl. StartBattle); **may edit** formation with the **same** UI/logic as §3.11; write back same BattleFormation; cannot manufacture |
 | `Combat` | After StartBattle: deploy from **current** formation, Shield + combat countdown, spawn, pathing, combat resolution |
 | `Ended` | Stage ended by victory, or aborted by LevelFailure |
@@ -2255,7 +2255,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 
 **状态：框架已定义（规则库）；Prepare/开战/护盾/失控/士兵战斗复用 §3.12；目标点链/判定圈占领/空气墙/刷怪点/陷阱/BOSS 通关/AggroMode 已锁定；副本玩法正文 TBD（仅解锁钩子）；Demo 实现须另授权并拆切片（见 `.scratch/push-map/issues/`）**
 
-当关卡当前阶段 `玩法类型 = PushMap` 时进入本阶段。亦可通过 Defend 阶段 `BattleModeSelect` 选模式2「推图战」进入本规则（Demo 选关入口可仍占位，见 §3.8 D-044；规则以本节为准）。依赖 §3.11 **战斗布阵**。配置见 [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`、[§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`、[§9.19](SPEC_04_Technical.md) `MonsterConfig`（含 `AggroMode` / `AlertRadius`）、[§9.20](SPEC_04_Technical.md) `LossOfControlConfig`。
+当关卡当前阶段 `玩法类型 = PushMap` 时进入本阶段。亦可通过 Defend 阶段 `BattleModeSelect` 选模式2「推图战」经 `TryHandoffModeSelectToPushMap` 进入本规则（见 §3.8 D-044；规则以本节为准）。依赖 §3.11 **战斗布阵**。配置见 [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`、[§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`、[§9.19](SPEC_04_Technical.md) `MonsterConfig`（含 `AggroMode` / `AlertRadius`）、[§9.20](SPEC_04_Technical.md) `LossOfControlConfig`。
 
 **与 Defend 的关系（复用边界，方案 2C）**
 
@@ -2291,11 +2291,12 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 |------|------|
 | ObjectivePoint | 有序目标点；字段含 `ObjectiveOrder`（1,2,3…）与挂载 `CaptureZone` |
 | CaptureZone | 判定圈；圆形；**默认半径 2**（世界单位）；Prefab 可改 |
-| AirWall | 空气墙；阻挡 **敌我双方** 士兵与怪物；支持绕 Y 轴 **0°/45°/90°…** 旋转 |
+| AirWall | 空气墙；阻挡 **敌我双方** 士兵与怪物；支持绕 Y 轴 **0°/45°/90°…** 旋转；Demo NavMesh 见下「Demo 空气墙边界」 |
 | SpawnPoint | 刷怪点；独立 `SpawnPointId`；与配置表行匹配 |
 | TrapZone | 陷阱区域；独立 `TrapZoneId`；我方 **忠诚** 士兵进入触发绑定刷怪 |
 | BossPoint | BOSS 点；关联刷怪生成的 BOSS；击杀 → 阶段通关 |
 | EngageZone / WalkSurface | 复用 §3.12 约定（选敌区 / NavMesh 可走面） |
+| Demo 空气墙边界 | PM-08（方案 A）：开战 Runtime Bake 收集地图 `AirWall`，以 `NavMeshBuildSource` **Box + Not Walkable** 注入可走面烘焙（`HalfExtents×2` 尺寸；`Transform` 含 Y 旋转 → **含 45°**）；敌我士兵与怪物 `NavMeshAgent` 均不可穿；**不做** NavMeshObstacle Carve、复杂多层障碍 polish |
 
 **目标点链与占领**
 
@@ -2309,6 +2310,11 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 占领效果 | ① 该目标点本场标记已占领；② **关联该目标的刷怪点本场不再刷怪**；③ 已刷出且仍存活的怪物 **保留** 直至击杀；④ 可发放配置奖励并写入副本解锁钩子（见下）；⑤ 当前目标切换为下一未占领目标；若无下一目标则士兵保持当前位置/就近守备直至 BOSS 通关或失败 |
 | 占领奖励 | 来自 `PushMapGameplayConfig` 或目标点绑定配置的物资/精魂等；**不**入账阶段经验 |
 | 副本解锁 | 配置的 `DungeonUnlockIds` 写入存档集合钩子；**副本玩法正文 TBD** |
+| 规则归属 | `CurrentObjective` 链与占领计时/事件归属 **规则层**（`PushMapSessionService`）；地图 `ObjectivePoint`/`CaptureZone` 仅作者标记，运行时不自管计时 |
+| Demo 无刷怪边界 | PM-04（未接 PM-05 刷怪）圈内「存活怪物」由表现层注入探测（见 SPEC_04 §9.22）；默认 `MonsterAgentView.IsAlive && ContainsXZ`，无怪时自然满足连续秒数 → 占领；重置验收可经探测占位 |
+| Demo 刷怪 AI 边界 | PM-05 怪物 AI 用 Defend 默认追击语义（就近忠诚兵/主角；进 `AttackRange` 普攻；对主角扣盾）；AggroMode 四态后置 **PM-06**（见下「Demo AggroMode 边界」）；BOSS 通关结算见「Demo BOSS 通关边界」 |
+| Demo AggroMode 边界 | PM-06 四态实现：主动态（`ActiveChase`/`StationaryActive`）发现半径用 `AlertRadius`（与 `AttackRange` 并列）且**仅**对忠诚士兵触发主动发现；被动态（`PassiveChase`/`StationaryPassive`）须先被攻击→Demo 契约＝忠诚士兵首次进入该怪 `AttackRange` 即视为挑衅进攻击态（士兵 HP / 真实命中结算仍后置）；原地态（`Stationary*`）不移动，仅 `AttackRange` 内攻击。普通怪真实士兵伤害 / 技能施放 / 副本玩法正文 **不做** |
+| Demo BOSS 通关边界 | PM-07：击杀 `IsBoss` 行生成且落于 `BossPoint` 的 BOSS → `Ended` → 入账 `StageExpReward`（路径对齐 Defend：`AddExperience` → `TryAdvanceStage`）；`Shield≤0` → LevelFailure **不**入账本阶段经验。Demo 击杀契约＝忠诚士兵首次进入该 BOSS `AttackRange` → 表现层 `NotifyKilled` + 规则 `TryNotifyBossKilled`（士兵真实 HP/伤害结算仍后置）。占领时发放 `CaptureLoot`（**不含**经验）并写入 `DungeonUnlockIds` 存档钩子；通关时同样写入解锁钩子。副本玩法正文 / 完整失败结算 UI **不做**。`IsBoss` 行与地图 `BossPoint`：缺标记时 warn，位置回退 |
 
 **刷怪（非 WaveSpawn 倒计时）**
 
@@ -2319,14 +2325,16 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 陷阱刷怪 | 绑定 `TrapZoneId` 的刷怪点：我方忠诚士兵 **首次**进入该陷阱区且关联目标未占领 → 生成；本场每点默认触发一次（重复进入不重复刷，除非配置另开 **TBD**） |
 | 占领停刷 | 关联目标已占领 → 该点不再新刷；场上已有怪保留 |
 | 禁止 | PushMap **不**使用 `RemainingCombatSeconds` / `WaveSpawnConfig` 倒计时激活 |
+| Demo 实现边界 | PM-05（刷怪/陷阱）：怪物 AI 暂用 Defend 默认追击（非四态，见 §9.23 契约）；AggroMode 四态与 BOSS 通关结算 **后置**（PM-06/07）；刷怪资格 / 触发状态归 `PushMapSessionService`，位置由表现层按 `SpawnPointId` / `BossPoint` 解析 |
 
 **BOSS 与胜负**
 
 | 规则 | 说明 |
 |------|------|
-| 通关 | 击杀 **BossPoint** 生成的 BOSS 怪物 → `PushMapPhase=Ended` → 阶段胜利 → 入账经验（路径对齐 Defend；Demo 可固定数值）→ §3.9 下一阶段 / VictorySettlement |
+| 通关 | 击杀 **BossPoint** 生成的 BOSS 怪物（`PushMapSpawnConfig.IsBoss=1`）→ `PushMapPhase=Ended` → 阶段胜利 → 入账 `StageExpReward`（路径对齐 Defend）→ §3.9 下一阶段 / VictorySettlement |
 | 失败 | `Shield ≤ 0` → LevelFailure（同 §3.12 / §3.9）；**不**入账本阶段经验 |
 | 清场 | **不**以「全部刷怪点刷完+全灭」为通关条件 |
+| 规则归属 | 胜负结算归 `PushMapSessionService`（`TryNotifyBossKilled` / `VictorySettled` / `RequestLevelFailure`）；经验入账由表现层对齐 Defend 调用 `ProtagonistProgressService.AddExperience` |
 
 **怪物 AggroMode（仇恨模式；≠ AttackMode）**
 
@@ -2374,15 +2382,15 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 
 | 优先级 | 内容 |
 |--------|------|
-| P0 | 地图标记契约、配置表、Stage 接线、目标点占领、刷怪/陷阱、BOSS 通关、护盾失败 |
-| P1 | AggroMode 四态完整、空气墙 NavMesh |
+| P0 | 地图标记契约、配置表、Stage 接线、目标点占领、刷怪/陷阱、BOSS 通关、护盾失败（已落地 PM-01～05/07） |
+| P1 | AggroMode 四态、空气墙 NavMesh（已落地 PM-06 / PM-08） |
 | P2 | 占领奖励表现、副本解锁 UI；副本玩法另专题 |
 
 ### English
 
 **Status: Framework defined (rules library); Prepare/StartBattle/Shield/LossOfControl/WarriorCombat reuse §3.12; objective chain / CaptureZone / AirWall / SpawnPoint / TrapZone / Boss clear / AggroMode locked; Dungeon gameplay body TBD (unlock hook only); Demo implementation requires separate authorization and issue splits (see `.scratch/push-map/issues/`)**
 
-Entered when Level stage `GameplayType = PushMap`. May also be entered via Defend `BattleModeSelect` Mode2「推图战」(Demo entry may remain stub per §3.8 D-044; rules authority is this section). Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`, [§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`, [§9.19](SPEC_04_Technical.md) `MonsterConfig` (`AggroMode` / `AlertRadius`), [§9.20](SPEC_04_Technical.md) `LossOfControlConfig`.
+Entered when Level stage `GameplayType = PushMap`. May also be entered via Defend `BattleModeSelect` Mode2「推图战」through `TryHandoffModeSelectToPushMap` (see §3.8 D-044; rules authority is this section). Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`, [§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`, [§9.19](SPEC_04_Technical.md) `MonsterConfig` (`AggroMode` / `AlertRadius`), [§9.20](SPEC_04_Technical.md) `LossOfControlConfig`.
 
 **Relation to Defend (reuse boundary, Approach 2C)**
 
@@ -2418,11 +2426,12 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 |--------|-------|
 | ObjectivePoint | Ordered objectives; `ObjectiveOrder` (1,2,3…) + `CaptureZone` |
 | CaptureZone | Capture circle; default radius **2**; Prefab-tunable |
-| AirWall | Blocks **both** factions; Y-rotation **0°/45°/90°…** |
+| AirWall | Blocks **both** factions; Y-rotation **0°/45°/90°…**; Demo NavMesh → "Demo AirWall edge" |
 | SpawnPoint | Unique `SpawnPointId`; matched by config rows |
 | TrapZone | Unique `TrapZoneId`; loyal soldier enter triggers bound spawns |
 | BossPoint | Boss spawn marker; kill → stage clear |
 | EngageZone / WalkSurface | Reuse §3.12 |
+| Demo AirWall edge | PM-08 (Approach A): StartBattle runtime bake collects map `AirWall`s and injects `NavMeshBuildSource` **Box + Not Walkable** into the walkable bake (`HalfExtents×2`; `Transform` Y rotation → **incl. 45°**); both soldiers and monsters (`NavMeshAgent`) cannot path through; **no** NavMeshObstacle Carve or multi-layer obstacle polish |
 
 **Objective chain & Capture**
 
@@ -2436,6 +2445,11 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | On Capture | Mark captured; **stop future spawns** for linked points; **keep** living spawned monsters; grant configured loot + dungeon unlock hook; advance current objective |
 | Capture loot | Materials/Spirit from config; **no** stage Exp |
 | Dungeon unlock | Write `DungeonUnlockIds` to save-slot set hook; **dungeon gameplay TBD** |
+| Rules ownership | Objective chain + capture timer/events live in **rules layer** (`PushMapSessionService`); map `ObjectivePoint`/`CaptureZone` are authoring markers only, no runtime self-ticking |
+| Demo no-spawn edge | PM-04 (before PM-05 spawn) receives "living monster in zone" via presentation-injected probe (SPEC_04 §9.22); default `MonsterAgentView.IsAlive && ContainsXZ`; with none, continuous seconds capture fires; reset acceptance may use the probe placeholder |
+| Demo spawn AI edge | PM-05 monster AI uses Defend default-chase semantics (nearest loyal soldier / protagonist; attack in `AttackRange`; Shield hit on protagonist); AggroMode four-state deferred to **PM-06** (see "Demo AggroMode edge" below); Boss-clear settlement see "Demo Boss-clear edge" |
+| Demo AggroMode edge | PM-06 four-state: active stances (`ActiveChase`/`StationaryActive`) detect via `AlertRadius` (alongside `AttackRange`) and **only** on loyal soldiers; passive stances (`PassiveChase`/`StationaryPassive`) must be attacked first → Demo contract = first loyal-soldier entry into that monster's `AttackRange` provokes it (real soldier damage/hit settlement still deferred); stationary stances (`Stationary*`) never move, attack only inside `AttackRange`. Real soldier damage on normal monsters / skill casts / dungeon gameplay body **not** done |
+| Demo Boss-clear edge | PM-07: kill Boss from `IsBoss` row at `BossPoint` → `Ended` → credit `StageExpReward` (Defend path: `AddExperience` → `TryAdvanceStage`); `Shield≤0` → LevelFailure with **no** stage Exp. Demo kill contract = first loyal-soldier entry into that Boss's `AttackRange` → View `NotifyKilled` + rules `TryNotifyBossKilled` (real soldier HP/damage still deferred). Capture grants `CaptureLoot` (**no** Exp) and writes `DungeonUnlockIds` save hook; Boss-clear also writes unlock hook. Dungeon gameplay body / full failure UI **not** done. Missing `BossPoint` with `IsBoss` rows → warn + position fallback |
 
 **Spawning (not WaveSpawn countdown)**
 
@@ -2446,14 +2460,16 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Trap | Bound `TrapZoneId`: first loyal enter while objective uncaptured → spawn once per point this battle (re-enter no re-spawn unless config TBD) |
 | Capture stop | Captured linked objective → no new spawns; living remain |
 | Forbidden | PushMap does **not** use `RemainingCombatSeconds` / `WaveSpawnConfig` activation |
+| Demo impl boundary | PM-05 (spawn/trap): monsters use Defend default-chase AI (not four-state, §9.23 contract); AggroMode four-state and Boss-clear settlement **deferred** (PM-06/07); spawn eligibility/trigger state in `PushMapSessionService`; position resolved by View via `SpawnPointId` / `BossPoint` |
 
 **Boss & win/lose**
 
 | Rule | Notes |
 |------|-------|
-| Clear | Kill Boss spawned from **BossPoint** → Ended → credit Exp (Defend path; Demo may use fixed value) → §3.9 |
+| Clear | Kill Boss from **BossPoint** (`PushMapSpawnConfig.IsBoss=1`) → Ended → credit `StageExpReward` (Defend path) → §3.9 |
 | Fail | `Shield ≤ 0` → LevelFailure; **no** stage Exp |
 | Not used | “All spawn rows fired + all killed” clear condition |
+| Rules ownership | Outcome in `PushMapSessionService` (`TryNotifyBossKilled` / `VictorySettled` / `RequestLevelFailure`); Exp credited by presentation via `ProtagonistProgressService.AddExperience` (aligned with Defend) |
 
 **Monster AggroMode (≠ AttackMode)**
 

@@ -1,8 +1,9 @@
 ---
 title: PushMap — 配置表 Bake 与 CSV 加载
-status: todo
+status: done
 difficulty: 2
-demo_scope: deferred
+demo_scope: authorized
+selected_approach: A
 spec_refs:
   - SPEC_04 §9.22 PushMapGameplayConfig
   - SPEC_04 §9.23 PushMapSpawnConfig
@@ -26,12 +27,19 @@ spec_refs:
 
 ## 验收
 
-- [ ] Bake 产出 CSV；运行时可只读加载
-- [ ] AggroMode 四值可解析
+- [x] Bake 产出 CSV；运行时可只读加载
+- [x] AggroMode 四值可解析
 
 ## 依赖
 
 - [00](00-spec-close.md)
+
+## 落地摘要（方案 A）
+
+- Excel：`推图战_推图战配置表_PushMap_PushMapGameplayConfig.xlsx`、`推图战_刷怪配置表_PushMap_PushMapSpawnConfig.xlsx`；Monster 表增列后重写
+- CSV：`PushMap_PushMapGameplayConfig.csv`、`PushMap_PushMapSpawnConfig.csv`；`Defend_MonsterConfig.csv` 含四值 AggroMode
+- 代码：`AggroMode` 枚举、`PushMap*ConfigRow`、`ConfigCsvRepository` 加载/`TryGetPushMap`/`GetPushMapSpawnRows`
+- SPEC：v0.55.0（§9.19 缺省 + §6 PM-02）
 
 ## 编码前
 

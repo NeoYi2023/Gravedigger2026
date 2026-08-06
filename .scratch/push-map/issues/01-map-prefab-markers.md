@@ -1,12 +1,13 @@
 ---
 title: PushMap — 地图 Prefab 标记契约与样例
-status: todo
+status: done
 difficulty: 2
-demo_scope: deferred
+demo_scope: authorized
 spec_refs:
   - SPEC_03 §3.14 地图 Prefab 标记
   - SPEC_04 §9.22 地图 Prefab 标记契约
   - SPEC_04 §13 Prefabs/Maps
+approach: A
 ---
 
 ## 目标
@@ -27,8 +28,8 @@ spec_refs:
 
 ## 验收
 
-- [ ] 样例地图 Prefab 含全部标记类型且可 Instantiate
-- [ ] 空气墙 45° 旋转在编辑器可设
+- [x] 样例地图 Prefab 含全部标记类型且可 Instantiate
+- [x] 空气墙 45° 旋转在编辑器可设
 
 ## 依赖
 
@@ -38,3 +39,10 @@ spec_refs:
 
 - 工作量可单次；难度 2 → 方案比选后再编码
 - 须负责人授权 PushMap Demo
+
+## 本会话交付（方案 A）
+
+- SPEC_04 §9.22/§13 + SPEC_00 v0.54.0：标记字段契约与样例 `PushMap_Demo_01`
+- 脚本：`Assets/Scripts/Gameplay/PushMap/`（`ObjectivePoint`/`CaptureZone`/`AirWall`/`SpawnPoint`/`TrapZone`/`BossPoint`）
+- Editor：`Gravedigger2026/PushMap/Ensure Sample Map Prefab`
+- 样例：`Assets/Prefabs/Maps/PushMap_Demo_01.prefab`（`AirWall_45` Y=45°；CaptureZone 半径 2）

@@ -90,6 +90,8 @@ namespace Gravedigger2026.UI
                     return "当前玩法：升级与制造（UpgradeManufacture）";
                 case GameplayState.Defend:
                     return "当前玩法：防守（Defend）";
+                case GameplayState.PushMap:
+                    return "当前玩法：推图战（PushMap）";
                 default:
                     return "当前玩法：未知";
             }

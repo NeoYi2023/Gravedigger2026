@@ -163,6 +163,67 @@ namespace Gravedigger2026.Core.Level
             StageChanged?.Invoke(null);
         }
 
+        /// <summary>
+        /// ModeSelect Mode2 handoff: exit Defend module, rewrite current context to PushMap, enter PushMapStageModule (D-044).
+        /// </summary>
+        public bool TryHandoffModeSelectToPushMap(string gameplayConfigId, out string error)
+        {
+            error = null;
+            if (!IsRunning || _currentContext == null)
+            {
+                error = "No active Level stage.";
+                return false;
+            }
+
+            if (_currentContext.GameplayType != GameplayState.Defend)
+            {
+                error =
+                    $"ModeSelect PushMap handoff requires Defend stage (current={_currentContext.GameplayType}).";
+                return false;
+            }
+
+            if (!_configs.TryGetPushMap(gameplayConfigId, out var pushMap))
+            {
+                error = $"PushMapGameplayConfig '{gameplayConfigId}' not found.";
+                return false;
+            }
+
+            if (!MapPrefabPaths.TryResolveAssetPath(pushMap.MapId, out var pushMapPath, out var pushMapErr))
+            {
+                error = pushMapErr ?? $"Map resolve failed for '{pushMap.MapId}'.";
+                return false;
+            }
+
+            ExitCurrentModule();
+
+            _currentContext.GameplayType = GameplayState.PushMap;
+            _currentContext.GameplayConfigId = pushMap.GameplayConfigId;
+            _currentContext.DefendConfig = null;
+            _currentContext.PushMapConfig = pushMap;
+            _currentContext.ResolvedMapId = pushMap.MapId;
+            _currentContext.ResolvedMapPrefabPath = pushMapPath;
+            _currentContext.MapResolveNote =
+                $"ModeSelect PushMap Config={pushMap.GameplayConfigId} MapId={pushMap.MapId} → {pushMapPath} (Handoff→PushMapStageModule).";
+
+            _gameplayState.SetState(GameplayState.PushMap);
+
+            if (_modules.TryGetValue(GameplayState.PushMap, out var module))
+            {
+                module.Enter(_currentContext);
+            }
+            else
+            {
+                error = "No IStageModule for PushMap.";
+                Debug.LogError($"[LevelOperationDriver] {error}");
+                return false;
+            }
+
+            StageChanged?.Invoke(_currentContext);
+            Debug.Log(
+                $"[LevelOperationDriver] ModeSelect handoff → PushMap Config={pushMap.GameplayConfigId} Map={pushMap.MapId} Level={_currentContext.LevelId} Stage={_currentContext.StageNumber}");
+            return true;
+        }
+
         private bool TryEnterCurrentStage(out string error)
         {
             error = null;
@@ -249,6 +310,27 @@ namespace Gravedigger2026.Core.Level
                             $"ModeSelect pending; Recommended '{row.GameplayConfigId}' missing or empty.";
                     }
 
+                    return true;
+
+                case GameplayState.PushMap:
+                    // GameplayConfigId → PushMapGameplayConfig PK (direct lookup; ModeSelect Mode2 uses TryHandoffModeSelectToPushMap).
+                    if (!_configs.TryGetPushMap(row.GameplayConfigId, out var pushMap))
+                    {
+                        error = $"PushMapGameplayConfig '{row.GameplayConfigId}' not found.";
+                        return false;
+                    }
+
+                    context.PushMapConfig = pushMap;
+                    context.ResolvedMapId = pushMap.MapId;
+                    if (!MapPrefabPaths.TryResolveAssetPath(pushMap.MapId, out var pushMapPath, out var pushMapErr))
+                    {
+                        error = pushMapErr;
+                        return false;
+                    }
+
+                    context.ResolvedMapPrefabPath = pushMapPath;
+                    context.MapResolveNote =
+                        $"PushMap MapId={pushMap.MapId} → {pushMapPath} (Instantiate by PushMapStageModule).";
                     return true;
 
                 default:

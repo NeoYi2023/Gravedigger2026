@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.53.0
+**文档版本 / Document Version:** v0.62.0
 **最后更新 / Last Updated:** 2026-08-06  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + 可选 TechTree UI-012 落地）  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-08 + ModeSelect 模式2 入口 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,16 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-06 | v0.62.0 | Defend ModeSelect 模式2正式入口：列出全部 `PushMapGameplayConfig`；确认后 `LevelOperationDriver.TryHandoffModeSelectToPushMap` 卸 Defend → 改写上下文为 PushMap → `PushMapStageModule` Prepare；`GameplayType=PushMap` 直进路径保留；同步 SPEC_03 UI-013/D-044/§3.12/§3.14、SPEC_04 §6、CONTEXT |
+| 2026-08-06 | v0.61.0 | PushMap PM-08（方案 A）：空气墙 NavMesh——开战 Runtime Bake 将地图 `AirWall` 注入 `NavMeshBuildSource` Box + Not Walkable（含 Y 轴 45°）；敌我 Agent 均不可穿；复杂多层障碍 polish 不做；SPEC_03 §3.14、SPEC_04 §6/§9.7/§9.22/§13 |
+| 2026-08-06 | v0.60.0 | PushMap PM-07（方案 A）：BOSS 通关与奖励钩子——`TryNotifyBossKilled`→`VictorySettled(StageExpReward)` 对齐 Defend 经验/`TryAdvanceStage`；护盾归零不入账；占领 `CaptureLoot`+`DungeonUnlockIds` 存档钩子；Demo 击杀＝忠诚兵进 BOSS `AttackRange`；SPEC_03 §3.14、SPEC_04 §6/§9.22–§9.23 |
+| 2026-08-06 | v0.59.0 | PushMap PM-06（方案 A）：AggroMode 四态 Demo 契约——`PushMapMonsterAgentView` 按 `AggroMode` 分支；主动态 `AlertRadius` 仅对忠诚士兵主动发现；被动态 Demo 挑衅契约＝忠诚兵首次进 `AttackRange`→`NotifyProvoked()`；原地态永不移动；命中仍 `AttackMode` 方案 D；士兵击杀怪物/技能/副本不做；SPEC_04 §6/§9.23、SPEC_03 §3.14 增实现边界 |
+| 2026-08-06 | v0.58.0 | PushMap PM-05（方案 A）：刷怪与陷阱运行时契约——`PushMapSessionService` 装载 `PushMapSpawnConfig`、无陷阱开战刷 / 陷阱首次触发 / 占领停刷（已刷保留）；事件 `PushMapSpawnRequested`（位置由 View 解析）；表现 `PushMapStageController` + `PushMapMonsterAgentView`（Defend 默认追击语义）；SPEC_04 §6/§9.23、SPEC_03 §3.14 增实现边界；样例 `TrapZoneId` 对齐 `TZ_01`；AggroMode/BOSS 结算后置 PM-06/07 |
+| 2026-08-06 | v0.57.0 | PushMap PM-04（方案 A）：目标点链与判定圈占领契约——规则归 `PushMapSessionService`（`CurrentObjective`/`TickCapture`/`ObjectiveCaptured`+`CurrentObjectiveChanged`）；SPEC_03 §3.14 增规则归属与 Demo 无刷怪边界；SPEC_04 §9.22 增占领运行时契约（探测 `PushMapMonsterPresenceProbe`、推进 `PushMapAdvanceView`） |
+| 2026-08-06 | v0.56.0 | PushMap PM-03（方案 A）：SPEC_04 §6 落地 Stage 接线——`LevelOperationDriver` 支持 `PushMap`、`MapPrefabPaths` 允许 `PushMap_*`、`PushMapStageModule`+`PushMapSessionService`+`PushMapStageController`（Prepare/开战≥1/Shield/LOC；复用 FormationEditor；无占领/刷怪/BOSS）；样例 `Level_01,4,PushMap,PushMap_01`；Defend 模式2 仍占位 |
+| 2026-08-06 | v0.55.1 | 修复 Bake：XlsxSheetReader 兼容 Zip 条目路径 / 与 \（TechEffectConfig 等 Windows Excel 反斜杠导致 GetEntry 失败）；重写该表 Excel；同步 SPEC_04 §14.4 |
+| 2026-08-06 | v0.55.0 | PushMap PM-02（方案 A）：`PushMapGameplayConfig` / `PushMapSpawnConfig` Excel+CSV；`MonsterConfig` 加载 `AggroMode`/`AlertRadius` 缺省；`ConfigCsvRepository` 只读加载；同步 SPEC_04 §6/§9.19/§9.22 |
+| 2026-08-06 | v0.54.0 | PushMap PM-01（方案 A）：SPEC_04 §9.22/§13 落地地图 Prefab 标记字段契约与样例 `PushMap_Demo_01`（独立 `PushMap_*`，不改 `Ground_*`）；脚本 `Gameplay/PushMap/`；Editor Ensure；无占领/刷怪运行时 |
 | 2026-08-06 | v0.53.0 | Dig 命中形方案 B：`DigHitShape` 离线烘焙本地 XZ 凸包；光标圆 ∩ 凸包触发 DigAction（与障碍圆分离）；同步 SPEC_03 §3.10、SPEC_04 §6/§9.2、CONTEXT |
 | 2026-08-06 | v0.52.0 | 推图战 PushMap 规则录入：新增 SPEC_03 §3.14（GameplayType；复用 Defend 布阵/护盾/失控/士兵战斗；目标点链+判定圈占领；空气墙/刷怪点/陷阱/BOSS；AggroMode）；SPEC_04 §9.22–§9.23 + MonsterConfig.AggroMode/AlertRadius；边界锁定见待澄清；同步 CONTEXT/SPEC_02/spec-map；issues `.scratch/push-map/` |
 | 2026-08-06 | v0.51.0 | 战斗阶段入口增加模式/选关闸门（D-044）：`DefendPhase.ModeSelect`；模式1「保卫战」=现 §3.12；模式2「推图战」占位；关卡列表=该模式全部玩法配置；运作表 Defend 行 `GameplayConfigId`=Recommended；任一模式通关→`TryAdvanceStage`；同步 SPEC_03/04、CONTEXT |
@@ -150,6 +160,15 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-06 | v0.62.0 | Defend ModeSelect Mode2 live entry: list all `PushMapGameplayConfig`; confirm → `LevelOperationDriver.TryHandoffModeSelectToPushMap` exits Defend → rewrite context to PushMap → `PushMapStageModule` Prepare; keep `GameplayType=PushMap` direct path; synced SPEC_03 UI-013/D-044/§3.12/§3.14, SPEC_04 §6, CONTEXT |
+| 2026-08-06 | v0.61.0 | PushMap PM-08 (Approach A): AirWall NavMesh — StartBattle runtime bake injects map `AirWall` as `NavMeshBuildSource` Box + Not Walkable (incl. Y 45°); both factions blocked; multi-layer obstacle polish out of scope; SPEC_03 §3.14, SPEC_04 §6/§9.7/§9.22/§13 |
+| 2026-08-06 | v0.60.0 | PushMap PM-07 (Approach A): Boss clear & reward hooks — `TryNotifyBossKilled`→`VictorySettled(StageExpReward)` aligned with Defend Exp/`TryAdvanceStage`; Shield≤0 no Exp; capture `CaptureLoot`+`DungeonUnlockIds` save hook; Demo kill = loyal entry into Boss `AttackRange`; SPEC_03 §3.14, SPEC_04 §6/§9.22–§9.23 |
+| 2026-08-06 | v0.59.0 | PushMap PM-06 (Approach A): AggroMode four-state Demo contract — `PushMapMonsterAgentView` branches on `AggroMode`; active stances detect via `AlertRadius` on loyal soldiers only; passive Demo provocation = first loyal entry into `AttackRange` → `NotifyProvoked()`; stationary stances never move; hits keep `AttackMode` scheme D; soldier-kill / skills / dungeon not done; SPEC_04 §6/§9.23 + SPEC_03 §3.14 impl boundaries |
+| 2026-08-06 | v0.58.0 | PushMap PM-05 (Approach A): spawn & trap runtime contract — SPEC_04 §6/§9.23 (`PushMapSessionService` load/StartBattle fire/`TryNotifyTrapEnter`/`PushMapSpawnRequested`/`ObjectiveCaptured` stop; `PushMapStageController` resolves `SpawnPoint`/`TrapZone` + `PushMapMonsterAgentView`); SPEC_03 §3.14 Demo spawn-AI edge (Defend default chase; AggroMode/Boss settlement deferred PM-06/07); sample `TrapZoneId` aligned to `TZ_01` |
+| 2026-08-06 | v0.56.0 | PushMap PM-03 (Approach A): SPEC_04 §6 stage wiring — `LevelOperationDriver` supports `PushMap`, `MapPrefabPaths` accepts `PushMap_*`, `PushMapStageModule`+`PushMapSessionService`+`PushMapStageController` (Prepare / StartBattle ≥1 / Shield / LOC; shared FormationEditor; no capture/spawn/Boss); sample `Level_01,4,PushMap,PushMap_01`; Defend Mode2 stays stub |
+| 2026-08-06 | v0.55.1 | Fix Bake: XlsxSheetReader accepts Zip entry paths with / or \ (Windows Excel backslashes broke GetEntry on TechEffectConfig); rewrote that Excel; synced SPEC_04 §14.4 |
+| 2026-08-06 | v0.55.0 | PushMap PM-02 (Approach A): `PushMapGameplayConfig` / `PushMapSpawnConfig` Excel+CSV; `MonsterConfig` load `AggroMode`/`AlertRadius` defaults; `ConfigCsvRepository` read-only load; synced SPEC_04 §6/§9.19/§9.22 |
+| 2026-08-06 | v0.54.0 | PushMap PM-01 (Approach A): SPEC_04 §9.22/§13 marker field contract + sample `PushMap_Demo_01` (standalone `PushMap_*`, leave `Ground_*` untouched); scripts under `Gameplay/PushMap/`; Editor Ensure; no capture/spawn runtime |
 | 2026-08-06 | v0.53.0 | Dig hit-shape Approach B: offline-baked `DigHitShape` local-XZ convex hull; cursor circle ∩ hull triggers DigAction (separate from obstacle circle); synced SPEC_03 §3.10, SPEC_04 §6/§9.2, CONTEXT |
 | 2026-08-06 | v0.52.0 | PushMap rule intake: SPEC_03 §3.14 (GameplayType; reuse Defend formation/Shield/LOC/WarriorCombat; objective CaptureZone; AirWall/Spawn/Trap/Boss; AggroMode); SPEC_04 §9.22–§9.23 + MonsterConfig.AggroMode/AlertRadius; CONTEXT/SPEC_02/spec-map; issues `.scratch/push-map/` |
 | 2026-08-06 | v0.51.0 | Battle-stage Mode/Level select gate (D-044): `DefendPhase.ModeSelect`; Mode1 Defend=existing §3.12; Mode2 PushMap stub; level list=all mode configs; LevelOperation Defend `GameplayConfigId`=Recommended; either-mode clear→`TryAdvanceStage`; synced SPEC_03/04, CONTEXT |

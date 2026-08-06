@@ -6,6 +6,7 @@ namespace Gravedigger2026.Gameplay.Formation
     public enum FormationEditorMode
     {
         UpgradeManufacture = 0,
-        DefendPrepare = 1
+        DefendPrepare = 1,
+        PushMapPrepare = 2
     }
 }

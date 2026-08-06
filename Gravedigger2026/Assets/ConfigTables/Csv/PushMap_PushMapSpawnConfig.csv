@@ -1,0 +1,6 @@
+GameplayConfigId,SpawnPointId,MonsterId,SpawnCount,LinkedObjectiveOrder,TrapZoneId,IsBoss,SpawnOrder
+PushMap_01,SP_01,Monster_01,2,1,,0,1
+PushMap_01,SP_01,Monster_02,1,1,,0,2
+PushMap_01,SP_02,Monster_03,2,1,TZ_01,0,1
+PushMap_01,SP_03,Monster_04,1,2,,0,1
+PushMap_01,Boss_01,Monster_10,1,0,,1,1

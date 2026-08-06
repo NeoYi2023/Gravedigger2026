@@ -1,11 +1,13 @@
 ---
 title: PushMap — 空气墙阻挡与 NavMesh
-status: todo
+status: done
 difficulty: 2
-demo_scope: deferred
+demo_scope: authorized
 spec_refs:
   - SPEC_03 §3.14 AirWall
-  - SPEC_04 §13 地图标记
+  - SPEC_04 §9.22 空气墙 NavMesh 契约
+  - SPEC_04 §9.7 / §13 Prefabs/Maps
+approach: A
 ---
 
 ## 目标
@@ -23,7 +25,7 @@ spec_refs:
 
 ## 验收
 
-- [ ] 单位无法穿过空气墙（含 45° 实例）
+- [x] 单位无法穿过空气墙（含 45° 实例）
 
 ## 依赖
 
@@ -33,3 +35,10 @@ spec_refs:
 ## 编码前
 
 - 可与 PM-04～05 并行；难度 2；须 Demo 授权
+
+## 本会话交付（方案 A）
+
+- SPEC_00 v0.61.0 + SPEC_03 §3.14 Demo 空气墙边界 + SPEC_04 §6/§9.7/§9.22/§13：开战 Bake 注入 `NavMeshBuildSource` Box + Not Walkable
+- `DefendNavMeshBaker.Bake(..., notWalkableBoxes)` + `NavMeshBoxObstacle`
+- `PushMapStageController` StartBattle 收集 `AirWall`（含样例 `AirWall_45` Y=45°）传入 Bake
+- `AirWall.FullSize`（`HalfExtents×2`）供 Box size

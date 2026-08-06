@@ -48,6 +48,9 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, TechTreeConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, TechEffectConfigRow> _techEffectById =
             new Dictionary<string, TechEffectConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, PushMapGameplayConfigRow> _pushMapById =
+            new Dictionary<string, PushMapGameplayConfigRow>(StringComparer.Ordinal);
+        private readonly List<PushMapSpawnConfigRow> _pushMapSpawnRows = new List<PushMapSpawnConfigRow>();
 
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
@@ -77,6 +80,8 @@ namespace Gravedigger2026.Core.Config
             _techTreeRows.Clear();
             _techTreeById.Clear();
             _techEffectById.Clear();
+            _pushMapById.Clear();
+            _pushMapSpawnRows.Clear();
 
             try
             {
@@ -85,6 +90,8 @@ namespace Gravedigger2026.Core.Config
                 LoadDefendGameplay();
                 LoadWaveSpawn();
                 LoadMonsters();
+                LoadPushMapGameplay();
+                LoadPushMapSpawn();
                 LoadGraveQuality();
                 LoadMaterial();
                 LoadCurrency();
@@ -102,7 +109,7 @@ namespace Gravedigger2026.Core.Config
                 LoadTechEffects();
                 IsLoaded = true;
                 Debug.Log(
-                    $"[ConfigCsvRepository] Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
+                    $"[ConfigCsvRepository] Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -183,6 +190,49 @@ namespace Gravedigger2026.Core.Config
         }
 
         public IEnumerable<MonsterConfigRow> Monsters => _monsterById.Values;
+
+        public bool TryGetPushMap(string gameplayConfigId, out PushMapGameplayConfigRow row)
+        {
+            return _pushMapById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
+        }
+
+        /// <summary>All PushMapGameplayConfig rows (ModeSelect Mode2 list / PM-02).</summary>
+        public IReadOnlyList<PushMapGameplayConfigRow> GetAllPushMapRows()
+        {
+            var list = new List<PushMapGameplayConfigRow>(_pushMapById.Count);
+            foreach (var kv in _pushMapById)
+            {
+                list.Add(kv.Value);
+            }
+
+            list.Sort((a, b) => string.CompareOrdinal(a.GameplayConfigId, b.GameplayConfigId));
+            return list;
+        }
+
+        public List<PushMapSpawnConfigRow> GetPushMapSpawnRows(string gameplayConfigId)
+        {
+            var result = new List<PushMapSpawnConfigRow>();
+            if (string.IsNullOrEmpty(gameplayConfigId))
+            {
+                return result;
+            }
+
+            for (var i = 0; i < _pushMapSpawnRows.Count; i++)
+            {
+                var row = _pushMapSpawnRows[i];
+                if (string.Equals(row.GameplayConfigId, gameplayConfigId, StringComparison.Ordinal))
+                {
+                    result.Add(row);
+                }
+            }
+
+            result.Sort((a, b) =>
+            {
+                var byPoint = string.CompareOrdinal(a.SpawnPointId, b.SpawnPointId);
+                return byPoint != 0 ? byPoint : a.SpawnOrder.CompareTo(b.SpawnOrder);
+            });
+            return result;
+        }
 
         public bool TryGetGraveQuality(string qualityId, out GraveQualityConfigRow row)
         {
@@ -462,6 +512,32 @@ namespace Gravedigger2026.Core.Config
                     throw new InvalidOperationException($"{table} row {rowIndex}: illegal AttackMode '{modeText}'.");
                 }
 
+                var attackRange = RequireFloat(raw, "AttackRange", table, rowIndex);
+                var aggroText = OptionalText(raw, "AggroMode");
+                AggroMode aggroMode;
+                if (aggroText.Length == 0)
+                {
+                    aggroMode = AggroMode.ActiveChase;
+                }
+                else if (!Enum.TryParse(aggroText, false, out aggroMode))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal AggroMode '{aggroText}'.");
+                }
+
+                var alertText = OptionalText(raw, "AlertRadius");
+                float alertRadius;
+                if (alertText.Length == 0)
+                {
+                    alertRadius = attackRange;
+                }
+                else if (!float.TryParse(alertText, NumberStyles.Float, CultureInfo.InvariantCulture, out alertRadius)
+                         || alertRadius < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal AlertRadius '{alertText}'.");
+                }
+
                 _monsterById[id] = new MonsterConfigRow
                 {
                     MonsterId = id,
@@ -469,11 +545,13 @@ namespace Gravedigger2026.Core.Config
                     DisplayName = SimpleCsv.Require(raw, "DisplayName", table, rowIndex),
                     TargetSelect = targetSelect,
                     AttackMode = attackMode,
+                    AggroMode = aggroMode,
+                    AlertRadius = alertRadius,
                     MaxHP = RequireFloat(raw, "MaxHP", table, rowIndex),
                     MoveSpeed = RequireFloat(raw, "MoveSpeed", table, rowIndex),
                     AttackPower = RequireFloat(raw, "AttackPower", table, rowIndex),
                     AttackSpeed = RequireFloat(raw, "AttackSpeed", table, rowIndex),
-                    AttackRange = RequireFloat(raw, "AttackRange", table, rowIndex),
+                    AttackRange = attackRange,
                     MeleeWindupSeconds = OptionalFloat(raw, "MeleeWindupSeconds"),
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
                     RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
@@ -481,6 +559,130 @@ namespace Gravedigger2026.Core.Config
                     LootDrop = OptionalText(raw, "LootDrop")
                 };
             }
+        }
+
+        private void LoadPushMapGameplay()
+        {
+            const string table = "PushMap_PushMapGameplayConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                var mapId = SimpleCsv.Require(raw, "MapId", table, rowIndex);
+                if (!IsValidPushMapMapId(mapId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal MapId '{mapId}' (expect Ground_01..05 or PushMap_*).");
+                }
+
+                var expText = SimpleCsv.Require(raw, "StageExpReward", table, rowIndex);
+                if (!int.TryParse(expText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var stageExp))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal StageExpReward '{expText}'.");
+                }
+
+                var captureText = OptionalText(raw, "CaptureSeconds");
+                float captureSeconds;
+                if (captureText.Length == 0)
+                {
+                    captureSeconds = 5f;
+                }
+                else if (!float.TryParse(
+                             captureText,
+                             NumberStyles.Float,
+                             CultureInfo.InvariantCulture,
+                             out captureSeconds)
+                         || captureSeconds < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal CaptureSeconds '{captureText}'.");
+                }
+
+                _pushMapById[id] = new PushMapGameplayConfigRow
+                {
+                    GameplayConfigId = id,
+                    MapId = mapId,
+                    DisplayName = SimpleCsv.Require(raw, "DisplayName", table, rowIndex),
+                    StageExpReward = stageExp,
+                    CaptureLoot = OptionalText(raw, "CaptureLoot"),
+                    DungeonUnlockIds = OptionalText(raw, "DungeonUnlockIds"),
+                    CaptureSeconds = captureSeconds
+                };
+            }
+        }
+
+        private void LoadPushMapSpawn()
+        {
+            const string table = "PushMap_PushMapSpawnConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var gameplayId = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                var countText = SimpleCsv.Require(raw, "SpawnCount", table, rowIndex);
+                if (!int.TryParse(countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
+                    || count < 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SpawnCount '{countText}'.");
+                }
+
+                var linkedText = OptionalText(raw, "LinkedObjectiveOrder");
+                var linked = 0;
+                if (linkedText.Length > 0
+                    && !int.TryParse(linkedText, NumberStyles.Integer, CultureInfo.InvariantCulture, out linked))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal LinkedObjectiveOrder '{linkedText}'.");
+                }
+
+                var orderText = SimpleCsv.Require(raw, "SpawnOrder", table, rowIndex);
+                if (!int.TryParse(orderText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var order))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SpawnOrder '{orderText}'.");
+                }
+
+                var bossText = OptionalText(raw, "IsBoss");
+                var isBoss = string.Equals(bossText, "1", StringComparison.Ordinal)
+                             || string.Equals(bossText, "true", StringComparison.OrdinalIgnoreCase);
+
+                _pushMapSpawnRows.Add(new PushMapSpawnConfigRow
+                {
+                    GameplayConfigId = gameplayId,
+                    SpawnPointId = SimpleCsv.Require(raw, "SpawnPointId", table, rowIndex),
+                    MonsterId = SimpleCsv.Require(raw, "MonsterId", table, rowIndex),
+                    SpawnCount = count,
+                    LinkedObjectiveOrder = linked,
+                    TrapZoneId = OptionalText(raw, "TrapZoneId"),
+                    IsBoss = isBoss,
+                    SpawnOrder = order
+                });
+            }
+        }
+
+        private static bool IsValidPushMapMapId(string mapId)
+        {
+            if (string.IsNullOrEmpty(mapId))
+            {
+                return false;
+            }
+
+            if (mapId.StartsWith("PushMap_", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return mapId.Length == 9
+                   && mapId.StartsWith("Ground_0", StringComparison.Ordinal)
+                   && mapId[8] >= '1'
+                   && mapId[8] <= '5';
         }
 
         private void LoadGraveQuality()
@@ -1030,6 +1232,12 @@ namespace Gravedigger2026.Core.Config
             if (string.Equals(text, "Defend", StringComparison.Ordinal))
             {
                 state = GameplayState.Defend;
+                return true;
+            }
+
+            if (string.Equals(text, "PushMap", StringComparison.Ordinal))
+            {
+                state = GameplayState.PushMap;
                 return true;
             }
 

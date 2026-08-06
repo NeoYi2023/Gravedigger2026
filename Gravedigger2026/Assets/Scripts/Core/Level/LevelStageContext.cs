@@ -14,6 +14,7 @@ namespace Gravedigger2026.Core.Level
         public bool GameplayConfigIgnored;
         public DigGameplayConfigRow DigConfig;
         public DefendGameplayConfigRow DefendConfig;
+        public PushMapGameplayConfigRow PushMapConfig;
         public string ResolvedMapId;
         public string ResolvedMapPrefabPath;
         public string MapResolveNote;

@@ -2,6 +2,7 @@ using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.PushMap;
 using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
@@ -35,6 +36,7 @@ namespace Gravedigger2026.Meta
         private readonly GameplayStateService _gameplayState = new GameplayStateService();
         private readonly ConfigCsvRepository _configs = new ConfigCsvRepository();
         private readonly WarehouseService _warehouse = new WarehouseService();
+        private readonly DungeonUnlockService _dungeonUnlocks = new DungeonUnlockService();
         private readonly ProtagonistProgressService _progress = new ProtagonistProgressService();
         private readonly TechTreeService _techTree = new TechTreeService();
         private readonly WarriorPoolService _warriorPool = new WarriorPoolService();
@@ -111,11 +113,34 @@ namespace Gravedigger2026.Meta
                         _warehouse,
                         HandleDefendVictory,
                         HandleDefendLevelFailure,
+                        HandlePushMapModeConfirmed,
                         SetStagePresentationActive));
             }
             else
             {
                 Debug.LogWarning("[MetaShell] Defend PrefabCatalog missing — Defend uses placeholder.");
+            }
+
+            if (_defendPrefabCatalog != null)
+            {
+                _levelDriver.RegisterModule(
+                    new PushMapStageModule(
+                        _configs,
+                        _defendPrefabCatalog,
+                        _formationPrefabCatalog,
+                        _defendWorldParent != null ? _defendWorldParent : transform,
+                        _progress,
+                        _warriorPool,
+                        _formation,
+                        _warehouse,
+                        _dungeonUnlocks,
+                        HandleDefendVictory,
+                        HandleDefendLevelFailure,
+                        SetStagePresentationActive));
+            }
+            else
+            {
+                Debug.LogWarning("[MetaShell] Defend PrefabCatalog missing — PushMap has no module.");
             }
 
             _levelDriver.StageChanged += HandleStageChanged;
@@ -170,6 +195,7 @@ namespace Gravedigger2026.Meta
         private void ShowSaveSelect()
         {
             _levelDriver?.StopCurrentLevel();
+            _dungeonUnlocks.ClearBound();
             SetStagePresentationActive(false);
 
             if (_inSaveShellView != null)
@@ -190,6 +216,7 @@ namespace Gravedigger2026.Meta
             _warriorPool.Clear();
             _formation?.Clear();
             _manufacture?.ClearAllSlots();
+            _dungeonUnlocks.BindSlot(slotIndex);
             if (!_configs.IsLoaded)
             {
                 _configs.TryLoadAll();
@@ -336,6 +363,23 @@ namespace Gravedigger2026.Meta
         private void HandleDefendVictory()
         {
             AdvanceStageFromGameplay();
+        }
+
+        private void HandlePushMapModeConfirmed(string gameplayConfigId)
+        {
+            if (_levelDriver == null)
+            {
+                return;
+            }
+
+            if (!_levelDriver.TryHandoffModeSelectToPushMap(gameplayConfigId, out var error))
+            {
+                Debug.LogError($"[MetaShell] PushMap ModeSelect handoff failed: {error}");
+                if (_toastView != null)
+                {
+                    _toastView.Show($"推图战进入失败：{error}");
+                }
+            }
         }
 
         private void HandleDefendLevelFailure(string reason)

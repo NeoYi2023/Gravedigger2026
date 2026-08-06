@@ -49,7 +49,7 @@ namespace Gravedigger2026.Editor.Config
 
         private static List<string> ReadSharedStrings(ZipArchive zip)
         {
-            var entry = zip.GetEntry("xl/sharedStrings.xml");
+            var entry = FindEntry(zip, "xl/sharedStrings.xml");
             if (entry == null)
             {
                 return new List<string>();
@@ -87,7 +87,7 @@ namespace Gravedigger2026.Editor.Config
 
         private static ZipArchiveEntry ResolveFirstWorksheetEntry(ZipArchive zip)
         {
-            var workbookEntry = zip.GetEntry("xl/workbook.xml")
+            var workbookEntry = FindEntry(zip, "xl/workbook.xml")
                 ?? throw new InvalidOperationException("xlsx missing xl/workbook.xml");
 
             string firstRid;
@@ -110,7 +110,7 @@ namespace Gravedigger2026.Editor.Config
                 }
             }
 
-            var relsEntry = zip.GetEntry("xl/_rels/workbook.xml.rels")
+            var relsEntry = FindEntry(zip, "xl/_rels/workbook.xml.rels")
                 ?? throw new InvalidOperationException("xlsx missing workbook.xml.rels");
 
             string target;
@@ -136,9 +136,48 @@ namespace Gravedigger2026.Editor.Config
             }
 
             var sheetPath = "xl/" + normalized;
-            var sheetEntry = zip.GetEntry(sheetPath)
+            var sheetEntry = FindEntry(zip, sheetPath)
                 ?? throw new InvalidOperationException($"xlsx missing sheet entry: {sheetPath}");
             return sheetEntry;
+        }
+
+        /// <summary>
+        /// Zip entry paths may use '/' or '\' depending on the writer (Windows Excel often uses '\').
+        /// <see cref="ZipArchive.GetEntry"/> matches the stored separator exactly.
+        /// </summary>
+        private static ZipArchiveEntry FindEntry(ZipArchive zip, string forwardSlashPath)
+        {
+            if (zip == null || string.IsNullOrEmpty(forwardSlashPath))
+            {
+                return null;
+            }
+
+            var forward = forwardSlashPath.Replace('\\', '/');
+            var entry = zip.GetEntry(forward);
+            if (entry != null)
+            {
+                return entry;
+            }
+
+            var back = forward.Replace('/', '\\');
+            entry = zip.GetEntry(back);
+            if (entry != null)
+            {
+                return entry;
+            }
+
+            foreach (var candidate in zip.Entries)
+            {
+                if (string.Equals(
+                        candidate.FullName.Replace('\\', '/'),
+                        forward,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         private static List<string[]> ParseSheetData(XDocument sheetDoc, List<string> sharedStrings)

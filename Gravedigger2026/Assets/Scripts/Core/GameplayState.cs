@@ -7,6 +7,7 @@ namespace Gravedigger2026.Core
     {
         Dig = 0,
         UpgradeManufacture = 1,
-        Defend = 2
+        Defend = 2,
+        PushMap = 3
     }
 }

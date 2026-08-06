@@ -23,17 +23,19 @@ namespace Gravedigger2026.Gameplay.Defend
         [SerializeField] private Text _titleText;
 
         private readonly List<DefendGameplayConfigRow> _defendRows = new List<DefendGameplayConfigRow>();
+        private readonly List<PushMapGameplayConfigRow> _pushMapRows = new List<PushMapGameplayConfigRow>();
         private readonly List<GameObject> _spawnedRows = new List<GameObject>();
         private BattleMode _selectedMode = BattleMode.Defend;
         private string _selectedConfigId;
-        private string _recommendedConfigId;
+        private string _recommendedDefendConfigId;
         private bool _built;
 
         public event Action<BattleMode, string> ConfirmRequested;
 
         public void Show(
             IReadOnlyList<DefendGameplayConfigRow> defendRows,
-            string recommendedConfigId)
+            IReadOnlyList<PushMapGameplayConfigRow> pushMapRows,
+            string recommendedDefendConfigId)
         {
             EnsureUi();
             _defendRows.Clear();
@@ -48,9 +50,21 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
             }
 
-            _recommendedConfigId = recommendedConfigId ?? string.Empty;
+            _pushMapRows.Clear();
+            if (pushMapRows != null)
+            {
+                for (var i = 0; i < pushMapRows.Count; i++)
+                {
+                    if (pushMapRows[i] != null)
+                    {
+                        _pushMapRows.Add(pushMapRows[i]);
+                    }
+                }
+            }
+
+            _recommendedDefendConfigId = recommendedDefendConfigId ?? string.Empty;
             _selectedMode = BattleMode.Defend;
-            _selectedConfigId = ResolveDefaultConfigId();
+            _selectedConfigId = ResolveDefaultDefendConfigId();
             if (_root != null)
             {
                 _root.SetActive(true);
@@ -116,7 +130,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _selectedMode = BattleMode.Defend;
             if (string.IsNullOrEmpty(_selectedConfigId) || !HasDefendConfig(_selectedConfigId))
             {
-                _selectedConfigId = ResolveDefaultConfigId();
+                _selectedConfigId = ResolveDefaultDefendConfigId();
             }
 
             Refresh();
@@ -125,7 +139,11 @@ namespace Gravedigger2026.Gameplay.Defend
         private void OnPushMapModeClicked()
         {
             _selectedMode = BattleMode.PushMap;
-            _selectedConfigId = null;
+            if (string.IsNullOrEmpty(_selectedConfigId) || !HasPushMapConfig(_selectedConfigId))
+            {
+                _selectedConfigId = ResolveDefaultPushMapConfigId();
+            }
+
             Refresh();
         }
 
@@ -133,7 +151,13 @@ namespace Gravedigger2026.Gameplay.Defend
         {
             if (_selectedMode == BattleMode.PushMap)
             {
-                SetStatus("推图战规则待录入（Demo 占位，不可进入）");
+                if (string.IsNullOrEmpty(_selectedConfigId) || !HasPushMapConfig(_selectedConfigId))
+                {
+                    SetStatus("请选择推图战关卡");
+                    return;
+                }
+
+                ConfirmRequested?.Invoke(BattleMode.PushMap, _selectedConfigId);
                 return;
             }
 
@@ -148,11 +172,6 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void SelectLevel(string configId)
         {
-            if (_selectedMode != BattleMode.Defend)
-            {
-                return;
-            }
-
             _selectedConfigId = configId;
             Refresh();
         }
@@ -160,8 +179,10 @@ namespace Gravedigger2026.Gameplay.Defend
         private void Refresh()
         {
             RebuildLevelRows();
-            var confirmInteractable = _selectedMode == BattleMode.Defend
-                && !string.IsNullOrEmpty(_selectedConfigId);
+            var confirmInteractable = !string.IsNullOrEmpty(_selectedConfigId)
+                && (_selectedMode == BattleMode.Defend
+                    ? HasDefendConfig(_selectedConfigId)
+                    : HasPushMapConfig(_selectedConfigId));
             if (_confirmButton != null)
             {
                 _confirmButton.interactable = confirmInteractable;
@@ -169,14 +190,17 @@ namespace Gravedigger2026.Gameplay.Defend
                 if (label != null)
                 {
                     label.text = _selectedMode == BattleMode.PushMap
-                        ? "进入（推图战不可用）"
+                        ? "进入推图战"
                         : "进入保卫战";
                 }
             }
 
             if (_selectedMode == BattleMode.PushMap)
             {
-                SetStatus("模式：推图战 — 规则待录入，确认禁用");
+                SetStatus(
+                    string.IsNullOrEmpty(_selectedConfigId)
+                        ? "模式：推图战 — 请选择关卡"
+                        : $"模式：推图战 — 已选 {_selectedConfigId}");
             }
             else
             {
@@ -207,24 +231,35 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _levelRowTemplate.SetActive(false);
-            if (_selectedMode != BattleMode.Defend)
+            if (_selectedMode == BattleMode.PushMap)
             {
-                var stub = Instantiate(_levelRowTemplate, _levelListContent);
-                stub.name = "PushMapStubRow";
-                stub.SetActive(true);
-                var stubText = stub.GetComponentInChildren<Text>();
-                if (stubText != null)
+                for (var i = 0; i < _pushMapRows.Count; i++)
                 {
-                    stubText.text = "（推图战关卡表未接入）";
+                    var row = _pushMapRows[i];
+                    var go = Instantiate(_levelRowTemplate, _levelListContent);
+                    go.name = "Level_" + row.GameplayConfigId;
+                    go.SetActive(true);
+                    var text = go.GetComponentInChildren<Text>();
+                    if (text != null)
+                    {
+                        var mark = string.Equals(row.GameplayConfigId, _selectedConfigId, StringComparison.Ordinal)
+                            ? "▶ "
+                            : "  ";
+                        var display = string.IsNullOrEmpty(row.DisplayName) ? row.GameplayConfigId : row.DisplayName;
+                        text.text = $"{mark}{row.GameplayConfigId}  {display}  Map={row.MapId}";
+                    }
+
+                    var button = go.GetComponent<Button>();
+                    if (button != null)
+                    {
+                        var captured = row.GameplayConfigId;
+                        button.onClick.RemoveAllListeners();
+                        button.onClick.AddListener(() => SelectLevel(captured));
+                    }
+
+                    _spawnedRows.Add(go);
                 }
 
-                var stubBtn = stub.GetComponent<Button>();
-                if (stubBtn != null)
-                {
-                    stubBtn.interactable = false;
-                }
-
-                _spawnedRows.Add(stub);
                 return;
             }
 
@@ -240,7 +275,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     var mark = string.Equals(row.GameplayConfigId, _selectedConfigId, StringComparison.Ordinal)
                         ? "▶ "
                         : "  ";
-                    var rec = string.Equals(row.GameplayConfigId, _recommendedConfigId, StringComparison.Ordinal)
+                    var rec = string.Equals(row.GameplayConfigId, _recommendedDefendConfigId, StringComparison.Ordinal)
                         ? " [推荐]"
                         : string.Empty;
                     text.text =
@@ -259,14 +294,19 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        private string ResolveDefaultConfigId()
+        private string ResolveDefaultDefendConfigId()
         {
-            if (!string.IsNullOrEmpty(_recommendedConfigId) && HasDefendConfig(_recommendedConfigId))
+            if (!string.IsNullOrEmpty(_recommendedDefendConfigId) && HasDefendConfig(_recommendedDefendConfigId))
             {
-                return _recommendedConfigId;
+                return _recommendedDefendConfigId;
             }
 
             return _defendRows.Count > 0 ? _defendRows[0].GameplayConfigId : null;
+        }
+
+        private string ResolveDefaultPushMapConfigId()
+        {
+            return _pushMapRows.Count > 0 ? _pushMapRows[0].GameplayConfigId : null;
         }
 
         private bool HasDefendConfig(string configId)
@@ -274,6 +314,19 @@ namespace Gravedigger2026.Gameplay.Defend
             for (var i = 0; i < _defendRows.Count; i++)
             {
                 if (string.Equals(_defendRows[i].GameplayConfigId, configId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasPushMapConfig(string configId)
+        {
+            for (var i = 0; i < _pushMapRows.Count; i++)
+            {
+                if (string.Equals(_pushMapRows[i].GameplayConfigId, configId, StringComparison.Ordinal))
                 {
                     return true;
                 }

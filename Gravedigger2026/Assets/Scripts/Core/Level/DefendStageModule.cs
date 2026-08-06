@@ -11,7 +11,8 @@ using UnityEngine;
 namespace Gravedigger2026.Core.Level
 {
     /// <summary>
-    /// Defend IStageModule (D-040–D-044): ModeSelect gate then StageRoot + map by selected BattleMapId.
+    /// Defend IStageModule (D-040–D-044): ModeSelect gate then StageRoot + map by selected BattleMapId;
+    /// Mode2 PushMap confirm handoffs via onPushMapModeConfirmed → Driver.
     /// </summary>
     public sealed class DefendStageModule : IStageModule
     {
@@ -25,6 +26,7 @@ namespace Gravedigger2026.Core.Level
         private readonly WarehouseService _warehouse;
         private readonly Action _onVictoryAdvance;
         private readonly Action<string> _onLevelFailure;
+        private readonly Action<string> _onPushMapModeConfirmed;
         private readonly Action<bool> _onDefendPresentationActive;
 
         private LevelStageContext _context;
@@ -44,6 +46,7 @@ namespace Gravedigger2026.Core.Level
             WarehouseService warehouse,
             Action onVictoryAdvance,
             Action<string> onLevelFailure,
+            Action<string> onPushMapModeConfirmed,
             Action<bool> onDefendPresentationActive = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
@@ -56,6 +59,8 @@ namespace Gravedigger2026.Core.Level
             _warehouse = warehouse;
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
+            _onPushMapModeConfirmed = onPushMapModeConfirmed
+                ?? throw new ArgumentNullException(nameof(onPushMapModeConfirmed));
             _onDefendPresentationActive = onDefendPresentationActive;
         }
 
@@ -124,14 +129,28 @@ namespace Gravedigger2026.Core.Level
             _modeSelectView.ConfirmRequested += HandleModeSelectConfirm;
             _modeSelectView.Show(
                 _configs.GetAllDefendRows(),
+                _configs.GetAllPushMapRows(),
                 _context != null ? _context.GameplayConfigId : null);
         }
 
         private void HandleModeSelectConfirm(BattleMode mode, string gameplayConfigId)
         {
+            if (mode == BattleMode.PushMap)
+            {
+                if (!_configs.TryGetPushMap(gameplayConfigId, out _))
+                {
+                    Debug.LogError($"[Stage:Defend] Selected PushMapGameplayConfig '{gameplayConfigId}' not found.");
+                    return;
+                }
+
+                // Tear-down happens in Exit via Driver handoff (avoid empty stage if handoff fails).
+                _onPushMapModeConfirmed.Invoke(gameplayConfigId);
+                return;
+            }
+
             if (mode != BattleMode.Defend)
             {
-                Debug.LogWarning("[Stage:Defend] PushMap confirm ignored (stub).");
+                Debug.LogWarning($"[Stage:Defend] Unexpected BattleMode '{mode}' ignored.");
                 return;
             }
 
