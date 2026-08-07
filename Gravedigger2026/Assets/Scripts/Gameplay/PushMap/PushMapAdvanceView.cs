@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Gameplay.Pathing;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -79,6 +80,14 @@ namespace Gravedigger2026.Gameplay.PushMap
             _scheduler.SetGoal(_moveId, GoalKind.Objective);
             TryWarpOntoNavMesh();
             ClearPathingState();
+
+            var taskLabel = GetComponent<WarriorTaskDebugLabelView>();
+            if (taskLabel == null)
+            {
+                taskLabel = gameObject.AddComponent<WarriorTaskDebugLabelView>();
+            }
+
+            taskLabel.Bind(_scheduler, _moveId);
         }
 
         public void SetRebel(bool isRebel)

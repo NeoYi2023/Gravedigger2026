@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.73.6
+**文档版本 / Document Version:** v0.74.1
 **最后更新 / Last Updated:** 2026-08-07  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-10 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07）  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-10 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,13 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-07 | v0.74.1 | PushMap 样例图空气墙作者硬约束：`ObjectivePoint`/`SpawnPoint`/`BossPoint` 不得落在 `AirWall` OBB 内；恢复 `PushMap_Demo_01` 薄墙几何（加厚曾吞没 Obj_01/02 → 推进在 SP_01 到达守备后卡死）；同步 SPEC_03 §3.14、SPEC_04 §9.22 |
+| 2026-08-07 | v0.74.0 | 方案 B+ 草案（BMH 借鉴）：寻路 `CombatMoveMode`=Chase/Surround/Sweep（**明确不做 Follow/军队粘随**）；碰撞 `SoftCollisionService` 邻域排斥叠 LocalDetour；Surround 缺口 AttackSlot；同步 SPEC_03 §3.12、SPEC_04 §6/§9.7、CONTEXT；切片 `.scratch/mass-soft-collision/`（本会话仅 SPEC→issues，未编码） |
+| 2026-08-07 | v0.73.11 | PushMap Demo 击杀距离：`max(怪 AttackRange, 士兵 AttackRange) + ArriveEpsilon`，避免士兵停在自身 AttackSlot 环上却永远进不了更小的怪 `AttackRange` 而卡死追击；同步 SPEC_03 §3.14、SPEC_04 §6/§9.22 |
+| 2026-08-07 | v0.73.10 | Demo Debug：士兵脚下 TextMesh 显示当前 `GoalKind`（推进/回阵/追击/追击锚）；Defend+PushMap；进档壳 Debug 开关，**默认开**；同步 SPEC_03 §3.5、SPEC_04 §6/§9.7 |
+| 2026-08-07 | v0.73.9 | PushMap 刷出散开收紧：`SamplePosition` 局部吸附 + 相对刷怪点 `basePos` 牵引上限，禁止跨空气墙落到菱形外侧空白 NavMesh；挤满时优先重叠回退基点；同步 SPEC_03 §3.14、SPEC_04 §6/§9.23 |
+| 2026-08-07 | v0.73.8 | PushMap 推进到达：进入 `CaptureZone` 后停跟 FlowField 中心、改 LocalDetour 软分离守备（避免全队挤死目标格）；圈外继续跟场，场向量≈0 时直趋目标回退；同步 SPEC_03 §3.14、SPEC_04 §9.7/§9.22 |
+| 2026-08-07 | v0.73.7 | PushMap Demo：忠诚兵进任意存活怪 `AttackRange` → Demo `NotifyKilled`（BOSS 另 `TryNotifyBossKilled`），解除「无士兵伤害 → AttackSlot 永久卡推进」；无槽溢出兵保持 `GoalKind=Objective` 跟场（不硬暂停）；同步 SPEC_03 §3.14、SPEC_04 §9.22 |
 | 2026-08-07 | v0.73.6 | MP-07 200v200 压测入口：`MassPathingPerfStress`（Core Stopwatch）+ `MassPathingPerfStressView`（桩单位）+ Editor Menu；移动逻辑预算 ≤~2.5 ms/帧；超预算回退：降 cell / 降槽 N / 加大分帧；同步 SPEC_04 §6/§9.7 |
 | 2026-08-07 | v0.73.5 | MP-06 Defend 对等接线：`WarriorAgentView`/`MonsterAgentView` 接 `MassMoveScheduler`+`AttackSlotService`；忠诚无 Engage 目标→`GoalKind=FormationHome`（直趋+LocalDetour）；追击走槽位；与 PushMap 共用目的地语义；同步 SPEC_03 §3.12、SPEC_04 §6/§9.7 |
 | 2026-08-07 | v0.73.4 | MP-05 追击/交战接线：PushMap 忠诚兵遇敌→`GoalKind=AttackSlot`+`AttackSlotService`；怪追击改槽位（非中心）；`MassMoveScheduler.SetGoal`+分帧≤50；死亡释放槽；同步 SPEC_03 §3.12、SPEC_04 §6/§9.7/§9.22 |
@@ -180,6 +187,13 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-07 | v0.74.1 | PushMap sample AirWall authoring hard rule: `ObjectivePoint`/`SpawnPoint`/`BossPoint` must not sit inside an `AirWall` OBB; restored thin-wall geometry on `PushMap_Demo_01` (thickened walls had swallowed Obj_01/02 → advance stalled after CaptureZone hold at SP_01); synced SPEC_03 §3.14, SPEC_04 §9.22 |
+| 2026-08-07 | v0.74.0 | Approach B+ draft (BMH-inspired): pathing `CombatMoveMode`=Chase/Surround/Sweep (**explicitly no Follow/army stickiness**); collision `SoftCollisionService` neighborhood repulsion on LocalDetour; Surround gap AttackSlots; synced SPEC_03 §3.12, SPEC_04 §6/§9.7, CONTEXT; slices `.scratch/mass-soft-collision/` (SPEC→issues only this session, no code) |
+| 2026-08-07 | v0.73.11 | PushMap Demo kill reach: `max(monster AttackRange, soldier AttackRange) + ArriveEpsilon` so soldiers stopped on their AttackSlot ring still kill when monster range is smaller; synced SPEC_03 §3.14, SPEC_04 §6/§9.22 |
+| 2026-08-07 | v0.73.10 | Demo Debug: TextMesh under soldiers shows current `GoalKind` (advance / home / chase / chase-anchor); Defend+PushMap; InSaveShell Debug toggle **default on**; synced SPEC_03 §3.5, SPEC_04 §6/§9.7 |
+| 2026-08-07 | v0.73.9 | PushMap spawn-spread tighten: local `SamplePosition` + leash from spawn `basePos` — forbid snapping across AirWalls onto empty outer diamond NavMesh; prefer overlap fallback at base when packed; synced SPEC_03 §3.14, SPEC_04 §6/§9.23 |
+| 2026-08-07 | v0.73.8 | PushMap advance arrive: inside `CaptureZone` stop seeking FlowField goal cell — LocalDetour soft-separation hold (no pile-up at goal); outside keep sampling field; SampleDir≈0 fallback steers toward goal; synced SPEC_03 §3.14, SPEC_04 §9.7/§9.22 |
+| 2026-08-07 | v0.73.7 | PushMap Demo: loyal entry into any living monster `AttackRange` → Demo `NotifyKilled` (Boss also `TryNotifyBossKilled`), unblocks forever-stall after AttackSlot with no soldier damage; overflow (no free slot) keeps `GoalKind=Objective` on field (no hard pause); synced SPEC_03 §3.14, SPEC_04 §9.22 |
 | 2026-08-07 | v0.73.6 | MP-07 200v200 stress entry: `MassPathingPerfStress` (Core Stopwatch) + `MassPathingPerfStressView` (stub units) + Editor Menu; move-logic budget ≤~2.5 ms/frame; over-budget fallbacks: lower cell / lower slot N / raise frame budget; synced SPEC_04 §6/§9.7 |
 | 2026-08-07 | v0.73.5 | MP-06 Defend parity: `WarriorAgentView`/`MonsterAgentView` on `MassMoveScheduler`+`AttackSlotService`; loyal no Engage target→`GoalKind=FormationHome` (straight+LocalDetour); chase uses slots; same GoalKind semantics as PushMap; synced SPEC_03 §3.12, SPEC_04 §6/§9.7 |
 | 2026-08-07 | v0.73.4 | MP-05 chase/engage wire: PushMap loyal engage→`GoalKind=AttackSlot`+`AttackSlotService`; monster chase uses slots (not center); `MassMoveScheduler.SetGoal`+≤50/frame; release on death; synced SPEC_03 §3.12, SPEC_04 §6/§9.7/§9.22 |

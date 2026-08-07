@@ -213,15 +213,15 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **PushMap 刷怪与陷阱（方案 A，PM-05）：** `PushMapSessionService` 开战装载 `PushMapSpawnConfig` 行；表现层 **Bake NavMesh → 部署 → `FireStartBattleSpawns`**：无陷阱且关联目标未占 → `PushMapSpawnRequested` 事件（位置由 View 解析）；绑定 `TrapZoneId` 的点 → `TryNotifyTrapEnter` 首次触发；`ObjectiveCaptured` → 该关联点本场停刷（已刷保留）。`PushMapStageController` 收集 `SpawnPoint`/`TrapZone`，Instantiate 怪（含 Boss）入 `_monsters`（`PushMapMonsterAgentView`），Update 探测忠诚兵首次进圈。怪物 AI 暂用 Defend 默认追击语义；对主角扣盾经 `PushMapSessionService.ApplyShieldHit`。AggroMode 四态落地 **PM-06**；BOSS 通关结算后置（PM-07）；**不使用** `WaveSpawnConfig` 倒计时。运行时契约见 §9.23。样例 `TrapZoneId` 对齐为 `TZ_01`。禁止运行时引用 `SmallScaleInt/`。
 
-**PushMap 怪物占地散开（方案 A，PM-10）：** `MonsterConfig.BodyRadius`（缺省 `0.35`）；表现层按半径环形/螺旋错开同点与邻近已刷存活怪落点（`NavMesh.SamplePosition`）；`PushMapMonsterAgentView` 设 `NavMeshAgent.radius = min(BodyRadius, max(0.05, AttackRange − 0.1 − 0.05))`（保证相对士兵 Demo 半径 `0.1` 仍可进入 `AttackRange`）；`Stationary*` 仅依赖刷出占位；Defend 刷怪散开后置。**我方士兵** Demo：`NavMeshAgent.radius=0.1`、`height=0.1`（`WarriorAgentView` / `PushMapAdvanceView`）。禁止运行时引用 `SmallScaleInt/`。
+**PushMap 怪物占地散开（方案 A，PM-10；v0.73.9 收紧）：** `MonsterConfig.BodyRadius`（缺省 `0.35`）；表现层按半径环形/螺旋错开同点与邻近已刷存活怪落点（`NavMesh.SamplePosition`）。**收紧：** 采样半径仅局部 ≈`max(0.75, BodyRadius×2.5)`；命中须相对刷怪点 `basePos` 在牵引上限内（≈环/螺旋半径+余量，绝对上限 ≈`max(3, BodyRadius×10)`）；失败则缩环/继续螺旋，最终允许重叠回退基点——**禁止**大半径吸附跨空气墙落到菱形外侧。`PushMapMonsterAgentView` Bind Warp 采样同为局部（≈`max(1, BodyRadius×3)`，不再用 12）。`NavMeshAgent.radius = min(BodyRadius, max(0.05, AttackRange − 0.1 − 0.05))`；`Stationary*` 仅依赖刷出占位；Defend 刷怪散开后置。**我方士兵** Demo：`NavMeshAgent.radius=0.1`、`height=0.1`。禁止运行时引用 `SmallScaleInt/`。
 
 **PushMap AggroMode 四态（方案 A，PM-06）：** `PushMapMonsterAgentView` 按 `config.AggroMode` 分支。`ActiveChase`：忠诚士兵进 `AlertRadius` → **AttackSlot** 追击该兵直至怪死（MP-05；非中心 `SetDestination`）；`PassiveChase`：未挑衅静止，`NotifyProvoked()` 后追击；`StationaryActive`：永不移动，忠诚兵进 `AttackRange` 攻击、离开停；`StationaryPassive`：永不移动，须先 `NotifyProvoked()` 且目标仍在 `AttackRange` 才攻。主动发现与挑衅**仅**对忠诚士兵（`!IsRebel`）。挑衅 Demo 契约：`PushMapStageController` 检测忠诚 `PushMapAdvanceView` 首次进入某被动怪 `AttackRange` → 调其 `NotifyProvoked()`（等效「士兵先攻击」；士兵 HP / 命中结算后置）。命中仍 `AttackMode` 方案 D；主动态对主角不进 `AlertRadius` 主动发现，但已交战命中主角仍 `ApplyShieldHit`。普通怪真实士兵伤害 / 技能施放 / 副本玩法正文 **不做**。禁止运行时引用 `SmallScaleInt/`。
 
-**PushMap BOSS 通关与奖励钩子（方案 A，PM-07）：** `PushMapSessionService` 对 `IsBoss` 刷出行累计待击杀数；`TryNotifyBossKilled` 递减，归零 → `PushMapPhase=Ended` + `VictorySettled(StageExpReward)`；表现层对齐 Defend：`AddExperience` → `_onVictoryAdvance`（`TryAdvanceStage`）。`Shield≤0` → 已有 `LevelFailureRequested`，**不**入账。占领：`CaptureLoot` 经 `LootDropParser`/`Warehouse` 入账（无经验）；`DungeonUnlockIds` 写入 `DungeonUnlockService` 存档集合（PlayerPrefs + 日志可验）；通关同样写解锁钩子。Demo 击杀契约：忠诚兵首次进 BOSS `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`。`IsBoss` 与 `BossPoint` 一致性：缺标记 warn。副本玩法正文 / 完整失败 UI **不做**。禁止运行时引用 `SmallScaleInt/`。
+**PushMap BOSS 通关与奖励钩子（方案 A，PM-07）：** `PushMapSessionService` 对 `IsBoss` 刷出行累计待击杀数；`TryNotifyBossKilled` 递减，归零 → `PushMapPhase=Ended` + `VictorySettled(StageExpReward)`；表现层对齐 Defend：`AddExperience` → `_onVictoryAdvance`（`TryAdvanceStage`）。`Shield≤0` → 已有 `LevelFailureRequested`，**不**入账。占领：`CaptureLoot` 经 `LootDropParser`/`Warehouse` 入账（无经验）；`DungeonUnlockIds` 写入 `DungeonUnlockService` 存档集合（PlayerPrefs + 日志可验）；通关同样写解锁钩子。Demo 击杀契约：忠诚兵中心距任意存活怪 ≤ `max(怪 AttackRange, 士兵 AttackRange) + ArriveEpsilon` → `NotifyKilled`；BOSS 另 `TryNotifyBossKilled`（士兵真实伤害后置；须覆盖士兵 AttackSlot 环到达，避免怪 `AttackRange` 更小时永久卡推进）。`IsBoss` 与 `BossPoint` 一致性：缺标记 warn。副本玩法正文 / 完整失败 UI **不做**。禁止运行时引用 `SmallScaleInt/`。
 
-**PushMap 空气墙 NavMesh（方案 A，PM-08）：** 开战 Runtime Bake 在 IsoDiamond 可走面之外，收集地图 `AirWall`，以 `NavMeshBuildSourceShape.Box` + area=`Not Walkable` 注入（尺寸=`HalfExtents×2`；`Matrix4x4.TRS(position, rotation, 1)` → **含 Y 轴 45°**）。扩展 `DefendNavMeshBaker.Bake(..., notWalkableBoxes)`；`PushMapStageController` 开战传入；敌我 `NavMeshAgent`（士兵推进 / 怪物追击）均不可穿。**不做** `NavMeshObstacle` Carve、复杂多层障碍 polish。契约见 §9.22。禁止运行时引用 `SmallScaleInt/`。
+**PushMap 空气墙 NavMesh（方案 A，PM-08）：** 开战 Runtime Bake 在 IsoDiamond 可走面之外，收集地图 `AirWall`，以 `NavMeshBuildSourceShape.Box` + area=`Not Walkable` 注入（尺寸=`HalfExtents×2`；`Matrix4x4.TRS(position, rotation, 1)` → **含 Y 轴 45°**）。扩展 `DefendNavMeshBaker.Bake(..., notWalkableBoxes)`；`PushMapStageController` 开战传入；敌我 `NavMeshAgent`（士兵推进 / 怪物追击）均不可穿。**作者硬约束：** 目标点/刷怪点/Boss 点不得落在 `AirWall` OBB 内（样例 `PushMap_Demo_01` 已恢复薄墙）。**不做** `NavMeshObstacle` Carve、复杂多层障碍 polish。契约见 §9.22。禁止运行时引用 `SmallScaleInt/`。
 
-**大规模战斗寻路（方案 B，MassCombatPathing / SPEC 已锁）：** 共享目标 **FlowField** + 追击 **AttackSlot** + 友军 **LocalDetour**；容量双方约 200；静态 `AirWall`/可走掩码进场；友军禁止 Carve。实现切片见 `.scratch/mass-pathing/issues/`；运行时契约见 §9.7。**MP-04：** PushMap 忠诚推进已接 FlowField+LocalDetour+`MassMoveScheduler`。**MP-05：** 交战/追击已接 `AttackSlotService`（士兵+怪；槽刷新≤50/帧；无全员每帧 `CalculatePath`）。**MP-06：** Defend `WarriorAgentView`/`MonsterAgentView` 对等接线；忠诚无 Engage 目标→`GoalKind=FormationHome`；追击走槽位；与 PushMap 共用目的地语义。**MP-07：** Debug 压测入口 `MassPathingPerfStress` / `MassPathingPerfStressView`（约 200+200 桩单位 + Stopwatch）；超预算回退见 §9.7。禁止运行时引用 `SmallScaleInt/`。
+**大规模战斗寻路（方案 B，MassCombatPathing / SPEC 已锁）：** 共享目标 **FlowField** + 追击 **AttackSlot** + 友军 **LocalDetour**；容量双方约 200；静态 `AirWall`/可走掩码进场；友军禁止 Carve。实现切片见 `.scratch/mass-pathing/issues/`；运行时契约见 §9.7。**MP-04～MP-07 已落地。****方案 B+（草案）：** `CombatMoveMode`（Chase/Surround/Sweep，**无 Follow**）+ `SoftCollisionService` 软排斥；切片 `.scratch/mass-soft-collision/`；见 §9.7 B+ 契约与 SPEC_03 §3.12。**士兵任务 Debug 标签（方案 A）：** Combat 中 `WarriorAgentView` / `PushMapAdvanceView` 脚下运行时 TextMesh 显示当前 `GoalKind` 中文简标；进档壳 Debug 开关，**默认开**；仅目标类。禁止运行时引用 `SmallScaleInt/`。
 
 **架构提示：** `ToolsPanel` 属 Meta 壳层 UI；玩法状态由规则层持有，View 只订阅展示（见 §13）。挖坟：规则层负责生成、计时、DigAction 触发/忙碌锁与扣血；菱形地图与圆圈光标、帧动画、奖励飞向为主角由 View 表现；逻辑层为整体可放置空间（非格子）。UM 阶段不查玩法配置表主键；升级进度本片内存持有。Defend：规则层输出目标/目的地；移动服务执行（规模栈见 §9.7）；Demo 最小可走面见 §9.7 / SPEC_03 §3.12。
 
@@ -273,15 +273,15 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **PushMap spawn & trap (Approach A, PM-05):** `PushMapSessionService` loads `PushMapSpawnConfig` rows at StartBattle; View order **Bake NavMesh → deploy → `FireStartBattleSpawns`**: non-trap rows with uncaptured linked objective → `PushMapSpawnRequested` (position resolved by View); trap-bound points → `TryNotifyTrapEnter` first-enter; `ObjectiveCaptured` → linked points stop spawning (living kept). `PushMapStageController` collects `SpawnPoint`/`TrapZone`, instantiates monsters (incl. Boss) into `_monsters` (`PushMapMonsterAgentView`), and polls loyal soldiers for first trap entry. Monster AI uses Defend default-chase semantics; protagonist shield via `PushMapSessionService.ApplyShieldHit`. AggroMode four-state lands in **PM-06**; Boss-clear settlement deferred (PM-07); **no** `WaveSpawnConfig` countdown. Runtime contract: §9.23. Sample `TrapZoneId` aligned to `TZ_01`. Do not runtime-reference `SmallScaleInt/`.
 
-**PushMap monster footprint spread (Approach A, PM-10):** `MonsterConfig.BodyRadius` (default `0.35`); View staggers same-point / nearby living footprints via ring/spiral + `NavMesh.SamplePosition`; `PushMapMonsterAgentView` sets `NavMeshAgent.radius = min(BodyRadius, max(0.05, AttackRange − 0.1 − 0.05))` so centers can still enter `AttackRange` vs soldier Demo radius `0.1`; `Stationary*` rely on spawn placement only; Defend spawn spread deferred. **Loyal soldiers** Demo: `NavMeshAgent.radius=0.1`, `height=0.1` (`WarriorAgentView` / `PushMapAdvanceView`). Do not runtime-reference `SmallScaleInt/`.
+**PushMap monster footprint spread (Approach A, PM-10; tightened v0.73.9):** `MonsterConfig.BodyRadius` (default `0.35`); View staggers same-point / nearby living footprints via ring/spiral + `NavMesh.SamplePosition`. **Tighten:** local sample only ≈`max(0.75, BodyRadius×2.5)`; accept hit only within leash from spawn `basePos` (≈ ring/spiral radius + slack; absolute cap ≈`max(3, BodyRadius×10)`); on failure shrink/spiral then allow overlap at base — **forbid** large-radius snaps across AirWalls onto outer diamond. `PushMapMonsterAgentView` Bind Warp uses the same local radius (≈`max(1, BodyRadius×3)`, not 12). `NavMeshAgent.radius = min(BodyRadius, max(0.05, AttackRange − 0.1 − 0.05))`; `Stationary*` rely on spawn placement; Defend spawn spread deferred. **Loyal soldiers** Demo: `NavMeshAgent.radius=0.1`, `height=0.1`. Do not runtime-reference `SmallScaleInt/`.
 
 **PushMap AggroMode four-state (Approach A, PM-06):** `PushMapMonsterAgentView` branches on `config.AggroMode`. `ActiveChase`: loyal soldier enters `AlertRadius` → **AttackSlot** chase that soldier until monster death (MP-05; not center `SetDestination`). `PassiveChase`: idle until `NotifyProvoked()`, then chase. `StationaryActive`: never moves; attacks loyal soldier inside `AttackRange`, stops on leave. `StationaryPassive`: never moves; attacks only after `NotifyProvoked()` and target still in `AttackRange`. Active detection + provocation are **loyal-only** (`!IsRebel`). Provocation Demo contract: `PushMapStageController` fires a loyal `PushMapAdvanceView`'s first entry into a passive monster's `AttackRange` → `NotifyProvoked()` (stands in for "soldier attacks first"; soldier HP / hit settlement still deferred). Hits keep `AttackMode` scheme D; active stances do not proactively detect the protagonist via `AlertRadius`, but an engaged protagonist hit still applies `ApplyShieldHit`. Real soldier damage on normal monsters / skill casts / dungeon gameplay body **not** done. Do not runtime-reference `SmallScaleInt/`.
 
-**PushMap Boss clear & reward hooks (Approach A, PM-07):** `PushMapSessionService` tracks pending count from fired `IsBoss` rows; `TryNotifyBossKilled` decrements → at 0: `PushMapPhase=Ended` + `VictorySettled(StageExpReward)`; presentation aligns with Defend: `AddExperience` → `_onVictoryAdvance` (`TryAdvanceStage`). `Shield≤0` → existing `LevelFailureRequested`, **no** Exp. Capture: credit `CaptureLoot` via `LootDropParser`/`Warehouse` (no Exp); write `DungeonUnlockIds` into `DungeonUnlockService` save set (PlayerPrefs + log-verifiable); Boss-clear also writes unlocks. Demo kill contract: first loyal entry into Boss `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`. Missing `BossPoint` with `IsBoss` → warn. Dungeon gameplay body / full failure UI **not** done. Do not runtime-reference `SmallScaleInt/`.
+**PushMap Boss clear & reward hooks (Approach A, PM-07):** `PushMapSessionService` tracks pending count from fired `IsBoss` rows; `TryNotifyBossKilled` decrements → at 0: `PushMapPhase=Ended` + `VictorySettled(StageExpReward)`; presentation aligns with Defend: `AddExperience` → `_onVictoryAdvance` (`TryAdvanceStage`). `Shield≤0` → existing `LevelFailureRequested`, **no** Exp. Capture: credit `CaptureLoot` via `LootDropParser`/`Warehouse` (no Exp); write `DungeonUnlockIds` into `DungeonUnlockService` save set (PlayerPrefs + log-verifiable); Boss-clear also writes unlocks. Demo kill contract: loyal center distance to any living monster ≤ `max(monster AttackRange, soldier AttackRange) + ArriveEpsilon` → `NotifyKilled`; Boss also `TryNotifyBossKilled` (real soldier damage deferred; must cover AttackSlot ring arrival so a smaller monster range cannot forever-stall). Missing `BossPoint` with `IsBoss` → warn. Dungeon gameplay body / full failure UI **not** done. Do not runtime-reference `SmallScaleInt/`.
 
-**PushMap AirWall NavMesh (Approach A, PM-08):** StartBattle runtime bake, in addition to the IsoDiamond walkable mesh, collects map `AirWall`s and injects `NavMeshBuildSourceShape.Box` + area=`Not Walkable` (size=`HalfExtents×2`; `Matrix4x4.TRS(position, rotation, 1)` → **incl. Y 45°**). Extends `DefendNavMeshBaker.Bake(..., notWalkableBoxes)`; `PushMapStageController` passes walls at StartBattle; both factions' `NavMeshAgent`s (soldier advance / monster chase) cannot path through. **No** `NavMeshObstacle` Carve or multi-layer obstacle polish. Contract: §9.22. Do not runtime-reference `SmallScaleInt/`.
+**PushMap AirWall NavMesh (Approach A, PM-08):** StartBattle runtime bake, in addition to the IsoDiamond walkable mesh, collects map `AirWall`s and injects `NavMeshBuildSourceShape.Box` + area=`Not Walkable` (size=`HalfExtents×2`; `Matrix4x4.TRS(position, rotation, 1)` → **incl. Y 45°**). Extends `DefendNavMeshBaker.Bake(..., notWalkableBoxes)`; `PushMapStageController` passes walls at StartBattle; both factions' `NavMeshAgent`s (soldier advance / monster chase) cannot path through. **Authoring hard rule:** objectives / spawn / Boss markers must not sit inside an `AirWall` OBB (sample `PushMap_Demo_01` restored to thin walls). **No** `NavMeshObstacle` Carve or multi-layer obstacle polish. Contract: §9.22. Do not runtime-reference `SmallScaleInt/`.
 
-**Mass combat pathing (Approach B, MassCombatPathing / SPEC locked):** shared-goal **FlowField** + chase **AttackSlot** + friendly **LocalDetour**; ~200/side; static AirWall/walkable mask into field; no friendly Carve. Impl slices: `.scratch/mass-pathing/issues/`; runtime contract §9.7. **MP-04:** PushMap loyal advance wired to FlowField+LocalDetour+`MassMoveScheduler`. **MP-05:** chase/engage wired to `AttackSlotService` (soldiers+monsters; slot refresh ≤50/frame; no all-units per-frame `CalculatePath`). **MP-06:** Defend `WarriorAgentView`/`MonsterAgentView` parity; loyal no Engage target→`GoalKind=FormationHome`; chase uses slots; same GoalKind semantics as PushMap. **MP-07:** Debug stress entry `MassPathingPerfStress` / `MassPathingPerfStressView` (~200+200 stubs + Stopwatch); over-budget fallbacks in §9.7. Do not runtime-reference `SmallScaleInt/`.
+**Mass combat pathing (Approach B, MassCombatPathing / SPEC locked):** shared-goal **FlowField** + chase **AttackSlot** + friendly **LocalDetour**; ~200/side; static AirWall/walkable mask into field; no friendly Carve. Impl slices: `.scratch/mass-pathing/issues/`; runtime contract §9.7. **MP-04～MP-07 landed.** **Approach B+ (draft):** `CombatMoveMode` (Chase/Surround/Sweep, **no Follow**) + `SoftCollisionService`; slices `.scratch/mass-soft-collision/`; see §9.7 B+ contract and SPEC_03 §3.12. **Soldier task Debug label (Approach A):** during Combat, runtime TextMesh under `WarriorAgentView` / `PushMapAdvanceView` shows current `GoalKind` short ZH label; InSaveShell Debug toggle **default on**; goal-kind only. Do not runtime-reference `SmallScaleInt/`.
 
 **Architecture note:** ToolsPanel is Meta shell UI; gameplay state owned by rules layer; View subscribes only (§13). Dig: rules owns spawn/timer/DigAction/busy/damage; diamond map, circle cursor, dig anims, DigReward fly-to are View; continuous placeable space. UM stages do not resolve mode-config PKs; upgrade progress is in-memory this slice. Defend: rules outputs target/destination; move service executes (mass stack §9.7); Demo-min walkable surface in §9.7 / SPEC_03 §3.12.
 
@@ -540,7 +540,7 @@ DefendGameplayConfig {
 - **方案 B（已锁定）：** 共享目的地用 **FlowField**；追击/攻击用 **AttackSlot** + **LocalDetour**；容量双方约 200。细则见下「大规模战斗寻路运行时契约」。
 - 采用 Unity **NavMesh**（或可走掩码）表达 **静态** 可走空间与 `AirWall`；**不**要求 400 个单位各自持有高频全图 `CalculatePath`。
 - **规则层**只输出：当前目标实体 ID + `GoalKind`（`Objective` / `FormationHome` / `AttackSlot` / `ChaseAnchor`）+ 可选 `AttackRange`；**不**直接写 `Transform` / `Animator`。
-- **移动服务**解析 `DesiredDestination`：Objective→FlowField 采样；攻击→AttackSlot 认领；友军阻挡→LocalDetour；表现层应用位移。
+- **移动服务**解析 `DesiredDestination`：Objective→FlowField 采样（进入 `CaptureZone` / `ObjectiveArriveRadius` 后停跟中心、软分离守备）；攻击→AttackSlot 认领；友军阻挡→LocalDetour；表现层应用位移。
 - 每隔 `TargetRetargetIntervalSeconds` 由规则层触发目标重选；槽位/场采样可按更短分帧预算更新，但 **禁止** 全员每帧全图重寻路。
 - **EngageZone**：挂在 BattleMap **Prefab** 上的 **IsoDiamond（XZ 菱形）选敌区**（比地图稍小；策划调位置/尺寸）；非叛变士兵仅在此区内选最近敌人。见 [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat。
 - 士兵命中方案 D：按 `SoulConfig.AttackMode`（制造写入实例）走近战前摇或远程弹道；`AttackRange` / 前摇 / 弹速 / 超时取自 [§9.9b `ClassConfig`](#99b-职业配置表-classconfig)（规则层确认伤害；View 播动作/弹道）。**第一版 Demo**：士兵与怪物仅普通攻击，不施放技能。
@@ -559,6 +559,7 @@ DefendGameplayConfig {
   - 障碍：Bake 后不可走（含 AirWall）→ 场内 cost=∞ / 不可达
   - 目标：PushMap `CurrentObjective` 世界点（或 CaptureZone 中心）；`CurrentObjectiveChanged` / 开战 Bake 完成 → **重建一场**
   - 查询：单位位置 → 最近格 → 读归一化方向；同目标单位共享同一场缓冲
+  - **到达守备：** `MassMoveScheduler.ObjectiveArriveRadius`（Stage 取当前 `CaptureZone.Radius`，缺省 2）内：`GoalKind=Objective` **不再**用 `SampleDir` 趋近目标格（场在目标格为 0 → 全队挤停）；改 desired=0 + LocalDetour 软分离；圈外跟场；`SampleDir≈0` 且仍在圈外 → 直趋 `GoalWorld` 回退
   - **禁止** 每单位独立 Dijkstra/A* 全图
 - **AttackSlot：**
   - `slotPos = targetPos + rot(k * 2π/N) * ringRadius`；`ringRadius = max(0.05, AttackRange − slotMargin)`；`slotMargin` Demo 默认 `0.05`
@@ -570,7 +571,7 @@ DefendGameplayConfig {
 - **LocalDetour：**
   - 邻域：`SpatialHash2D` cell ≈ `0.5`；查询半径 ≈ `2 * agentRadius + 0.2`；热路径复用结果列表，禁止全表 O(n²) 互扫
   - 前方扇形阻挡 → 左/右短探测（长度 ≈ `1.0`）；选净空更大侧加切向偏置
-  - 可选软分离（低强度）；`separationScale` 交战圈可降（对齐既有「防 RVO 挤抖」意图）
+  - 可选软分离（低强度）；`separationScale` 交战圈可降（对齐既有「防 RVO 挤抖」意图）；足迹完全重合时按 Id 确定性侧推，避免零向量死锁
   - **禁止** 友军 `NavMeshObstacle.Carve`
   - API：`Steer(desiredDir, self, neighbors, separationScale?)` → `steerDir`（`self` = 自身 XZ 位置 + 半径；无邻域时 `steer ≈ desired`）
 - **性能预算（验收导向）：**
@@ -580,16 +581,72 @@ DefendGameplayConfig {
   - **压测入口（MP-07）：** `Assets/Scripts/Core/Pathing/MassPathingPerfStress.cs`（纯 C# Stopwatch，双方各约 200）+ `Assets/Scripts/Gameplay/Pathing/MassPathingPerfStressView.cs`（简化胶囊/方块桩单位）+ Editor `Gravedigger2026/Pathing/Run MassPathing 200v200 Perf Stress`；测的是 `MassMoveScheduler.Tick` + ≤50 槽位刷新，**不含** Animator/全员 `CalculatePath`
   - **超预算回退（按序尝试）：** ① 增大 FlowField `cellSize`（向 0.5）；② 降低 AttackSlot `N`（近战/远程常量）；③ 降低 `MassMoveScheduler.MaxRecalcPerFrame` / 槽刷新预算（加大分帧，接受转向滞后）
 - **与现网 Demo 过渡：** MP 切片落地前，现有单 Agent NavMesh 行为仍可运行；切片验收后推进/追击须切到本契约；不得回退为全员 HighQuality RVO 作为规模方案
+- **士兵任务 Debug 标签（方案 A）：**
+  - 路径：`Assets/Scripts/Gameplay/Pathing/WarriorTaskDebugLabelView.cs` + `WarriorTaskLabelSettings`（静态开关，**默认 `Enabled=true`**）
+  - 表现：士兵脚下运行时 `TextMesh`（俯视可读，`Euler(90,0,0)`）；只读 `MassMoveScheduler.TryGetGoal` → 中文简标：`Objective`→推进、`FormationHome`→回阵、`AttackSlot`→追击、`ChaseAnchor`→追击锚
+  - 接线：`WarriorAgentView`（Defend）与 `PushMapAdvanceView`（PushMap）在 `Bind` 时 Ensure 组件
+  - 开关：进档壳 Debug 按钮切换 `WarriorTaskLabelSettings.Enabled`（可运行时克隆既有 Debug 按钮，缺省 Prefab 槽亦可）
+  - **不做：** 攻击前摇/开火等细态；怪物标签；正式 UI Prefab / 本地化 Key
 - **边界不做（本专题）：** 完整 ORCA；动态门/可破坏墙；多层楼寻路；技能位移预测
 
+**方案 B+ 运行时契约（MassCombatSoftCollision / BMH 借鉴；叠在方案 B）：**
+
+- **权威行为：** [SPEC_03 §3.12](SPEC_03_GameRules.md)「方案 B+：战斗移动模式与软碰撞」
+- **选定方案：** B+ — 在 FlowField + AttackSlot + LocalDetour 上增加 `CombatMoveMode`（无 Follow）与 `SoftCollisionService`
+- **明确不做：** 主角跟随聚团 / `ArmyRadius` 粘随 / BMH `NORMAL` Follow；不以跟随曲线驱动默认移动
+- **模块建议路径（实现时）：**
+  - `Assets/Scripts/Core/Pathing/SoftCollisionService.cs` — 登记足迹、分帧排斥解算（复用 `SpatialHash2D`）
+  - `Assets/Scripts/Core/Pathing/AttackSlotService.cs` — 扩展 Surround 缺口参数（或旁路 `SurroundSlotAllocator`）
+  - `Assets/Scripts/Core/Pathing/CombatMoveMode.cs` — 枚举 `Chase` / `Surround` / `Sweep`
+  - 切片：`.scratch/mass-soft-collision/issues/`
+- **数据结构（伪）：**
+
 ```
-// MassCombatPathing touchpoints (Approach B)
-FlowFieldService.Rebuild(goal, walkableMaskInclAirWall)
-FlowFieldService.SampleDir(worldPos) -> Vector2
-AttackSlotService.TryClaim(attackerId, targetId, attackRange, targetPos, …) -> worldPos
-LocalDetourSolver.Steer(desiredDir, self, neighbors, separationScale?) -> steerDir
-MassMoveScheduler.Tick(dt) // frame-budgeted
-MassPathingPerfStress.Run(perSide≈200) // MP-07 Debug Stopwatch
+enum CombatMoveMode { Chase, Surround, Sweep }  // 无 Follow
+
+struct SoftCollisionBody {
+  int RuntimeId
+  Vector2 Xz
+  float Radius          // BodyRadius 或士兵 Demo 半径
+  int Faction
+  bool ResolveEnabled
+}
+
+struct SurroundParams {
+  SurroundGapDirection GapDir   // Left|Right|Top|Bottom|Random
+  float GapDegrees              // Demo 默认 60
+}
+
+SoftCollisionService.Register(body) / Unregister(id)
+SoftCollisionService.Tick(dt, maxBodiesPerFrame)  // 邻域排斥 → 写出 CorrectionXz
+AttackSlotService.TryClaim(..., surround?: SurroundParams)  // 缺口扇区跳过角位
+LocalDetourSolver.Steer(...)  // 仍负责前方绕行；排斥主通道改由 SoftCollision
+MassMoveScheduler.Tick: desiredDir → LocalDetour → + SoftCollision.Correction → View.Move
+```
+
+- **SoftCollision 常量（Demo）：**
+  - 哈希 cell ≈ `0.5`（与 LocalDetour 共用或同级）
+  - 查询半径 ≈ `2 * radius + 0.2`
+  - `repulsionScale` 默认 `1.0`；`GoalKind=AttackSlot` 交战可降至 `0.35～0.5`
+  - 每帧解算预算与 `MassMoveScheduler` 对齐（轮转 ≤50 或合并进同一 Tick 预算）
+  - `ResolveCollisions` 默认 **true**；Debug 可关
+- **Surround 常量（Demo）：**
+  - `SurroundGapDegrees = 60`
+  - 缺口方向：相对「目标←进攻方质心」向量的背侧扇区为默认缺口（`Random` 仅调试）
+  - 近战多打一默认 Surround；远程默认 Chase（更疏环、无缺口或更大缺口——实现选一，写进常量注释）
+- **Sweep：** P2；本片 API 可留枚举值但不接线
+- **验收：**
+  - 200v200 压测移动逻辑仍导向 ≤ ~2.5 ms/帧（含 SoftCollision）
+  - 多近战围同一目标时环上可见缺口扇区
+  - 关闭 `ResolveCollisions` 后单位可明显重叠（对照）
+  - **无**「全队粘随主角」行为回归
+- **边界不做（B+ 本专题）：** Follow 模式；完整 ORCA；动态 Capsule 随军队半径缩放（BMH PhysicsManager 军队缩放不迁移）
+
+```
+// MassCombatSoftCollision touchpoints (Approach B+)
+SoftCollisionService.Register / Unregister / Tick
+AttackSlotService.TryClaim(..., surround?)
+CombatMoveMode = Chase | Surround | Sweep  // no Follow
 ```
 
 **刷怪 / 怪物表：** 见 §9.18 `WaveSpawnConfig`、§9.19 `MonsterConfig`；失控见 §9.20 `LossOfControlConfig`、§9.21 `SkillConfig`（骨架）；规则见 [SPEC_03 §3.12](SPEC_03_GameRules.md)。
@@ -1289,8 +1346,9 @@ BossPoint      { }                           // transform.position
 - **Session 面：** `CaptureSecondsRequired`（`Config.CaptureSeconds`，钳 ≥0.01）；`CurrentObjectiveOrder`（未开或全占=0）；`IsObjectiveCaptured(order)`；`TryBeginObjectiveChain(IEnumerable<int> orders)`（开战调用；排序去重 → 最小未占）；`TickCapture(float dt, bool hasLivingMonsterInCurrentZone)`（有怪清零；否则累计；达标→标记已占+事件+切下一目标）
 - **事件：** `ObjectiveCaptured(int order)`（停刷钩子 → PM-05）；`CurrentObjectiveChanged(int newOrder)`（推进/表现）
 - **表现：** `PushMapStageController` Combat 收 `ObjectivePoint` 排序喂 Session；每秒 `Update` 探测当前圈内存活怪（默认扫描 `_monsters`：`IsAlive && CaptureZone.ContainsXZ(position)`；Rebel 不算阻挡）；探测经 `PushMapMonsterPresenceProbe`（同目录薄组件，可注入/重置验收占位）；占领日志+HUD 状态
-- **推进（MP-04 / 方案 B）：** 忠诚士兵共享 `CurrentObjective` → `FlowFieldService` 单场；`PushMapAdvanceView` 采样场方向 + `MassMoveScheduler`/`LocalDetour` 友军绕行后 `NavMeshAgent.Move`（**禁止**每兵每帧 `SetDestination(Objective)`）；圈内有存活怪**不**暂停推进（探测仅喂 `TickCapture`）；Rebel 不推进
-- **追击/交战（MP-05 / 方案 B）：** 忠诚兵遇敌检测内 → `GoalKind=AttackSlot`（`AttackSlotService.TryClaim`）+ LocalDetour，停跟 Objective 场；离开后释放槽恢复 `Objective`。怪物追击目的地同为认领槽（非目标中心）；`MassMoveScheduler.SetGoal`；槽位重算每帧 ≤50 轮转；死亡/`Release`/`ReleaseAllForTarget`
+- **推进（MP-04 / 方案 B）：** 忠诚士兵共享 `CurrentObjective` → `FlowFieldService` 单场；`PushMapAdvanceView` 采样场方向 + `MassMoveScheduler`/`LocalDetour` 友军绕行后 `NavMeshAgent.Move`（**禁止**每兵每帧 `SetDestination(Objective)`）；进入当前 `CaptureZone` 后停跟场中心、软分离守备（`ObjectiveArriveRadius`）；圈内有存活怪**不**暂停推进（探测仅喂 `TickCapture`）；Rebel 不推进
+- **追击/交战（MP-05 / 方案 B）：** 忠诚兵遇敌检测内 → `GoalKind=AttackSlot`（`AttackSlotService.TryClaim`）+ LocalDetour，停跟 Objective 场；离开后释放槽恢复 `Objective`。无空闲槽 → 保持 `Objective` 跟场（不硬暂停）。怪物追击目的地同为认领槽（非目标中心）；`MassMoveScheduler.SetGoal`；槽位重算每帧 ≤50 轮转；死亡/`Release`/`ReleaseAllForTarget`
+- **Demo 击杀（命中 polish 后置）：** 忠诚兵中心距任意存活怪 ≤ `max(怪 AttackRange, 士兵 AttackRange) + ArriveEpsilon` → `NotifyKilled`；BOSS 另 `TryNotifyBossKilled`
 - **Defend 对等（MP-06 / 方案 B）：** `DefendStageController` 持有同一套 `MassMoveScheduler`+`AttackSlotService`；`WarriorAgentView` Engage 内追击→`AttackSlot`，无候选→`GoalKind=FormationHome`（直趋+LocalDetour；返回途中继续选敌即中断）；`MonsterAgentView` 追击走槽位；无全员每帧 `SetDestination`/`CalculatePath`；与 PushMap 目的地语义一致
 - **FlowField 重建：** 开战 Bake（AirWall→`StaticBoxWalkableMask`）后 `Configure`+`Rebuild`；`CurrentObjectiveChanged` → 再 `Rebuild`（日志可验单次 RebuildCount）；同目标单位共享一场
 - **开战顺序（表现）：** Bake NavMesh（含 AirWall）→ 建可走掩码+FlowField → `TryBeginObjectiveChain` → 部署忠诚兵（注册 Scheduler）→ `FireStartBattleSpawns`（怪注册 Scheduler+AttackSlot）→ 失控 roll
@@ -1321,7 +1379,7 @@ WarriorAgentView / MonsterAgentView { AttackSlot or FormationHome Move; no cente
 - **失败：** 既有 `RequestLevelFailure` → `LevelFailureRequested`；**禁止**再发 `VictorySettled`
 - **占领奖励：** `Capture` 时解析 `Config.CaptureLoot`（`LootDropParser`）经表现层/`Warehouse` 入账；写 `DungeonUnlockIds`；**不**加经验
 - **存档钩子：** `DungeonUnlockService`（`Core/PushMap/` 或 Meta）：按存档槽 `HashSet` + PlayerPrefs；`TryUnlock(id)` 日志可验；副本玩法正文不做
-- **表现：** `PushMapMonsterAgentView.IsBoss`；`PushMapStageController` Demo 击杀＝忠诚兵首次进 BOSS `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`；订阅 `VictorySettled` → `AddExperience` → `_onVictoryAdvance`；LevelFailure 路径不变
+- **表现：** `PushMapMonsterAgentView.IsBoss`；`PushMapStageController` Demo 击杀＝忠诚兵中心距 ≤ `max(怪 AttackRange, 士兵 AttackRange) + ArriveEpsilon` → `NotifyKilled` +（BOSS）`TryNotifyBossKilled`；订阅 `VictorySettled` → `AddExperience` → `_onVictoryAdvance`；LevelFailure 路径不变
 
 ```
 // PM-07 rules/presentation touchpoints
@@ -1336,6 +1394,7 @@ PushMapMonsterAgentView.IsBoss
 
 - **权威阻挡：** 开战 Runtime Bake（复用 `DefendNavMeshBaker`）在 IsoDiamond 可走 `Mesh` source 之外，收集地图 `AirWall`，追加 `NavMeshBuildSource`：`shape=Box`、`size=HalfExtents×2`、`transform=TRS(position, rotation, 1)`、`area=Not Walkable`（`NavMesh.GetAreaFromName`；失败回退 `1`）
 - **旋转：** Prefab `Transform.eulerAngles.y` 支持 0°/45°/90°…；样例 `AirWall_45` 为 45°
+- **作者硬约束：** `ObjectivePoint` / `SpawnPoint` / `BossPoint` 不得落在任一 `AirWall` OBB 内（加厚/平移后须复核；样例 `PushMap_Demo_01` 已按此恢复薄墙几何）
 - **作用对象：** 敌我士兵与怪物凡走 `NavMeshAgent` 的路径均不可穿（含 FlowField 掩码阻挡推进方向；怪物追击仍走 NavMesh）；AirWall 同时写入 `StaticBoxWalkableMask` 供 FlowField
 - **接线：** `PushMapStageController` StartBattle 收集 `GetComponentsInChildren<AirWall>` → `Bake(..., notWalkableBoxes)` + 同批 OBB 建 FlowField 掩码
 - **边界：** **不做** `NavMeshObstacle` Carve、复杂多层障碍 polish；Defend 无 AirWall 时仍走无障碍重载
@@ -1383,12 +1442,12 @@ PushMapSpawnConfig {
 
 - **规则归属：** 刷怪资格与触发状态在 `PushMapSessionService`（`Core/PushMap/`）；`SpawnPoint`/`TrapZone` 仅作者标记，运行时不自管判定
 - **装载：** `TryStartBattle` 时装载本 `GameplayConfigId` 全部行；**不**立即刷怪。表现层在 Bake NavMesh + 部署完成后调用 `FireStartBattleSpawns()`：无陷阱且关联目标未占的行 → 发 `PushMapSpawnRequested`（同 `SpawnPointId` 按 `SpawnOrder` 升序）；陷阱绑定点进入 `Pending` 待触发
-- **事件：** `PushMapSpawnRequested(PushMapSpawnRequest)`；负载含 `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger`（`StartBattle` / `Trap`）；**位置由 View 按 `SpawnPointId` / `BossPoint` 解析**，再按 `MonsterConfig.BodyRadius` 与场上存活怪占地圆做散开（环形/螺旋候选 → `NavMesh.SamplePosition`；PM-10）
+- **事件：** `PushMapSpawnRequested(PushMapSpawnRequest)`；负载含 `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger`（`StartBattle` / `Trap`）；**位置由 View 按 `SpawnPointId` / `BossPoint` 解析**，再按 `MonsterConfig.BodyRadius` 与场上存活怪占地圆做散开（环形/螺旋候选 → 局部 `NavMesh.SamplePosition` + `basePos` 牵引；PM-10 / v0.73.9）
 - **陷阱触发：** `TryNotifyTrapEnter(trapZoneId)`（View 探测忠诚兵首次进圈）→ 未占领 + 未触发 → 该 `SpawnPointId` 全部行触发；每点本场仅一次
 - **占领停刷：** `ObjectiveCaptured(order)` → 标记 `LinkedObjectiveOrder == order` 的点本场停刷；已触发怪的生死不受影响；`IsBoss=1` 的行 **不** 受占领停刷（BOSS 见 PM-07）
 - **表现：** `PushMapStageController` 收集 `SpawnPoint`（`SpawnPointId`→`Transform.position`）与 `TrapZone`；订阅事件 Instantiate 怪 → `PushMapMonsterAgentView`（入 `_monsters`；Boss 用 `BossPoint` 位置；落点经 `PushMapSpawnSpread`）；Update 探测忠诚（`!IsRebel`）`PushMapAdvanceView` 首次进入 `TrapZone` → `TryNotifyTrapEnter`
-- **占地与避障（PM-10）：** Bind 时 `_agent.radius = min(BodyRadius, max(0.05, AttackRange − 士兵Demo半径0.1 − 0.05))`；刷出散开仍用完整 `BodyRadius`；移动怪靠 NavMesh RVO 互避；`Stationary*` 不主动挪位；Defend 刷怪落点散开本片 **不做**；**我方士兵** Demo：`NavMeshAgent.radius=0.1`、`height=0.1`（`WarriorAgentView` / `PushMapAdvanceView`）
-- **Demo 遇敌→AttackSlot（MP-05）：** `PushMapAdvanceView` 在忠诚兵中心距存活怪 ≤ `max(AttackRange, BodyRadius+0.1)` 时改 `GoalKind=AttackSlot`（认领环上槽 + LocalDetour `Move`；**停跟** FlowField）；离开后释放槽并恢复 `Objective`。怪物追击同样认领槽，**禁止**全员每帧 `SetDestination`/`CalculatePath` 到目标中心
+- **占地与避障（PM-10 / v0.73.9）：** `PushMapSpawnSpread`：采样半径 ≈`max(0.75, BodyRadius×2.5)`；命中相对 `basePos` 须 ≤ 牵引上限（环/螺旋半径+余量；绝对 ≈`max(3, BodyRadius×10)`）；越界失败；挤满重叠回退基点。Bind 时 Warp 同局部半径 ≈`max(1, BodyRadius×3)`；`_agent.radius = min(BodyRadius, max(0.05, AttackRange − 士兵Demo半径0.1 − 0.05))`；刷出散开仍用完整 `BodyRadius`；移动怪靠 NavMesh RVO 互避；`Stationary*` 不主动挪位；Defend 刷怪落点散开本片 **不做**；**我方士兵** Demo：`NavMeshAgent.radius=0.1`、`height=0.1`（`WarriorAgentView` / `PushMapAdvanceView`）
+- **Demo 遇敌→AttackSlot（MP-05）：** `PushMapAdvanceView` 在忠诚兵中心距存活怪 ≤ `max(AttackRange, BodyRadius+0.1)` 时改 `GoalKind=AttackSlot`（认领环上槽 + LocalDetour `Move`；**停跟** FlowField）；离开后释放槽并恢复 `Objective`；无空闲槽保持 `Objective` 跟场。怪物追击同样认领槽，**禁止**全员每帧 `SetDestination`/`CalculatePath` 到目标中心。Demo：中心距 ≤ `max(怪 AttackRange, 士兵 AttackRange) + ArriveEpsilon` → `NotifyKilled`（BOSS 另 `TryNotifyBossKilled`）
 - **怪物 AI 边界：** 本片怪用 Defend 默认追击语义（就近忠诚兵/主角；进 `AttackRange` 普攻；对主角 `ApplyShieldHit`；对兵日志）；AggroMode 四态后置 **PM-06**（见下「AggroMode 运行时契约」）；`MonsterAgentView` 仍绑定 `DefendSessionService` 不接入
 - **AggroMode 运行时契约（PM-06）：** 四态在 `PushMapMonsterAgentView` 按 `config.AggroMode` 分支；`ActiveChase`：忠诚士兵进 `AlertRadius`→移动追击该兵直至怪死；`PassiveChase`：`_provoked=false` 静止，`NotifyProvoked()` 后移动追击；`StationaryActive`：永不移动，忠诚兵进 `AttackRange` 攻击、离开停；`StationaryPassive`：永不移动，须先 `NotifyProvoked()` 且目标仍在 `AttackRange` 才攻。主动发现与挑衅均**仅**对忠诚士兵（`!IsRebel`）。挑衅来源（Demo）：`PushMapStageController` 检测忠诚 `PushMapAdvanceView` 首次进入某被动怪 `AttackRange` → 调其 `NotifyProvoked()`（等效「士兵先攻击」；士兵 HP 后置）。命中仍 `AttackMode` 方案 D；主动态对主角不进 `AlertRadius` 主动发现（仅忠诚兵），但已被追击/就近规则命中主角时仍 `ApplyShieldHit`。普通怪真实士兵伤害 **不做**
 - **边界：** 不使用 `WaveSpawnConfig` 倒计时；BOSS 通关 / 经验 / 占领奖励 / 副本解锁钩子见 §9.22 PM-07 契约
@@ -1594,7 +1653,7 @@ DefendGameplayConfig {
 - **Approach B (locked):** shared goals use **FlowField**; chase/attack use **AttackSlot** + **LocalDetour**; capacity ~200/side. See “Mass combat pathing runtime contract” below.
 - Unity **NavMesh** (or walkable mask) expresses **static** walkability and `AirWall`; **do not** require 400 units each running high-frequency full-map `CalculatePath`.
 - **Rules layer** outputs: current target entity Id + `GoalKind` (`Objective` / `FormationHome` / `AttackSlot` / `ChaseAnchor`) + optional `AttackRange`; must **not** write `Transform` / `Animator` directly.
-- **Move service** resolves `DesiredDestination`: Objective→FlowField sample; attack→AttackSlot claim; friendly block→LocalDetour; presentation applies motion.
+- **Move service** resolves `DesiredDestination`: Objective→FlowField sample (inside `CaptureZone` / `ObjectiveArriveRadius` stop seeking center, soft-separation hold); attack→AttackSlot claim; friendly block→LocalDetour; presentation applies motion.
 - Every `TargetRetargetIntervalSeconds` the rules layer reselects targets; slot/field samples may update on a shorter frame budget, but **forbid** full-map repath every frame for all units.
 - **EngageZone**: **IsoDiamond** (XZ diamond) on the BattleMap **Prefab** (slightly smaller than the map; designer-tuned); non-Rebel soldiers pick nearest enemy only inside it. See [SPEC_03 §3.12](SPEC_03_GameRules.md) WarriorCombat.
 - Soldier hit scheme D: branch by `SoulConfig.AttackMode` (copied onto instance at manufacture) — melee windup or ranged projectile; `AttackRange` / windup / projectile speed / timeout from [§9.9b `ClassConfig`](#99b-职业配置表-classconfig) (rules confirm damage; View plays anim/projectile). **Demo v1**: soldiers and monsters use normal attacks only; no skill casts.
@@ -1608,14 +1667,20 @@ DefendGameplayConfig {
 - **Suggested modules (on implement):**
   - `Assets/Scripts/Core/Pathing/` — pure C#: `FlowFieldService`, `AttackSlotService`, `SpatialHash2D`, `LocalDetourSolver`, frame-budgeted `MassMoveScheduler`
   - `Assets/Scripts/Gameplay/Pathing/` — view bridge: register units from StageController, apply motion; gradually replace/wrap heavy NavMeshAgent pathing in `PushMapAdvanceView` / `WarriorAgentView` / `*MonsterAgentView`
-- **FlowField:** cell size Demo **0.25–0.5** world units; cover IsoDiamond; AirWall/non-walkable → impassable; rebuild on `CurrentObjectiveChanged` / StartBattle bake; units sample shared buffer — **no** per-unit full-map Dijkstra/A*
+- **FlowField:** cell size Demo **0.25–0.5** world units; cover IsoDiamond; AirWall/non-walkable → impassable; rebuild on `CurrentObjectiveChanged` / StartBattle bake; units sample shared buffer — **no** per-unit full-map Dijkstra/A*. **Arrive hold:** inside `MassMoveScheduler.ObjectiveArriveRadius` (Stage sets from current `CaptureZone.Radius`, default 2), `GoalKind=Objective` stops seeking the goal cell (zero-vector pile-up) and holds via LocalDetour soft separation; outside keeps sampling; SampleDir≈0 while outside → steer toward `GoalWorld`
 - **AttackSlot:** ring at `max(0.05, AttackRange − 0.05)`; N=12 melee / 8 ranged; claim ≤1 per attacker; recompute on retarget / target move > 0.5; walkability via `IAttackSlotWalkable` (stub now; SamplePosition later); `TryClaim(…, targetPos, …)` / `Release` / `ReleaseAllForTarget`
-- **LocalDetour:** `SpatialHash2D` cell ≈ `0.5`; query radius ≈ `2*agentRadius+0.2`; forward cone + L/R probes (~`1.0`); optional soft separation via `separationScale` (reduce in engage); **forbid** friendly Carve; hot path reuses lists — no full-table O(n²)
+- **LocalDetour:** `SpatialHash2D` cell ≈ `0.5`; query radius ≈ `2*agentRadius+0.2`; forward cone + L/R probes (~`1.0`); optional soft separation via `separationScale` (reduce in engage); coincident footprints get deterministic Id-based push; **forbid** friendly Carve; hot path reuses lists — no full-table O(n²)
 - **API:** `Steer(desiredDir, self, neighbors, separationScale?)` → `steerDir` (`self` = XZ pos + radius; no neighbors → `steer ≈ desired`)
 - **Perf budget:** ≤~400 movers → move logic target **≤ ~2.5 ms/frame**; ≤50 path/slot recomputes per frame (round-robin)
   - **Stress entry (MP-07):** `Assets/Scripts/Core/Pathing/MassPathingPerfStress.cs` (pure-C# Stopwatch, ~200/side) + `Assets/Scripts/Gameplay/Pathing/MassPathingPerfStressView.cs` (capsule/cube stubs) + Editor `Gravedigger2026/Pathing/Run MassPathing 200v200 Perf Stress`; measures `MassMoveScheduler.Tick` + ≤50 slot refresh — **not** Animator / all-units `CalculatePath`
   - **Over-budget fallbacks (try in order):** (1) raise FlowField `cellSize` (toward 0.5); (2) lower AttackSlot `N` (melee/ranged constants); (3) lower `MassMoveScheduler.MaxRecalcPerFrame` / slot-refresh budget (more frame-slicing; accept steer lag)
 - **Transition:** until MP slices land, current single-Agent NavMesh may run; after acceptance, advance/chase must follow this contract — do not keep full HighQuality RVO as the scale solution
+- **Soldier task Debug label (Approach A):**
+  - Paths: `Assets/Scripts/Gameplay/Pathing/WarriorTaskDebugLabelView.cs` + `WarriorTaskLabelSettings` (static toggle, **default `Enabled=true`**)
+  - Presentation: runtime `TextMesh` under soldier feet (top-down readable, `Euler(90,0,0)`); read-only `MassMoveScheduler.TryGetGoal` → ZH short labels: `Objective`→推进, `FormationHome`→回阵, `AttackSlot`→追击, `ChaseAnchor`→追击锚
+  - Wire: `WarriorAgentView` (Defend) and `PushMapAdvanceView` (PushMap) Ensure the component on `Bind`
+  - Toggle: InSaveShell Debug button flips `WarriorTaskLabelSettings.Enabled` (may runtime-clone an existing Debug button if Prefab slot missing)
+  - **Out:** attack windup/fire detail; monster labels; formal UI Prefab / i18n keys
 - **Out of scope:** full ORCA; destructible doors; multi-floor pathing; skill dash prediction
 
 ```
@@ -1625,6 +1690,53 @@ AttackSlotService.TryClaim(attackerId, targetId, attackRange, targetPos, …) ->
 LocalDetourSolver.Steer(desiredDir, self, neighbors, separationScale?) -> steerDir
 MassMoveScheduler.Tick(dt)
 MassPathingPerfStress.Run(perSide≈200) // MP-07 Debug Stopwatch
+```
+
+**Approach B+ runtime contract (MassCombatSoftCollision / BMH-inspired; on top of B):**
+
+- **Behavior authority:** [SPEC_03 §3.12](SPEC_03_GameRules.md) “Approach B+: combat move modes & soft collision”
+- **Chosen approach:** B+ — add `CombatMoveMode` (**no Follow**) + `SoftCollisionService` atop FlowField + AttackSlot + LocalDetour
+- **Explicitly out:** protagonist follow-blob / `ArmyRadius` stickiness / BMH `NORMAL` Follow; do not drive default move with follow curves
+- **Suggested modules:**
+  - `Assets/Scripts/Core/Pathing/SoftCollisionService.cs` — footprint registry + frame-budgeted repulsion (reuse `SpatialHash2D`)
+  - `Assets/Scripts/Core/Pathing/AttackSlotService.cs` — Surround gap params (or `SurroundSlotAllocator`)
+  - `Assets/Scripts/Core/Pathing/CombatMoveMode.cs` — `Chase` / `Surround` / `Sweep`
+  - Slices: `.scratch/mass-soft-collision/issues/`
+- **Data (pseudo):**
+
+```
+enum CombatMoveMode { Chase, Surround, Sweep }  // no Follow
+
+struct SoftCollisionBody {
+  int RuntimeId
+  Vector2 Xz
+  float Radius
+  int Faction
+  bool ResolveEnabled
+}
+
+struct SurroundParams {
+  SurroundGapDirection GapDir   // Left|Right|Top|Bottom|Random
+  float GapDegrees              // Demo default 60
+}
+
+SoftCollisionService.Register(body) / Unregister(id)
+SoftCollisionService.Tick(dt, maxBodiesPerFrame)  // neighborhood repulsion → CorrectionXz
+AttackSlotService.TryClaim(..., surround?: SurroundParams)
+LocalDetourSolver.Steer(...)  // forward detour; primary repulsion via SoftCollision
+MassMoveScheduler.Tick: desiredDir → LocalDetour → + SoftCollision.Correction → View.Move
+```
+
+- **SoftCollision Demo constants:** cell ≈ `0.5`; query ≈ `2*radius+0.2`; `repulsionScale` default `1.0`, engage `0.35–0.5`; budget aligned with scheduler (≤50 round-robin or same Tick); `ResolveCollisions` default **true**
+- **Surround Demo constants:** `SurroundGapDegrees = 60`; default gap = back sector vs “target←attacker centroid”; melee multi-vs-one Surround on; ranged Chase by default
+- **Sweep:** P2; enum may exist unwired
+- **Accept:** 200v200 move logic still ≤~2.5 ms/frame with SoftCollision; visible gap on melee surround ring; overlapping when Resolve off; **no** sticky-follow-protagonist regression
+- **Out of scope (B+ this topic):** Follow mode; full ORCA; BMH army-radius capsule scaling
+
+```
+SoftCollisionService.Register / Unregister / Tick
+AttackSlotService.TryClaim(..., surround?)
+CombatMoveMode = Chase | Surround | Sweep  // no Follow
 ```
 
 **Spawn / monster tables:** see §9.18 `WaveSpawnConfig`, §9.19 `MonsterConfig`; LossOfControl: §9.20 `LossOfControlConfig`, §9.21 `SkillConfig` (skeleton); rules in [SPEC_03 §3.12](SPEC_03_GameRules.md).
@@ -2291,8 +2403,9 @@ BossPoint      { }
 - **Session surface:** `CaptureSecondsRequired` (`Config.CaptureSeconds`, clamped ≥0.01); `CurrentObjectiveOrder` (0 = none/all captured); `IsObjectiveCaptured(order)`; `TryBeginObjectiveChain(IEnumerable<int> orders)`; `TickCapture(float dt, bool hasLivingMonsterInCurrentZone)`
 - **Events:** `ObjectiveCaptured(int order)` (stop-spawn hook → PM-05); `CurrentObjectiveChanged(int newOrder)`
 - **Presentation:** `PushMapStageController` collects sorted `ObjectivePoint`s; per `Update` probes living monsters in current zone (default scan `_monsters`: `IsAlive && CaptureZone.ContainsXZ`); probe via `PushMapMonsterPresenceProbe` (injectable placeholder for reset acceptance); capture logs + HUD
-- **Advance (MP-04 / Approach B):** loyal soldiers share `CurrentObjective` → one `FlowFieldService` field; `PushMapAdvanceView` samples field dir + `MassMoveScheduler`/`LocalDetour` then `NavMeshAgent.Move` (**no** per-soldier per-frame `SetDestination(Objective)`); living monsters in capture zone do **not** pause advance (probe feeds `TickCapture` only); Rebels do not advance
-- **Chase/engage (MP-05 / Approach B):** loyal soldiers in engage detect → `GoalKind=AttackSlot` (`AttackSlotService.TryClaim`) + LocalDetour, leave Objective field; on clear release slot and resume `Objective`. Monster chase destination is claimed slot (not target center); `MassMoveScheduler.SetGoal`; slot refresh ≤50/frame round-robin; death/`Release`/`ReleaseAllForTarget`
+- **Advance (MP-04 / Approach B):** loyal soldiers share `CurrentObjective` → one `FlowFieldService` field; `PushMapAdvanceView` samples field dir + `MassMoveScheduler`/`LocalDetour` then `NavMeshAgent.Move` (**no** per-soldier per-frame `SetDestination(Objective)`); inside current `CaptureZone` stop seeking field center and soft-separation hold (`ObjectiveArriveRadius`); living monsters in capture zone do **not** pause advance (probe feeds `TickCapture` only); Rebels do not advance
+- **Chase/engage (MP-05 / Approach B):** loyal soldiers in engage detect → `GoalKind=AttackSlot` (`AttackSlotService.TryClaim`) + LocalDetour, leave Objective field; on clear release slot and resume `Objective`. No free slot → keep `Objective` on field (no hard pause). Monster chase destination is claimed slot (not target center); `MassMoveScheduler.SetGoal`; slot refresh ≤50/frame round-robin; death/`Release`/`ReleaseAllForTarget`
+- **Demo kill (hit polish deferred):** loyal center distance to any living monster ≤ `max(monster AttackRange, soldier AttackRange) + ArriveEpsilon` → `NotifyKilled`; Boss also `TryNotifyBossKilled`
 - **Defend parity (MP-06 / Approach B):** `DefendStageController` owns the same `MassMoveScheduler`+`AttackSlotService`; `WarriorAgentView` Engage chase→`AttackSlot`, no candidate→`GoalKind=FormationHome` (straight+LocalDetour; abort return on new target); `MonsterAgentView` chase uses slots; no all-units per-frame `SetDestination`/`CalculatePath`; same GoalKind semantics as PushMap
 - **FlowField rebuild:** after StartBattle bake (AirWall→`StaticBoxWalkableMask`) `Configure`+`Rebuild`; `CurrentObjectiveChanged` → `Rebuild` again (log-verifiable RebuildCount); same-goal units share one field
 - **StartBattle order (View):** Bake NavMesh (incl. AirWall) → walkable mask+FlowField → `TryBeginObjectiveChain` → deploy loyal soldiers (register Scheduler) → `FireStartBattleSpawns` (monsters register Scheduler+AttackSlot) → LOC rolls
@@ -2323,7 +2436,7 @@ WarriorAgentView / MonsterAgentView { AttackSlot or FormationHome Move; no cente
 - **Fail:** existing `RequestLevelFailure` → `LevelFailureRequested`; **must not** also fire `VictorySettled`
 - **Capture rewards:** on `Capture`, parse `Config.CaptureLoot` (`LootDropParser`) → credit via presentation/`Warehouse`; write `DungeonUnlockIds`; **no** Exp
 - **Save hook:** `DungeonUnlockService` (`Core/PushMap/`): per-slot `HashSet` + PlayerPrefs; `TryUnlock(id)` log-verifiable; dungeon gameplay body not done
-- **Presentation:** `PushMapMonsterAgentView.IsBoss`; Demo kill = first loyal entry into Boss `AttackRange` → `NotifyKilled` + `TryNotifyBossKilled`; subscribe `VictorySettled` → `AddExperience` → `_onVictoryAdvance`
+- **Presentation:** `PushMapMonsterAgentView.IsBoss`; Demo kill = loyal center distance ≤ `max(monster AttackRange, soldier AttackRange) + ArriveEpsilon` → `NotifyKilled`; Boss also `TryNotifyBossKilled`; subscribe `VictorySettled` → `AddExperience` → `_onVictoryAdvance`
 
 ```
 // PM-07 rules/presentation touchpoints
@@ -2337,6 +2450,7 @@ PushMapMonsterAgentView.IsBoss
 
 - **Authoritative block:** StartBattle runtime bake (shared `DefendNavMeshBaker`) adds, besides the IsoDiamond walkable `Mesh` source, one `NavMeshBuildSource` per map `AirWall`: `shape=Box`, `size=HalfExtents×2`, `transform=TRS(position, rotation, 1)`, `area=Not Walkable` (`NavMesh.GetAreaFromName`; fallback `1`)
 - **Rotation:** Prefab `Transform.eulerAngles.y` supports 0°/45°/90°…; sample `AirWall_45` is 45°
+- **Authoring hard rule:** `ObjectivePoint` / `SpawnPoint` / `BossPoint` must not sit inside any `AirWall` OBB (re-check after thicken/move; sample `PushMap_Demo_01` restored to thin-wall geometry)
 - **Applies to:** both factions' `NavMeshAgent` pathing cannot cross (FlowField mask blocks advance dirs; monster chase still uses NavMesh); AirWall also feeds `StaticBoxWalkableMask` for FlowField
 - **Wiring:** `PushMapStageController` StartBattle collects `GetComponentsInChildren<AirWall>` → `Bake(..., notWalkableBoxes)` + same OBBs for FlowField mask
 - **Boundary:** **no** `NavMeshObstacle` Carve or multi-layer obstacle polish; Defend without AirWalls still uses the no-obstacle overload
@@ -2384,12 +2498,12 @@ PushMapSpawnConfig {
 
 - **Rules ownership:** spawn eligibility + trigger state live in `PushMapSessionService` (`Core/PushMap/`); `SpawnPoint`/`TrapZone` are authoring markers only
 - **Load & fire:** `TryStartBattle` loads all rows for the current `GameplayConfigId` but does **not** spawn yet. View calls `FireStartBattleSpawns()` after Bake NavMesh + deploy: non-trap rows whose linked objective is uncaptured fire `PushMapSpawnRequested` (ascending `SpawnOrder` per `SpawnPointId`); trap-bound points go `Pending`
-- **Event:** `PushMapSpawnRequested(PushMapSpawnRequest)`; payload carries `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger` (`StartBattle` / `Trap`); **position resolved by View** via `SpawnPointId` / `BossPoint`, then staggered by `MonsterConfig.BodyRadius` vs living footprint circles (ring/spiral candidates → `NavMesh.SamplePosition`; PM-10)
+- **Event:** `PushMapSpawnRequested(PushMapSpawnRequest)`; payload carries `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger` (`StartBattle` / `Trap`); **position resolved by View** via `SpawnPointId` / `BossPoint`, then staggered by `MonsterConfig.BodyRadius` vs living footprint circles (ring/spiral candidates → local `NavMesh.SamplePosition` + `basePos` leash; PM-10 / v0.73.9)
 - **Trap trigger:** `TryNotifyTrapEnter(trapZoneId)` (View detects first loyal-enter) → if objective uncaptured + not yet fired → all rows for that `SpawnPointId` fire; once per point per battle
 - **Capture stop:** `ObjectiveCaptured(order)` → marks points with `LinkedObjectiveOrder == order` to stop; already-spawned monsters unaffected; `IsBoss=1` rows are **not** capture-stopped (Boss in PM-07)
 - **Presentation:** `PushMapStageController` collects `SpawnPoint` (`SpawnPointId`→position) and `TrapZone`; subscribes to events to instantiate monsters → `PushMapMonsterAgentView` (into `_monsters`; Boss uses `BossPoint`; positions via `PushMapSpawnSpread`); Update polls loyal (`!IsRebel`) `PushMapAdvanceView` first entry into `TrapZone` → `TryNotifyTrapEnter`
-- **Footprint & avoidance (PM-10):** Bind sets `_agent.radius = min(BodyRadius, max(0.05, AttackRange − soldier Demo radius 0.1 − 0.05))`; spawn spread still uses full `BodyRadius`; moving monsters use NavMesh RVO; `Stationary*` do not relocate; Defend spawn spread **out of scope** this slice; **loyal soldiers** Demo: `NavMeshAgent.radius=0.1`, `height=0.1` (`WarriorAgentView` / `PushMapAdvanceView`)
-- **Demo engage→AttackSlot (MP-05):** while loyal center distance to a living monster ≤ `max(AttackRange, BodyRadius+0.1)`, `PushMapAdvanceView` switches to `GoalKind=AttackSlot` (claim ring slot + LocalDetour `Move`; **leave** FlowField); on clear release slot and resume `Objective`. Monster chase likewise claims slots — **forbid** all-units per-frame `SetDestination`/`CalculatePath` to target center
+- **Footprint & avoidance (PM-10 / v0.73.9):** `PushMapSpawnSpread`: sample radius ≈`max(0.75, BodyRadius×2.5)`; hit must stay within leash of `basePos` (ring/spiral radius + slack; absolute ≈`max(3, BodyRadius×10)`); over-leash fails; packed → overlap fallback at base. Bind Warp uses same local radius ≈`max(1, BodyRadius×3)`; `_agent.radius = min(BodyRadius, max(0.05, AttackRange − soldier Demo radius 0.1 − 0.05))`; spawn spread still uses full `BodyRadius`; moving monsters use NavMesh RVO; `Stationary*` do not relocate; Defend spawn spread **out of scope** this slice; **loyal soldiers** Demo: `NavMeshAgent.radius=0.1`, `height=0.1` (`WarriorAgentView` / `PushMapAdvanceView`)
+- **Demo engage→AttackSlot (MP-05):** while loyal center distance to a living monster ≤ `max(AttackRange, BodyRadius+0.1)`, `PushMapAdvanceView` switches to `GoalKind=AttackSlot` (claim ring slot + LocalDetour `Move`; **leave** FlowField); on clear release slot and resume `Objective`; no free slot keeps `Objective` on field. Monster chase likewise claims slots — **forbid** all-units per-frame `SetDestination`/`CalculatePath` to target center. Demo: center distance ≤ `max(monster AttackRange, soldier AttackRange) + ArriveEpsilon` → `NotifyKilled` (Boss also `TryNotifyBossKilled`)
 - **Monster AI boundary:** this slice uses Defend default-chase semantics (nearest loyal warrior / protagonist; normal attack in `AttackRange`; protagonist via `ApplyShieldHit`; warrior damage logged); AggroMode four-state deferred to **PM-06** (contract below); `MonsterAgentView` (bound to `DefendSessionService`) is not wired in
 - **AggroMode runtime contract (PM-06):** `PushMapMonsterAgentView` branches on `config.AggroMode`; `ActiveChase`: loyal soldier enters `AlertRadius` → chase that soldier until death; `PassiveChase`: `_provoked=false` idle, `NotifyProvoked()` → chase; `StationaryActive`: never moves, attacks loyal soldier inside `AttackRange`, stops on leave; `StationaryPassive`: never moves, attacks only after `NotifyProvoked()` and target still in `AttackRange`. Active detection and provocation are **loyal-only** (`!IsRebel`). Provocation source (Demo): `PushMapStageController` fires a loyal `PushMapAdvanceView`'s first entry into a passive monster's `AttackRange` → `NotifyProvoked()` (stands in for "soldier attacks first"; soldier HP deferred). Hits still use `AttackMode` scheme D; active stances do **not** proactively detect the protagonist via `AlertRadius` (loyal soldiers only), but a pursued/nearest-rule protagonist hit still applies `ApplyShieldHit`. Real soldier damage on normal monsters **not** done
 - **Boundary:** no `WaveSpawnConfig` countdown; Boss-clear / Exp / capture loot / dungeon unlock hooks → §9.22 PM-07 contract

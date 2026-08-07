@@ -6,6 +6,7 @@ namespace Gravedigger2026.Core.Pathing
     /// <summary>
     /// Frame-budgeted mass move (SPEC_04 §9.7 Approach B / MP-04+MP-05).
     /// Pure C#: FlowField (Objective) or DesiredDestination (AttackSlot) + SpatialHash + LocalDetour.
+    /// Objective inside <see cref="ObjectiveArriveRadius"/> → hold (soft separation; no goal-cell seek).
     /// Path/steer recalc ≤ <see cref="MaxRecalcPerFrame"/> units/frame (round-robin).
     /// LocalDetour neighbors are same DetourGroup only (friendlies; SPEC_03 §3.12).
     /// </summary>
@@ -14,6 +15,8 @@ namespace Gravedigger2026.Core.Pathing
         public const int MaxRecalcPerFrame = 50;
         public const float DefaultAgentRadius = 0.1f;
         public const float ArriveEpsilon = 0.08f;
+        /// <summary>Default = CaptureZone radius (SPEC_03 §3.14). Stage overrides from current zone.</summary>
+        public const float DefaultObjectiveArriveRadius = 2f;
         public const float AttackSlotSeparationScale = 0.35f;
         public const int DetourGroupLoyal = 0;
         public const int DetourGroupMonster = 1;
@@ -26,13 +29,25 @@ namespace Gravedigger2026.Core.Pathing
         private readonly List<SpatialHashEntry> _neighborBuffer = new List<SpatialHashEntry>(32);
         private readonly List<SpatialHashEntry> _friendlyBuffer = new List<SpatialHashEntry>(32);
         private int _recalcCursor;
+        private float _objectiveArriveRadius = DefaultObjectiveArriveRadius;
 
         public int AgentCount => _agents.Count;
         public int LastFrameRecalcCount { get; private set; }
 
+        /// <summary>
+        /// XZ radius around FlowField goal for Objective hold (CaptureZone). Inside: stop seeking center.
+        /// </summary>
+        public float ObjectiveArriveRadius => _objectiveArriveRadius;
+
         public void BindFlowField(FlowFieldService flowField)
         {
             _flowField = flowField;
+        }
+
+        /// <summary>PushMap Stage sets from current <c>CaptureZone.Radius</c> (clamped ≥0.01).</summary>
+        public void SetObjectiveArriveRadius(float radius)
+        {
+            _objectiveArriveRadius = Mathf.Max(0.01f, radius);
         }
 
         public void Clear()
@@ -44,6 +59,7 @@ namespace Gravedigger2026.Core.Pathing
             _friendlyBuffer.Clear();
             _recalcCursor = 0;
             LastFrameRecalcCount = 0;
+            _objectiveArriveRadius = DefaultObjectiveArriveRadius;
         }
 
         public void Register(int id, float radius = DefaultAgentRadius, int detourGroup = DetourGroupLoyal)
@@ -227,6 +243,7 @@ namespace Gravedigger2026.Core.Pathing
             }
 
             Vector2 desired;
+            var objectiveHold = false;
             if (agent.GoalKind == GoalKind.Objective)
             {
                 if (_flowField == null || !_flowField.HasField)
@@ -236,8 +253,25 @@ namespace Gravedigger2026.Core.Pathing
                     return;
                 }
 
-                var world = new Vector3(agent.Position.x, 0f, agent.Position.y);
-                desired = _flowField.SampleDir(world);
+                var goal = _flowField.GoalWorld;
+                var toGoal = new Vector2(goal.x - agent.Position.x, goal.z - agent.Position.y);
+                var arriveR = _objectiveArriveRadius;
+                if (toGoal.sqrMagnitude <= arriveR * arriveR)
+                {
+                    // Inside CaptureZone: do not seek goal-cell center (zero-vector pile-up).
+                    desired = Vector2.zero;
+                    objectiveHold = true;
+                }
+                else
+                {
+                    var world = new Vector3(agent.Position.x, 0f, agent.Position.y);
+                    desired = _flowField.SampleDir(world);
+                    if (desired.sqrMagnitude < 1e-8f && toGoal.sqrMagnitude > 1e-8f)
+                    {
+                        // Unreachable / zero cell while still outside zone → direct seek.
+                        desired = toGoal.normalized;
+                    }
+                }
             }
             else
             {
@@ -251,13 +285,6 @@ namespace Gravedigger2026.Core.Pathing
                 }
 
                 desired = delta.normalized;
-            }
-
-            if (desired.sqrMagnitude < 1e-8f)
-            {
-                agent.Steer = Vector2.zero;
-                _agents[index] = agent;
-                return;
             }
 
             _neighborBuffer.Clear();
@@ -284,6 +311,14 @@ namespace Gravedigger2026.Core.Pathing
                 }
 
                 _friendlyBuffer.Add(n);
+            }
+
+            // Objective hold / zero desired: still run LocalDetour for soft separation (may be zero).
+            if (!objectiveHold && desired.sqrMagnitude < 1e-8f && _friendlyBuffer.Count == 0)
+            {
+                agent.Steer = Vector2.zero;
+                _agents[index] = agent;
+                return;
             }
 
             var self = new LocalDetourAgent(agent.Id, agent.Position, agent.Radius);

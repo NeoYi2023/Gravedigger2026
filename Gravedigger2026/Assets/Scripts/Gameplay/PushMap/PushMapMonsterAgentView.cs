@@ -111,7 +111,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             _agent.updateRotation = false;
             _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
-            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 12f, NavMesh.AllAreas))
+            // v0.73.9: local Warp only — do not SamplePosition(12) across AirWalls onto outer diamond.
+            var warpSample = Mathf.Max(1f, BodyRadius * 3f);
+            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
             {
                 _agent.Warp(hit.position);
             }
@@ -325,7 +327,8 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             if (!_agent.isOnNavMesh)
             {
-                if (NavMesh.SamplePosition(transform.position, out var hit, 12f, NavMesh.AllAreas))
+                var warpSample = Mathf.Max(1f, BodyRadius * 3f);
+                if (NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
                 {
                     _agent.Warp(hit.position);
                 }

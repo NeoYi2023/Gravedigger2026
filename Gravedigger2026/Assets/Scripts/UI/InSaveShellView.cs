@@ -1,6 +1,7 @@
 using System;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Gameplay.Pathing;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,10 +16,12 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _backToSaveSelectButton;
         [SerializeField] private Button _debugCycleStateButton;
         [SerializeField] private Button _debugAdvanceStageButton;
+        [SerializeField] private Button _debugWarriorTaskLabelButton;
         [SerializeField] private ToolsPanelView _toolsPanel;
         [SerializeField] private GameplayStatePlaceholderView _placeholderView;
 
         private Color _backdropDefault = new Color(0.10f, 0.12f, 0.16f, 0.96f);
+        private Text _warriorTaskLabelButtonText;
 
         public event Action ToolsToggleRequested;
         public event Action BackToSaveSelectRequested;
@@ -54,11 +57,25 @@ namespace Gravedigger2026.UI
                 _debugAdvanceStageButton.onClick.AddListener(() => DebugAdvanceStageRequested?.Invoke());
             }
 
+            EnsureWarriorTaskLabelToggleButton();
+            if (_debugWarriorTaskLabelButton != null)
+            {
+                _debugWarriorTaskLabelButton.onClick.AddListener(HandleWarriorTaskLabelToggleClicked);
+            }
+
+            WarriorTaskLabelSettings.EnabledChanged += HandleWarriorTaskLabelEnabledChanged;
+            RefreshWarriorTaskLabelButtonCaption();
+
             if (_toolsPanel != null)
             {
                 _toolsPanel.SettingsClicked += () => SettingsRequested?.Invoke();
                 _toolsPanel.LevelClicked += () => LevelRequested?.Invoke();
             }
+        }
+
+        private void OnDestroy()
+        {
+            WarriorTaskLabelSettings.EnabledChanged -= HandleWarriorTaskLabelEnabledChanged;
         }
 
         public void Show(int slotIndex)
@@ -146,6 +163,69 @@ namespace Gravedigger2026.UI
             {
                 _placeholderView.ShowStageInfo(context);
             }
+        }
+
+        private void HandleWarriorTaskLabelToggleClicked()
+        {
+            WarriorTaskLabelSettings.Toggle();
+        }
+
+        private void HandleWarriorTaskLabelEnabledChanged(bool _)
+        {
+            RefreshWarriorTaskLabelButtonCaption();
+        }
+
+        private void RefreshWarriorTaskLabelButtonCaption()
+        {
+            if (_warriorTaskLabelButtonText == null && _debugWarriorTaskLabelButton != null)
+            {
+                _warriorTaskLabelButtonText = _debugWarriorTaskLabelButton.GetComponentInChildren<Text>(true);
+            }
+
+            if (_warriorTaskLabelButtonText != null)
+            {
+                _warriorTaskLabelButtonText.text = WarriorTaskLabelSettings.Enabled
+                    ? "士兵任务:开"
+                    : "士兵任务:关";
+            }
+        }
+
+        private void EnsureWarriorTaskLabelToggleButton()
+        {
+            if (_debugWarriorTaskLabelButton != null)
+            {
+                return;
+            }
+
+            if (_debugAdvanceStageButton == null)
+            {
+                return;
+            }
+
+            var template = _debugAdvanceStageButton.gameObject;
+            var clone = Instantiate(template, template.transform.parent);
+            clone.name = "DebugWarriorTaskLabelButton";
+
+            var rect = clone.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                // Sit left of「推进阶段」(-240) with similar width.
+                rect.anchoredPosition = new Vector2(-460f, rect.anchoredPosition.y);
+            }
+
+            var image = clone.GetComponent<Image>();
+            if (image != null)
+            {
+                image.color = new Color(0.25f, 0.45f, 0.55f, 1f);
+            }
+
+            _debugWarriorTaskLabelButton = clone.GetComponent<Button>();
+            if (_debugWarriorTaskLabelButton != null)
+            {
+                _debugWarriorTaskLabelButton.onClick.RemoveAllListeners();
+            }
+
+            _warriorTaskLabelButtonText = clone.GetComponentInChildren<Text>(true);
         }
     }
 }

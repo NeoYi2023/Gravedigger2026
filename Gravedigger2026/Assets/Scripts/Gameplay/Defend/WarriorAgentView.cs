@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Gameplay.Pathing;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -196,6 +197,14 @@ namespace Gravedigger2026.Gameplay.Defend
                         GoalKind.FormationHome,
                         new Vector2(_formationHome.x, _formationHome.z));
                 }
+
+                var taskLabel = GetComponent<WarriorTaskDebugLabelView>();
+                if (taskLabel == null)
+                {
+                    taskLabel = gameObject.AddComponent<WarriorTaskDebugLabelView>();
+                }
+
+                taskLabel.Bind(_scheduler, _moveId);
             }
         }
 
@@ -264,7 +273,7 @@ namespace Gravedigger2026.Gameplay.Defend
             targetId = null;
             position = default;
             bodyRadius = 0.35f;
-            if (!TryFindNearestRebelTarget(out var kind, out targetId, out position))
+            if (!TryResolveNearestRebelTarget(out var kind, out targetId, out position))
             {
                 return false;
             }
@@ -421,7 +430,7 @@ namespace Gravedigger2026.Gameplay.Defend
             aimPoint = default;
             if (state.IsRebel)
             {
-                return TryFindNearestRebelTarget(out _, out _, out aimPoint);
+                return TryResolveNearestRebelTarget(out _, out _, out aimPoint);
             }
 
             var target = FindNearestEngageMonster();
@@ -494,7 +503,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
-            if (!TryFindNearestRebelTarget(out var kind, out var targetId, out var targetPos)
+            if (!TryResolveNearestRebelTarget(out var kind, out var targetId, out var targetPos)
                 || _attackStartCooldown > 0f)
             {
                 return;
@@ -722,7 +731,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        private bool TryFindNearestRebelTarget(out RebelTargetKind kind, out string targetId, out Vector3 position)
+        private bool TryResolveNearestRebelTarget(out RebelTargetKind kind, out string targetId, out Vector3 position)
         {
             kind = RebelTargetKind.None;
             targetId = null;

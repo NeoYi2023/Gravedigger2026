@@ -180,7 +180,17 @@ namespace Gravedigger2026.Core.Pathing
                     continue;
                 }
 
-                if (distSq >= minDist * minDist || distSq < 1e-8f)
+                if (distSq < 1e-8f)
+                {
+                    // Coincident stack: deterministic Id push so zero-desired hold can unstick.
+                    var h = unchecked(self.Id * 1103515245 + n.Id * 12345);
+                    var ang = (h & 0xFF) * (Mathf.PI * 2f / 255f);
+                    sep.x += Mathf.Cos(ang);
+                    sep.y += Mathf.Sin(ang);
+                    continue;
+                }
+
+                if (distSq >= minDist * minDist)
                 {
                     continue;
                 }

@@ -19,8 +19,9 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// <summary>
     /// PushMap stage presentation bridge (Approach A / PM-03–PM-09 + MassCombatPathing MP-04).
     /// Prepare reuses FormationEditorRoot; StartBattle initializes Shield/LOC. Objective chain,
-    /// spawn/trap, AggroMode four-state, and PM-07 Boss clear: Demo kill = loyal entry into Boss
-    /// AttackRange → NotifyKilled + TryNotifyBossKilled; VictorySettled → AddExperience → advance;
+    /// spawn/trap, AggroMode four-state, and PM-07 Boss clear: Demo kill = center dist ≤
+    /// max(monster, soldier) AttackRange + ArriveEpsilon → NotifyKilled + TryNotifyBossKilled;
+    /// VictorySettled → AddExperience → advance;
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
     /// PM-08: StartBattle NavMesh bake injects AirWall Not Walkable boxes (incl. 45°).
     /// MP-04: Bake AirWall → StaticBoxWalkableMask + FlowField Rebuild; advance via MassMoveScheduler
@@ -382,12 +383,18 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.TickCapture(Time.deltaTime, hasMonster);
             TickMassCombatPathing();
             PollTrapEntry();
-            PollBossKillDemo();
+            PollMonsterDemoKill();
             PollPassiveProvocation();
         }
 
-        // PM-07 Demo contract: first loyal entry into a Boss AttackRange → NotifyKilled + TryNotifyBossKilled.
-        private void PollBossKillDemo()
+        /// <summary>
+        /// Demo kill (WarriorCombat hit polish deferred): loyal soldier within
+        /// max(monster, soldier) AttackRange + ArriveEpsilon → NotifyKilled.
+        /// Uses soldier reach so AttackSlot ring arrival (ClassConfig.AttackRange) can kill
+        /// when monster AttackRange is smaller — otherwise chase stalls forever with no damage.
+        /// Boss also TryNotifyBossKilled.
+        /// </summary>
+        private void PollMonsterDemoKill()
         {
             if (_monsters.Count == 0 || _advanceViews.Count == 0 || _session == null || _session.OutcomeSettled)
             {
@@ -397,13 +404,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var m = 0; m < _monsters.Count; m++)
             {
                 var monster = _monsters[m];
-                if (monster == null || !monster.IsAlive || !monster.IsBoss)
-                {
-                    continue;
-                }
-
-                var range = monster.AttackRange;
-                if (range <= 0f)
+                if (monster == null || !monster.IsAlive)
                 {
                     continue;
                 }
@@ -416,14 +417,30 @@ namespace Gravedigger2026.Gameplay.PushMap
                         continue;
                     }
 
-                    if (Vector3.Distance(monster.transform.position, soldier.transform.position) <= range)
+                    var range = Mathf.Max(monster.AttackRange, soldier.AttackRange) +
+                                MassMoveScheduler.ArriveEpsilon;
+                    if (range <= 0f)
                     {
-                        Debug.Log(
-                            $"[PushMapStage] Demo Boss kill — loyal soldier entered AttackRange of '{monster.MonsterId}'.");
-                        monster.NotifyKilled();
-                        _session.TryNotifyBossKilled();
-                        return;
+                        continue;
                     }
+
+                    if (Vector3.Distance(monster.transform.position, soldier.transform.position) > range)
+                    {
+                        continue;
+                    }
+
+                    var isBoss = monster.IsBoss;
+                    Debug.Log(
+                        $"[PushMapStage] Demo monster kill — loyal soldier in reach of " +
+                        $"'{(isBoss ? "BOSS " : "")}{monster.MonsterId}' " +
+                        $"(max ranges + ArriveEpsilon={range:0.###}).");
+                    monster.NotifyKilled();
+                    if (isBoss)
+                    {
+                        _session.TryNotifyBossKilled();
+                    }
+
+                    break;
                 }
             }
         }
@@ -1003,6 +1020,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
+            var zone = ResolveCurrentCaptureZone();
+            _moveScheduler.SetObjectiveArriveRadius(
+                zone != null ? zone.Radius : MassMoveScheduler.DefaultObjectiveArriveRadius);
+
             TickAttackSlotGoals();
 
             _moveSamples.Clear();
@@ -1097,8 +1118,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                     soldier.transform.position,
                     targetBody))
             {
-                // No free slot: hold field pause near target (still not SetDestination center).
-                _moveScheduler.SetPaused(soldier.MoveId, true);
+                // No free slot: keep Objective FlowField (do not hard-freeze). Overflow soldiers
+                // continue advance / LocalDetour around the ring until a slot frees or Demo kill.
+                _moveScheduler.SetPaused(soldier.MoveId, false);
+                _moveScheduler.SetGoal(soldier.MoveId, GoalKind.Objective);
                 return;
             }
 
