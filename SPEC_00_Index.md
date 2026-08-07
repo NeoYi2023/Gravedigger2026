@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.69.0
+**文档版本 / Document Version:** v0.73.6
 **最后更新 / Last Updated:** 2026-08-07  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-10 + ModeSelect 模式2 入口 + 可选 TechTree UI-012 落地）  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-10 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,17 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-07 | v0.73.6 | MP-07 200v200 压测入口：`MassPathingPerfStress`（Core Stopwatch）+ `MassPathingPerfStressView`（桩单位）+ Editor Menu；移动逻辑预算 ≤~2.5 ms/帧；超预算回退：降 cell / 降槽 N / 加大分帧；同步 SPEC_04 §6/§9.7 |
+| 2026-08-07 | v0.73.5 | MP-06 Defend 对等接线：`WarriorAgentView`/`MonsterAgentView` 接 `MassMoveScheduler`+`AttackSlotService`；忠诚无 Engage 目标→`GoalKind=FormationHome`（直趋+LocalDetour）；追击走槽位；与 PushMap 共用目的地语义；同步 SPEC_03 §3.12、SPEC_04 §6/§9.7 |
+| 2026-08-07 | v0.73.4 | MP-05 追击/交战接线：PushMap 忠诚兵遇敌→`GoalKind=AttackSlot`+`AttackSlotService`；怪追击改槽位（非中心）；`MassMoveScheduler.SetGoal`+分帧≤50；死亡释放槽；同步 SPEC_03 §3.12、SPEC_04 §6/§9.7/§9.22 |
+| 2026-08-07 | v0.73.3 | MP-04 PushMap 推进接线：开战 Bake/AirWall→`StaticBoxWalkableMask`+`FlowFieldService.Rebuild`；`CurrentObjectiveChanged` 重建场；`MassMoveScheduler` 分帧+LocalDetour；`PushMapAdvanceView` 跟场停用每兵 `SetDestination(Objective)`；同步 SPEC_04 §9.22/§9.7 |
+| 2026-08-07 | v0.73.2 | MP-03 LocalDetour 核心落地：`SpatialHash2D` + `LocalDetourSolver.Steer(desiredDir, self, neighbors, separationScale?)`；澄清 SPEC_04 §9.7 触点签名（仍方案 B；Stage 接线→MP-04/05） |
+| 2026-08-07 | v0.73.1 | MP-02 AttackSlot 核心落地：`AttackSlotService.TryClaim(…, targetPos, …)` + `IAttackSlotWalkable` 钩子；澄清 SPEC_04 §9.7 触点签名（仍方案 B；Stage 接线→MP-05） |
+| 2026-08-07 | v0.73.0 | 大规模战斗寻路方案 B 规则锁定：FlowField（共享目标）+ AttackSlot（追击/攻击）+ LocalDetour（友军左右绕）；容量双方约 200；同步 SPEC_03 §3.12/§3.14、SPEC_04 §6/§9.7、CONTEXT；issues `.scratch/mass-pathing/`（本会话仅 SPEC→issues，未编码） |
+| 2026-08-07 | v0.72.1 | PushMap 遇敌暂停：半径改为 `max(AttackRange, BodyRadius+0.1)`；交战停步时关闭 ObstacleAvoidance，减轻 RVO 挤抖 |
+| 2026-08-07 | v0.72.0 | PushMap 交战可达性：怪 `NavMeshAgent.radius` 钳制为相对士兵 Demo 半径仍可进入 `AttackRange`；Demo 遇敌暂停推进（中心距 ≤ 怪 `AttackRange`）；同步 SPEC_03 §3.14、SPEC_04 §6/§9.23 |
+| 2026-08-07 | v0.71.0 | 我方士兵 `NavMeshAgent` Demo：`radius` 0.03→**0.1**、`height`→**0.1**（`WarriorAgentView` / `PushMapAdvanceView`）；同步 SPEC_03 §3.14、SPEC_04 §6/§9.23/§15.2 |
+| 2026-08-07 | v0.70.0 | 存档方案 A：士兵池 + 布阵按槽 PlayerPrefs JSON 持久化（`WarriorPool`/`BattleFormation`；进档 BindSlot、变更即写、删档清键）；同步 SPEC_03 §3.4/§3.11、SPEC_04 §6/§9.9、CONTEXT |
 | 2026-08-07 | v0.69.0 | PushMap 怪物占地散开（PM-10 方案 A）：`MonsterConfig.BodyRadius`（缺省 0.35）；刷出环形/螺旋错开 + 避场上存活怪；移动怪 `NavMeshAgent.radius=BodyRadius` 持续 RVO；`Stationary*` 仅刷出占位；同步 SPEC_03 §3.14、SPEC_04 §6/§9.19/§9.23、CONTEXT |
 | 2026-08-07 | v0.68.0 | 配置表数值 CSV 禁浮点噪声（§14.6）：打表对 Excel 数值圆整至多 10 位并去尾零（例 `0.009999…`→`0.01`）；整数仍收成整串；文本单元格不圆整；同步 `XlsxSheetReader` / Python 打表镜像并重打核对 CSV |
 | 2026-08-06 | v0.67.1 | PushMap Combat 滚轮缩放 `orthographicSize`：默认仍 2；钳制 `[0.5, 20]`；前滚拉近、后滚拉远；步进 0.5/档；不切换跟随模式、恢复跟随不重置 Size；同步 SPEC_03 §3.14、SPEC_04 §6 |
@@ -169,6 +180,17 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-07 | v0.73.6 | MP-07 200v200 stress entry: `MassPathingPerfStress` (Core Stopwatch) + `MassPathingPerfStressView` (stub units) + Editor Menu; move-logic budget ≤~2.5 ms/frame; over-budget fallbacks: lower cell / lower slot N / raise frame budget; synced SPEC_04 §6/§9.7 |
+| 2026-08-07 | v0.73.5 | MP-06 Defend parity: `WarriorAgentView`/`MonsterAgentView` on `MassMoveScheduler`+`AttackSlotService`; loyal no Engage target→`GoalKind=FormationHome` (straight+LocalDetour); chase uses slots; same GoalKind semantics as PushMap; synced SPEC_03 §3.12, SPEC_04 §6/§9.7 |
+| 2026-08-07 | v0.73.4 | MP-05 chase/engage wire: PushMap loyal engage→`GoalKind=AttackSlot`+`AttackSlotService`; monster chase uses slots (not center); `MassMoveScheduler.SetGoal`+≤50/frame; release on death; synced SPEC_03 §3.12, SPEC_04 §6/§9.7/§9.22 |
+| 2026-08-07 | v0.73.3 | MP-04 PushMap advance wire: StartBattle Bake/AirWall→`StaticBoxWalkableMask`+`FlowFieldService.Rebuild`; rebuild on `CurrentObjectiveChanged`; `MassMoveScheduler` frame budget+LocalDetour; `PushMapAdvanceView` follows field — no per-soldier `SetDestination(Objective)`; synced SPEC_04 §9.22/§9.7 |
+| 2026-08-07 | v0.73.2 | MP-03 LocalDetour core: `SpatialHash2D` + `LocalDetourSolver.Steer(desiredDir, self, neighbors, separationScale?)`; clarified SPEC_04 §9.7 touchpoint signature (still Approach B; Stage wire → MP-04/05) |
+| 2026-08-07 | v0.73.1 | MP-02 AttackSlot core: `AttackSlotService.TryClaim(…, targetPos, …)` + `IAttackSlotWalkable` hook; clarified SPEC_04 §9.7 touchpoint signature (still Approach B; Stage wire → MP-05) |
+| 2026-08-07 | v0.73.0 | Mass combat pathing Approach B locked: FlowField (shared goals) + AttackSlot (chase/attack) + LocalDetour (friendly L/R); ~200/side; synced SPEC_03 §3.12/§3.14, SPEC_04 §6/§9.7, CONTEXT; issues `.scratch/mass-pathing/` (SPEC→issues only this session, no code) |
+| 2026-08-07 | v0.72.1 | PushMap engage pause: radius `max(AttackRange, BodyRadius+0.1)`; disable ObstacleAvoidance while held to reduce RVO shove jitter |
+| 2026-08-07 | v0.72.0 | PushMap combat reachability: clamp monster `NavMeshAgent.radius` so centers can enter `AttackRange` vs soldier Demo radius; Demo engage pause when center dist ≤ monster `AttackRange`; synced SPEC_03 §3.14, SPEC_04 §6/§9.23 |
+| 2026-08-07 | v0.71.0 | Loyal-soldier `NavMeshAgent` Demo: `radius` 0.03→**0.1**, `height`→**0.1** (`WarriorAgentView` / `PushMapAdvanceView`); synced SPEC_03 §3.14, SPEC_04 §6/§9.23/§15.2 |
+| 2026-08-07 | v0.70.0 | Save Approach A: warrior pool + BattleFormation persist per slot via PlayerPrefs JSON (`WarriorPool`/`BattleFormation`; BindSlot on enter, write on change, clear on delete); synced SPEC_03 §3.4/§3.11, SPEC_04 §6/§9.9, CONTEXT |
 | 2026-08-07 | v0.69.0 | PushMap monster footprint spread (PM-10 Approach A): `MonsterConfig.BodyRadius` (default 0.35); spawn ring/spiral stagger + avoid living footprints; moving monsters `NavMeshAgent.radius=BodyRadius` RVO; `Stationary*` spawn placement only; synced SPEC_03 §3.14, SPEC_04 §6/§9.19/§9.23, CONTEXT |
 | 2026-08-07 | v0.68.0 | Config CSV numeric emit: forbid float noise (§14.6); bake rounds Excel numbers to ≤10 decimals and trims zeros (e.g. `0.009999…`→`0.01`); integers stay integer strings; text cells untouched; synced `XlsxSheetReader` / Python bake mirror and rebaked/verified CSV |
 | 2026-08-06 | v0.67.1 | PushMap Combat scroll zoom on `orthographicSize`: default still 2; clamp `[0.5, 20]`; scroll forward zoom-in / back zoom-out; step 0.5/notch; does not switch follow mode; ResumeFollow does not reset Size; synced SPEC_03 §3.14, SPEC_04 §6 |

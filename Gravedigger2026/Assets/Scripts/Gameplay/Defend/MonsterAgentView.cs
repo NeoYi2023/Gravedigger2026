@@ -2,16 +2,21 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.Pathing;
 using UnityEngine;
 using UnityEngine.AI;
 
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
-    /// Monster movement + normal-attack View (NavMeshAgent). Rules own Shield / warrior HP via session.
+    /// Monster movement + normal-attack View (D-040 / MP-06).
+    /// Chase destination = AttackSlot via MassMoveScheduler — no center SetDestination / CalculatePath.
     /// </summary>
     public sealed class MonsterAgentView : MonoBehaviour
     {
+        private const float SoldierDemoRadius = 0.1f;
+        private const float NavMeshSampleRadius = 4f;
+
         private DefendSessionService _session;
         private MonsterConfigRow _config;
         private string _runtimeId;
@@ -22,12 +27,27 @@ namespace Gravedigger2026.Gameplay.Defend
         private float _attackCooldown;
         private NavMeshAgent _agent;
         private bool _alive = true;
+        private bool _probeOnly;
+
+        private MassMoveScheduler _scheduler;
+        private AttackSlotService _attackSlots;
+        private int _moveId;
+        private string _attackerId;
 
         public string MonsterId => _config != null ? _config.MonsterId : string.Empty;
         public string RuntimeId => _runtimeId;
+        public string RuntimeTargetId => _attackerId;
         public bool IsAlive => _alive;
+        public int MoveId => _moveId;
+        public float AttackRange => _config != null ? _config.AttackRange : 0f;
 
-        private bool _probeOnly;
+        public float BodyRadius =>
+            _config != null ? Mathf.Max(0.05f, _config.BodyRadius) : AttackSlotService.DefaultTargetBodyRadius;
+
+        public AttackMode AttackMode =>
+            _config != null && _config.AttackMode == AttackMode.Ranged
+                ? AttackMode.Ranged
+                : AttackMode.Melee;
 
         /// <summary>
         /// PM-05 shim: presence-probe placeholder for PushMap (no DefendSessionService wired).
@@ -41,6 +61,10 @@ namespace Gravedigger2026.Gameplay.Defend
             _runtimeId = string.Empty;
             _protagonist = null;
             _warriorsProvider = null;
+            _scheduler = null;
+            _attackSlots = null;
+            _moveId = 0;
+            _attackerId = string.Empty;
             _alive = true;
         }
 
@@ -59,8 +83,12 @@ namespace Gravedigger2026.Gameplay.Defend
             MonsterConfigRow config,
             Transform protagonist,
             Func<IReadOnlyList<WarriorAgentView>> warriorsProvider,
-            float retargetIntervalSeconds)
+            float retargetIntervalSeconds,
+            MassMoveScheduler scheduler = null,
+            AttackSlotService attackSlots = null,
+            int moveId = 0)
         {
+            _probeOnly = false;
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _runtimeId = runtimeId ?? throw new ArgumentNullException(nameof(runtimeId));
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -70,6 +98,10 @@ namespace Gravedigger2026.Gameplay.Defend
             _retargetTimer = 0f;
             _attackCooldown = 0f;
             _alive = true;
+            _scheduler = scheduler;
+            _attackSlots = attackSlots;
+            _moveId = moveId;
+            _attackerId = runtimeId;
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -78,20 +110,28 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _agent.speed = Mathf.Max(0.1f, config.MoveSpeed);
-            _agent.stoppingDistance = Mathf.Max(0.05f, config.AttackRange * 0.85f);
+            _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            _agent.radius = 0.03f;
+            var maxCombatRadius = Mathf.Max(0.05f, config.AttackRange - SoldierDemoRadius - 0.05f);
+            _agent.radius = Mathf.Min(BodyRadius, maxCombatRadius);
             _agent.height = 1.8f;
-            _agent.autoBraking = true;
+            _agent.autoBraking = false;
             _agent.updateRotation = false;
+            _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
-            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 4f, NavMesh.AllAreas))
+            if (!_agent.isOnNavMesh &&
+                NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
             {
                 _agent.Warp(hit.position);
             }
 
-            Retarget();
+            if (_scheduler != null && _moveId != 0)
+            {
+                _scheduler.Register(_moveId, _agent.radius, MassMoveScheduler.DetourGroupMonster);
+                _scheduler.SetGoal(_moveId, GoalKind.AttackSlot);
+                _scheduler.SetPaused(_moveId, true);
+            }
         }
 
         public void NotifyKilled()
@@ -102,20 +142,99 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _alive = false;
-            if (_agent != null && _agent.isOnNavMesh)
+            ReleaseSlotClaim();
+            _attackSlots?.ReleaseAllForTarget(_attackerId);
+            if (_scheduler != null && _moveId != 0)
             {
-                _agent.isStopped = true;
-                _agent.ResetPath();
+                _scheduler.Unregister(_moveId);
             }
 
+            StopMovement();
             gameObject.SetActive(false);
+        }
+
+        /// <summary>XZ sample for MassMoveScheduler.</summary>
+        public MassMoveSample BuildSample()
+        {
+            var pos = transform.position;
+            return new MassMoveSample(
+                _moveId,
+                new Vector2(pos.x, pos.z),
+                _agent != null ? _agent.radius : BodyRadius,
+                active: _alive && !_probeOnly && isActiveAndEnabled);
+        }
+
+        /// <summary>
+        /// Budgeted chase goal refresh (Stage ≤50/frame). Returns true if chasing with a resolved target.
+        /// </summary>
+        public bool TryRefreshChaseGoal(AttackSlotService slots, MassMoveScheduler scheduler)
+        {
+            if (_probeOnly || !_alive || _config == null || scheduler == null || _moveId == 0)
+            {
+                return false;
+            }
+
+            if (ResolveTarget(out var warriorView, out var protagonistTf) == TargetKind.None)
+            {
+                ReleaseSlotClaim(slots);
+                scheduler.SetPaused(_moveId, true);
+                return false;
+            }
+
+            var targetTf = warriorView != null ? warriorView.transform : protagonistTf;
+            if (targetTf == null)
+            {
+                ReleaseSlotClaim(slots);
+                scheduler.SetPaused(_moveId, true);
+                return false;
+            }
+
+            var targetId = warriorView != null ? warriorView.AttackerId : "Protagonist";
+            var dist = Vector3.Distance(transform.position, targetTf.position);
+
+            if (dist <= _config.AttackRange)
+            {
+                ReleaseSlotClaim(slots);
+                scheduler.SetPaused(_moveId, true);
+                StopMovement();
+                return true;
+            }
+
+            if (slots == null ||
+                !slots.TryClaim(
+                    _attackerId,
+                    targetId,
+                    _config.AttackRange,
+                    targetTf.position,
+                    out var slotPos,
+                    AttackMode,
+                    transform.position,
+                    warriorView != null ? SoldierDemoRadius : 0.35f))
+            {
+                var ring = AttackSlotService.ComputeRingRadius(_config.AttackRange);
+                var away = transform.position - targetTf.position;
+                away.y = 0f;
+                if (away.sqrMagnitude < 1e-6f)
+                {
+                    away = Vector3.forward;
+                }
+
+                slotPos = targetTf.position + away.normalized * ring;
+            }
+
+            scheduler.SetPaused(_moveId, false);
+            scheduler.SetGoal(
+                _moveId,
+                GoalKind.AttackSlot,
+                new Vector2(slotPos.x, slotPos.z));
+            return true;
         }
 
         private void Update()
         {
             if (_probeOnly)
             {
-                return; // presence shim for PushMap; Defend behaviour disabled
+                return;
             }
 
             if (!_alive || _session == null || !_session.IsActive || _session.Phase != DefendPhase.Combat
@@ -130,11 +249,11 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            // TargetRetargetInterval: attack cadence / TargetSelect window; slot goals Stage-budgeted.
             _retargetTimer += Time.deltaTime;
             if (_retargetTimer >= _retargetInterval)
             {
                 _retargetTimer = 0f;
-                Retarget();
             }
 
             var targetKind = ResolveTarget(out var warriorView, out var protagonistTf);
@@ -156,6 +275,9 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 return;
             }
+
+            _scheduler?.SetPaused(_moveId, true);
+            StopMovement();
 
             _attackCooldown -= Time.deltaTime;
             if (_attackCooldown > 0f)
@@ -179,26 +301,79 @@ namespace Gravedigger2026.Gameplay.Defend
             _attackCooldown = Mathf.Max(0.2f, interval);
         }
 
-        private void Retarget()
+        private void LateUpdate()
         {
-            if (_probeOnly || _agent == null || !_agent.isOnNavMesh || !_alive)
+            if (_probeOnly || !_alive || _agent == null || _scheduler == null || _moveId == 0 || _config == null)
             {
                 return;
             }
 
-            if (ResolveTarget(out var warriorView, out var protagonistTf) == TargetKind.None)
+            if (!_agent.isOnNavMesh)
+            {
+                if (NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
+                {
+                    _agent.Warp(hit.position);
+                }
+
+                if (!_agent.isOnNavMesh)
+                {
+                    return;
+                }
+            }
+
+            if (!_scheduler.TryGetSteer(_moveId, out var steer) || steer.sqrMagnitude < 1e-8f)
             {
                 return;
             }
 
-            var targetTf = warriorView != null ? warriorView.transform : protagonistTf;
-            if (targetTf == null)
+            if (_agent.hasPath)
             {
-                return;
+                _agent.ResetPath();
             }
 
             _agent.isStopped = false;
-            _agent.SetDestination(targetTf.position);
+            var speed = Mathf.Max(0.1f, _config.MoveSpeed);
+            var delta = new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime);
+            _agent.Move(delta);
+        }
+
+        private void OnDisable()
+        {
+            if (_probeOnly)
+            {
+                return;
+            }
+
+            ReleaseSlotClaim();
+            if (_scheduler != null && _moveId != 0)
+            {
+                _scheduler.Unregister(_moveId);
+            }
+        }
+
+        private void ReleaseSlotClaim(AttackSlotService slots = null)
+        {
+            var svc = slots ?? _attackSlots;
+            if (svc != null && !string.IsNullOrEmpty(_attackerId))
+            {
+                svc.Release(_attackerId);
+            }
+        }
+
+        private void StopMovement()
+        {
+            if (_agent == null || !_agent.isOnNavMesh)
+            {
+                return;
+            }
+
+            if (_agent.hasPath)
+            {
+                _agent.ResetPath();
+            }
+
+            _agent.isStopped = true;
+            _agent.velocity = Vector3.zero;
         }
 
         private enum TargetKind

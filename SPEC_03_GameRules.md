@@ -135,7 +135,13 @@
 | PermanentDeath | 彻底死亡 | 实例移除 + 布阵位空 + 执行物资去向；结算于阶段胜利 `Ended` / LevelFailure，或带宝石士兵 HP≤0 立即触发（§3.11、§3.12）。 |
 | AttackWindup | 攻击前摇 | 近战命中确认前的计时阶段；结束时若目标仍有效且在距内则结算（§3.12）。 |
 | HitConfirm | 命中确认 | 规则层确认伤害结算的时刻（近战=前摇结束；远程=弹道命中）（§3.12）。 |
-| TargetRetargetInterval | 目标修正间隔 | 怪物与士兵重算可攻击目的地的间隔；暂定 **1s**，可配置（§3.12）。 |
+| TargetRetargetInterval | 目标修正间隔 | 怪物与士兵重算可攻击目的地 / AttackSlot 的间隔；暂定 **1s**，可配置（§3.12）。 |
+| MassCombatPathing | 大规模战斗寻路 | 双方约 200 人量级移动栈：共享目标用 **FlowField**；追击/攻击用 **AttackSlot** + 本地左右绕行；静态障碍（含 AirWall）进场；见 §3.12「大规模战斗寻路」、[SPEC_04 §9.7](SPEC_04_Technical.md)。 |
+| FlowField | 流场 | 针对共享目的地（如 PushMap `CurrentObjective`）预计算的格点方向场；同目标单位采样同一场，禁止每人独立全图 A*（§3.12）。 |
+| AttackSlot | 攻击槽位 | 围绕被攻击目标、落在 `AttackRange` 环上的可站立世界坐标；单位认领后作为到达点；目标移动/槽失效时按 `TargetRetargetInterval` 重算（§3.12）。 |
+| LocalDetour | 本地绕行 | 默认直线趋近 `DesiredDestination`；前方被友军阻挡时左/右短探测选一侧绕行；**不**把友军 Bake/Carve 进 NavMesh（§3.12）。 |
+| DesiredDestination | 期望目的地 | 移动层当前趋近的世界坐标：`Objective` / `FormationHome` / `AttackSlot` / 流场采样引导点之一（§3.12）。 |
+| GoalKind | 目的地种类 | `Objective` \| `FormationHome` \| `AttackSlot` \| `ChaseAnchor`；规则层输出目标实体 + GoalKind，移动服务解析坐标（§3.12）。 |
 | LevelFailure | 关卡失败 | Defend 中护盾归零等触发的关卡级失败；与 VictorySettlement 互斥（§3.12）。 |
 
 新增术语同步一行到 [CONTEXT.md](CONTEXT.md)。
@@ -267,7 +273,13 @@
 | PermanentDeath | 彻底死亡 | Remove instance + clear formation slot + run material fate; settled on stage victory `Ended` / LevelFailure, or immediately when a gemmed soldier hits HP≤0 (§3.11, §3.12). |
 | AttackWindup | 攻击前摇 | Timed phase before melee HitConfirm; on end, settle if target still valid and in range (§3.12). |
 | HitConfirm | 命中确认 | Rules-layer moment damage settles (melee = windup end; ranged = projectile hit) (§3.12). |
-| TargetRetargetInterval | 目标修正间隔 | Interval for monsters **and soldiers** to recompute attackable destination; provisional **1s**, configurable (§3.12). |
+| TargetRetargetInterval | 目标修正间隔 | Interval for monsters **and soldiers** to recompute attackable destination / AttackSlot; provisional **1s**, configurable (§3.12). |
+| MassCombatPathing | 大规模战斗寻路 | ~200-per-side move stack: shared goals use **FlowField**; chase/attack use **AttackSlot** + local L/R detour; static blockers (incl. AirWall) baked into field; §3.12 Mass Combat Pathing, [SPEC_04 §9.7](SPEC_04_Technical.md). |
+| FlowField | 流场 | Grid direction field for a shared destination (e.g. PushMap `CurrentObjective`); same-goal units sample one field — no per-unit full-map A* (§3.12). |
+| AttackSlot | 攻击槽位 | Standable world point on the `AttackRange` ring around the attack target; claimed as arrival; recomputed on move/invalid at `TargetRetargetInterval` (§3.12). |
+| LocalDetour | 本地绕行 | Default straight-line toward `DesiredDestination`; on friendly block, short L/R probes pick a side; friendlies are **not** NavMesh-baked/carved (§3.12). |
+| DesiredDestination | 期望目的地 | World point the move layer seeks: `Objective` / `FormationHome` / `AttackSlot` / flow-field sample (§3.12). |
+| GoalKind | 目的地种类 | `Objective` \| `FormationHome` \| `AttackSlot` \| `ChaseAnchor`; rules emit target entity + GoalKind; move service resolves coords (§3.12). |
 | LevelFailure | 关卡失败 | Level-level failure (e.g. Shield reaches 0 in Defend); mutually exclusive with VictorySettlement (§3.12). |
 
 Sync glossary rows to [CONTEXT.md](CONTEXT.md).
@@ -344,7 +356,7 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 空槽 | 可「新建」→ 标记占用并进入进档壳层 |
 | 占用槽 | 可「选择进入」或「删除」 |
 | 删除 | **必须二次确认**；确认后槽变空；不可恢复（本版） |
-| 持久化 | 本地、按槽索引；至少持久化「是否占用」。完整存档 schema **TBD**（见 [SPEC_04 §6](SPEC_04_Technical.md)） |
+| 持久化 | 本地、按槽索引；至少持久化「是否占用」。**本片已锁定：** 士兵可上阵池（`WarriorPool`）+ 战斗布阵（`BattleFormation`）随槽读写（见 [SPEC_04 §6](SPEC_04_Technical.md)）；其余字段（仓库 / 经验 / 科技等）schema 仍 **TBD** |
 
 **槽位展示（最小）**
 
@@ -364,7 +376,7 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | Empty | Create → mark occupied and enter InSaveShell |
 | Occupied | Enter or Delete |
 | Delete | **Confirm required**; slot becomes empty; no undo (this version) |
-| Persistence | Local, by slot index; at least occupied flag. Full schema **TBD** ([SPEC_04 §6](SPEC_04_Technical.md)) |
+| Persistence | Local, by slot index; at least occupied flag. **This slice locked:** deployable soldier pool (`WarriorPool`) + `BattleFormation` read/write per slot ([SPEC_04 §6](SPEC_04_Technical.md)); other fields (Warehouse / Exp / Tech, …) schema still **TBD** |
 
 **Minimal display**
 
@@ -504,7 +516,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fou
 - 推图战（PushMap）完整 polish / 副本玩法正文（规则与 ModeSelect 模式2入口已落地 §3.14 / D-044；细节见 `.scratch/push-map/issues/`）
 - 完整技能施放与技能效果表驱动（士兵/怪物第一版仅普通攻击；`SkillConfig` / CD 公式保留不驱动）
 - 正式美术与动画 polish（临时 Prefab / 占位资源允许；禁止运行时引用 `SmallScaleInt/`）
-- 完整存档序列化 schema（超出槽占用及流水线所需的最小持久化字段）
+- 完整存档序列化 schema（超出槽占用、士兵池、布阵及流水线所需的最小持久化字段；仓库/经验/科技等仍 TBD）
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
 - 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
 - 工具面板「设置」「关卡」以外的后续功能；完整 polish；未写入本表的需求
@@ -540,7 +552,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - PushMap polish / dungeon gameplay body (rules + ModeSelect Mode2 entry landed §3.14 / D-044; details in `.scratch/push-map/issues/`)
 - Full skill casts / skill-effect table drive (soldiers/monsters: normal attacks only in v1; `SkillConfig` / CD formula retained unused)
 - Formal art / animation polish (temp Prefabs OK; **no** runtime refs to `SmallScaleInt/`)
-- Full save schema beyond occupied flag + minimal fields needed by the pipeline
+- Full save schema beyond occupied flag + warrior pool + BattleFormation + minimal pipeline fields (Warehouse / Exp / Tech still TBD)
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
 - Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
 - Tools entries beyond Settings / Level; full polish; anything not in this table
@@ -1042,7 +1054,7 @@ EffectiveDigDuration countdown → 0
 | 躯体外观可视预览 | **闸门**：除宝石外全部槽位已填（头+躯干+臂×2+腿×2+灵魂+坐骑+翅膀）。未满足 → 显示静态占位图（资源可后换）；满足 → 按试算 `AppearanceId` 展示士兵外观，先播一遍攻击再循环待机（无 Animator 则静态降级） |
 | 制造按钮 | 最低材料要求满足 **且** `SpiritEssence ≥` 总精魂消耗 → 可点；否则 **不可制造**（按钮禁用或点击无效，二选一即可）。**制造闸门不变**（头/宝石/坐骑/翅膀对提交仍可选） |
 | 动画 | 制造动画为表现层；规则层在确认消耗后提交生成 |
-| 完成时 | 扣除材料与精魂；定稿种族与 **躯体外观**；写入属性快照、`AppearanceId` 与 `WarriorName`；写入 **消耗材料配方**（各非空槽 `ItemId` 列表）与当时 **精魂总消耗**；实例进入可上阵池 |
+| 完成时 | 扣除材料与精魂；定稿种族与 **躯体外观**；写入属性快照、`AppearanceId` 与 `WarriorName`；写入 **消耗材料配方**（各非空槽 `ItemId` 列表）与当时 **精魂总消耗**；实例进入可上阵池；**池与布阵均按存档槽立即持久化**（进档加载、删档清空；见 [SPEC_04 §6](SPEC_04_Technical.md)） |
 | 士兵框 | PoolPanel 内每名士兵一框：展示 `Id`、名称、剩余 HP（已上阵可标〔上阵〕）；点击选中 → 框内显「再造1个」（无配方快照的旧实例不可再造） |
 | 再造 | 以该兵配方 **后台** 再走制造流水线（不改动当前制造槽）；成功则 **新增** 池内士兵（原兵保留）；失败不扣料 |
 | 再造不足 Tips | 材料同 Id 数量不足 → 取消，屏幕中上部 Tips「材料不足」停留 **1 秒**；精魂不够 → Tips「精魂不足」停留 **1 秒** |
@@ -1226,7 +1238,7 @@ MaxHP = ceil(BodyLife + Str × 3)
 | 规则 | 说明 |
 |------|------|
 | 功能 | 安排已制造的士兵进入战场 |
-| 持久化字段 | 至少保存：上阵士兵 **ID**、**位置**、**剩余血量** |
+| 持久化字段 | 至少保存：上阵士兵 **ID**、**位置**、**剩余血量**；与士兵池同槽本地持久化（变更立即写回；加载时丢弃池中不存在的孤儿站位） |
 | 坐标系 | **BattleMap 连续坐标**（与 §3.12 连续可走空间一致；非格子） |
 | 载体 | 共享 Prefab `FormationEditorRoot`（非独立 `.unity`）；画面与战斗地图一致（`Ground_*`） |
 | UM 地图 | 当前关卡内查找 **下一** `GameplayType=Defend` 的 `BattleMapId`；找不到则 Demo 回退 `Ground_01` |
@@ -1353,7 +1365,7 @@ Drag materials into slots → on each successful add/remove, refresh text previe
 | Visual BodyAppearance preview | **Gate**: all non-gem slots filled (Head+Torso+Arm×2+Leg×2+Soul+Mount+Wing). Else → static placeholder image (art swappable later); when met → show trial `AppearanceId` warrior, play attack once then loop idle (static fallback if no Animator) |
 | Manufacture button | Enabled only if min requirements met **and** `SpiritEssence ≥` total Spirit cost; else **cannot manufacture**. **Manufacture commit gate unchanged** (Head/gems/Mount/Wing still optional for submit) |
 | VFX | Presentation only; rules commit after cost confirmation |
-| On complete | Deduct materials + Spirit; finalize Race and **BodyAppearance**; write snapshot, `AppearanceId`, `WarriorName`; write **consumed material recipe** (non-empty slot `ItemId` list) and **Spirit cost at manufacture**; add to deployable pool |
+| On complete | Deduct materials + Spirit; finalize Race and **BodyAppearance**; write snapshot, `AppearanceId`, `WarriorName`; write **consumed material recipe** (non-empty slot `ItemId` list) and **Spirit cost at manufacture**; add to deployable pool; **pool + formation persist per SaveSlot immediately** (load on enter, clear on delete; [SPEC_04 §6](SPEC_04_Technical.md)) |
 | Soldier frame | One frame per pool warrior in PoolPanel: show `Id`, name, remaining HP (〔Deployed〕 if on formation); tap to select → show「Remake×1」(no remake if recipe snapshot missing) |
 | Remake | Re-run manufacture pipeline **in background** from that warrior's recipe (do **not** change current slots); success → **add** a new pool warrior (original kept); failure → no consume |
 | Remake shortage Tips | Insufficient same-Id materials → cancel, upper-center Tips「材料不足」for **1s**; insufficient Spirit → Tips「精魂不足」for **1s** |
@@ -1537,7 +1549,7 @@ MaxHP = ceil(BodyLife + Str × 3)
 | Rule | Notes |
 |------|-------|
 | Function | Assign soldier instances onto the battlefield |
-| Persisted fields | Warrior **Id**, **position**, **remaining HP** |
+| Persisted fields | Warrior **Id**, **position**, **remaining HP**; same-slot local persistence with soldier pool (write on change; drop orphan slots whose WarriorId is not in pool on load) |
 | Coordinates | **BattleMap continuous space** (same as §3.12; not a cell grid) |
 | Carrier | Shared Prefab `FormationEditorRoot` (not a separate `.unity`); visuals match battle map (`Ground_*`) |
 | UM map | Look up **next** `GameplayType=Defend` `BattleMapId` in the current Level; Demo fallback `Ground_01` |
@@ -1716,10 +1728,46 @@ UpgradeManufacture stage
 | 规则 | 说明 |
 |------|------|
 | 选目标 | 按 `MonsterConfig.TargetSelect`（见上） |
-| 目的地 | 前往能够对该目标施展攻击的坐标（攻击距离 **TBD**） |
-| 修正间隔 | 每 **TargetRetargetInterval**（暂定 **1s**，可配置）重选/重算可攻击坐标，并请求 **NavMesh** 重寻路 |
-| 技术约定 | 规则层输出目标与目的地；移动由 NavMeshAgent（或等价）执行；规则层不直接驱动 `Transform`。见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
-| Demo 最小 NavMesh | 在 `Prefabs/Maps/{BattleMapId}` 可走面上烘焙（或运行时等价）**最小可走 NavMesh**；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点走到可走区。精确外围衔接与障碍细则 **后置** |
+| 目的地 | 前往该目标的 **AttackSlot**（落在 `AttackRange` 环上的可站立点；见下「大规模战斗寻路」） |
+| 修正间隔 | 每 **TargetRetargetInterval**（暂定 **1s**，可配置）重选目标并重算 AttackSlot；**禁止**全员每帧全图重寻路 |
+| 技术约定 | 规则层输出目标实体 ID + `GoalKind`；移动服务解析 `DesiredDestination` 并执行移动；规则层不直接驱动 `Transform`。见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
+| Demo 最小 NavMesh | 在 `Prefabs/Maps/{BattleMapId}` 可走面上烘焙（或运行时等价）**最小可走 NavMesh**；须覆盖地图内主角/士兵活动区，并允许从 Demo 固定出生点走到可走区。精确外围衔接与障碍细则 **后置**。大规模栈中 NavMesh/可走掩码主要用于 **FlowField 障碍** 与槽位合法性，而非 400 个独立重路径 |
+
+**大规模战斗寻路（MassCombatPathing，方案 B）**
+
+**状态：规则已锁定（方案 B）；实现见 `.scratch/mass-pathing/issues/`；须支持双方约 200 人同场；编码前按切片授权。**
+
+适用于 Defend / PushMap 中 **士兵与怪物** 的战斗移动（PushMap 忠诚推进优先走 FlowField；追击/交战走 AttackSlot）。
+
+| 规则 | 说明 |
+|------|------|
+| 目标规模 | 设计容量 **双方各约 200**（合计约 400）存活可移动单位同场；移动逻辑须分帧，禁止 O(n²) 全表互扫、禁止全员每帧 `CalculatePath` |
+| 默认运动 | 确定 `DesiredDestination` 后 **默认直线趋近**（XZ）；仅当直线被挡才绕行 |
+| 静态障碍 | 地图边界、`AirWall`、不可走区 → 写入 FlowField / 可走掩码（开战 Bake 一次；目标切换时按需重建场）；单位 **不可穿** |
+| 动态障碍（友军） | 友军 / 同阵营单位 **不** NavMesh Carve、**不** 写入 FlowField 障碍格；以 **LocalDetour**（前方扇形 + 左/右短探测）选一侧绕行，可叠加软分离 |
+| 共享目标 → FlowField | PushMap **全队共 `CurrentObjective`**（及同类「多人同一世界点」）：构建/采样 **一条** 流向该点的 FlowField；同目标单位只读场向量 + 本地绕行，**禁止**每人独立全图 A* |
+| 追击/攻击 → AttackSlot | 目标为敌人（或可攻击实体）时：`DesiredDestination` = 认领的 **AttackSlot**（见下），非目标中心 |
+| FormationHome | Defend 无 Engage 候选时：目的地=`FormationHome`；**MP-06 已接线** — `MassMoveScheduler.SetGoal(FormationHome)` 直趋 + LocalDetour（人多聚类短命场后置） |
+| 与遇敌暂停关系 | PushMap：**MP-05 已接线** — 忠诚兵进入遇敌检测（距存活怪 ≤ `max(怪 AttackRange, BodyRadius+0.1)`）时改 `GoalKind=AttackSlot`（认领槽 + LocalDetour），**停跟** Objective FlowField；离开后释放槽并恢复 `GoalKind=Objective`。完整 WarriorCombat 命中 polish 仍后置 |
+| 规则/表现分离 | 规则层：目标 ID + `GoalKind`（+ 可选 AttackRange）；**移动服务**（可纯 C# + 表现桥）：FlowField / AttackSlot / LocalDetour / 分帧预算；View 只应用位移与动画 |
+
+**AttackSlot（攻击槽位）**
+
+| 规则 | 说明 |
+|------|------|
+| 几何 | 候选点在目标周围半径 ≈ `max(ε, AttackRange − margin)` 的环上；须可走且不与目标 `BodyRadius`（或士兵 Demo 半径）严重重叠 |
+| 认领 | 每单位至多认领 1 槽；优先：相对当前朝向/来向夹角小、槽空闲、可走 |
+| 失效重算 | 目标死亡/换目标；目标位移超过阈值；槽被占或变为不可走；周期 ≤ `TargetRetargetInterval` |
+| 近战/远程 | 均用槽位；远程可用更大环半径或更疏角度步进（实现常量见 SPEC_04） |
+| 多打一 | 同目标槽位表 + 空间哈希分配，避免全体挤同一世界点 |
+
+**LocalDetour（本地左右绕行）**
+
+| 规则 | 说明 |
+|------|------|
+| 触发 | 直线前方短距内存在阻挡友军（或软重叠超阈） |
+| 决策 | 左、右各做短探测（射线或采样点）；选通行更好一侧作为绕行偏置，直至重新看见 `DesiredDestination` 或超时回退直线 |
+| 禁止 | 因友军阻挡而触发全图重寻路；友军做 `NavMeshObstacle.Carve` |
 
 **士兵战斗（WarriorCombat）**
 
@@ -1730,14 +1778,14 @@ UpgradeManufacture stage
 | EngageZone | 候选敌人 = 存活且 **位置在 EngageZone 内** 的怪物；区外（含仍在 `OutsideMap` 外围、尚未进入选敌区的怪）**不可选** |
 | 选目标 | **默认**：EngageZone 内 **距离最近** 的存活敌人 |
 | FormationHome | 开战部署时锁定的布阵世界坐标（该士兵 `BattleFormation` 上阵位）；战斗中不随 Prepare 再编辑变化 |
-| 无目标 → 自动返回 | **非叛变**士兵：当前目标死亡（或其它原因）后若 EngageZone **无**下一可选目标 → **自动返回** `FormationHome`（NavMesh 寻路）；抵达后无目标则在该点待机；**不**追区外目标 |
-| 返回途中选敌 | 自动返回过程中仍按 `TargetRetargetInterval` **继续搜索** EngageZone；一旦出现可选目标 → **立即中断返回**，改为追击 / 进入攻击流程 |
+| 无目标 → 自动返回 | **非叛变**士兵：当前目标死亡（或其它原因）后若 EngageZone **无**下一可选目标 → **自动返回** `FormationHome`（`GoalKind=FormationHome`；大规模栈下直趋或轻量路径，见上 MassCombatPathing）；抵达后无目标则在该点待机；**不**追区外目标 |
+| 返回途中选敌 | 自动返回过程中仍按 `TargetRetargetInterval` **继续搜索** EngageZone；一旦出现可选目标 → **立即中断返回**，改为追击 / 进入攻击流程（改 `AttackSlot`） |
 | 叛变与返回 | **Rebel 不**自动返回布阵点（仍就近打主角/兵/怪） |
 | AttackPriority | `SoulConfig.AttackPriority` **本批不参与**选目标；枚举与 `TargetSelect` 对齐，字段保留 |
 | AttackMode | 取自 `SoulConfig.AttackMode`（`Melee` / `Ranged`）；决定普攻走方案 D 的近战或远程分支。配置示例（非 ClassName 硬编码）：战士类→`Melee`+`Strength`；射手类→`Ranged`+`Agility`；法师类→`Ranged`+`Intelligence`（主属性维取自 `ClassConfig.PrimaryStat`） |
 | 法师与射手 | **同为远程通道**（进距 → 弹道 → 碰撞命中/超时未命中）；规则层 **唯一差异** 是 `NormalAttackPower` 所用 `PrimaryStat` 维（法师智力 / 射手数敏捷）；不另做法师技能或不同弹道规则；View 特效可区分，**不**改变结算 |
-| AttackRange | 近战与远程均有攻击距离（士兵取 `ClassConfig.AttackRange`；怪物取 `MonsterConfig.AttackRange`）；须先移动至目标 `AttackRange` 内，再进入攻击态并播放攻击动作 |
-| 重选 / 寻路 | 与怪物共用 `TargetRetargetInterval`：周期性在 EngageZone 内重选最近敌人并重算可攻击点 + NavMesh；无候选时目的地改为 `FormationHome` |
+| AttackRange | 近战与远程均有攻击距离（士兵取 `ClassConfig.AttackRange`；怪物取 `MonsterConfig.AttackRange`）；须先移动至认领 **AttackSlot**（落在目标 `AttackRange` 内）后，再进入攻击态并播放攻击动作 |
+| 重选 / 寻路 | 与怪物共用 `TargetRetargetInterval`：周期性在 EngageZone 内重选最近敌人并 **重算/换认领 AttackSlot**；无候选时 `GoalKind=FormationHome`；共享推进目标走 FlowField（PushMap） |
 | 命中方案 D | **近战**（`AttackMode=Melee`）：`AttackWindup` 计时结束 → `HitConfirm`：若目标仍存活且仍在 `AttackRange` 内则结算伤害，否则挥空；**远程**（`AttackMode=Ranged`）：生成弹道，**碰撞命中** 或 **超时未命中** 后再结算 / 判定未命中；规则层确认伤害，View 只播动作与弹道 |
 | 普攻伤害 | `HitConfirm`（或远程命中）后：对怪物 `HP -= NormalAttackPower`（本批无护甲）；见下公式 |
 | 攻速 | 两次攻击**开始**间隔 = `1 / AttackSpeed`；`AttackWindup` **计入**该周期内（不另加在周期外） |
@@ -1970,10 +2018,46 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | Rule | Notes |
 |------|-------|
 | Select target | Per `MonsterConfig.TargetSelect` (above) |
-| Destination | Position from which the monster can attack the target (range **TBD**) |
-| Retarget interval | Every **TargetRetargetInterval** (provisional **1s**, configurable) recompute attackable point and request **NavMesh** repath |
-| Tech | Rules layer outputs target + destination; movement via NavMeshAgent (or equiv.); rules must not drive `Transform`. See [SPEC_04 §9.7](SPEC_04_Technical.md) |
-| Demo-min NavMesh | Bake (or runtime-equivalent) a **minimal walkable NavMesh** on `Prefabs/Maps/{BattleMapId}`; must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. Exact off-map linkage and obstacle detail **deferred** |
+| Destination | That target’s **AttackSlot** (standable point on the `AttackRange` ring; see Mass Combat Pathing below) |
+| Retarget interval | Every **TargetRetargetInterval** (provisional **1s**, configurable) reselect target and recompute AttackSlot; **forbid** full-map repath every frame for all units |
+| Tech | Rules layer outputs target entity id + `GoalKind`; move service resolves `DesiredDestination` and moves; rules must not drive `Transform`. See [SPEC_04 §9.7](SPEC_04_Technical.md) |
+| Demo-min NavMesh | Bake (or runtime-equivalent) a **minimal walkable NavMesh** on `Prefabs/Maps/{BattleMapId}`; must cover in-map protagonist/soldier area and allow pathing from Demo fixed spawn points onto walkable surface. Exact off-map linkage and obstacle detail **deferred**. In the mass stack, NavMesh/walkable mask mainly feeds **FlowField blockers** and slot legality — not 400 independent full paths |
+
+**Mass combat pathing (MassCombatPathing, Approach B)**
+
+**Status: Rules locked (Approach B); implementation in `.scratch/mass-pathing/issues/`; must support ~200 per side; authorize per slice before coding.**
+
+Applies to **soldier and monster** combat movement in Defend / PushMap (PushMap loyal advance prefers FlowField; chase/engage uses AttackSlot).
+
+| Rule | Notes |
+|------|-------|
+| Scale | Design capacity **~200 per side** (~400 movable living units); movement must be frame-budgeted; forbid O(n²) all-pairs scans and per-frame `CalculatePath` for all |
+| Default motion | After `DesiredDestination` is set, **default straight-line** (XZ); detour only when blocked |
+| Static blockers | Map bounds, `AirWall`, non-walkable → written into FlowField / walkable mask (bake once at StartBattle; rebuild field when goal changes); units **cannot** cross |
+| Dynamic blockers (friendlies) | Friendlies / same-faction units are **not** NavMesh-carved and **not** FlowField obstacle cells; use **LocalDetour** (forward cone + L/R probes) plus optional soft separation |
+| Shared goal → FlowField | PushMap **shared `CurrentObjective`** (and similar many-to-one world points): build/sample **one** FlowField toward that point; same-goal units read field vectors + local detour — **no** per-unit full-map A* |
+| Chase/attack → AttackSlot | When target is an enemy (attackable entity): `DesiredDestination` = claimed **AttackSlot**, not entity center |
+| FormationHome | Defend with no Engage candidate: goal=`FormationHome`; **MP-06 wired** — `MassMoveScheduler.SetGoal(FormationHome)` straight-line + LocalDetour (clustered short-lived fields deferred) |
+| Vs engage pause | PushMap: **MP-05 wired** — loyal soldiers entering engage detect (dist to living monster ≤ `max(monster AttackRange, BodyRadius+0.1)`) switch to `GoalKind=AttackSlot` (claim slot + LocalDetour) and **leave** Objective FlowField; on clear, release slot and resume `GoalKind=Objective`. Full WarriorCombat hit polish still deferred |
+| Rules / presentation | Rules: target id + `GoalKind` (+ optional AttackRange); **move service** (pure C# + view bridge): FlowField / AttackSlot / LocalDetour / frame budget; View only applies motion/anim |
+
+**AttackSlot**
+
+| Rule | Notes |
+|------|-------|
+| Geometry | Candidates on a ring radius ≈ `max(ε, AttackRange − margin)` around target; must be walkable and not heavily overlap target `BodyRadius` (or soldier Demo radius) |
+| Claim | ≤1 slot per unit; prefer small angle vs facing/approach, free, walkable |
+| Invalidate | Target dead/changed; target moved past threshold; slot occupied/unwalkable; period ≤ `TargetRetargetInterval` |
+| Melee/Ranged | Both use slots; ranged may use larger ring / coarser angle step (SPEC_04 constants) |
+| Many-vs-one | Per-target slot table + spatial hash — do not pile all on one world point |
+
+**LocalDetour**
+
+| Rule | Notes |
+|------|-------|
+| Trigger | Friendly blocker in short forward range (or soft overlap over threshold) |
+| Decide | Short L/R probes; pick clearer side as detour bias until `DesiredDestination` is clear again or timeout → straight |
+| Forbid | Full-map repath solely because of friendlies; `NavMeshObstacle.Carve` for friendlies |
 
 **Warrior combat (WarriorCombat)**
 
@@ -1984,14 +2068,14 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | EngageZone | Candidate enemies = living monsters **inside EngageZone**; outside (incl. still-`OutsideMap` spawns not yet in zone) **not selectable** |
 | Target select | **Default**: nearest living enemy inside EngageZone |
 | FormationHome | World position locked at StartBattle deploy (that soldier’s `BattleFormation` slot); does not change from Prepare edits mid-combat |
-| No target → auto-return | **Loyal** (non-Rebel) soldiers: after current target dies (or otherwise) if EngageZone has **no** next candidate → **auto-return** to `FormationHome` via NavMesh; idle there if still no target; **do not** chase outside zone |
-| Retarget while returning | During auto-return, still search EngageZone every `TargetRetargetInterval`; on a new candidate → **abort return** and chase / attack |
+| No target → auto-return | **Loyal** (non-Rebel) soldiers: after current target dies (or otherwise) if EngageZone has **no** next candidate → **auto-return** to `FormationHome` (`GoalKind=FormationHome`; straight or light path under MassCombatPathing); idle there if still no target; **do not** chase outside zone |
+| Retarget while returning | During auto-return, still search EngageZone every `TargetRetargetInterval`; on a new candidate → **abort return** and chase / attack (switch to `AttackSlot`) |
 | Rebel vs return | **Rebels do not** auto-return to formation (keep nearest protagonist / soldiers / enemies) |
 | AttackPriority | `SoulConfig.AttackPriority` **unused** for targeting this batch; same enum as `TargetSelect`; field kept |
 | AttackMode | From `SoulConfig.AttackMode` (`Melee` / `Ranged`); selects Melee vs Ranged branch of scheme D. Config examples (not ClassName hardcoding): Warrior-like→`Melee`+`Strength`; Archer-like→`Ranged`+`Agility`; Mage-like→`Ranged`+`Intelligence` (PrimaryStat dim from `ClassConfig.PrimaryStat`) |
 | Mage vs Archer | **Same Ranged channel** (enter range → projectile → collision hit / timeout miss); rules-layer **only** difference is which `PrimaryStat` feeds `NormalAttackPower` (Mage Intelligence / Archer Agility); no separate mage skill or different projectile rules; View VFX may differ without changing settlement |
-| AttackRange | Both Melee and Ranged have AttackRange (soldiers: `ClassConfig.AttackRange`; monsters: `MonsterConfig.AttackRange`); must move into target `AttackRange` before attack state / attack anim |
-| Retarget / path | Same `TargetRetargetInterval` as monsters: periodically reselect nearest in EngageZone + NavMesh; if none, destination = `FormationHome` |
+| AttackRange | Both Melee and Ranged have AttackRange (soldiers: `ClassConfig.AttackRange`; monsters: `MonsterConfig.AttackRange`); must move to claimed **AttackSlot** (inside target `AttackRange`) before attack state / attack anim |
+| Retarget / path | Same `TargetRetargetInterval` as monsters: periodically reselect nearest in EngageZone and **reclaim/recompute AttackSlot**; if none, `GoalKind=FormationHome`; shared advance goals use FlowField (PushMap) |
 | Hit scheme D | **Melee** (`AttackMode=Melee`): end of `AttackWindup` → `HitConfirm` if target still alive and in `AttackRange`, else miss; **Ranged** (`AttackMode=Ranged`): spawn projectile, settle on **collision hit** or **timeout miss**; rules layer confirms damage; View plays anim/projectile only |
 | Normal damage | On `HitConfirm` (or ranged hit): monster `HP -= NormalAttackPower` (no armor this batch); see formulas below |
 | Attack speed | Interval between attack **starts** = `1 / AttackSpeed`; `AttackWindup` is **inside** that interval (not added outside) |
@@ -2317,8 +2401,10 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 规则 | 说明 |
 |------|------|
 | 顺序 | 按 `ObjectiveOrder` 升序；开战后当前目标 = 最小未占领 Order |
-| 士兵推进 | **全队共当前目标**：所有忠诚士兵自动以当前目标点为推进目的地（可途中被 EngageZone 内敌人打断选敌；无候选则继续向当前目标） |
-| 推进 ≠ 占领探测 | **圈内有存活怪物只影响占领计时**（清零重计），**不**单独暂停推进；Engage 打断仅在接入 §3.12 WarriorCombat 选敌时发生（本版 Demo 推进层持续驶向当前目标） |
+| 士兵推进 | **全队共当前目标**：所有忠诚士兵以 `CurrentObjective` 为共享目的地；移动走 **FlowField**（§3.12 MassCombatPathing 方案 B）；可途中被 EngageZone 内敌人打断选敌（改 AttackSlot）；无候选则继续采样流向当前目标的场 |
+| 推进 ≠ 占领探测 | **圈内有存活怪物只影响占领计时**（清零重计），**不**单独暂停推进 |
+| Demo 遇敌暂停推进 | 完整 §3.12 WarriorCombat 接入前：忠诚兵中心距任一存活怪 ≤ `max(AttackRange, BodyRadius+士兵Demo半径0.1)` 时 **暂停推进**（停跟场、清本地速度；勿依赖全开 RVO）；离开后恢复采样 FlowField。正式 Engage 选敌后改 `GoalKind=AttackSlot`；命中仍后置完整 WarriorCombat |
+| FlowField 重建 | `CurrentObjective` 切换、开战 Bake（含 AirWall 不可走）、可走面变更 → 重建指向新目标的场；同目标单位共享一场 |
 | 到达 | 士兵进入该目标 `CaptureZone` 后参与占领计时（无需全部到达） |
 | 判定「无敌人」 | 圈内 **无存活怪物**；叛变士兵 **不**计入阻挡占领的「敌人」 |
 | 计时 | 圈内连续 **5 秒**满足「无敌人」→ **占领（Capture）**；期间若有怪物进入/存活于圈内则计时清零重计 |
@@ -2340,7 +2426,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 陷阱刷怪 | 绑定 `TrapZoneId` 的刷怪点：我方忠诚士兵 **首次**进入该陷阱区且关联目标未占领 → 生成；本场每点默认触发一次（重复进入不重复刷，除非配置另开 **TBD**） |
 | 占领停刷 | 关联目标已占领 → 该点不再新刷；场上已有怪保留 |
 | 占地散开 | 同点 `SpawnCount>1` 或邻近已刷存活怪：按各自 `MonsterConfig.BodyRadius` 在可走面上错开落点，使 XZ 占地圆不重叠（NavMesh 采样失败时可略收缩环半径，最终可回退采样点）；陷阱后刷同样避让场上已有怪 |
-| 持续避让 | Combat 中 **移动**怪：`NavMeshAgent.radius = BodyRadius`，靠内置避障互避；`Stationary*` 不主动位移避让，仅依赖刷出占位；士兵 Agent 半径本片保持极小（怪–兵叠影 **后置**） |
+| 持续避让 | Combat 中 **移动**怪：刷出散开仍按 `BodyRadius`；`NavMeshAgent.radius = min(BodyRadius, max(0.05, AttackRange − 士兵Demo半径0.1 − 0.05))`，保证中心距可进入 `AttackRange`（避免 RVO 半径大于攻击距导致永远无法交战）；`Stationary*` 不主动位移避让；**我方士兵** Demo：`NavMeshAgent.radius=0.1`、`height=0.1` |
 | 禁止 | PushMap **不**使用 `RemainingCombatSeconds` / `WaveSpawnConfig` 倒计时激活 |
 | Demo 实现边界 | PM-05（刷怪/陷阱）：怪物 AI 暂用 Defend 默认追击（非四态，见 §9.23 契约）；AggroMode 四态与 BOSS 通关结算 **后置**（PM-06/07）；刷怪资格 / 触发状态归 `PushMapSessionService`，位置由表现层按 `SpawnPointId` / `BossPoint` 解析；**开战顺序**：Bake NavMesh → 部署忠诚兵 → `FireStartBattleSpawns`（避免先刷怪后 Bake 导致 Agent 未上网格）；占地散开与 Agent 半径见 **PM-10** |
 | Demo 可走面边界 | `DigMapBounds`（及 `WalkSurface` / `EngageZone`）须覆盖样例图上目标点 / 刷怪点 / BossPoint；NavMesh Runtime Bake 以 `DigMapBounds` 为准；标记落在界外会导致推进/刷怪无法上网格 |
@@ -2459,8 +2545,10 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Rule | Notes |
 |------|-------|
 | Order | Ascending `ObjectiveOrder`; current = min uncaptured |
-| Advance | **Shared current objective** for all loyal soldiers |
-| Advance ≠ capture probe | Living monsters in zone **only** reset the capture timer — they do **not** alone pause advance; Engage interrupt applies only when §3.12 WarriorCombat targeting is wired (this Demo advance layer keeps pathing to current objective) |
+| Advance | **Shared current objective** for all loyal soldiers; movement via **FlowField** (§3.12 MassCombatPathing Approach B); may interrupt for EngageZone enemies (`AttackSlot`); if none, keep sampling field toward current objective |
+| Advance ≠ capture probe | Living monsters in zone **only** reset the capture timer — they do **not** alone pause advance |
+| Demo engage pause | Until full §3.12 WarriorCombat is wired: loyal soldiers **pause advance** when center distance to any living monster ≤ `max(AttackRange, BodyRadius+soldier Demo radius 0.1)` (stop following field / clear local velocity; do not rely on full RVO); resume FlowField sampling when clear. Formal Engage → `GoalKind=AttackSlot`; hits still deferred to full WarriorCombat |
+| FlowField rebuild | On `CurrentObjective` change, StartBattle bake (incl. AirWall non-walkable), or walkable change → rebuild field toward new goal; same-goal units share one field |
 | Arrive | Entering `CaptureZone` participates in capture timing |
 | “No enemies” | No **living Monsters** inside zone; Rebels do **not** block Capture |
 | Timer | Continuous **5s** with no enemies → **Capture**; monster presence resets timer |
@@ -2482,7 +2570,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Trap | Bound `TrapZoneId`: first loyal enter while objective uncaptured → spawn once per point this battle (re-enter no re-spawn unless config TBD) |
 | Capture stop | Captured linked objective → no new spawns; living remain |
 | Footprint spread | Same-point `SpawnCount>1` or nearby living monsters: stagger on walkable NavMesh by each `MonsterConfig.BodyRadius` so XZ footprint circles do not overlap (may shrink ring on SamplePosition failure; final fallback to sampled base); trap spawns likewise avoid existing living monsters |
-| Ongoing avoidance | **Moving** monsters in Combat: `NavMeshAgent.radius = BodyRadius` (built-in avoidance); `Stationary*` do not relocate for avoidance (spawn placement only); soldier agent radius stays tiny this slice (monster–soldier stacking **deferred**) |
+| Ongoing avoidance | **Moving** monsters in Combat: spawn spread still uses `BodyRadius`; `NavMeshAgent.radius = min(BodyRadius, max(0.05, AttackRange − soldier Demo radius 0.1 − 0.05))` so centers can enter `AttackRange` (RVO radius must not exceed attack reach); `Stationary*` do not relocate; **loyal soldiers** Demo: `NavMeshAgent.radius=0.1`, `height=0.1` |
 | Forbidden | PushMap does **not** use `RemainingCombatSeconds` / `WaveSpawnConfig` activation |
 | Demo impl boundary | PM-05 (spawn/trap): monsters use Defend default-chase AI (not four-state, §9.23 contract); AggroMode four-state and Boss-clear settlement **deferred** (PM-06/07); spawn eligibility/trigger state in `PushMapSessionService`; position resolved by View via `SpawnPointId` / `BossPoint`; **StartBattle order**: Bake NavMesh → deploy loyal soldiers → `FireStartBattleSpawns` (avoids agents off-mesh when spawning before bake); footprint spread + agent radius → **PM-10** |
 | Demo walkable edge | `DigMapBounds` (and `WalkSurface` / `EngageZone`) must cover sample objectives / spawn points / BossPoint; runtime NavMesh bake uses `DigMapBounds`; markers outside the diamond leave advance/spawns unable to sit on NavMesh |
@@ -2576,8 +2664,10 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 - [ ] 工具面板后续功能列表
 - [x] 推图战（PushMap）框架：GameplayType、目标点/判定圈占领、空气墙、刷怪点/陷阱、BOSS 通关、AggroMode、复用 Defend 护盾/失控（§3.14）
 - [x] PushMap 边界锁定：占领「无敌人」=无存活怪物（Rebel 不挡）；占领后已刷怪保留；全队共当前目标；无陷阱开战刷；无倒计时刷怪；仅 BOSS 通关入账经验；MapId=`Ground_*`|`PushMap_*`
+- [x] 大规模战斗寻路（方案 B）规则锁定：FlowField（共享目标）+ AttackSlot（追击/攻击）+ LocalDetour（友军左右绕）；容量双方约 200；实现见 `.scratch/mass-pathing/issues/`（§3.12 / SPEC_04 §9.7）
 - [ ] 推图战副本玩法正文
 - [ ] 陷阱刷怪是否允许配置「可重复触发」
+- [x] 大规模寻路实现切片（MP-01～MP-07）与 200v200 压测验收（入口已落地；约定机型 Stopwatch 数字见 `.scratch/mass-pathing/issues/07-perf-stress-200.md`）
 
 ### English
 
@@ -2635,8 +2725,10 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 - [ ] Future ToolsPanel entries
 - [x] PushMap framework: GameplayType, objectives/CaptureZone, AirWall, SpawnPoint/Trap, Boss clear, AggroMode, reuse Defend Shield/LOC (§3.14)
 - [x] PushMap boundary locks: Capture “no enemies”=no living Monsters (Rebel does not block); keep living after Capture; shared current objective; non-trap spawn at StartBattle; no countdown spawn; Exp only on Boss clear; MapId=`Ground_*`|`PushMap_*`
+- [x] Mass combat pathing (Approach B) rules locked: FlowField (shared goals) + AttackSlot (chase/attack) + LocalDetour (friendly L/R); ~200/side capacity; impl `.scratch/mass-pathing/issues/` (§3.12 / SPEC_04 §9.7)
 - [ ] PushMap dungeon gameplay body
 - [ ] Whether trap spawns may be configured as re-triggerable
+- [x] Mass pathing implementation slices (MP-01–MP-07) and 200v200 stress acceptance (entry shipped; agreed-machine Stopwatch numbers in `.scratch/mass-pathing/issues/07-perf-stress-200.md`)
 
 ---
 

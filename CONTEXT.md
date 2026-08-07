@@ -6,7 +6,7 @@
 |-----------|------|----------|------|
 | Gravedigger2026 | 本项目 | Unity 工程与工作区名称 | [SPEC_02](SPEC_02_GameOverview.md) |
 | GameplayState | 玩法状态 | Dig / UpgradeManufacture / Defend / PushMap；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
-| SaveSlot | 存档槽 | 固定 3 槽本地存档位 | [§3.4](SPEC_03_GameRules.md) |
+| SaveSlot | 存档槽 | 固定 3 槽本地存档位；占用旗 + 士兵池/布阵/副本解锁等按槽 PlayerPrefs | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md) |
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡入口（流水线片可启样例关卡） | [§3.5](SPEC_03_GameRules.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
@@ -93,7 +93,8 @@
 | LossOfControlConfig | 失控配置表 | TierId→名称/描述/基础失控概率 | [SPEC_04 §9.20](SPEC_04_Technical.md) |
 | Rebel | 叛变 | 失控成功状态；就近打主角/士兵/敌人；至死亡 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | SkillConfig | 技能配置表 | 骨架；BaseCooldownSeconds + 失控概率加成；效果列另专题（同文件扩写）；**Demo 不施放技能** | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
-| BattleFormation | 战斗布阵 | 连续坐标；共享 `FormationEditor`（士兵栏拖拽）；§3.11 与 Defend/PushMap Prepare 同一编辑器 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
+| BattleFormation | 战斗布阵 | 连续坐标；共享 `FormationEditor`；与士兵池同槽 PlayerPrefs 持久化 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| WarriorPool | 士兵可上阵池 | 存档级已造士兵实例集合；制造入池；布阵/Defend/PushMap 共用；按槽持久化 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | FormationEditor | 布阵编辑器 | Prefab `FormationEditorRoot`；底栏士兵格（上阵保留+变亮）+ Idle 跟手拖放；UM 返回 / Defend 开战 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | Defend | 防守 / 保卫战 | Prepare→开战→Combat；亦可作战斗模式1；见专节 | [§3.12](SPEC_03_GameRules.md) |
 | BattleMode | 战斗模式 | Defend（保卫战）/ PushMap（推图战；规则 §3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
@@ -121,6 +122,12 @@
 | BattleMap | 战斗地图 | 连续可走空间；与 DigMap 阶段分离；表现可共用 `Ground_*`（`BattleMapId`）；Prefab 含 EngageZone | [§3.12](SPEC_03_GameRules.md) |
 | EngageZone | 选敌区 | 地图 Prefab 上比地图稍小的 IsoDiamond（XZ 菱形）；非叛变士兵仅区内选最近敌人 | [§3.12](SPEC_03_GameRules.md) |
 | FormationHome | 布阵原点 | 开战部署锁定的布阵世界坐标；无 EngageZone 目标时非叛变士兵自动返回 | [§3.12](SPEC_03_GameRules.md) |
+| MassCombatPathing | 大规模战斗寻路 | 双方约 200：FlowField + AttackSlot + LocalDetour（方案 B） | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| FlowField | 流场 | 共享目的地格点方向场；同目标单位共享采样 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| AttackSlot | 攻击槽位 | `AttackRange` 环上可站立到达点；单位认领 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| LocalDetour | 本地绕行 | 默认直线；遇友军左/右短探测绕行；友军不 Carve | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| DesiredDestination | 期望目的地 | 移动层趋近的世界坐标（Objective/Home/Slot 等） | [§3.12](SPEC_03_GameRules.md) |
+| GoalKind | 目的地种类 | Objective \| FormationHome \| AttackSlot \| ChaseAnchor | [§3.12](SPEC_03_GameRules.md) |
 | IsoDiamond | 地图菱形足迹 | XZ 曼哈顿菱形（`|dx|/hx+|dz|/hz≤1`）；半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`，可随 iso 高宽比各向异性（Demo `(5,2.5)`）；`DigMapBounds`/`EngageZone`/`WalkSurface`/NavMesh 共用 | [§3.10](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | AttackMode | 攻击模式 | Melee/Ranged；士兵 SoulConfig / 怪物 MonsterConfig；普攻命中分支；**异于** AggroMode | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | AttackRange | 攻击距离 | 士兵 ClassConfig / 怪物 MonsterConfig；进入距内才攻击 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |

@@ -1,33 +1,129 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Gravedigger2026.Core.UpgradeManufacture
 {
     /// <summary>
-    /// Save-scoped BattleFormation shared by UM formation panel and Defend Prepare (SPEC_03 §3.11 / D-032).
-    /// Continuous XZ coordinates; ControlPower usage is derived from deployed warriors.
+    /// Save-scoped BattleFormation shared by UM / Defend / PushMap Prepare (SPEC_03 §3.11 / SPEC_04 §6).
+    /// PlayerPrefs JSON per slot; mutate → immediate write when bound.
     /// </summary>
     public sealed class BattleFormationService
     {
         public const float DefaultDeployStepX = 2f;
         public const float DefaultNudgeStep = 1f;
 
+        private const string KeyPrefix = "Gravedigger2026.SaveSlot.";
+        private const string FormationSuffix = ".BattleFormation";
+
         private readonly List<BattleFormationEntry> _entries = new List<BattleFormationEntry>();
         private readonly WarriorPoolService _pool;
+        private int _slotIndex = -1;
+        private bool _suppressPersist;
 
         public BattleFormationService(WarriorPoolService pool)
         {
             _pool = pool ?? throw new ArgumentNullException(nameof(pool));
         }
 
+        public int BoundSlotIndex => _slotIndex;
         public IReadOnlyList<BattleFormationEntry> Entries => _entries;
 
         public event Action Changed;
 
+        /// <summary>
+        /// Load formation for slot. Call after <see cref="WarriorPoolService.BindSlot"/> so orphan rows can be dropped.
+        /// </summary>
+        public void BindSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex > 2)
+            {
+                throw new ArgumentOutOfRangeException(nameof(slotIndex), slotIndex, "Slot index must be 0..2.");
+            }
+
+            var droppedOrphans = false;
+            _suppressPersist = true;
+            try
+            {
+                _slotIndex = slotIndex;
+                _entries.Clear();
+
+                var raw = PlayerPrefs.GetString(FormationKey(slotIndex), string.Empty);
+                if (!string.IsNullOrEmpty(raw))
+                {
+                    var data = JsonUtility.FromJson<BattleFormationSaveData>(raw);
+                    if (data?.Entries != null)
+                    {
+                        for (var i = 0; i < data.Entries.Length; i++)
+                        {
+                            var e = data.Entries[i];
+                            if (e == null || string.IsNullOrEmpty(e.WarriorId))
+                            {
+                                continue;
+                            }
+
+                            if (!_pool.TryGet(e.WarriorId, out _))
+                            {
+                                droppedOrphans = true;
+                                continue;
+                            }
+
+                            _entries.Add(new BattleFormationEntry
+                            {
+                                WarriorId = e.WarriorId,
+                                PositionX = e.PositionX,
+                                PositionZ = e.PositionZ,
+                                RemainingHP = e.RemainingHP
+                            });
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _suppressPersist = false;
+            }
+
+            if (droppedOrphans)
+            {
+                PersistIfBound();
+            }
+
+            Changed?.Invoke();
+        }
+
+        public void ClearBound()
+        {
+            _slotIndex = -1;
+            _suppressPersist = true;
+            try
+            {
+                _entries.Clear();
+            }
+            finally
+            {
+                _suppressPersist = false;
+            }
+
+            Changed?.Invoke();
+        }
+
         public void Clear()
         {
             _entries.Clear();
+            PersistIfBound();
             Changed?.Invoke();
+        }
+
+        public static void DeleteSlotData(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex > 2)
+            {
+                return;
+            }
+
+            PlayerPrefs.DeleteKey(FormationKey(slotIndex));
+            PlayerPrefs.Save();
         }
 
         public bool IsDeployed(string warriorId)
@@ -85,6 +181,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 PositionZ = positionZ,
                 RemainingHP = warrior.RemainingHP
             });
+            PersistIfBound();
             Changed?.Invoke();
             return true;
         }
@@ -103,9 +200,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             if (TryFindWarrior(warriorId, out var warrior))
             {
                 warrior.RemainingHP = entry.RemainingHP;
+                _pool.NotifyMutated();
             }
 
             _entries.RemoveAt(index);
+            PersistIfBound();
             Changed?.Invoke();
             return true;
         }
@@ -123,6 +222,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var entry = _entries[index];
             entry.PositionX += deltaX;
             entry.PositionZ += deltaZ;
+            PersistIfBound();
             Changed?.Invoke();
             return true;
         }
@@ -140,6 +240,23 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var entry = _entries[index];
             entry.PositionX = x;
             entry.PositionZ = z;
+            PersistIfBound();
+            Changed?.Invoke();
+            return true;
+        }
+
+        public bool TrySetRemainingHp(string warriorId, float remainingHp, out string error)
+        {
+            error = null;
+            var index = FindIndex(warriorId);
+            if (index < 0)
+            {
+                error = "该士兵未上阵";
+                return false;
+            }
+
+            _entries[index].RemainingHP = remainingHp;
+            PersistIfBound();
             Changed?.Invoke();
             return true;
         }
@@ -171,6 +288,34 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             return SumControlPowerCost() / controlPowerCap - 1f;
         }
 
+        private void PersistIfBound()
+        {
+            if (_suppressPersist || _slotIndex < 0)
+            {
+                return;
+            }
+
+            var data = new BattleFormationSaveData
+            {
+                Entries = new BattleFormationSaveEntry[_entries.Count]
+            };
+
+            for (var i = 0; i < _entries.Count; i++)
+            {
+                var e = _entries[i];
+                data.Entries[i] = new BattleFormationSaveEntry
+                {
+                    WarriorId = e.WarriorId,
+                    PositionX = e.PositionX,
+                    PositionZ = e.PositionZ,
+                    RemainingHP = e.RemainingHP
+                };
+            }
+
+            PlayerPrefs.SetString(FormationKey(_slotIndex), JsonUtility.ToJson(data));
+            PlayerPrefs.Save();
+        }
+
         private (float x, float z) NextAutoPosition()
         {
             return (_entries.Count * DefaultDeployStepX, 0f);
@@ -191,18 +336,12 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
         private bool TryFindWarrior(string warriorId, out WarriorInstance warrior)
         {
-            warrior = null;
-            var list = _pool.Warriors;
-            for (var i = 0; i < list.Count; i++)
-            {
-                if (string.Equals(list[i].Id, warriorId, StringComparison.Ordinal))
-                {
-                    warrior = list[i];
-                    return true;
-                }
-            }
+            return _pool.TryGet(warriorId, out warrior);
+        }
 
-            return false;
+        private static string FormationKey(int slotIndex)
+        {
+            return KeyPrefix + slotIndex + FormationSuffix;
         }
     }
 }

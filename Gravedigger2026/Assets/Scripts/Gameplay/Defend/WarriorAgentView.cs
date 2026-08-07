@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.Pathing;
 using UnityEngine;
 using UnityEngine.AI;
 
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
-    /// Soldier NavMesh + melee windup / ranged projectile / Rebel nearest targeting (D-042 / D-043).
+    /// Soldier combat View (D-042 / D-043) + MassCombatPathing MP-06.
+    /// Move via MassMoveScheduler (AttackSlot / FormationHome + LocalDetour); no center SetDestination.
     /// </summary>
     public sealed class WarriorAgentView : MonoBehaviour
     {
@@ -26,6 +28,10 @@ namespace Gravedigger2026.Gameplay.Defend
             Monster = 3
         }
 
+        private const float MoveAnimSpeedSqr = 0.04f;
+        private const float SoldierDemoRadius = 0.1f;
+        private const float NavMeshSampleRadius = 4f;
+
         private DefendSessionService _session;
         private string _warriorId;
         private EngageZone _engageZone;
@@ -37,7 +43,6 @@ namespace Gravedigger2026.Gameplay.Defend
         private Vector3 _formationHome;
         private bool _hasFormationHome;
         private float _retargetInterval = 1f;
-        private float _retargetTimer;
         private float _attackStartCooldown;
         private float _windupRemaining;
         private AttackPhase _attackPhase = AttackPhase.IdleOrMove;
@@ -46,10 +51,64 @@ namespace Gravedigger2026.Gameplay.Defend
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private bool _diePlayed;
-        private const float MoveAnimSpeedSqr = 0.04f;
-        private const float FormationHomeStoppingDistance = 0.15f;
+        private float _moveSpeed = 3.5f;
+
+        private MassMoveScheduler _scheduler;
+        private AttackSlotService _attackSlots;
+        private int _moveId;
 
         public string WarriorId => _warriorId;
+        public string AttackerId => _warriorId;
+        public int MoveId => _moveId;
+        public float AgentRadius => SoldierDemoRadius;
+        public Vector3 FormationHome => _formationHome;
+        public bool HasFormationHome => _hasFormationHome;
+        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ≤50/frame (SPEC_04 §9.7).</summary>
+        public float TargetRetargetInterval => _retargetInterval;
+
+        public float AttackRange
+        {
+            get
+            {
+                if (_session != null &&
+                    !string.IsNullOrEmpty(_warriorId) &&
+                    _session.TryGetWarrior(_warriorId, out var state) &&
+                    state != null)
+                {
+                    return state.AttackRange;
+                }
+
+                return 1f;
+            }
+        }
+
+        public AttackMode AttackMode
+        {
+            get
+            {
+                if (_session != null &&
+                    !string.IsNullOrEmpty(_warriorId) &&
+                    _session.TryGetWarrior(_warriorId, out var state) &&
+                    state != null)
+                {
+                    return state.AttackMode;
+                }
+
+                return AttackMode.Melee;
+            }
+        }
+
+        public bool IsRebel
+        {
+            get
+            {
+                return _session != null &&
+                       !string.IsNullOrEmpty(_warriorId) &&
+                       _session.TryGetWarrior(_warriorId, out var state) &&
+                       state != null &&
+                       state.IsRebel;
+            }
+        }
 
         public void Bind(
             DefendSessionService session,
@@ -61,7 +120,10 @@ namespace Gravedigger2026.Gameplay.Defend
             Transform projectileParent = null,
             Func<IReadOnlyList<WarriorAgentView>> warriorsProvider = null,
             Func<Transform> protagonistProvider = null,
-            Vector3? formationHomeWorld = null)
+            Vector3? formationHomeWorld = null,
+            MassMoveScheduler scheduler = null,
+            AttackSlotService attackSlots = null,
+            int moveId = 0)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
@@ -74,13 +136,15 @@ namespace Gravedigger2026.Gameplay.Defend
             _hasFormationHome = formationHomeWorld.HasValue;
             _formationHome = formationHomeWorld ?? Vector3.zero;
             _retargetInterval = Mathf.Max(0.1f, retargetIntervalSeconds);
-            _retargetTimer = 0f;
             _attackStartCooldown = 0f;
             _windupRemaining = 0f;
             _attackPhase = AttackPhase.IdleOrMove;
             _windupKind = RebelTargetKind.None;
             _windupTargetId = null;
             _diePlayed = false;
+            _scheduler = scheduler;
+            _attackSlots = attackSlots;
+            _moveId = moveId;
 
             if (!_session.TryGetWarrior(_warriorId, out var state) || state == null)
             {
@@ -88,6 +152,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 enabled = false;
                 return;
             }
+
+            _moveSpeed = Mathf.Max(0.1f, state.MoveSpeed);
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -101,22 +167,119 @@ namespace Gravedigger2026.Gameplay.Defend
                 _anim = gameObject.AddComponent<WarriorAnimView>();
             }
 
-            _agent.speed = Mathf.Max(0.1f, state.MoveSpeed);
-            _agent.stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
+            _agent.speed = _moveSpeed;
+            _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            _agent.radius = 0.03f;
-            _agent.height = 1.8f;
-            _agent.autoBraking = true;
+            _agent.radius = SoldierDemoRadius;
+            _agent.height = 0.1f;
+            _agent.autoBraking = false;
             // SPEC_04 §15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
             _agent.updateRotation = false;
+            _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
             _anim.ResetToIdle();
 
-            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 4f, NavMesh.AllAreas))
+            if (!_agent.isOnNavMesh &&
+                NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
             {
                 _agent.Warp(hit.position);
             }
+
+            if (_scheduler != null && _moveId != 0)
+            {
+                _scheduler.Register(_moveId, SoldierDemoRadius, MassMoveScheduler.DetourGroupLoyal);
+                if (_hasFormationHome)
+                {
+                    _scheduler.SetGoal(
+                        _moveId,
+                        GoalKind.FormationHome,
+                        new Vector2(_formationHome.x, _formationHome.z));
+                }
+            }
+        }
+
+        /// <summary>XZ sample for MassMoveScheduler (inactive when dead / windup).</summary>
+        public MassMoveSample BuildSample()
+        {
+            var pos = transform.position;
+            var combatActive = _session != null &&
+                               !string.IsNullOrEmpty(_warriorId) &&
+                               _session.IsWarriorCombatActive(_warriorId);
+            var active = combatActive &&
+                         isActiveAndEnabled &&
+                         _attackPhase != AttackPhase.Windup;
+            return new MassMoveSample(
+                _moveId,
+                new Vector2(pos.x, pos.z),
+                SoldierDemoRadius,
+                active);
+        }
+
+        /// <summary>Nearest living monster inside EngageZone (loyal targeting).</summary>
+        public MonsterAgentView FindNearestEngageMonster()
+        {
+            var list = _monstersProvider != null ? _monstersProvider() : null;
+            if (list == null || list.Count == 0)
+            {
+                return null;
+            }
+
+            MonsterAgentView best = null;
+            var bestDist = float.MaxValue;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                if (_engageZone != null && !_engageZone.ContainsXZ(m.transform.position))
+                {
+                    continue;
+                }
+
+                if (_session != null && !_session.IsMonsterAlive(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                var d = Vector3.Distance(transform.position, m.transform.position);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = m;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>
+        /// Rebel nearest target among protagonist / other soldiers / monsters (no EngageZone).
+        /// </summary>
+        public bool TryFindNearestRebelTarget(out string targetId, out Vector3 position, out float bodyRadius)
+        {
+            targetId = null;
+            position = default;
+            bodyRadius = 0.35f;
+            if (!TryFindNearestRebelTarget(out var kind, out targetId, out position))
+            {
+                return false;
+            }
+
+            if (kind == RebelTargetKind.Warrior)
+            {
+                bodyRadius = SoldierDemoRadius;
+            }
+            else if (kind == RebelTargetKind.Monster)
+            {
+                var m = FindMonsterByRuntimeId(targetId);
+                bodyRadius = m != null ? m.BodyRadius : AttackSlotService.DefaultTargetBodyRadius;
+            }
+
+            return true;
         }
 
         private void Update()
@@ -138,13 +301,6 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            _retargetTimer += Time.deltaTime;
-            if (_retargetTimer >= _retargetInterval)
-            {
-                _retargetTimer = 0f;
-                RequestPath(state);
-            }
-
             TickAnimPresentation(state);
 
             if (state.IsRebel)
@@ -158,6 +314,65 @@ namespace Gravedigger2026.Gameplay.Defend
             else
             {
                 TickLoyalRanged(state);
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (_agent == null || _scheduler == null || _moveId == 0)
+            {
+                return;
+            }
+
+            if (_session == null ||
+                !_session.IsActive ||
+                _session.Phase != DefendPhase.Combat ||
+                string.IsNullOrEmpty(_warriorId) ||
+                !_session.IsWarriorCombatActive(_warriorId))
+            {
+                return;
+            }
+
+            if (_attackPhase == AttackPhase.Windup)
+            {
+                return;
+            }
+
+            if (!_agent.isOnNavMesh)
+            {
+                if (NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
+                {
+                    _agent.Warp(hit.position);
+                }
+
+                if (!_agent.isOnNavMesh)
+                {
+                    return;
+                }
+            }
+
+            if (!_scheduler.TryGetSteer(_moveId, out var steer) || steer.sqrMagnitude < 1e-8f)
+            {
+                ClearPathingState();
+                return;
+            }
+
+            if (_agent.hasPath)
+            {
+                _agent.ResetPath();
+            }
+
+            _agent.isStopped = false;
+            var delta = new Vector3(steer.x, 0f, steer.y) * (_moveSpeed * Time.deltaTime);
+            _agent.Move(delta);
+        }
+
+        private void OnDisable()
+        {
+            _attackSlots?.Release(_warriorId);
+            if (_scheduler != null && _moveId != 0)
+            {
+                _scheduler.Unregister(_moveId);
             }
         }
 
@@ -314,10 +529,8 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
-            if (_agent != null && _agent.isOnNavMesh)
-            {
-                _agent.isStopped = true;
-            }
+            _scheduler?.SetPaused(_moveId, true);
+            ClearPathingState();
 
             var toTarget = target.transform.position - transform.position;
             toTarget.y = 0f;
@@ -357,10 +570,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 state.RangedProjectileSpeed,
                 state.RangedTimeoutSeconds);
 
-            if (_agent != null && _agent.isOnNavMesh)
-            {
-                _agent.isStopped = false;
-            }
+            _scheduler?.SetPaused(_moveId, false);
         }
 
         private void BeginWindup(RebelTargetKind kind, string targetId, DefendCombatWarriorState state)
@@ -370,10 +580,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _windupTargetId = targetId;
             _windupRemaining = Mathf.Max(0f, state.MeleeWindupSeconds);
             _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
-            if (_agent != null && _agent.isOnNavMesh)
-            {
-                _agent.isStopped = true;
-            }
+            _scheduler?.SetPaused(_moveId, true);
+            ClearPathingState();
 
             if (_anim != null)
             {
@@ -506,58 +714,12 @@ namespace Gravedigger2026.Gameplay.Defend
             _attackPhase = AttackPhase.IdleOrMove;
             _windupKind = RebelTargetKind.None;
             _windupTargetId = null;
-            if (_agent != null && _agent.isOnNavMesh)
-            {
-                _agent.isStopped = false;
-            }
+            _scheduler?.SetPaused(_moveId, false);
 
             if (_anim != null)
             {
                 _anim.SetMoving(false);
             }
-        }
-
-        private void RequestPath(DefendCombatWarriorState state)
-        {
-            if (_agent == null || !_agent.isOnNavMesh || _attackPhase == AttackPhase.Windup)
-            {
-                return;
-            }
-
-            Vector3 dest;
-            float stoppingDistance;
-            if (state.IsRebel)
-            {
-                if (!TryFindNearestRebelTarget(out _, out _, out dest))
-                {
-                    return;
-                }
-
-                stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
-            }
-            else
-            {
-                var target = FindNearestEngageMonster();
-                if (target != null)
-                {
-                    dest = target.transform.position;
-                    stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
-                }
-                else if (_hasFormationHome)
-                {
-                    // SPEC_03 §3.12: no EngageZone target → auto-return FormationHome; retarget keeps searching.
-                    dest = _formationHome;
-                    stoppingDistance = FormationHomeStoppingDistance;
-                }
-                else
-                {
-                    return;
-                }
-            }
-
-            _agent.isStopped = false;
-            _agent.stoppingDistance = stoppingDistance;
-            _agent.SetDestination(dest);
         }
 
         private bool TryFindNearestRebelTarget(out RebelTargetKind kind, out string targetId, out Vector3 position)
@@ -637,45 +799,6 @@ namespace Gravedigger2026.Gameplay.Defend
             return kind != RebelTargetKind.None;
         }
 
-        private MonsterAgentView FindNearestEngageMonster()
-        {
-            var list = _monstersProvider != null ? _monstersProvider() : null;
-            if (list == null || list.Count == 0)
-            {
-                return null;
-            }
-
-            MonsterAgentView best = null;
-            var bestDist = float.MaxValue;
-            for (var i = 0; i < list.Count; i++)
-            {
-                var m = list[i];
-                if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeId))
-                {
-                    continue;
-                }
-
-                if (_engageZone != null && !_engageZone.ContainsXZ(m.transform.position))
-                {
-                    continue;
-                }
-
-                if (_session != null && !_session.IsMonsterAlive(m.RuntimeId))
-                {
-                    continue;
-                }
-
-                var d = Vector3.Distance(transform.position, m.transform.position);
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    best = m;
-                }
-            }
-
-            return best;
-        }
-
         private MonsterAgentView FindMonsterByRuntimeId(string runtimeId)
         {
             if (string.IsNullOrEmpty(runtimeId))
@@ -728,15 +851,35 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void StopAgent()
         {
-            if (_agent != null && _agent.isOnNavMesh)
+            _attackSlots?.Release(_warriorId);
+            if (_scheduler != null && _moveId != 0)
             {
-                _agent.isStopped = true;
-                _agent.ResetPath();
+                _scheduler.Unregister(_moveId);
             }
 
+            ClearPathingState();
             _attackPhase = AttackPhase.IdleOrMove;
             _windupKind = RebelTargetKind.None;
             _windupTargetId = null;
+        }
+
+        private void ClearPathingState()
+        {
+            if (_agent == null)
+            {
+                return;
+            }
+
+            if (_agent.isOnNavMesh)
+            {
+                if (_agent.hasPath)
+                {
+                    _agent.ResetPath();
+                }
+
+                _agent.isStopped = true;
+                _agent.velocity = Vector3.zero;
+            }
         }
     }
 }

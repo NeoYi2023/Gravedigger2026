@@ -4,6 +4,7 @@ using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.Pathing;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Formation;
@@ -14,8 +15,8 @@ using UnityEngine.AI;
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
-    /// Defend stage presentation bridge (Approach A / D-040–D-043).
-    /// Rules live in DefendSessionService.
+    /// Defend stage presentation bridge (Approach A / D-040–D-043 + MassCombatPathing MP-06).
+    /// Rules live in DefendSessionService. Move: AttackSlot / FormationHome via MassMoveScheduler.
     /// </summary>
     public sealed class DefendStageController : MonoBehaviour
     {
@@ -33,6 +34,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private readonly List<GameObject> _deployedViews = new List<GameObject>();
         private readonly List<WarriorAgentView> _warriorAgents = new List<WarriorAgentView>();
         private readonly List<MonsterAgentView> _monsters = new List<MonsterAgentView>();
+        private readonly List<MassMoveSample> _moveSamples = new List<MassMoveSample>(64);
 
         private ConfigCsvRepository _configs;
         private DefendSessionService _session;
@@ -54,6 +56,11 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _clearVictoryHintShown;
         private bool _driverOutcomeDispatched;
         private FormationEditorController _formationEditor;
+
+        private MassMoveScheduler _moveScheduler;
+        private AttackSlotService _attackSlots;
+        private int _nextMoveId;
+        private int _slotGoalCursor;
 
         public void ConfigureCatalog(DefendPrefabCatalog catalog, FormationPrefabCatalog formationCatalog = null)
         {
@@ -219,6 +226,10 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _session.Tick(Time.deltaTime);
+            if (_session.Phase == DefendPhase.Combat)
+            {
+                TickMassCombatPathing();
+            }
         }
 
         private void OnDestroy()
@@ -288,6 +299,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             ClearMonsters();
             ClearDeployedViews();
+            ClearMassCombatPathing();
             ReleaseNavMesh();
             _formation = null;
             _configs = null;
@@ -353,6 +365,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
             }
 
+            EnsurePathingServices();
             DeployCombatUnits();
             _session.ResolveStartBattleRebelRolls(_configs);
             if (_hudView != null)
@@ -487,13 +500,18 @@ namespace Gravedigger2026.Gameplay.Defend
                     agentView = go.AddComponent<MonsterAgentView>();
                 }
 
+                EnsurePathingServices();
+                var moveId = ++_nextMoveId;
                 agentView.Bind(
                     _session,
                     runtimeId,
                     monsterRow,
                     protagonistTf,
                     () => _warriorAgents,
-                    retarget);
+                    retarget,
+                    _moveScheduler,
+                    _attackSlots,
+                    moveId);
                 _monsters.Add(agentView);
             }
 
@@ -620,6 +638,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!_session.IsMonsterAlive(runtimeId))
             {
+                _attackSlots?.ReleaseAllForTarget(runtimeId);
                 for (var i = 0; i < _monsters.Count; i++)
                 {
                     var m = _monsters[i];
@@ -645,6 +664,11 @@ namespace Gravedigger2026.Gameplay.Defend
             if (TryFindWarrior(warriorId, out var warrior))
             {
                 _session.SyncWarriorRemainingHpToInstance(warrior);
+                _warriorPool.NotifyMutated();
+                if (_formation != null && _formation.IsDeployed(warriorId))
+                {
+                    _formation.TrySetRemainingHp(warriorId, warrior.RemainingHP, out _);
+                }
             }
 
             RefreshHud();
@@ -654,6 +678,11 @@ namespace Gravedigger2026.Gameplay.Defend
         {
             ClearDeployedViews();
             _warriorAgents.Clear();
+            EnsurePathingServices();
+            _moveScheduler.Clear();
+            _attackSlots.Clear();
+            _nextMoveId = 0;
+            _slotGoalCursor = 0;
 
             var protagonistPrefab = _catalog != null ? _catalog.BattleProtagonistPrefab : null;
             if (protagonistPrefab == null)
@@ -717,6 +746,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     agent = go.AddComponent<WarriorAgentView>();
                 }
 
+                var moveId = ++_nextMoveId;
                 agent.Bind(
                     _session,
                     warrior.Id,
@@ -727,11 +757,14 @@ namespace Gravedigger2026.Gameplay.Defend
                     _worldRoot,
                     () => _warriorAgents,
                     () => _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null,
-                    formationHome);
+                    formationHome,
+                    _moveScheduler,
+                    _attackSlots,
+                    moveId);
                 _warriorAgents.Add(agent);
             }
 
-            Debug.Log($"[DefendStage] Deployed protagonist + {_warriorAgents.Count} warriors.");
+            Debug.Log($"[DefendStage] Deployed protagonist + {_warriorAgents.Count} warriors (MassCombatPathing).");
         }
 
         private void ClearMonsters()
@@ -761,6 +794,198 @@ namespace Gravedigger2026.Gameplay.Defend
             _deployedViews.Clear();
             _warriorAgents.Clear();
             _battleProtagonistInstance = null;
+        }
+
+        private void EnsurePathingServices()
+        {
+            _moveScheduler ??= new MassMoveScheduler();
+            _attackSlots ??= new AttackSlotService();
+        }
+
+        private void ClearMassCombatPathing()
+        {
+            _moveScheduler?.Clear();
+            _attackSlots?.Clear();
+            _moveSamples.Clear();
+            _nextMoveId = 0;
+            _slotGoalCursor = 0;
+        }
+
+        /// <summary>
+        /// MP-06: budgeted AttackSlot / FormationHome + MassMoveScheduler steer (≤50 each, round-robin).
+        /// Same GoalKind semantics as PushMap MP-05 (no dual destination stacks).
+        /// </summary>
+        private void TickMassCombatPathing()
+        {
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            TickAttackSlotGoals();
+
+            _moveSamples.Clear();
+            for (var i = 0; i < _warriorAgents.Count; i++)
+            {
+                var warrior = _warriorAgents[i];
+                if (warrior != null && warrior.MoveId != 0)
+                {
+                    _moveSamples.Add(warrior.BuildSample());
+                }
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster != null && monster.IsAlive && monster.MoveId != 0)
+                {
+                    _moveSamples.Add(monster.BuildSample());
+                }
+            }
+
+            _moveScheduler.Tick(_moveSamples);
+        }
+
+        private void TickAttackSlotGoals()
+        {
+            if (_attackSlots == null || _moveScheduler == null)
+            {
+                return;
+            }
+
+            var rosterCount = _warriorAgents.Count + _monsters.Count;
+            if (rosterCount <= 0)
+            {
+                return;
+            }
+
+            var budget = Mathf.Min(MassMoveScheduler.MaxRecalcPerFrame, rosterCount);
+            for (var n = 0; n < budget; n++)
+            {
+                if (_slotGoalCursor >= rosterCount)
+                {
+                    _slotGoalCursor = 0;
+                }
+
+                if (_slotGoalCursor < _warriorAgents.Count)
+                {
+                    RefreshWarriorSlotGoal(_warriorAgents[_slotGoalCursor]);
+                }
+                else
+                {
+                    var mi = _slotGoalCursor - _warriorAgents.Count;
+                    if (mi >= 0 && mi < _monsters.Count)
+                    {
+                        _monsters[mi]?.TryRefreshChaseGoal(_attackSlots, _moveScheduler);
+                    }
+                }
+
+                _slotGoalCursor++;
+            }
+        }
+
+        private void RefreshWarriorSlotGoal(WarriorAgentView warrior)
+        {
+            if (warrior == null || _moveScheduler == null || _attackSlots == null || warrior.MoveId == 0)
+            {
+                return;
+            }
+
+            if (_session == null || !_session.IsWarriorCombatActive(warrior.WarriorId))
+            {
+                _attackSlots.Release(warrior.AttackerId);
+                _moveScheduler.SetPaused(warrior.MoveId, true);
+                return;
+            }
+
+            if (warrior.IsRebel)
+            {
+                RefreshRebelSlotGoal(warrior);
+                return;
+            }
+
+            var monster = warrior.FindNearestEngageMonster();
+            if (monster == null)
+            {
+                // SPEC_03 §3.12: no EngageZone target → FormationHome; keep searching (abort on new target).
+                _attackSlots.Release(warrior.AttackerId);
+                _moveScheduler.SetPaused(warrior.MoveId, false);
+                if (warrior.HasFormationHome)
+                {
+                    var home = warrior.FormationHome;
+                    _moveScheduler.SetGoal(
+                        warrior.MoveId,
+                        GoalKind.FormationHome,
+                        new Vector2(home.x, home.z));
+                }
+
+                return;
+            }
+
+            if (!_attackSlots.TryClaim(
+                    warrior.AttackerId,
+                    monster.RuntimeId,
+                    warrior.AttackRange,
+                    monster.transform.position,
+                    out var slotPos,
+                    warrior.AttackMode,
+                    warrior.transform.position,
+                    monster.BodyRadius))
+            {
+                _moveScheduler.SetPaused(warrior.MoveId, true);
+                return;
+            }
+
+            _moveScheduler.SetPaused(warrior.MoveId, false);
+            _moveScheduler.SetGoal(
+                warrior.MoveId,
+                GoalKind.AttackSlot,
+                new Vector2(slotPos.x, slotPos.z));
+        }
+
+        private void RefreshRebelSlotGoal(WarriorAgentView warrior)
+        {
+            if (!warrior.TryFindNearestRebelTarget(out var targetId, out var targetPos, out var bodyRadius))
+            {
+                _attackSlots.Release(warrior.AttackerId);
+                _moveScheduler.SetPaused(warrior.MoveId, true);
+                return;
+            }
+
+            var dist = Vector3.Distance(warrior.transform.position, targetPos);
+            if (dist <= warrior.AttackRange)
+            {
+                _attackSlots.Release(warrior.AttackerId);
+                _moveScheduler.SetPaused(warrior.MoveId, true);
+                return;
+            }
+
+            if (!_attackSlots.TryClaim(
+                    warrior.AttackerId,
+                    targetId,
+                    warrior.AttackRange,
+                    targetPos,
+                    out var slotPos,
+                    warrior.AttackMode,
+                    warrior.transform.position,
+                    bodyRadius))
+            {
+                var ring = AttackSlotService.ComputeRingRadius(warrior.AttackRange);
+                var away = warrior.transform.position - targetPos;
+                away.y = 0f;
+                if (away.sqrMagnitude < 1e-6f)
+                {
+                    away = Vector3.forward;
+                }
+
+                slotPos = targetPos + away.normalized * ring;
+            }
+
+            _moveScheduler.SetPaused(warrior.MoveId, false);
+            _moveScheduler.SetGoal(
+                warrior.MoveId,
+                GoalKind.AttackSlot,
+                new Vector2(slotPos.x, slotPos.z));
         }
 
         private void ClearProjectiles()

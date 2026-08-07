@@ -4,6 +4,7 @@ using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.Pathing;
 using Gravedigger2026.Core.PushMap;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
@@ -16,12 +17,15 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PushMap stage presentation bridge (Approach A / PM-03–PM-09).
+    /// PushMap stage presentation bridge (Approach A / PM-03–PM-09 + MassCombatPathing MP-04).
     /// Prepare reuses FormationEditorRoot; StartBattle initializes Shield/LOC. Objective chain,
     /// spawn/trap, AggroMode four-state, and PM-07 Boss clear: Demo kill = loyal entry into Boss
     /// AttackRange → NotifyKilled + TryNotifyBossKilled; VictorySettled → AddExperience → advance;
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
     /// PM-08: StartBattle NavMesh bake injects AirWall Not Walkable boxes (incl. 45°).
+    /// MP-04: Bake AirWall → StaticBoxWalkableMask + FlowField Rebuild; advance via MassMoveScheduler
+    /// (shared field + LocalDetour; no per-soldier SetDestination(Objective)).
+    /// MP-05: engage/chase → AttackSlot claim + LocalDetour; slot refresh ≤50/frame; no per-frame CalculatePath.
     /// Combat camera: Runtime Ensure PushMapCamera (ortho top-down; Size=2).
     /// PM-09: PushMapCameraFollowController Auto/Manual + ResumeFollow.
     /// PM-10: BodyRadius spawn spread + NavMeshAgent.radius for RVO.
@@ -67,6 +71,16 @@ namespace Gravedigger2026.Gameplay.PushMap
         private EngageZone _engageZone;
         private NavMeshDataInstance _navMeshInstance;
         private GameObject _battleProtagonistInstance;
+
+        private FlowFieldService _flowField;
+        private StaticBoxWalkableMask _flowWalkableMask;
+        private MassMoveScheduler _moveScheduler;
+        private AttackSlotService _attackSlots;
+        private readonly List<MassMoveSample> _moveSamples = new List<MassMoveSample>(64);
+        private int _nextAdvanceMoveId;
+        private int _slotGoalCursor;
+        private int _lastSlotGoalRefreshCount;
+        private bool _flowFieldReady;
 
         public void ConfigureCatalog(DefendPrefabCatalog catalog, FormationPrefabCatalog formationCatalog = null)
         {
@@ -215,6 +229,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             ClearDeployedViews();
             ClearSpawnedMonsters();
+            ClearFlowFieldPathing();
             _objectives.Clear();
             _spawnPointsById.Clear();
             _trapZones.Clear();
@@ -266,10 +281,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             ReleaseNavMesh();
-            _navMeshInstance = DefendNavMeshBaker.Bake(_mapCenter, _mapHalfExtents, CollectAirWallObstacles());
+            var airWallBoxes = CollectAirWallObstacles();
+            _navMeshInstance = DefendNavMeshBaker.Bake(_mapCenter, _mapHalfExtents, airWallBoxes);
+            ConfigureFlowFieldPathing(airWallBoxes);
 
             BeginObjectiveChain();
             DeployCombatUnits();
+            TickMassCombatPathing();
             _session.FireStartBattleSpawns();
             ResolveStartBattleRebelRolls();
             _session.NotifyBossPointPresence(_bossPoint != null);
@@ -362,6 +380,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var hasMonster = HasMonsterThreatInCurrentZone();
             _session.TickCapture(Time.deltaTime, hasMonster);
+            TickMassCombatPathing();
             PollTrapEntry();
             PollBossKillDemo();
             PollPassiveProvocation();
@@ -717,7 +736,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                     protagonistTf,
                     () => _advanceViews,
                     tag => _session?.ApplyShieldHit(tag),
-                    1f);
+                    1f,
+                    _attackSlots,
+                    _moveScheduler,
+                    ++_nextAdvanceMoveId);
                 if (request.IsBoss)
                 {
                     view.MarkAsBoss(true);
@@ -835,16 +857,40 @@ namespace Gravedigger2026.Gameplay.PushMap
                     _mapCenter.z + entry.PositionZ);
                 _deployedViews.Add(go);
 
+                var attackRange = 1f;
+                if (_configs != null &&
+                    !string.IsNullOrEmpty(warrior.ClassId) &&
+                    _configs.TryGetClass(warrior.ClassId, out var classRow) &&
+                    classRow != null &&
+                    classRow.AttackRange > 0.05f)
+                {
+                    attackRange = classRow.AttackRange;
+                }
+
                 var advance = go.GetComponent<PushMapAdvanceView>();
                 if (advance == null)
                 {
                     advance = go.AddComponent<PushMapAdvanceView>();
                 }
-                advance.Bind(ResolveCurrentObjective, 3.5f);
+                _nextAdvanceMoveId++;
+                advance.Bind(
+                    _moveScheduler,
+                    _nextAdvanceMoveId,
+                    3.5f,
+                    ProvidePushMapMonsters,
+                    attackRange,
+                    warrior.AttackMode,
+                    warrior.Id,
+                    _attackSlots);
                 _advanceViews.Add(advance);
             }
 
             Debug.Log($"[PushMapStage] Deployed protagonist + {_advanceViews.Count} loyal-capable warriors.");
+        }
+
+        private IReadOnlyList<PushMapMonsterAgentView> ProvidePushMapMonsters()
+        {
+            return _monsters;
         }
 
         private PushMapAdvanceView FindAdvanceView(string warriorId)
@@ -871,7 +917,196 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
             _deployedViews.Clear();
             _advanceViews.Clear();
+            _moveScheduler?.Clear();
+            _attackSlots?.Clear();
             _battleProtagonistInstance = null;
+        }
+
+        private void EnsurePathingServices()
+        {
+            _flowField ??= new FlowFieldService();
+            _flowWalkableMask ??= new StaticBoxWalkableMask();
+            _moveScheduler ??= new MassMoveScheduler();
+            _attackSlots ??= new AttackSlotService();
+        }
+
+        private void ConfigureFlowFieldPathing(IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> airWallBoxes)
+        {
+            EnsurePathingServices();
+            _flowWalkableMask.Clear();
+            _moveScheduler.Clear();
+            _attackSlots.Clear();
+            _nextAdvanceMoveId = 0;
+            _slotGoalCursor = 0;
+            _lastSlotGoalRefreshCount = 0;
+            _flowFieldReady = false;
+
+            if (airWallBoxes != null)
+            {
+                for (var i = 0; i < airWallBoxes.Count; i++)
+                {
+                    var box = airWallBoxes[i];
+                    _flowWalkableMask.AddBox(
+                        StaticBoxWalkableMask.BoxObstacle.FromFullSize(box.Center, box.Size, box.Rotation));
+                }
+            }
+
+            _flowField.Configure(_mapCenter, _mapHalfExtents, FlowFieldService.DefaultCellSize);
+            _moveScheduler.BindFlowField(_flowField);
+            _flowFieldReady = true;
+            Debug.Log(
+                $"[PushMapStage] FlowField configured — cell={_flowField.CellSize} " +
+                $"grid={_flowField.Cols}x{_flowField.Rows} airWallMaskBoxes={_flowWalkableMask.BoxCount}.");
+        }
+
+        private void ClearFlowFieldPathing()
+        {
+            _flowFieldReady = false;
+            _moveScheduler?.Clear();
+            _attackSlots?.Clear();
+            _flowWalkableMask?.Clear();
+            _moveSamples.Clear();
+            _nextAdvanceMoveId = 0;
+            _slotGoalCursor = 0;
+            _lastSlotGoalRefreshCount = 0;
+        }
+
+        private void RebuildFlowFieldTowardCurrentObjective()
+        {
+            if (!_flowFieldReady || _flowField == null || _flowWalkableMask == null)
+            {
+                return;
+            }
+
+            var objective = ResolveCurrentObjective();
+            if (objective == null)
+            {
+                Debug.Log("[PushMapStage] FlowField Rebuild skipped — no CurrentObjective.");
+                return;
+            }
+
+            var before = _flowField.RebuildCount;
+            _flowField.Rebuild(objective.transform.position, _flowWalkableMask);
+            Debug.Log(
+                $"[PushMapStage] FlowField Rebuild shared field — Order={_session?.CurrentObjectiveOrder ?? 0} " +
+                $"goal={objective.transform.position} RebuildCount={_flowField.RebuildCount} (was {before}) " +
+                $"maskBoxes={_flowWalkableMask.BoxCount}.");
+        }
+
+        /// <summary>
+        /// MP-05: budgeted AttackSlot claim/release + MassMoveScheduler steer (≤50 each, round-robin).
+        /// </summary>
+        private void TickMassCombatPathing()
+        {
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            TickAttackSlotGoals();
+
+            _moveSamples.Clear();
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var view = _advanceViews[i];
+                if (view != null)
+                {
+                    _moveSamples.Add(view.BuildSample());
+                }
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster != null && monster.IsAlive && !monster.IsStationary && monster.MoveId != 0)
+                {
+                    _moveSamples.Add(monster.BuildSample());
+                }
+            }
+
+            _moveScheduler.Tick(_moveSamples);
+        }
+
+        private void TickAttackSlotGoals()
+        {
+            if (_attackSlots == null || _moveScheduler == null)
+            {
+                return;
+            }
+
+            // Build round-robin roster: loyal soldiers then chase-capable monsters.
+            var rosterCount = _advanceViews.Count + _monsters.Count;
+            if (rosterCount <= 0)
+            {
+                _lastSlotGoalRefreshCount = 0;
+                return;
+            }
+
+            var budget = Mathf.Min(MassMoveScheduler.MaxRecalcPerFrame, rosterCount);
+            var refreshed = 0;
+            for (var n = 0; n < budget; n++)
+            {
+                if (_slotGoalCursor >= rosterCount)
+                {
+                    _slotGoalCursor = 0;
+                }
+
+                if (_slotGoalCursor < _advanceViews.Count)
+                {
+                    RefreshSoldierSlotGoal(_advanceViews[_slotGoalCursor]);
+                }
+                else
+                {
+                    var mi = _slotGoalCursor - _advanceViews.Count;
+                    if (mi >= 0 && mi < _monsters.Count)
+                    {
+                        _monsters[mi]?.TryRefreshChaseGoal(_attackSlots, _moveScheduler);
+                    }
+                }
+
+                _slotGoalCursor++;
+                refreshed++;
+            }
+
+            _lastSlotGoalRefreshCount = refreshed;
+        }
+
+        private void RefreshSoldierSlotGoal(PushMapAdvanceView soldier)
+        {
+            if (soldier == null || soldier.IsRebel || _moveScheduler == null || _attackSlots == null)
+            {
+                return;
+            }
+
+            if (!soldier.TryGetEngageMonster(out var monster) || monster == null)
+            {
+                _attackSlots.Release(soldier.AttackerId);
+                _moveScheduler.SetPaused(soldier.MoveId, false);
+                _moveScheduler.SetGoal(soldier.MoveId, GoalKind.Objective);
+                return;
+            }
+
+            var targetBody = monster.BodyRadius;
+            if (!_attackSlots.TryClaim(
+                    soldier.AttackerId,
+                    monster.RuntimeTargetId,
+                    soldier.AttackRange,
+                    monster.transform.position,
+                    out var slotPos,
+                    soldier.AttackMode,
+                    soldier.transform.position,
+                    targetBody))
+            {
+                // No free slot: hold field pause near target (still not SetDestination center).
+                _moveScheduler.SetPaused(soldier.MoveId, true);
+                return;
+            }
+
+            _moveScheduler.SetPaused(soldier.MoveId, false);
+            _moveScheduler.SetGoal(
+                soldier.MoveId,
+                GoalKind.AttackSlot,
+                new Vector2(slotPos.x, slotPos.z));
         }
 
         private void ReleaseNavMesh()
@@ -916,6 +1151,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void HandleCurrentObjectiveChanged(int newOrder)
         {
+            RebuildFlowFieldTowardCurrentObjective();
             RefreshCombatHud();
         }
 

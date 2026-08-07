@@ -195,6 +195,8 @@ namespace Gravedigger2026.Meta
         private void ShowSaveSelect()
         {
             _levelDriver?.StopCurrentLevel();
+            _formation?.ClearBound();
+            _warriorPool.ClearBound();
             _dungeonUnlocks.ClearBound();
             SetStagePresentationActive(false);
 
@@ -213,9 +215,9 @@ namespace Gravedigger2026.Meta
         {
             _levelDriver?.StopCurrentLevel();
             _warehouse.Clear();
-            _warriorPool.Clear();
-            _formation?.Clear();
             _manufacture?.ClearAllSlots();
+            _warriorPool.BindSlot(slotIndex);
+            _formation?.BindSlot(slotIndex);
             _dungeonUnlocks.BindSlot(slotIndex);
             if (!_configs.IsLoaded)
             {
@@ -288,6 +290,8 @@ namespace Gravedigger2026.Meta
         private void DeleteSlot(int slotIndex)
         {
             _saveSlots.Delete(slotIndex);
+            WarriorPoolService.DeleteSlotData(slotIndex);
+            BattleFormationService.DeleteSlotData(slotIndex);
             if (_saveSelectView != null)
             {
                 _saveSelectView.RefreshAll();
