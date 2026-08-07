@@ -4,19 +4,27 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
 namespace Gravedigger2026.Editor.Config
 {
     /// <summary>
-    /// One-click Excel → CSV bake (SPEC_04 §14.4 Approach A).
+    /// One-click Excel → CSV bake (SPEC_04 §14.4 Approach A + three-row header Approach B).
     /// Menu: Gravedigger2026/Config/Bake Tables
     /// </summary>
     public static class ConfigTableBaker
     {
         private const string MenuPath = "Gravedigger2026/Config/Bake Tables";
         private const string LogPrefix = "[ConfigTableBaker]";
+        private const int MaxHeaderScanRows = 3;
+
+        /// <summary>
+        /// Legal English column id (SPEC_04 §14.4): allows dots e.g. GemMult.MaxHP.
+        /// </summary>
+        private static readonly Regex EnglishColumnId =
+            new Regex(@"^[A-Za-z_][A-Za-z0-9_.]*$", RegexOptions.Compiled);
 
         [MenuItem(MenuPath)]
         public static void BakeAllTables()
@@ -73,14 +81,28 @@ namespace Gravedigger2026.Editor.Config
                     return;
                 }
 
-                if (rows == null || rows.Count == 0 || !HeaderHasContent(rows[0]))
+                if (rows == null || rows.Count == 0)
                 {
                     Debug.LogError(
-                        $"{LogPrefix} Abort — {excelFileName}: first sheet has no header row. No CSV files were written.");
+                        $"{LogPrefix} Abort — {excelFileName}: first sheet is empty. No CSV files were written.");
                     return;
                 }
 
-                var csvText = BuildCsv(rows);
+                if (!TryFindEnglishHeaderRow(rows, out var headerIndex, out var headerError))
+                {
+                    Debug.LogError(
+                        $"{LogPrefix} Abort — {excelFileName}: {headerError}. No CSV files were written.");
+                    return;
+                }
+
+                if (headerIndex > 0)
+                {
+                    Debug.Log(
+                        $"{LogPrefix} {excelFileName}: detected {headerIndex} header documentation row(s); stripped on bake.");
+                }
+
+                var exportRows = rows.GetRange(headerIndex, rows.Count - headerIndex);
+                var csvText = BuildCsv(exportRows);
                 var csvPath = Path.Combine(csvDir, csvBase + ".csv");
                 pending.Add((excelFileName, csvPath, csvText));
             }
@@ -135,6 +157,64 @@ namespace Gravedigger2026.Editor.Config
 
             csvBase = parts[2] + "_" + parts[3];
             return true;
+        }
+
+        /// <summary>
+        /// Finds the first English column-header row within the first <see cref="MaxHeaderScanRows"/> rows.
+        /// </summary>
+        public static bool TryFindEnglishHeaderRow(
+            IReadOnlyList<string[]> rows,
+            out int headerIndex,
+            out string error)
+        {
+            headerIndex = -1;
+            error = null;
+            if (rows == null || rows.Count == 0)
+            {
+                error = "sheet has no rows";
+                return false;
+            }
+
+            var scanLimit = Math.Min(MaxHeaderScanRows, rows.Count);
+            for (var i = 0; i < scanLimit; i++)
+            {
+                if (IsEnglishHeaderRow(rows[i]))
+                {
+                    headerIndex = i;
+                    return true;
+                }
+            }
+
+            error =
+                $"no English header row in first {MaxHeaderScanRows} row(s) " +
+                $"(expected column ids matching ^[A-Za-z_][A-Za-z0-9_.]*$)";
+            return false;
+        }
+
+        private static bool IsEnglishHeaderRow(string[] row)
+        {
+            if (row == null || row.Length == 0 || !HeaderHasContent(row))
+            {
+                return false;
+            }
+
+            var sawAny = false;
+            for (var i = 0; i < row.Length; i++)
+            {
+                var cell = row[i];
+                if (string.IsNullOrWhiteSpace(cell))
+                {
+                    continue;
+                }
+
+                sawAny = true;
+                if (!EnglishColumnId.IsMatch(cell.Trim()))
+                {
+                    return false;
+                }
+            }
+
+            return sawAny;
         }
 
         private static bool HeaderHasContent(string[] header)

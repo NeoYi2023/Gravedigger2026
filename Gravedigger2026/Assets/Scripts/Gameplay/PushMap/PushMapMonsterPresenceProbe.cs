@@ -6,10 +6,10 @@ using UnityEngine;
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PM-04: living-monster-in-zone probe (SPEC_04 §9.22 capture runtime contract).
+    /// PM-04: living-monster-in-zone probe for Capture timer only (SPEC_04 §9.22).
+    /// Does not pause soldier advance — advance keeps pathing to CurrentObjective.
     /// Default: scan injected MonsterAgentView list — IsAlive && CaptureZone.ContainsXZ.
-    /// Rebels do not block capture (not part of the monster list). Pre-PM-05 the list is
-    /// naturally empty; force flag may be used for reset acceptance.
+    /// Rebels do not block capture (not part of the monster list).
     /// </summary>
     public sealed class PushMapMonsterPresenceProbe
     {

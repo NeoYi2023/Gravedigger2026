@@ -15,6 +15,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
     public sealed class ManufactureService
     {
         public const float DebugKitSpiritGrant = 500f;
+        public const string ErrorMaterialInsufficient = "材料不足";
+        public const string ErrorSpiritInsufficient = "精魂不足";
+        public const string ErrorNoRecipe = "无再造配方";
 
         private static readonly ManufactureSlotKind[] SlotLayout =
         {
@@ -254,79 +257,54 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 return false;
             }
 
-            var costs = new Dictionary<string, int>(StringComparer.Ordinal);
-            for (var i = 0; i < _slots.Count; i++)
+            var sourceItemIds = CollectOccupiedItemIds();
+            if (!TryConsumeRecipe(sourceItemIds, out var aggregate, out error))
             {
-                var slot = _slots[i];
-                if (slot.IsEmpty)
-                {
-                    continue;
-                }
-
-                costs.TryGetValue(slot.ItemId, out var current);
-                costs[slot.ItemId] = current + 1;
-            }
-
-            foreach (var pair in costs)
-            {
-                if (_warehouse.GetCount(pair.Key) < pair.Value)
-                {
-                    error = $"{pair.Key} 库存不足，制造中止";
-                    return false;
-                }
-            }
-
-            var aggregate = Aggregate();
-            if (!_warehouse.TrySpendSpirit(aggregate.SpiritCost))
-            {
-                error = "精魂不足，制造中止";
                 return false;
             }
 
-            foreach (var pair in costs)
-            {
-                _warehouse.TryConsume(pair.Key, pair.Value);
-            }
-
-            var raceId = PickRace(aggregate.RaceCandidates);
-            _configs.TryGetRace(raceId, out var raceRow);
-            var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
-            var className = aggregate.Class != null ? aggregate.Class.ClassName : string.Empty;
-            var appearanceId = PickAppearance(ComputeAvgLevelInt(aggregate.BodyLevels), raceId, className);
-
-            var staticStats = WarriorStatMath.ComputeStaticStats(
-                aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
-            var bodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
-            var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength);
-
-            instance = new WarriorInstance
-            {
-                Id = _pool.ReserveNextId(),
-                WarriorName = BuildWarriorName(aggregate, raceRow, raceId, className),
-                RemainingHP = maxHp,
-                RaceId = raceId,
-                RaceAdjustCoeff = raceAdjust,
-                BaseStats = aggregate.Base,
-                AppearanceId = appearanceId,
-                SoulId = aggregate.Soul.SoulId,
-                ClassId = aggregate.Soul.ClassId,
-                AttackMode = aggregate.Soul.AttackMode,
-                GemMult = aggregate.GemMult,
-                ControlPowerCost = aggregate.ControlPowerCost,
-                EquipStats = aggregate.Equip,
-                BodyLife = bodyLife
-            };
-            instance.LockedEquipIds.AddRange(aggregate.EquipIds);
-            instance.GemIds.AddRange(aggregate.GemIds);
-
+            instance = BuildWarriorFromAggregate(aggregate, sourceItemIds);
             _pool.Add(instance);
             ClearAllSlots();
 
             error = null;
             Debug.Log(
                 $"[UM Manufacture] {instance.Id} '{instance.WarriorName}' Race={instance.RaceId} Class={instance.ClassId} " +
-                $"Appearance={instance.AppearanceId} MaxHP={maxHp} ControlCost={instance.ControlPowerCost} " +
+                $"Appearance={instance.AppearanceId} MaxHP={instance.RemainingHP} ControlCost={instance.ControlPowerCost} " +
                 $"Spirit-{aggregate.SpiritCost:0.##} Gems={instance.GemIds.Count} Equips={instance.LockedEquipIds.Count}");
+            return true;
+        }
+
+        /// <summary>
+        /// Remakes a new warrior from an existing instance's recipe without mutating manufacture slots.
+        /// </summary>
+        public bool TryRemanufacture(string sourceWarriorId, out WarriorInstance instance, out string error)
+        {
+            instance = null;
+            if (!_pool.TryGet(sourceWarriorId, out var source) || source == null)
+            {
+                error = "士兵不存在";
+                return false;
+            }
+
+            if (source.SourceItemIds == null || source.SourceItemIds.Count == 0)
+            {
+                error = ErrorNoRecipe;
+                return false;
+            }
+
+            if (!TryConsumeRecipe(source.SourceItemIds, out var aggregate, out error))
+            {
+                return false;
+            }
+
+            instance = BuildWarriorFromAggregate(aggregate, source.SourceItemIds);
+            _pool.Add(instance);
+
+            error = null;
+            Debug.Log(
+                $"[UM Remanufacture] from={sourceWarriorId} → {instance.Id} '{instance.WarriorName}' " +
+                $"Race={instance.RaceId} Class={instance.ClassId} Appearance={instance.AppearanceId}");
             return true;
         }
 
@@ -476,86 +454,215 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
         private SlotAggregate Aggregate()
         {
-            var aggregate = new SlotAggregate();
+            return AggregateFromItemIds(CollectOccupiedItemIds());
+        }
+
+        private List<string> CollectOccupiedItemIds()
+        {
+            var ids = new List<string>();
             for (var i = 0; i < _slots.Count; i++)
             {
                 var slot = _slots[i];
-                if (slot.IsEmpty)
+                if (!slot.IsEmpty && !string.IsNullOrEmpty(slot.ItemId))
+                {
+                    ids.Add(slot.ItemId);
+                }
+            }
+
+            return ids;
+        }
+
+        private bool TryConsumeRecipe(
+            IReadOnlyList<string> sourceItemIds,
+            out SlotAggregate aggregate,
+            out string error)
+        {
+            aggregate = AggregateFromItemIds(sourceItemIds);
+            if (aggregate.Soul == null
+                || aggregate.TorsoCount < 1
+                || aggregate.ArmCount < 2
+                || aggregate.LegCount < 2)
+            {
+                error = ErrorMaterialInsufficient;
+                return false;
+            }
+
+            var costs = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var i = 0; i < sourceItemIds.Count; i++)
+            {
+                var id = sourceItemIds[i];
+                if (string.IsNullOrEmpty(id))
                 {
                     continue;
                 }
 
-                switch (slot.Kind)
+                costs.TryGetValue(id, out var current);
+                costs[id] = current + 1;
+            }
+
+            foreach (var pair in costs)
+            {
+                if (_warehouse.GetCount(pair.Key) < pair.Value)
                 {
-                    case ManufactureSlotKind.Head:
-                    case ManufactureSlotKind.Torso:
-                    case ManufactureSlotKind.Arm:
-                    case ManufactureSlotKind.Leg:
-                        if (_configs.TryGetBodyPart(slot.ItemId, out var part))
-                        {
-                            aggregate.Base.Add(part.StatBonus);
-                            aggregate.SpiritCost += part.SpiritCost;
-                            aggregate.ControlPowerCost += part.ControlPowerCost;
-                            aggregate.BodyLevels.Add(part.BodyLevel);
-                            aggregate.RaceCandidates.Add(part.RaceId);
-                            if (slot.Kind == ManufactureSlotKind.Torso)
-                            {
-                                aggregate.TorsoCount++;
-                            }
-                            else if (slot.Kind == ManufactureSlotKind.Arm)
-                            {
-                                aggregate.ArmCount++;
-                            }
-                            else if (slot.Kind == ManufactureSlotKind.Leg)
-                            {
-                                aggregate.LegCount++;
-                            }
-                        }
-
-                        break;
-                    case ManufactureSlotKind.Soul:
-                        if (_configs.TryGetSoul(slot.ItemId, out var soul))
-                        {
-                            aggregate.Soul = soul;
-                            aggregate.SpiritCost += soul.SpiritCost;
-                            aggregate.ControlPowerCost += soul.ControlPowerCost;
-                            if (_configs.TryGetClass(soul.ClassId, out var classRow))
-                            {
-                                aggregate.Class = classRow;
-                            }
-                        }
-
-                        break;
-                    case ManufactureSlotKind.Gem:
-                        if (_configs.TryGetGem(slot.ItemId, out var gem))
-                        {
-                            aggregate.GemMult.Add(gem.GemMult);
-                            aggregate.SpiritCost += gem.SpiritCost;
-                            aggregate.ControlPowerCost += gem.ControlPowerCost;
-                            aggregate.GemIds.Add(gem.GemId);
-                            aggregate.GemTypes.Add(gem.GemType);
-                        }
-
-                        break;
-                    case ManufactureSlotKind.Mount:
-                    case ManufactureSlotKind.Wing:
-                        if (_configs.TryGetExtraEquipment(slot.ItemId, out var equip))
-                        {
-                            aggregate.Equip.Add(equip.EquipStats);
-                            aggregate.SpiritCost += equip.SpiritCost;
-                            aggregate.ControlPowerCost += equip.ControlPowerCost;
-                            aggregate.EquipIds.Add(equip.EquipId);
-                            if (!string.IsNullOrEmpty(equip.NamePrefix))
-                            {
-                                aggregate.NamePrefixes.Add(equip.NamePrefix);
-                            }
-                        }
-
-                        break;
+                    error = ErrorMaterialInsufficient;
+                    return false;
                 }
             }
 
+            if (_warehouse.SpiritEssence < aggregate.SpiritCost
+                || !_warehouse.TrySpendSpirit(aggregate.SpiritCost))
+            {
+                error = ErrorSpiritInsufficient;
+                return false;
+            }
+
+            foreach (var pair in costs)
+            {
+                _warehouse.TryConsume(pair.Key, pair.Value);
+            }
+
+            error = null;
+            return true;
+        }
+
+        private WarriorInstance BuildWarriorFromAggregate(
+            SlotAggregate aggregate,
+            IReadOnlyList<string> sourceItemIds)
+        {
+            var raceId = PickRace(aggregate.RaceCandidates);
+            _configs.TryGetRace(raceId, out var raceRow);
+            var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
+            var className = aggregate.Class != null ? aggregate.Class.ClassName : string.Empty;
+            var appearanceId = PickAppearance(ComputeAvgLevelInt(aggregate.BodyLevels), raceId, className);
+
+            var staticStats = WarriorStatMath.ComputeStaticStats(
+                aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
+            var bodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
+            var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength);
+
+            var instance = new WarriorInstance
+            {
+                Id = _pool.ReserveNextId(),
+                WarriorName = BuildWarriorName(aggregate, raceRow, raceId, className),
+                RemainingHP = maxHp,
+                RaceId = raceId,
+                RaceAdjustCoeff = raceAdjust,
+                BaseStats = aggregate.Base,
+                AppearanceId = appearanceId,
+                SoulId = aggregate.Soul.SoulId,
+                ClassId = aggregate.Soul.ClassId,
+                AttackMode = aggregate.Soul.AttackMode,
+                GemMult = aggregate.GemMult,
+                ControlPowerCost = aggregate.ControlPowerCost,
+                EquipStats = aggregate.Equip,
+                BodyLife = bodyLife,
+                SourceSpiritCost = aggregate.SpiritCost
+            };
+            instance.LockedEquipIds.AddRange(aggregate.EquipIds);
+            instance.GemIds.AddRange(aggregate.GemIds);
+            for (var i = 0; i < sourceItemIds.Count; i++)
+            {
+                if (!string.IsNullOrEmpty(sourceItemIds[i]))
+                {
+                    instance.SourceItemIds.Add(sourceItemIds[i]);
+                }
+            }
+
+            return instance;
+        }
+
+        private SlotAggregate AggregateFromItemIds(IReadOnlyList<string> itemIds)
+        {
+            var aggregate = new SlotAggregate();
+            if (itemIds == null)
+            {
+                return aggregate;
+            }
+
+            for (var i = 0; i < itemIds.Count; i++)
+            {
+                var itemId = itemIds[i];
+                if (string.IsNullOrEmpty(itemId) || !TryResolveSlotKind(itemId, out var kind))
+                {
+                    continue;
+                }
+
+                ApplyItemToAggregate(aggregate, itemId, kind);
+            }
+
             return aggregate;
+        }
+
+        private void ApplyItemToAggregate(SlotAggregate aggregate, string itemId, ManufactureSlotKind kind)
+        {
+            switch (kind)
+            {
+                case ManufactureSlotKind.Head:
+                case ManufactureSlotKind.Torso:
+                case ManufactureSlotKind.Arm:
+                case ManufactureSlotKind.Leg:
+                    if (_configs.TryGetBodyPart(itemId, out var part))
+                    {
+                        aggregate.Base.Add(part.StatBonus);
+                        aggregate.SpiritCost += part.SpiritCost;
+                        aggregate.ControlPowerCost += part.ControlPowerCost;
+                        aggregate.BodyLevels.Add(part.BodyLevel);
+                        aggregate.RaceCandidates.Add(part.RaceId);
+                        if (kind == ManufactureSlotKind.Torso)
+                        {
+                            aggregate.TorsoCount++;
+                        }
+                        else if (kind == ManufactureSlotKind.Arm)
+                        {
+                            aggregate.ArmCount++;
+                        }
+                        else if (kind == ManufactureSlotKind.Leg)
+                        {
+                            aggregate.LegCount++;
+                        }
+                    }
+
+                    break;
+                case ManufactureSlotKind.Soul:
+                    if (_configs.TryGetSoul(itemId, out var soul))
+                    {
+                        aggregate.Soul = soul;
+                        aggregate.SpiritCost += soul.SpiritCost;
+                        aggregate.ControlPowerCost += soul.ControlPowerCost;
+                        if (_configs.TryGetClass(soul.ClassId, out var classRow))
+                        {
+                            aggregate.Class = classRow;
+                        }
+                    }
+
+                    break;
+                case ManufactureSlotKind.Gem:
+                    if (_configs.TryGetGem(itemId, out var gem))
+                    {
+                        aggregate.GemMult.Add(gem.GemMult);
+                        aggregate.SpiritCost += gem.SpiritCost;
+                        aggregate.ControlPowerCost += gem.ControlPowerCost;
+                        aggregate.GemIds.Add(gem.GemId);
+                        aggregate.GemTypes.Add(gem.GemType);
+                    }
+
+                    break;
+                case ManufactureSlotKind.Mount:
+                case ManufactureSlotKind.Wing:
+                    if (_configs.TryGetExtraEquipment(itemId, out var equip))
+                    {
+                        aggregate.Equip.Add(equip.EquipStats);
+                        aggregate.SpiritCost += equip.SpiritCost;
+                        aggregate.ControlPowerCost += equip.ControlPowerCost;
+                        aggregate.EquipIds.Add(equip.EquipId);
+                        if (!string.IsNullOrEmpty(equip.NamePrefix))
+                        {
+                            aggregate.NamePrefixes.Add(equip.NamePrefix);
+                        }
+                    }
+
+                    break;
+            }
         }
 
         private string BuildWarriorName(

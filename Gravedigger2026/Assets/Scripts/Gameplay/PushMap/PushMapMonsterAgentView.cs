@@ -44,6 +44,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             (_config.AggroMode == AggroMode.PassiveChase || _config.AggroMode == AggroMode.StationaryPassive);
 
         public float AttackRange => _config != null ? _config.AttackRange : 0f;
+        public float BodyRadius => _config != null ? Mathf.Max(0.05f, _config.BodyRadius) : 0.35f;
 
         /// <summary>Presence-probe shim (PM-05): the capture probe scans MonsterAgentView.IsAlive.</summary>
         public MonsterAgentView ProbeShim => _probeShim;
@@ -85,12 +86,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             _agent.stoppingDistance = Mathf.Max(0.05f, config.AttackRange * 0.85f);
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            _agent.radius = 0.35f;
+            _agent.radius = BodyRadius;
             _agent.height = 1.8f;
             _agent.autoBraking = true;
             _agent.updateRotation = false;
 
-            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 4f, NavMesh.AllAreas))
+            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, 12f, NavMesh.AllAreas))
             {
                 _agent.Warp(hit.position);
             }

@@ -25,7 +25,9 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         [SerializeField] private RectTransform _inventoryBarRoot;
         [SerializeField] private Button[] _slotCells = new Button[15];
         [SerializeField] private Text _previewText;
-        [SerializeField] private Text _poolText;
+        [SerializeField] private RectTransform _poolContent;
+        [SerializeField] private PoolSoldierFrameView _poolFrameTemplate;
+        [SerializeField] private ScrollRect _poolScroll;
         [SerializeField] private Button _grantKitButton;
         [SerializeField] private Button _clearSlotsButton;
         [SerializeField] private Button _manufactureButton;
@@ -38,6 +40,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private readonly List<Button> _inventoryCells = new List<Button>();
         private readonly List<string> _inventoryItemIds = new List<string>();
         private readonly string[] _slotLabels = new string[15];
+        private readonly List<PoolSoldierFrameView> _poolFrames = new List<PoolSoldierFrameView>();
+        private string _selectedPoolWarriorId;
 
         private enum PointerMode
         {
@@ -66,11 +70,13 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         public event Action GrantKitRequested;
         public event Action ClearSlotsRequested;
         public event Action ManufactureRequested;
+        public event Action<string> PoolRemakeRequested;
 
         private void Awake()
         {
             _canvas = GetComponentInParent<Canvas>();
             EnsureInventoryScroll();
+            EnsurePoolUi();
             if (_slotCells == null || _slotCells.Length != 15)
             {
                 _slotCells = new Button[15];
@@ -87,6 +93,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private void OnDestroy()
         {
             ClearPreviewModel();
+            ClearPoolFrames();
             if (_previewRt != null)
             {
                 if (_previewCamera != null)
@@ -217,10 +224,57 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
 
         public void SetPoolText(string text)
         {
-            if (_poolText != null)
+            // Legacy no-op kept for compile safety during transition; use RebuildPool.
+        }
+
+        public void RebuildPool(IReadOnlyList<PoolSoldierEntry> entries)
+        {
+            EnsurePoolTemplateHidden();
+            ClearPoolFrames();
+
+            if (entries == null || entries.Count == 0 || _poolContent == null || _poolFrameTemplate == null)
             {
-                _poolText.text = text ?? string.Empty;
+                _selectedPoolWarriorId = null;
+                return;
             }
+
+            var selectionStillValid = false;
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry == null || string.IsNullOrEmpty(entry.WarriorId))
+                {
+                    continue;
+                }
+
+                var frame = Instantiate(_poolFrameTemplate, _poolContent);
+                frame.gameObject.SetActive(true);
+                frame.name = $"PoolFrame_{entry.WarriorId}";
+                var canRemake = entry.CanRemake;
+                var summary = entry.Summary;
+                frame.Bind(entry.WarriorId, summary, canRemake);
+                frame.Selected += HandlePoolFrameSelected;
+                frame.RemakeRequested += HandlePoolRemakeRequested;
+                _poolFrames.Add(frame);
+
+                if (string.Equals(entry.WarriorId, _selectedPoolWarriorId, StringComparison.Ordinal))
+                {
+                    selectionStillValid = true;
+                }
+            }
+
+            if (!selectionStillValid)
+            {
+                _selectedPoolWarriorId = null;
+            }
+
+            ApplyPoolSelection();
+        }
+
+        public void ClearPoolSelection()
+        {
+            _selectedPoolWarriorId = null;
+            ApplyPoolSelection();
         }
 
         public void SetManufactureInteractable(bool interactable)
@@ -743,5 +797,249 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         {
             ManufactureRequested?.Invoke();
         }
+
+        private void HandlePoolFrameSelected(string warriorId)
+        {
+            _selectedPoolWarriorId = warriorId;
+            ApplyPoolSelection();
+        }
+
+        private void HandlePoolRemakeRequested(string warriorId)
+        {
+            PoolRemakeRequested?.Invoke(warriorId);
+        }
+
+        private void ApplyPoolSelection()
+        {
+            for (var i = 0; i < _poolFrames.Count; i++)
+            {
+                var frame = _poolFrames[i];
+                if (frame == null)
+                {
+                    continue;
+                }
+
+                frame.SetSelected(string.Equals(frame.WarriorId, _selectedPoolWarriorId, StringComparison.Ordinal));
+            }
+        }
+
+        private void ClearPoolFrames()
+        {
+            for (var i = 0; i < _poolFrames.Count; i++)
+            {
+                var frame = _poolFrames[i];
+                if (frame == null)
+                {
+                    continue;
+                }
+
+                frame.Selected -= HandlePoolFrameSelected;
+                frame.RemakeRequested -= HandlePoolRemakeRequested;
+                Destroy(frame.gameObject);
+            }
+
+            _poolFrames.Clear();
+        }
+
+        private void EnsurePoolTemplateHidden()
+        {
+            if (_poolFrameTemplate != null)
+            {
+                _poolFrameTemplate.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Builds Pool ScrollRect + frame template at runtime when Prefab still has legacy PoolText.
+        /// </summary>
+        private void EnsurePoolUi()
+        {
+            if (_poolContent != null && _poolFrameTemplate != null)
+            {
+                EnsurePoolTemplateHidden();
+                return;
+            }
+
+            var poolPanel = transform.Find("PoolPanel");
+            if (poolPanel == null)
+            {
+                return;
+            }
+
+            var legacyText = poolPanel.Find("PoolText");
+            if (legacyText != null)
+            {
+                legacyText.gameObject.SetActive(false);
+            }
+
+            var existingHeader = poolPanel.Find("PoolHeader");
+            if (existingHeader == null)
+            {
+                var headerGo = new GameObject("PoolHeader", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                headerGo.transform.SetParent(poolPanel, false);
+                var headerRt = headerGo.GetComponent<RectTransform>();
+                headerRt.anchorMin = new Vector2(0f, 0.92f);
+                headerRt.anchorMax = new Vector2(1f, 1f);
+                headerRt.offsetMin = new Vector2(2f, 2f);
+                headerRt.offsetMax = new Vector2(-2f, -2f);
+                var headerText = headerGo.GetComponent<Text>();
+                headerText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                headerText.fontSize = 14;
+                headerText.alignment = TextAnchor.MiddleCenter;
+                headerText.color = Color.white;
+                headerText.text = "士兵池";
+                headerText.raycastTarget = false;
+            }
+
+            var scrollRoot = poolPanel.Find("PoolScrollRoot");
+            if (scrollRoot == null)
+            {
+                var scrollRootGo = new GameObject("PoolScrollRoot", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                scrollRootGo.transform.SetParent(poolPanel, false);
+                var scrollRootRt = scrollRootGo.GetComponent<RectTransform>();
+                scrollRootRt.anchorMin = new Vector2(0f, 0f);
+                scrollRootRt.anchorMax = new Vector2(1f, 0.92f);
+                scrollRootRt.offsetMin = new Vector2(2f, 2f);
+                scrollRootRt.offsetMax = new Vector2(-2f, -2f);
+                scrollRootGo.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.05f);
+                scrollRoot = scrollRootGo.transform;
+            }
+
+            if (_poolScroll == null)
+            {
+                _poolScroll = scrollRoot.GetComponentInChildren<ScrollRect>(true);
+            }
+
+            if (_poolScroll == null)
+            {
+                var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+                scrollGo.transform.SetParent(scrollRoot, false);
+                var scrollRt = scrollGo.GetComponent<RectTransform>();
+                scrollRt.anchorMin = Vector2.zero;
+                scrollRt.anchorMax = Vector2.one;
+                scrollRt.offsetMin = Vector2.zero;
+                scrollRt.offsetMax = Vector2.zero;
+                scrollGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+                _poolScroll = scrollGo.GetComponent<ScrollRect>();
+                _poolScroll.horizontal = false;
+                _poolScroll.vertical = true;
+                _poolScroll.movementType = ScrollRect.MovementType.Clamped;
+                _poolScroll.scrollSensitivity = 28f;
+
+                var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+                viewportGo.transform.SetParent(scrollGo.transform, false);
+                var viewportRt = viewportGo.GetComponent<RectTransform>();
+                viewportRt.anchorMin = Vector2.zero;
+                viewportRt.anchorMax = Vector2.one;
+                viewportRt.offsetMin = Vector2.zero;
+                viewportRt.offsetMax = Vector2.zero;
+                viewportGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+
+                var contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
+                    typeof(ContentSizeFitter));
+                contentGo.transform.SetParent(viewportGo.transform, false);
+                _poolContent = contentGo.GetComponent<RectTransform>();
+                _poolContent.anchorMin = new Vector2(0f, 1f);
+                _poolContent.anchorMax = new Vector2(1f, 1f);
+                _poolContent.pivot = new Vector2(0.5f, 1f);
+                _poolContent.anchoredPosition = Vector2.zero;
+                _poolContent.sizeDelta = Vector2.zero;
+
+                var layout = contentGo.GetComponent<VerticalLayoutGroup>();
+                layout.childAlignment = TextAnchor.UpperCenter;
+                layout.spacing = 6f;
+                layout.padding = new RectOffset(6, 6, 6, 6);
+                layout.childControlHeight = true;
+                layout.childControlWidth = true;
+                layout.childForceExpandHeight = false;
+                layout.childForceExpandWidth = true;
+
+                var fitter = contentGo.GetComponent<ContentSizeFitter>();
+                fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+                fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+                _poolScroll.content = _poolContent;
+                _poolScroll.viewport = viewportRt;
+            }
+            else if (_poolContent == null)
+            {
+                _poolContent = _poolScroll.content;
+            }
+
+            if (_poolFrameTemplate == null && _poolContent != null)
+            {
+                _poolFrameTemplate = BuildRuntimePoolFrameTemplate(_poolContent);
+            }
+
+            EnsurePoolTemplateHidden();
+        }
+
+        private static PoolSoldierFrameView BuildRuntimePoolFrameTemplate(Transform content)
+        {
+            var go = new GameObject("PoolSoldierFrameTemplate", typeof(RectTransform), typeof(Image), typeof(Button),
+                typeof(LayoutElement), typeof(PoolSoldierFrameView));
+            go.transform.SetParent(content, false);
+            var bg = go.GetComponent<Image>();
+            bg.color = new Color(0.2f, 0.24f, 0.22f, 0.95f);
+            var le = go.GetComponent<LayoutElement>();
+            le.minHeight = 72f;
+            le.preferredHeight = 72f;
+            le.flexibleWidth = 1f;
+
+            var summaryGo = new GameObject("Summary", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            summaryGo.transform.SetParent(go.transform, false);
+            var summaryRt = summaryGo.GetComponent<RectTransform>();
+            summaryRt.anchorMin = new Vector2(0.04f, 0.35f);
+            summaryRt.anchorMax = new Vector2(0.96f, 0.95f);
+            summaryRt.offsetMin = Vector2.zero;
+            summaryRt.offsetMax = Vector2.zero;
+            var summary = summaryGo.GetComponent<Text>();
+            summary.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            summary.fontSize = 12;
+            summary.alignment = TextAnchor.UpperLeft;
+            summary.color = Color.white;
+            summary.text = "W_001";
+            summary.raycastTarget = false;
+
+            var remakeGo = new GameObject("RemakeButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(Button));
+            remakeGo.transform.SetParent(go.transform, false);
+            var remakeRt = remakeGo.GetComponent<RectTransform>();
+            remakeRt.anchorMin = new Vector2(0.15f, 0.05f);
+            remakeRt.anchorMax = new Vector2(0.85f, 0.38f);
+            remakeRt.offsetMin = Vector2.zero;
+            remakeRt.offsetMax = Vector2.zero;
+            remakeGo.GetComponent<Image>().color = new Color(0.32f, 0.5f, 0.36f, 1f);
+            var remakeLabelGo = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            remakeLabelGo.transform.SetParent(remakeGo.transform, false);
+            var remakeLabelRt = remakeLabelGo.GetComponent<RectTransform>();
+            remakeLabelRt.anchorMin = Vector2.zero;
+            remakeLabelRt.anchorMax = Vector2.one;
+            remakeLabelRt.offsetMin = Vector2.zero;
+            remakeLabelRt.offsetMax = Vector2.zero;
+            var remakeLabel = remakeLabelGo.GetComponent<Text>();
+            remakeLabel.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            remakeLabel.fontSize = 12;
+            remakeLabel.alignment = TextAnchor.MiddleCenter;
+            remakeLabel.color = Color.white;
+            remakeLabel.text = "再造1个";
+            remakeLabel.raycastTarget = false;
+            remakeGo.SetActive(false);
+
+            var view = go.GetComponent<PoolSoldierFrameView>();
+            // SerializeField not set at runtime — wire via reflection-free public Bind path uses private fields.
+            // Assign via Serialized-like fields using a small runtime wire helper.
+            view.RuntimeWire(go.GetComponent<Button>(), summary, remakeGo.GetComponent<Button>(), bg);
+            go.SetActive(false);
+            return view;
+        }
+    }
+
+    /// <summary>View model for one PoolPanel soldier frame.</summary>
+    public sealed class PoolSoldierEntry
+    {
+        public string WarriorId;
+        public string Summary;
+        public bool CanRemake;
     }
 }

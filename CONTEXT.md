@@ -49,6 +49,7 @@
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorName | 士兵名字 | Prefix(es)+RaceName+ClassName+Suffix | [§3.11](SPEC_03_GameRules.md) |
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
+| Remanufacture | 再造 | 按士兵实例配方快照后台再走制造流水线，成功则新增池内士兵；不足弹 Tips | [§3.11](SPEC_03_GameRules.md) |
 | BodyPart | 躯体部位 | Head/Torso/Arm/Leg 材料；BodyPartConfig（BodyLevel/StatBonus/RaceId/SpiritCost/AutoConvert 等） | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
 | BodyPartConfig | 躯体材料配置表 | BodyPartId → 等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术 | [SPEC_04 §9.12](SPEC_04_Technical.md) |
 | BodySlot | 躯体槽类型 | Head / Torso / Arm / Leg | [§3.11](SPEC_03_GameRules.md) |
@@ -109,7 +110,10 @@
 | BossPoint | BOSS 点 | 击杀该点 BOSS → PushMap 阶段通关 | [§3.14](SPEC_03_GameRules.md) |
 | AggroMode | 仇恨模式 | ActiveChase/PassiveChase/StationaryActive/StationaryPassive；异于 AttackMode | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
 | AlertRadius | 警戒半径 | AggroMode 主动发现半径 | [§3.14](SPEC_03_GameRules.md) |
+| BodyRadius | 占地半径 | 怪物 XZ 占地圆；PushMap 刷出散开与移动怪 NavMeshAgent 避障半径 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto` / `Manual` | [§3.14](SPEC_03_GameRules.md) |
+| ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
 | PushMapGameplayConfig | 推图战配置表 | MapId/经验/占领掉落/副本解锁等 | [SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapSpawnConfig | 推图战刷怪表 | SpawnPointId+MonsterId+陷阱/目标关联 | [SPEC_04 §9.23](SPEC_04_Technical.md) |
 | DefendPhase | 防守子状态 | ModeSelect / Prepare / Combat / Ended | [§3.12](SPEC_03_GameRules.md) |
@@ -127,7 +131,7 @@
 | BattleProtagonist | 战斗主角 | 地图中央；异于 Digger；Defend 用护盾承受普通攻击；烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | Shield | 护盾 | 普通攻击承受次数（敌人或叛变士兵）；开战 = ProtagonistMaxHP；归零 LevelFailure | [§3.12](SPEC_03_GameRules.md) |
 | Monster | 怪物 | 防守敌方；InsideMap/OutsideMap；ModelId 烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/AggroMode/AlertRadius/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/AggroMode/AlertRadius/BodyRadius/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | Wave | 波次 | WaveConfigId 下刷怪行集合；全触发且全灭为胜利条件之一 | [§3.12](SPEC_03_GameRules.md) |
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 顺序/剩余秒/怪物/数量/位置/方式 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.18](SPEC_04_Technical.md) |
 | WaveConfigId | 波次配置ID | DefendGameplayConfig → WaveSpawnConfig 分组键 | [SPEC_04 §9.7](SPEC_04_Technical.md) |

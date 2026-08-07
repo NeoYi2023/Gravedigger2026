@@ -15,6 +15,11 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public Vector3 Center => transform.position;
 
+        public void SetHalfExtents(Vector2 halfExtents)
+        {
+            _halfExtents = MapFootprintMath.SanitizeHalfExtents(halfExtents);
+        }
+
         public bool ContainsXZ(Vector3 worldPosition)
         {
             return MapFootprintMath.ContainsXZ(Center, HalfExtents, worldPosition);

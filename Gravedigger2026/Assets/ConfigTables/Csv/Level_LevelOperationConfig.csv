@@ -1,7 +1,7 @@
 LevelId,StageNumber,GameplayType,GameplayConfigId
 Level_01,1,Dig,Dig_01
-Level_01,2,UpgradeManufacture,Dig_02
-Level_01,3,Defend,Defend_01
+Level_01,2,UpgradeManufacture,PushMap_01
+Level_01,3,PushMap,PushMap_01
 Level_02,1,Dig,Dig_03
 Level_02,2,Defend,Defend_02
 Level_02,3,Dig,Dig_04
@@ -9,4 +9,3 @@ Level_03,1,Dig,Dig_05
 Level_03,2,UpgradeManufacture,Dig_06
 Level_03,3,Defend,Defend_03
 Level_03,4,Dig,Dig_07
-Level_01,4,PushMap,PushMap_01

@@ -1,0 +1,11 @@
+AppearanceId,AppearanceLevel,RaceId,ClassAffinity,Description,IsFallback
+App_01,1,Race_Human,战士|骑士,人类战士外观,1
+App_02,2,Race_Construct,骑士,构造体保底外形,1
+App_03,2,Race_Elf,射手|游侠,精灵远程外观,1
+App_04,3,Race_Orc,狂战士|战士,兽人蛮力外观,1
+App_05,2,Race_Undead,法师|术士,亡灵施法外观,1
+App_06,3,Race_Dwarf,骑士|圣骑士,矮人重装外观,1
+App_07,1,Race_Goblin,盗贼,哥布林外观,1
+App_08,4,Race_Demon,术士|狂战士,恶魔外观,1
+App_09,3,Race_Angel,牧师|圣骑士,天使外观,1
+App_10,2,Race_Beast,,野兽保底外形,1

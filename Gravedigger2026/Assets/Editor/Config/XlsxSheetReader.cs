@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace Gravedigger2026.Editor.Config
@@ -250,7 +251,7 @@ namespace Gravedigger2026.Editor.Config
                     return string.Empty;
                 }
 
-                return sharedStrings[idx] ?? string.Empty;
+                return SanitizeEmbeddedFloatNoise(sharedStrings[idx] ?? string.Empty);
             }
 
             if (type == "inlineStr")
@@ -264,7 +265,7 @@ namespace Gravedigger2026.Editor.Config
                 var t = isEl.Element(SsMl + "t");
                 if (t != null)
                 {
-                    return t.Value ?? string.Empty;
+                    return SanitizeEmbeddedFloatNoise(t.Value ?? string.Empty);
                 }
 
                 var sb = new StringBuilder();
@@ -273,7 +274,7 @@ namespace Gravedigger2026.Editor.Config
                     sb.Append(te.Value);
                 }
 
-                return sb.ToString();
+                return SanitizeEmbeddedFloatNoise(sb.ToString());
             }
 
             // t="str" / t="b" / numeric / default: use <v>
@@ -291,19 +292,80 @@ namespace Gravedigger2026.Editor.Config
                     : "FALSE";
             }
 
-            // Normalize integer-valued doubles so CSV matches designer integers (e.g. 80 not 80.0).
+            // SPEC_04 §14.6: normalize numeric cells — integers as int strings; floats round ≤10 dp, trim zeros (no binary noise).
             if (string.IsNullOrEmpty(type)
                 && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
                 && !double.IsNaN(number)
-                && !double.IsInfinity(number)
-                && Math.Abs(number - Math.Round(number)) < 1e-9
-                && Math.Abs(number) < 1e15)
+                && !double.IsInfinity(number))
+            {
+                return FormatNumericForCsv(number);
+            }
+
+            return SanitizeEmbeddedFloatNoise(raw);
+        }
+
+        /// <summary>
+        /// SPEC_04 §14.6 numeric CSV emit: integer-valued → integer string; else Round(10) + trim trailing zeros.
+        /// </summary>
+        internal static string FormatNumericForCsv(double number)
+        {
+            if (Math.Abs(number - Math.Round(number)) < 1e-9 && Math.Abs(number) < 1e15)
             {
                 return ((long)Math.Round(number)).ToString(CultureInfo.InvariantCulture);
             }
 
-            return raw;
+            var rounded = Math.Round(number, 10, MidpointRounding.AwayFromZero);
+            if (Math.Abs(rounded - Math.Round(rounded)) < 1e-12 && Math.Abs(rounded) < 1e15)
+            {
+                return ((long)Math.Round(rounded)).ToString(CultureInfo.InvariantCulture);
+            }
+
+            return rounded.ToString("0.##########", CultureInfo.InvariantCulture);
         }
+
+        /// <summary>
+        /// Rewrites float-noise literals embedded in encoded string fields (e.g. MoveSpeed_0.30000000000000004).
+        /// Short designer decimals (≤10 fractional digits without long 0/9 runs) stay unchanged.
+        /// </summary>
+        internal static string SanitizeEmbeddedFloatNoise(string text)
+        {
+            if (string.IsNullOrEmpty(text) || text.IndexOf('.') < 0)
+            {
+                return text;
+            }
+
+            return EmbeddedFloatLiteral.Replace(text, match =>
+            {
+                var token = match.Value;
+                var dot = token.IndexOf('.');
+                if (dot < 0)
+                {
+                    return token;
+                }
+
+                var frac = token.Substring(dot + 1);
+                var looksNoisy = frac.Length > 10
+                    || frac.Contains("000000")
+                    || frac.Contains("999999");
+                if (!looksNoisy)
+                {
+                    return token;
+                }
+
+                if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+                    || double.IsNaN(number)
+                    || double.IsInfinity(number))
+                {
+                    return token;
+                }
+
+                return FormatNumericForCsv(number);
+            });
+        }
+
+        private static readonly Regex EmbeddedFloatLiteral = new Regex(
+            @"-?\d+\.\d+",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         /// <summary>
         /// Parses A1-style refs to 0-based column/row. Supports AA1 etc.

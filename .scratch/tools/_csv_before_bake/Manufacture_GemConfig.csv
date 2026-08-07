@@ -1,0 +1,11 @@
+GemId,GemType,GemMult.MaxHP,GemMult.MoveSpeed,GemMult.Strength,GemMult.Agility,GemMult.Intelligence,Skills,SpiritCost,ControlPowerCost,LossOfControlChanceBonus
+Gem_Ruby_01,Ruby,0.1,0.05,0.15,0,0,Skill_01;1,20,3,0
+Gem_Sapphire_01,Sapphire,0,0,0.02,0.12,0,,25,4,0
+Gem_Emerald_01,Emerald,0.1,0,0.04,0.12,0,,30,5,0
+Gem_Topaz_01,Topaz,0,0.05,0,0,0,,35,6,0
+Gem_Amethyst_01,Amethyst,0.1,0,0.02,0,0.12,Skill_05;1,40,7,0
+Gem_Diamond_01,Diamond,0,0,0.04,0,0.12,,45,8,0.02
+Gem_Ruby_02,Ruby,0.1,0.05,0.15,0,0,,50,9,0
+Gem_Sapphire_02,Sapphire,0,0,0.02,0.12,0,,55,10,0
+Gem_Emerald_02,Emerald,0.1,0,0.04,0.12,0,Skill_09;1,60,11,0
+Gem_Topaz_02,Topaz,0,0.05,0,0,0,,65,12,0

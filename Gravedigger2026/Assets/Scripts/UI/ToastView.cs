@@ -23,6 +23,15 @@ namespace Gravedigger2026.UI
             SetVisible(false);
         }
 
+        public void RuntimeConfigure(GameObject root, Text messageText, float visibleSeconds)
+        {
+            _root = root;
+            _messageText = messageText;
+            _visibleSeconds = visibleSeconds;
+            EnsureCanvasGroup();
+            SetVisible(false);
+        }
+
         public void Show(string message)
         {
             if (_messageText != null)

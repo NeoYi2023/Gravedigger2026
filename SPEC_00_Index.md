@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.62.0
-**最后更新 / Last Updated:** 2026-08-06  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-08 + ModeSelect 模式2 入口 + 可选 TechTree UI-012 落地）  
+**文档版本 / Document Version:** v0.69.0
+**最后更新 / Last Updated:** 2026-08-07  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-10 + ModeSelect 模式2 入口 + 可选 TechTree UI-012 落地）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,15 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-07 | v0.69.0 | PushMap 怪物占地散开（PM-10 方案 A）：`MonsterConfig.BodyRadius`（缺省 0.35）；刷出环形/螺旋错开 + 避场上存活怪；移动怪 `NavMeshAgent.radius=BodyRadius` 持续 RVO；`Stationary*` 仅刷出占位；同步 SPEC_03 §3.14、SPEC_04 §6/§9.19/§9.23、CONTEXT |
+| 2026-08-07 | v0.68.0 | 配置表数值 CSV 禁浮点噪声（§14.6）：打表对 Excel 数值圆整至多 10 位并去尾零（例 `0.009999…`→`0.01`）；整数仍收成整串；文本单元格不圆整；同步 `XlsxSheetReader` / Python 打表镜像并重打核对 CSV |
+| 2026-08-06 | v0.67.1 | PushMap Combat 滚轮缩放 `orthographicSize`：默认仍 2；钳制 `[0.5, 20]`；前滚拉近、后滚拉远；步进 0.5/档；不切换跟随模式、恢复跟随不重置 Size；同步 SPEC_03 §3.14、SPEC_04 §6 |
+| 2026-08-06 | v0.67.0 | PushMap Combat 镜头双模式（PM-09 方案 A）：默认粘随距 CurrentObjective 最近忠诚兵（失效后重选；全灭定格）；左键拖拽入手动；底中「恢复跟随」仅手动态显示；`PushMapCameraFollowController`；同步 SPEC_03 §3.14、SPEC_04 §6、CONTEXT |
+| 2026-08-06 | v0.66.1 | PushMap `PushMapCamera.orthographicSize` 固定为 **2**（不再用 `max(half)-1.5`）；俯视角度/高度/near-far 仍对齐 Defend；同步 SPEC_04 §6 |
+| 2026-08-06 | v0.66.0 | PushMap 士兵推进卡死修复（方案 A）：Capture 探测**不**再暂停推进（圈内有怪只清占领计时）；开战顺序 Bake NavMesh→部署→`FireStartBattleSpawns`；样例图 `DigMapBounds`/`WalkSurface`/`EngageZone` 扩大覆盖目标与刷怪点；同步 SPEC_03 §3.14、SPEC_04 §6/§9.22–§9.23 |
+| 2026-08-06 | v0.65.0 | PushMap Combat 战斗相机对齐 Defend：Runtime Ensure `PushMapCamera`（正交俯视 `Euler(90,0,0)`、高度+18、`orthoSize=max(half)-1.5`、near/far）；Prepare 关相机用 FormationCamera，开战启用；修复 Runtime StageRoot 未挂相机导致落到 Boot 透视主相机；同步 SPEC_03 §3.14、SPEC_04 §6/§15.2 |
+| 2026-08-06 | v0.64.0 | UM PoolPanel 士兵框 + 再造：可滚动士兵框列表；选中显「再造1个」；`SourceItemIds`/`SourceSpiritCost` + `TryRemanufacture` 后台新增士兵；材料/精魂不足 Tips（中上部 1s）；同步 SPEC_03 §3.11、SPEC_04 §6、CONTEXT |
+| 2026-08-06 | v0.63.0 | 配置表 Excel 三行表头（方案 B）：第1行中文名、第2行中文说明、第3行英文列名、第4行起数据；`ConfigTableBaker` 打表剥离说明行，CSV 仍英文单行表头；兼容旧单行表头；同步 SPEC_04 §14.4 |
 | 2026-08-06 | v0.62.0 | Defend ModeSelect 模式2正式入口：列出全部 `PushMapGameplayConfig`；确认后 `LevelOperationDriver.TryHandoffModeSelectToPushMap` 卸 Defend → 改写上下文为 PushMap → `PushMapStageModule` Prepare；`GameplayType=PushMap` 直进路径保留；同步 SPEC_03 UI-013/D-044/§3.12/§3.14、SPEC_04 §6、CONTEXT |
 | 2026-08-06 | v0.61.0 | PushMap PM-08（方案 A）：空气墙 NavMesh——开战 Runtime Bake 将地图 `AirWall` 注入 `NavMeshBuildSource` Box + Not Walkable（含 Y 轴 45°）；敌我 Agent 均不可穿；复杂多层障碍 polish 不做；SPEC_03 §3.14、SPEC_04 §6/§9.7/§9.22/§13 |
 | 2026-08-06 | v0.60.0 | PushMap PM-07（方案 A）：BOSS 通关与奖励钩子——`TryNotifyBossKilled`→`VictorySettled(StageExpReward)` 对齐 Defend 经验/`TryAdvanceStage`；护盾归零不入账；占领 `CaptureLoot`+`DungeonUnlockIds` 存档钩子；Demo 击杀＝忠诚兵进 BOSS `AttackRange`；SPEC_03 §3.14、SPEC_04 §6/§9.22–§9.23 |
@@ -160,6 +169,15 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-07 | v0.69.0 | PushMap monster footprint spread (PM-10 Approach A): `MonsterConfig.BodyRadius` (default 0.35); spawn ring/spiral stagger + avoid living footprints; moving monsters `NavMeshAgent.radius=BodyRadius` RVO; `Stationary*` spawn placement only; synced SPEC_03 §3.14, SPEC_04 §6/§9.19/§9.23, CONTEXT |
+| 2026-08-07 | v0.68.0 | Config CSV numeric emit: forbid float noise (§14.6); bake rounds Excel numbers to ≤10 decimals and trims zeros (e.g. `0.009999…`→`0.01`); integers stay integer strings; text cells untouched; synced `XlsxSheetReader` / Python bake mirror and rebaked/verified CSV |
+| 2026-08-06 | v0.67.1 | PushMap Combat scroll zoom on `orthographicSize`: default still 2; clamp `[0.5, 20]`; scroll forward zoom-in / back zoom-out; step 0.5/notch; does not switch follow mode; ResumeFollow does not reset Size; synced SPEC_03 §3.14, SPEC_04 §6 |
+| 2026-08-06 | v0.67.0 | PushMap Combat camera dual modes (PM-09 Approach A): Auto sticky-follow closest loyal to CurrentObjective (repick on invalid; freeze when none); LMB drag → Manual; bottom-center ResumeFollow only in Manual; `PushMapCameraFollowController`; synced SPEC_03 §3.14, SPEC_04 §6, CONTEXT |
+| 2026-08-06 | v0.66.1 | PushMap `PushMapCamera.orthographicSize` fixed to **2** (no longer `max(half)-1.5`); angle/height/near-far still match Defend; synced SPEC_04 §6 |
+| 2026-08-06 | v0.66.0 | PushMap soldier advance stuck fix (Approach A): Capture probe no longer pauses advance (living monsters in zone only reset capture timer); StartBattle order Bake NavMesh→deploy→`FireStartBattleSpawns`; sample map expands `DigMapBounds`/`WalkSurface`/`EngageZone` to cover objectives/spawns; synced SPEC_03 §3.14, SPEC_04 §6/§9.22–§9.23 |
+| 2026-08-06 | v0.65.0 | PushMap Combat camera aligned with Defend: runtime Ensure `PushMapCamera` (ortho top-down `Euler(90,0,0)`, Y+18, `orthoSize=max(half)-1.5`, near/far); disable during Prepare (FormationCamera), enable on StartBattle; fixes Runtime StageRoot missing camera falling back to Boot perspective Main Camera; synced SPEC_03 §3.14, SPEC_04 §6/§15.2 |
+| 2026-08-06 | v0.64.0 | UM PoolPanel soldier frame + remanufacture: scrollable warrior list; selected shows「再造1个」; `SourceItemIds`/`SourceSpiritCost` + `TryRemanufacture` adds warrior; insufficient Tips (upper-mid 1s); synced SPEC_03 §3.11, SPEC_04 §6, CONTEXT |
+| 2026-08-06 | v0.63.0 | Config Excel three-row header (Approach B): row1 ZH name, row2 ZH notes, row3 EN columns, row4+ data; `ConfigTableBaker` strips doc rows on bake; CSV stays EN single-row header; legacy single-row header still accepted; synced SPEC_04 §14.4 |
 | 2026-08-06 | v0.62.0 | Defend ModeSelect Mode2 live entry: list all `PushMapGameplayConfig`; confirm → `LevelOperationDriver.TryHandoffModeSelectToPushMap` exits Defend → rewrite context to PushMap → `PushMapStageModule` Prepare; keep `GameplayType=PushMap` direct path; synced SPEC_03 UI-013/D-044/§3.12/§3.14, SPEC_04 §6, CONTEXT |
 | 2026-08-06 | v0.61.0 | PushMap PM-08 (Approach A): AirWall NavMesh — StartBattle runtime bake injects map `AirWall` as `NavMeshBuildSource` Box + Not Walkable (incl. Y 45°); both factions blocked; multi-layer obstacle polish out of scope; SPEC_03 §3.14, SPEC_04 §6/§9.7/§9.22/§13 |
 | 2026-08-06 | v0.60.0 | PushMap PM-07 (Approach A): Boss clear & reward hooks — `TryNotifyBossKilled`→`VictorySettled(StageExpReward)` aligned with Defend Exp/`TryAdvanceStage`; Shield≤0 no Exp; capture `CaptureLoot`+`DungeonUnlockIds` save hook; Demo kill = loyal entry into Boss `AttackRange`; SPEC_03 §3.14, SPEC_04 §6/§9.22–§9.23 |

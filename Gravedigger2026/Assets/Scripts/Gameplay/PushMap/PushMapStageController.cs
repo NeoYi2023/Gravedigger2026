@@ -11,22 +11,30 @@ using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Formation;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PushMap stage presentation bridge (Approach A / PM-03–PM-08).
+    /// PushMap stage presentation bridge (Approach A / PM-03–PM-09).
     /// Prepare reuses FormationEditorRoot; StartBattle initializes Shield/LOC. Objective chain,
     /// spawn/trap, AggroMode four-state, and PM-07 Boss clear: Demo kill = loyal entry into Boss
     /// AttackRange → NotifyKilled + TryNotifyBossKilled; VictorySettled → AddExperience → advance;
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
     /// PM-08: StartBattle NavMesh bake injects AirWall Not Walkable boxes (incl. 45°).
+    /// Combat camera: Runtime Ensure PushMapCamera (ortho top-down; Size=2).
+    /// PM-09: PushMapCameraFollowController Auto/Manual + ResumeFollow.
+    /// PM-10: BodyRadius spawn spread + NavMeshAgent.radius for RVO.
+    /// v0.66: Bake → deploy → FireStartBattleSpawns; advance does not pause on capture probe.
     /// </summary>
     public sealed class PushMapStageController : MonoBehaviour
     {
         [SerializeField] private Transform _worldRoot;
         [SerializeField] private Camera _pushMapCamera;
         [SerializeField] private DefendHudView _hudView;
+
+        private PushMapCameraFollowController _cameraFollow;
+        private GameObject _resumeFollowButtonRoot;
 
         private DefendPrefabCatalog _catalog;
         private FormationPrefabCatalog _formationCatalog;
@@ -126,6 +134,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             CollectSpawnMarkers();
             _engageZone = _mapInstance.GetComponentInChildren<EngageZone>(true);
 
+            EnsurePushMapCamera();
+            ApplyPushMapCameraPose();
             if (_pushMapCamera != null)
             {
                 _pushMapCamera.gameObject.SetActive(false);
@@ -187,6 +197,22 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _hudView.SetCombatVisible(false);
             }
 
+            DisableCameraFollow();
+            if (destroyWorld && _resumeFollowButtonRoot != null)
+            {
+                var canvas = _resumeFollowButtonRoot.GetComponentInParent<Canvas>();
+                if (canvas != null)
+                {
+                    Destroy(canvas.gameObject);
+                }
+                else
+                {
+                    Destroy(_resumeFollowButtonRoot);
+                }
+
+                _resumeFollowButtonRoot = null;
+            }
+
             ClearDeployedViews();
             ClearSpawnedMonsters();
             _objectives.Clear();
@@ -208,6 +234,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                 Destroy(_mapInstance);
                 _mapInstance = null;
             }
+
+            if (_pushMapCamera != null)
+            {
+                _pushMapCamera.gameObject.SetActive(false);
+            }
         }
 
         private void HandleStartBattleRequested()
@@ -227,13 +258,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             CloseFormationEditor();
+            EnsurePushMapCamera();
             if (_pushMapCamera != null)
             {
                 _pushMapCamera.gameObject.SetActive(true);
-                _pushMapCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
-                _pushMapCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                _pushMapCamera.orthographic = true;
-                _pushMapCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
+                ApplyPushMapCameraPose();
             }
 
             ReleaseNavMesh();
@@ -241,8 +270,10 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             BeginObjectiveChain();
             DeployCombatUnits();
+            _session.FireStartBattleSpawns();
             ResolveStartBattleRebelRolls();
             _session.NotifyBossPointPresence(_bossPoint != null);
+            EnableCameraFollowForCombat();
 
             if (_hudView != null)
             {
@@ -252,7 +283,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 RefreshCombatHud();
                 _hudView.SetHint(
                     $"忠诚兵推进/占领；进 BOSS AttackRange 击杀通关（Exp={_session.Config?.StageExpReward ?? 0}）；" +
-                    "护盾归零失败不入账");
+                    "护盾归零失败不入账；拖拽镜头可手动平移，点「恢复跟随」回默认");
             }
 
             Debug.Log(
@@ -625,14 +656,33 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var basePos = ResolveSpawnPosition(request);
             var protagonistTf = _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null;
+            var bodyRadius = Mathf.Max(0.05f, monsterRow.BodyRadius);
+
+            var occupied = new List<PushMapSpawnSpread.Footprint>(_monsters.Count);
+            for (var m = 0; m < _monsters.Count; m++)
+            {
+                var existing = _monsters[m];
+                if (existing == null || !existing.IsAlive)
+                {
+                    continue;
+                }
+
+                occupied.Add(new PushMapSpawnSpread.Footprint(
+                    existing.transform.position,
+                    existing.BodyRadius));
+            }
+
+            var spreadPositions = new List<Vector3>(request.SpawnCount);
+            PushMapSpawnSpread.ComputePositions(
+                basePos,
+                request.SpawnCount,
+                bodyRadius,
+                occupied,
+                spreadPositions);
 
             for (var i = 0; i < request.SpawnCount; i++)
             {
-                var pos = basePos;
-                if (NavMesh.SamplePosition(pos, out var hit, 3f, NavMesh.AllAreas))
-                {
-                    pos = hit.position;
-                }
+                var pos = i < spreadPositions.Count ? spreadPositions[i] : basePos;
 
                 GameObject go;
                 if (modelPrefab != null)
@@ -790,10 +840,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 {
                     advance = go.AddComponent<PushMapAdvanceView>();
                 }
-                advance.Bind(
-                    ResolveCurrentObjective,
-                    HasMonsterThreatInCurrentZone,
-                    3.5f);
+                advance.Bind(ResolveCurrentObjective, 3.5f);
                 _advanceViews.Add(advance);
             }
 
@@ -892,6 +939,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _running = false;
+            DisableCameraFollow();
             WriteDungeonUnlocksOnClear();
 
             var before = _progress != null ? _progress.LifetimeExperience : 0L;
@@ -935,6 +983,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _running = false;
+            DisableCameraFollow();
             if (_hudView != null)
             {
                 _hudView.SetPhaseText("推图战 — Ended");
@@ -963,9 +1012,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                     _hudView.SetPrepareVisible(true);
                 }
 
+                EnsurePushMapCamera();
                 if (_pushMapCamera != null)
                 {
                     _pushMapCamera.gameObject.SetActive(true);
+                    ApplyPushMapCameraPose();
                 }
 
                 return;
@@ -1011,6 +1062,149 @@ namespace Gravedigger2026.Gameplay.PushMap
                 root.transform.SetParent(transform, false);
                 _worldRoot = root.transform;
             }
+        }
+
+        /// <summary>
+        /// Runtime StageRoot has no Prefab camera; create PushMapCamera matching DefendCamera contract.
+        /// </summary>
+        private void EnsurePushMapCamera()
+        {
+            if (_pushMapCamera != null)
+            {
+                EnsureCameraFollowComponent();
+                return;
+            }
+
+            var camGo = new GameObject("PushMapCamera", typeof(Camera));
+            camGo.transform.SetParent(transform, false);
+            camGo.SetActive(false);
+            _pushMapCamera = camGo.GetComponent<Camera>();
+            _pushMapCamera.orthographic = true;
+            _pushMapCamera.clearFlags = CameraClearFlags.SolidColor;
+            _pushMapCamera.backgroundColor = new Color(0.12f, 0.14f, 0.16f, 1f);
+            _pushMapCamera.depth = 5;
+            _pushMapCamera.nearClipPlane = 0.1f;
+            _pushMapCamera.farClipPlane = 100f;
+            EnsureCameraFollowComponent();
+        }
+
+        private void EnsureCameraFollowComponent()
+        {
+            if (_pushMapCamera == null)
+            {
+                return;
+            }
+
+            _cameraFollow = _pushMapCamera.GetComponent<PushMapCameraFollowController>();
+            if (_cameraFollow == null)
+            {
+                _cameraFollow = _pushMapCamera.gameObject.AddComponent<PushMapCameraFollowController>();
+            }
+        }
+
+        private void EnableCameraFollowForCombat()
+        {
+            EnsurePushMapCamera();
+            EnsureResumeFollowButton();
+            if (_cameraFollow == null)
+            {
+                return;
+            }
+
+            _cameraFollow.Bind(_pushMapCamera, _advanceViews, ResolveCurrentObjective);
+            _cameraFollow.EnableForCombat();
+        }
+
+        private void DisableCameraFollow()
+        {
+            if (_cameraFollow != null)
+            {
+                _cameraFollow.Disable();
+            }
+
+            if (_resumeFollowButtonRoot != null)
+            {
+                _resumeFollowButtonRoot.SetActive(false);
+            }
+        }
+
+        private void EnsureResumeFollowButton()
+        {
+            if (_resumeFollowButtonRoot != null)
+            {
+                if (_cameraFollow != null)
+                {
+                    var existing = _resumeFollowButtonRoot.GetComponentInChildren<Button>(true);
+                    _cameraFollow.BindResumeButton(_resumeFollowButtonRoot, existing);
+                }
+
+                return;
+            }
+
+            var canvasGo = new GameObject(
+                "PushMapResumeFollowCanvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+            canvasGo.transform.SetParent(transform, false);
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 80;
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            var buttonGo = new GameObject("ResumeFollowButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonGo.transform.SetParent(canvasGo.transform, false);
+            var rt = buttonGo.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.1f);
+            rt.anchorMax = new Vector2(0.5f, 0.1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(220f, 56f);
+            buttonGo.GetComponent<Image>().color = new Color(0.28f, 0.42f, 0.55f, 0.95f);
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            labelGo.transform.SetParent(buttonGo.transform, false);
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            var label = labelGo.GetComponent<Text>();
+            label.text = "恢复跟随";
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.fontSize = 22;
+            label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+            _resumeFollowButtonRoot = buttonGo;
+            buttonGo.SetActive(false);
+
+            var button = buttonGo.GetComponent<Button>();
+            if (_cameraFollow != null)
+            {
+                _cameraFollow.BindResumeButton(_resumeFollowButtonRoot, button);
+            }
+        }
+
+        /// <summary>
+        /// Orthographic top-down pose aligned with Defend angle/height; Size fixed to 2.
+        /// </summary>
+        private void ApplyPushMapCameraPose()
+        {
+            if (_pushMapCamera == null)
+            {
+                return;
+            }
+
+            _pushMapCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
+            _pushMapCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            _pushMapCamera.orthographic = true;
+            _pushMapCamera.orthographicSize = 2f;
+            _pushMapCamera.nearClipPlane = 0.1f;
+            _pushMapCamera.farClipPlane = 100f;
         }
     }
 }

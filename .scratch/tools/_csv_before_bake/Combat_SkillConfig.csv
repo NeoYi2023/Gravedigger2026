@@ -1,0 +1,11 @@
+SkillId,BaseCooldownSeconds,LossOfControlChanceBonus
+Skill_01,5,0.02
+Skill_02,6,0
+Skill_03,7,-0.01
+Skill_04,8,0.02
+Skill_05,9,0
+Skill_06,10,-0.01
+Skill_07,11,0.02
+Skill_08,12,0
+Skill_09,13,-0.01
+Skill_10,14,0.02

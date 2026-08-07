@@ -1,0 +1,11 @@
+MaterialId,AutoConvert,AppearanceIconId,AssetPath,WarehouseQualityOutlineId
+Iron,1,Icons/Iron,Assets/Art/Placeholder/Iron,Outline_M1
+Bone,0.5,Icons/Bone,Assets/Art/Placeholder/Bone,Outline_M2
+Wood,1,Icons/Wood,Assets/Art/Placeholder/Wood,Outline_M3
+Stone,1.5,Icons/Stone,Assets/Art/Placeholder/Stone,Outline_M4
+Cloth,2,Icons/Cloth,Assets/Art/Placeholder/Cloth,Outline_M5
+Copper,2.5,Icons/Copper,Assets/Art/Placeholder/Copper,Outline_M6
+Silver,3,Icons/Silver,Assets/Art/Placeholder/Silver,Outline_M7
+Gold,3.5,Icons/Gold,Assets/Art/Placeholder/Gold,Outline_M8
+Crystal,4,Icons/Crystal,Assets/Art/Placeholder/Crystal,Outline_M9
+Resin,4.5,Icons/Resin,Assets/Art/Placeholder/Resin,Outline_M10

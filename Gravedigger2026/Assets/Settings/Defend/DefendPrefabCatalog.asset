@@ -26,6 +26,8 @@ MonoBehaviour:
     Prefab: {fileID: 7210777308345723106, guid: ce629b71308e93541bb64b2154d643f2, type: 3}
   - MapId: Ground_05
     Prefab: {fileID: 1713873806957860731, guid: 55f142e0142c1bd41962bd466e64bd2e, type: 3}
+  - MapId: PushMap_Demo_01
+    Prefab: {fileID: 2120705586636139558, guid: 40a8a676a8d3e264ca255100a425684b, type: 3}
   _warriorAppearances:
   - AppearanceId: App_01
     Prefab: {fileID: 3927253789114556784, guid: bba7ac13b3abf76478718a93d04db97e, type: 3}

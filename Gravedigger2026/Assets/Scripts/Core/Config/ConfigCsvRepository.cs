@@ -538,6 +538,20 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal AlertRadius '{alertText}'.");
                 }
 
+                const float defaultBodyRadius = 0.35f;
+                var bodyText = OptionalText(raw, "BodyRadius");
+                float bodyRadius;
+                if (bodyText.Length == 0)
+                {
+                    bodyRadius = defaultBodyRadius;
+                }
+                else if (!float.TryParse(bodyText, NumberStyles.Float, CultureInfo.InvariantCulture, out bodyRadius)
+                         || bodyRadius < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal BodyRadius '{bodyText}'.");
+                }
+
                 _monsterById[id] = new MonsterConfigRow
                 {
                     MonsterId = id,
@@ -547,6 +561,7 @@ namespace Gravedigger2026.Core.Config
                     AttackMode = attackMode,
                     AggroMode = aggroMode,
                     AlertRadius = alertRadius,
+                    BodyRadius = bodyRadius,
                     MaxHP = RequireFloat(raw, "MaxHP", table, rowIndex),
                     MoveSpeed = RequireFloat(raw, "MoveSpeed", table, rowIndex),
                     AttackPower = RequireFloat(raw, "AttackPower", table, rowIndex),

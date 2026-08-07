@@ -151,8 +151,35 @@ namespace Gravedigger2026.Core.PushMap
                 $"Degree={_lockedLossOfControlDegree:0.###} Tier={_lockedLossOfControlTierId} " +
                 $"TierChance={_lockedTierChance:0.###}");
 
-            LoadSpawnRowsAndFireStartBattle(configs);
+            LoadSpawnRows(configs);
             return true;
+        }
+
+        /// <summary>
+        /// PM-05 / v0.66: fire non-trap StartBattle spawns after View has baked NavMesh and deployed soldiers.
+        /// </summary>
+        public void FireStartBattleSpawns()
+        {
+            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled || _spawnRows.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _spawnRows.Count; i++)
+            {
+                var row = _spawnRows[i];
+                if (row == null || !string.IsNullOrEmpty(row.TrapZoneId))
+                {
+                    continue;
+                }
+
+                if (!row.IsBoss && IsLinkedObjectiveCaptured(row.LinkedObjectiveOrder))
+                {
+                    continue;
+                }
+
+                FireRow(row, PushMapSpawnTrigger.StartBattle);
+            }
         }
 
         /// <summary>
@@ -266,7 +293,7 @@ namespace Gravedigger2026.Core.PushMap
             }
         }
 
-        private void LoadSpawnRowsAndFireStartBattle(ConfigCsvRepository configs)
+        private void LoadSpawnRows(ConfigCsvRepository configs)
         {
             _spawnRows.Clear();
             _trapSpawnPointsFired.Clear();
@@ -286,22 +313,6 @@ namespace Gravedigger2026.Core.PushMap
 
             _spawnRows.Sort(CompareSpawnRows);
             Debug.Log($"[PushMapSession] Loaded {_spawnRows.Count} PushMapSpawn rows for '{Config.GameplayConfigId}'.");
-
-            for (var i = 0; i < _spawnRows.Count; i++)
-            {
-                var row = _spawnRows[i];
-                if (row == null || !string.IsNullOrEmpty(row.TrapZoneId))
-                {
-                    continue;
-                }
-
-                if (!row.IsBoss && IsLinkedObjectiveCaptured(row.LinkedObjectiveOrder))
-                {
-                    continue;
-                }
-
-                FireRow(row, PushMapSpawnTrigger.StartBattle);
-            }
         }
 
         private List<PushMapSpawnConfigRow> CollectRowsForPoint(string spawnPointId, bool requireTrap)

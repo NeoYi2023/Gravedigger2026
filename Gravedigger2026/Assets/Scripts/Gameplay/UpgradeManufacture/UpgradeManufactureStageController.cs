@@ -6,7 +6,9 @@ using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Formation;
+using Gravedigger2026.UI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.UpgradeManufacture
 {
@@ -15,17 +17,17 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
     /// </summary>
     public sealed class UpgradeManufactureStageController : MonoBehaviour
     {
-        private const int PoolPreviewLines = 4;
-
         [SerializeField] private UpgradeManufacturePrefabCatalog _catalog;
         [SerializeField] private UpgradePanelView _upgradePanel;
         [SerializeField] private ManufacturePanelView _manufacturePanel;
         [SerializeField] private GameObject _mainUiRoot;
         [SerializeField] private FormationPanelView _formationPanel;
+        [SerializeField] private ToastView _tipsView;
 
         private readonly List<string> _inventoryLabels = new List<string>();
         private readonly List<string> _inventoryIds = new List<string>();
         private readonly List<string> _slotLabels = new List<string>();
+        private readonly List<PoolSoldierEntry> _poolEntries = new List<PoolSoldierEntry>();
 
         private ConfigCsvRepository _configs;
         private FormationPrefabCatalog _formationCatalog;
@@ -59,6 +61,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             Action onComplete)
         {
             End();
+            EnsureTipsView();
             _configs = configs;
             _formationCatalog = formationCatalog;
             _defendCatalog = defendCatalog;
@@ -91,6 +94,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _manufacturePanel.GrantKitRequested += HandleGrantKitRequested;
                 _manufacturePanel.ClearSlotsRequested += HandleClearSlotsRequested;
                 _manufacturePanel.ManufactureRequested += HandleManufactureRequested;
+                _manufacturePanel.PoolRemakeRequested += HandlePoolRemakeRequested;
             }
 
             if (_warriorPool != null)
@@ -144,6 +148,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _manufacturePanel.GrantKitRequested -= HandleGrantKitRequested;
                 _manufacturePanel.ClearSlotsRequested -= HandleClearSlotsRequested;
                 _manufacturePanel.ManufactureRequested -= HandleManufactureRequested;
+                _manufacturePanel.PoolRemakeRequested -= HandlePoolRemakeRequested;
             }
 
             if (_warriorPool != null)
@@ -386,6 +391,106 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
         }
 
+        private void HandlePoolRemakeRequested(string warriorId)
+        {
+            if (_manufacture == null || string.IsNullOrEmpty(warriorId))
+            {
+                return;
+            }
+
+            if (!_manufacture.TryRemanufacture(warriorId, out var instance, out var error))
+            {
+                if (string.Equals(error, ManufactureService.ErrorMaterialInsufficient, StringComparison.Ordinal)
+                    || string.Equals(error, ManufactureService.ErrorSpiritInsufficient, StringComparison.Ordinal))
+                {
+                    ShowTips(error);
+                }
+                else
+                {
+                    Debug.Log($"[UM Remanufacture] 再造失败：{error}");
+                }
+
+                RefreshManufacture();
+                return;
+            }
+
+            if (_catalog != null && !_catalog.TryGetWarriorAppearance(instance.AppearanceId, out _))
+            {
+                Debug.LogWarning(
+                    $"[UM Remanufacture] 外观 Prefab 未绑定：Assets/Prefabs/Defend/Warriors/{instance.AppearanceId}.prefab");
+            }
+        }
+
+        private void ShowTips(string message)
+        {
+            EnsureTipsView();
+            if (_tipsView != null)
+            {
+                _tipsView.Show(message);
+            }
+            else
+            {
+                Debug.Log($"[UM Tips] {message}");
+            }
+        }
+
+        private void EnsureTipsView()
+        {
+            if (_tipsView != null)
+            {
+                return;
+            }
+
+            var canvas = GetComponentInChildren<Canvas>(true);
+            if (canvas == null)
+            {
+                return;
+            }
+
+            var existing = canvas.transform.Find("UmTips");
+            if (existing != null)
+            {
+                _tipsView = existing.GetComponent<ToastView>();
+                if (_tipsView != null)
+                {
+                    return;
+                }
+            }
+
+            var root = new GameObject("UmTips", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(CanvasGroup), typeof(ToastView));
+            root.transform.SetParent(canvas.transform, false);
+            var rt = root.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.82f);
+            rt.anchorMax = new Vector2(0.5f, 0.82f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(480f, 52f);
+            rt.anchoredPosition = Vector2.zero;
+            root.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.08f, 0.9f);
+
+            var textGo = new GameObject("Message", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            textGo.transform.SetParent(root.transform, false);
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+            var text = textGo.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.fontSize = 22;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+
+            var cg = root.GetComponent<CanvasGroup>();
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+
+            _tipsView = root.GetComponent<ToastView>();
+            // ToastView uses SerializeField — set via reflection-free runtime API if available.
+            _tipsView.RuntimeConfigure(root, text, 1f);
+        }
+
         private void RefreshStatus()
         {
             if (_upgradePanel == null || _progress == null)
@@ -445,7 +550,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             var preview = _manufacture.GetPreview();
             _manufacturePanel.SetPreviewText(BuildPreviewText(preview));
             _manufacturePanel.SetManufactureInteractable(preview.CanManufacture);
-            _manufacturePanel.SetPoolText(BuildPoolText());
+            _manufacturePanel.RebuildPool(BuildPoolEntries());
             RefreshWarriorVisual(preview);
         }
 
@@ -484,26 +589,34 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             return sb.ToString();
         }
 
-        private string BuildPoolText()
+        private IReadOnlyList<PoolSoldierEntry> BuildPoolEntries()
         {
-            if (_warriorPool == null || _warriorPool.Warriors.Count == 0)
+            _poolEntries.Clear();
+            if (_warriorPool == null)
             {
-                return "士兵池：空";
+                return _poolEntries;
             }
 
             var warriors = _warriorPool.Warriors;
-            var sb = new StringBuilder();
-            sb.AppendLine($"士兵池：{warriors.Count} 名");
-            var start = Math.Max(0, warriors.Count - PoolPreviewLines);
-            for (var i = start; i < warriors.Count; i++)
+            for (var i = 0; i < warriors.Count; i++)
             {
                 var w = warriors[i];
+                if (w == null)
+                {
+                    continue;
+                }
+
                 var deployed = _formation != null && _formation.IsDeployed(w.Id) ? "〔上阵〕" : string.Empty;
-                sb.AppendLine(
-                    $"{w.Id} {w.WarriorName}{deployed}｜HP {w.RemainingHP:0}｜{w.RaceId}／{w.ClassId}｜{w.AppearanceId}｜控 {w.ControlPowerCost:0.##}");
+                var canRemake = w.SourceItemIds != null && w.SourceItemIds.Count > 0;
+                _poolEntries.Add(new PoolSoldierEntry
+                {
+                    WarriorId = w.Id,
+                    Summary = $"{w.Id} {w.WarriorName}{deployed}\nHP {w.RemainingHP:0}",
+                    CanRemake = canRemake
+                });
             }
 
-            return sb.ToString();
+            return _poolEntries;
         }
     }
 }

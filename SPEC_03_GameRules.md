@@ -107,11 +107,14 @@
 | Capture | 占领 | 目标点本场判定成功状态；已占领则关联刷怪点本场停刷；可发配置奖励与解锁副本钩子（§3.14）。 |
 | AirWall | 空气墙 | 地图 Prefab 阻挡体；敌我士兵均不可进入；支持绕 Y 轴旋转 45°（及轴对齐）（§3.14）。 |
 | SpawnPoint | 刷怪点 | 地图 Prefab 上独立编号出生点；怪物种类/数量由 PushMap 关卡刷怪表驱动（§3.14）。 |
+| BodyRadius | 占地半径 | 怪物 XZ 占地圆半径（世界单位）；来自 `MonsterConfig`；PushMap 刷出散开与 `NavMeshAgent` 避障半径共用（§3.14，[SPEC_04 §9.19](SPEC_04_Technical.md)）。 |
 | TrapZone | 陷阱区域 | 地图 Prefab 上独立编号触发区；我方忠诚士兵进入后可激活绑定刷怪点（§3.14）。 |
 | BossPoint | BOSS 点 | 地图 Prefab 标记；击杀该点生成的 BOSS 怪物 → PushMap 阶段通关（§3.14）。 |
 | AggroMode | 仇恨模式 | 怪物主动/被动 × 移动/原地四态；**异于** `AttackMode`（Melee/Ranged）；见 §3.14、[SPEC_04 §9.19](SPEC_04_Technical.md)。 |
 | AlertRadius | 警戒半径 | `AggroMode` 主动态用于发现我方士兵的半径；与 `AttackRange` 并列（§3.14）。 |
 | DungeonUnlock | 副本解锁 | PushMap 占领/通关配置的副本 ID 写入存档钩子；副本玩法正文 **TBD**（§3.14）。 |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat 表现层：`Auto`（粘随最近忠诚兵）/ `Manual`（拖拽平移）；见 §3.14。 |
+| ResumeFollow | 恢复跟随 | PushMap 手动模式下底中按钮；点击回到 `Auto`；见 §3.14。 |
 | DefendPhase | 防守子状态 | 阶段内子状态：`ModeSelect`（选模式/关卡，若启用）→ `Prepare`（准备）→ `Combat`（战斗中）→ `Ended`（已结束）。 |
 | StartBattle | 开战 | 准备态 UI 按钮；点击后进入 `Combat` 并部署单位（§3.12）。 |
 | BattleMap | 战斗地图 | 防守阶段地图；逻辑为连续可走空间（非格子）；表现与 DigMap 同为 Isometric Tilemap，可共用 `Ground_*`（§3.12）。 |
@@ -236,11 +239,14 @@
 | Capture | 占领 | Objective captured this battle; linked spawns stop; may grant loot + dungeon unlock hook (§3.14). |
 | AirWall | 空气墙 | Prefab blocker; neither faction may enter; Y-rotation 45° supported (§3.14). |
 | SpawnPoint | 刷怪点 | Numbered Prefab spawn; monsters from PushMap spawn table (§3.14). |
+| BodyRadius | 占地半径 | Monster XZ footprint radius (world units) from `MonsterConfig`; shared by PushMap spawn spread and `NavMeshAgent` avoidance (§3.14, [SPEC_04 §9.19](SPEC_04_Technical.md)). |
 | TrapZone | 陷阱区域 | Numbered Prefab zone; loyal soldier enter triggers bound SpawnPoints (§3.14). |
 | BossPoint | BOSS 点 | Prefab marker; kill Boss spawned here → PushMap stage clear (§3.14). |
 | AggroMode | 仇恨模式 | Monster active/passive × chase/stationary; **not** AttackMode (Melee/Ranged); §3.14 / SPEC_04 §9.19. |
 | AlertRadius | 警戒半径 | AggroMode active detect radius; alongside AttackRange (§3.14). |
 | DungeonUnlock | 副本解锁 | Save-slot unlock hook from PushMap config; dungeon gameplay **TBD** (§3.14). |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat presentation: `Auto` (sticky closest loyal) / `Manual` (drag pan); §3.14. |
+| ResumeFollow | 恢复跟随 | PushMap Manual-only bottom-center button → back to `Auto`; §3.14. |
 | DefendPhase | 防守子状态 | In-stage phases: `ModeSelect` (if enabled) → `Prepare` → `Combat` → `Ended`. |
 | StartBattle | 开战 | Prepare-phase UI button; click → `Combat` and deploy units (§3.12). |
 | BattleMap | 战斗地图 | Defend-stage map; continuous walkable space (not a grid); presentation shares DigMap Isometric Tilemap via `Ground_*` (§3.12). |
@@ -984,7 +990,7 @@ EffectiveDigDuration countdown → 0
 | PreviewPanel | 界面 **最左侧**（库存栏左侧）：属性/精魂等 **文本预览** |
 | 中心槽位环 | 中部：中心为「士兵预览」；周围方格为各部位 `SlotRowTemplate` |
 | 槽位环方位 | **左**（上→下）：头、手臂1、腿1、**翅膀**；**右**（上→下）：躯干、手臂2、腿2、**坐骑**；**预览区内底部**：灵魂；**预览下方**：6 宝石格（边长为其它部位格的 **一半**） |
-| PoolPanel | 界面 **最右侧**（库存栏右侧）：士兵池摘要 |
+| PoolPanel | 界面 **最右侧**（库存栏右侧）：士兵池 **可滚动士兵框列表**（每兵一框，自上而下；点击选中后框内出现「再造1个」） |
 | InventoryColumn | **底部** 横滑方格栏（交互/尺寸对齐布阵 `SoldierBar`）；每项一格 |
 | 操作钮 | `GrantKitButton` / `ClearSlotsButton` / `ManufactureButton` 在库存栏 **下方**；再与「完成 / 布阵」同属底栏分区 |
 | 交互 | 库存 → 槽位为 **拖拽**（对齐 Formation 士兵栏 Input 驱动）；类型不符拒绝；可从已填槽位移出 |
@@ -1036,7 +1042,10 @@ EffectiveDigDuration countdown → 0
 | 躯体外观可视预览 | **闸门**：除宝石外全部槽位已填（头+躯干+臂×2+腿×2+灵魂+坐骑+翅膀）。未满足 → 显示静态占位图（资源可后换）；满足 → 按试算 `AppearanceId` 展示士兵外观，先播一遍攻击再循环待机（无 Animator 则静态降级） |
 | 制造按钮 | 最低材料要求满足 **且** `SpiritEssence ≥` 总精魂消耗 → 可点；否则 **不可制造**（按钮禁用或点击无效，二选一即可）。**制造闸门不变**（头/宝石/坐骑/翅膀对提交仍可选） |
 | 动画 | 制造动画为表现层；规则层在确认消耗后提交生成 |
-| 完成时 | 扣除材料与精魂；定稿种族与 **躯体外观**；写入属性快照、`AppearanceId` 与 `WarriorName`；实例进入可上阵池 |
+| 完成时 | 扣除材料与精魂；定稿种族与 **躯体外观**；写入属性快照、`AppearanceId` 与 `WarriorName`；写入 **消耗材料配方**（各非空槽 `ItemId` 列表）与当时 **精魂总消耗**；实例进入可上阵池 |
+| 士兵框 | PoolPanel 内每名士兵一框：展示 `Id`、名称、剩余 HP（已上阵可标〔上阵〕）；点击选中 → 框内显「再造1个」（无配方快照的旧实例不可再造） |
+| 再造 | 以该兵配方 **后台** 再走制造流水线（不改动当前制造槽）；成功则 **新增** 池内士兵（原兵保留）；失败不扣料 |
+| 再造不足 Tips | 材料同 Id 数量不足 → 取消，屏幕中上部 Tips「材料不足」停留 **1 秒**；精魂不够 → Tips「精魂不足」停留 **1 秒** |
 
 **制造槽位（ManufactureSlot；严格类型）**
 
@@ -1292,7 +1301,7 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 | PreviewPanel | **Far left** (left of inventory bar): attribute / Spirit **text preview** |
 | Center slot ring | Middle: center **soldier visual preview**; surrounding squares are slot cells |
 | Slot ring positions | **Left** (top→bottom): Head, Arm1, Leg1, **Wing**; **Right** (top→bottom): Torso, Arm2, Leg2, **Mount**; **bottom inside preview**: Soul; **below preview**: 6 gem cells (half the side length of other slot cells) |
-| PoolPanel | **Far right** (right of inventory bar): warrior pool summary |
+| PoolPanel | **Far right** (right of inventory bar): scrollable **soldier frame list** (one frame per warrior, top→bottom; tap to select → show「Remake×1」in frame) |
 | InventoryColumn | **Bottom** horizontal square bar (interaction/size aligned with Formation `SoldierBar`); one cell per item |
 | Action buttons | `GrantKit` / `ClearSlots` / `Manufacture` **below** inventory; Complete / Formation share the bottom band |
 | Interaction | Inventory → slots via **drag** (Formation soldier-bar Input style); reject type mismatch; can remove from filled slots |
@@ -1344,7 +1353,10 @@ Drag materials into slots → on each successful add/remove, refresh text previe
 | Visual BodyAppearance preview | **Gate**: all non-gem slots filled (Head+Torso+Arm×2+Leg×2+Soul+Mount+Wing). Else → static placeholder image (art swappable later); when met → show trial `AppearanceId` warrior, play attack once then loop idle (static fallback if no Animator) |
 | Manufacture button | Enabled only if min requirements met **and** `SpiritEssence ≥` total Spirit cost; else **cannot manufacture**. **Manufacture commit gate unchanged** (Head/gems/Mount/Wing still optional for submit) |
 | VFX | Presentation only; rules commit after cost confirmation |
-| On complete | Deduct materials + Spirit; finalize Race and **BodyAppearance**; write snapshot, `AppearanceId`, `WarriorName`; add to deployable pool |
+| On complete | Deduct materials + Spirit; finalize Race and **BodyAppearance**; write snapshot, `AppearanceId`, `WarriorName`; write **consumed material recipe** (non-empty slot `ItemId` list) and **Spirit cost at manufacture**; add to deployable pool |
+| Soldier frame | One frame per pool warrior in PoolPanel: show `Id`, name, remaining HP (〔Deployed〕 if on formation); tap to select → show「Remake×1」(no remake if recipe snapshot missing) |
+| Remake | Re-run manufacture pipeline **in background** from that warrior's recipe (do **not** change current slots); success → **add** a new pool warrior (original kept); failure → no consume |
+| Remake shortage Tips | Insufficient same-Id materials → cancel, upper-center Tips「材料不足」for **1s**; insufficient Spirit → Tips「精魂不足」for **1s** |
 
 **Manufacture slots (strict typing)**
 
@@ -2255,7 +2267,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 
 **状态：框架已定义（规则库）；Prepare/开战/护盾/失控/士兵战斗复用 §3.12；目标点链/判定圈占领/空气墙/刷怪点/陷阱/BOSS 通关/AggroMode 已锁定；副本玩法正文 TBD（仅解锁钩子）；Demo 实现须另授权并拆切片（见 `.scratch/push-map/issues/`）**
 
-当关卡当前阶段 `玩法类型 = PushMap` 时进入本阶段。亦可通过 Defend 阶段 `BattleModeSelect` 选模式2「推图战」经 `TryHandoffModeSelectToPushMap` 进入本规则（见 §3.8 D-044；规则以本节为准）。依赖 §3.11 **战斗布阵**。配置见 [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`、[§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`、[§9.19](SPEC_04_Technical.md) `MonsterConfig`（含 `AggroMode` / `AlertRadius`）、[§9.20](SPEC_04_Technical.md) `LossOfControlConfig`。
+当关卡当前阶段 `玩法类型 = PushMap` 时进入本阶段。亦可通过 Defend 阶段 `BattleModeSelect` 选模式2「推图战」经 `TryHandoffModeSelectToPushMap` 进入本规则（见 §3.8 D-044；规则以本节为准）。依赖 §3.11 **战斗布阵**。配置见 [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`、[§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`、[§9.19](SPEC_04_Technical.md) `MonsterConfig`（含 `AggroMode` / `AlertRadius` / `BodyRadius`）、[§9.20](SPEC_04_Technical.md) `LossOfControlConfig`。
 
 **与 Defend 的关系（复用边界，方案 2C）**
 
@@ -2266,6 +2278,8 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 护盾 / 失控 | 同 §3.12：`Shield` 初值=`ProtagonistMaxHP`；`Shield ≤ 0` → **LevelFailure**；开战锁定 Degree/Tier + Rebel |
 | 士兵战斗 | 同 §3.12 WarriorCombat（EngageZone / AttackMode Melee\|Ranged / 命中方案 D）；**第一版仅普攻** |
 | 不复用 | Defend 倒计时刷怪（`WaveSpawnConfig` / `SpawnRemainingSeconds`）；清场胜利条件（刷怪行全触发+全灭） |
+| 表现机位 | 与 Defend **同为正交俯视**（`Euler(90,0,0)`）；Combat 须启用专用战斗相机，不得落到场景透视主相机（见 [SPEC_04 §6](SPEC_04_Technical.md)） |
+| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。`CameraFollowMode`：`Auto`（默认）= 粘随距 **CurrentObjective** 最近的**忠诚**士兵（`!IsRebel`）；目标失效（销毁/失活/叛变；真实 `CombatDead` 接入后并入）后重选；无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。`Manual` = 左键拖动画布，镜头 XZ 平移；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度不变；开战默认 `orthographicSize=2`；Combat 滚轮缩放 Size，钳制 **`[0.5, 20]`**（前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
 
 **阶段内子状态（PushMapPhase）**
 
@@ -2304,6 +2318,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 |------|------|
 | 顺序 | 按 `ObjectiveOrder` 升序；开战后当前目标 = 最小未占领 Order |
 | 士兵推进 | **全队共当前目标**：所有忠诚士兵自动以当前目标点为推进目的地（可途中被 EngageZone 内敌人打断选敌；无候选则继续向当前目标） |
+| 推进 ≠ 占领探测 | **圈内有存活怪物只影响占领计时**（清零重计），**不**单独暂停推进；Engage 打断仅在接入 §3.12 WarriorCombat 选敌时发生（本版 Demo 推进层持续驶向当前目标） |
 | 到达 | 士兵进入该目标 `CaptureZone` 后参与占领计时（无需全部到达） |
 | 判定「无敌人」 | 圈内 **无存活怪物**；叛变士兵 **不**计入阻挡占领的「敌人」 |
 | 计时 | 圈内连续 **5 秒**满足「无敌人」→ **占领（Capture）**；期间若有怪物进入/存活于圈内则计时清零重计 |
@@ -2324,8 +2339,11 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 无陷阱刷怪 | 开战瞬间：若该刷怪点 **未** 绑定陷阱，且其 **关联目标点尚未占领**（或未关联目标=全局，开战即符合）→ 按行生成 |
 | 陷阱刷怪 | 绑定 `TrapZoneId` 的刷怪点：我方忠诚士兵 **首次**进入该陷阱区且关联目标未占领 → 生成；本场每点默认触发一次（重复进入不重复刷，除非配置另开 **TBD**） |
 | 占领停刷 | 关联目标已占领 → 该点不再新刷；场上已有怪保留 |
+| 占地散开 | 同点 `SpawnCount>1` 或邻近已刷存活怪：按各自 `MonsterConfig.BodyRadius` 在可走面上错开落点，使 XZ 占地圆不重叠（NavMesh 采样失败时可略收缩环半径，最终可回退采样点）；陷阱后刷同样避让场上已有怪 |
+| 持续避让 | Combat 中 **移动**怪：`NavMeshAgent.radius = BodyRadius`，靠内置避障互避；`Stationary*` 不主动位移避让，仅依赖刷出占位；士兵 Agent 半径本片保持极小（怪–兵叠影 **后置**） |
 | 禁止 | PushMap **不**使用 `RemainingCombatSeconds` / `WaveSpawnConfig` 倒计时激活 |
-| Demo 实现边界 | PM-05（刷怪/陷阱）：怪物 AI 暂用 Defend 默认追击（非四态，见 §9.23 契约）；AggroMode 四态与 BOSS 通关结算 **后置**（PM-06/07）；刷怪资格 / 触发状态归 `PushMapSessionService`，位置由表现层按 `SpawnPointId` / `BossPoint` 解析 |
+| Demo 实现边界 | PM-05（刷怪/陷阱）：怪物 AI 暂用 Defend 默认追击（非四态，见 §9.23 契约）；AggroMode 四态与 BOSS 通关结算 **后置**（PM-06/07）；刷怪资格 / 触发状态归 `PushMapSessionService`，位置由表现层按 `SpawnPointId` / `BossPoint` 解析；**开战顺序**：Bake NavMesh → 部署忠诚兵 → `FireStartBattleSpawns`（避免先刷怪后 Bake 导致 Agent 未上网格）；占地散开与 Agent 半径见 **PM-10** |
+| Demo 可走面边界 | `DigMapBounds`（及 `WalkSurface` / `EngageZone`）须覆盖样例图上目标点 / 刷怪点 / BossPoint；NavMesh Runtime Bake 以 `DigMapBounds` 为准；标记落在界外会导致推进/刷怪无法上网格 |
 
 **BOSS 与胜负**
 
@@ -2349,6 +2367,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 |------|------|
 | AttackMode | 仍为 `Melee` / `Ranged`（命中方案 D） |
 | AlertRadius | 主动发现半径；缺省可 = `AttackRange`（实现时锁定） |
+| BodyRadius | XZ 占地半径；缺省 `0.35`；PushMap 刷出散开与移动怪 `NavMeshAgent.radius` 共用（[SPEC_04 §9.19](SPEC_04_Technical.md)） |
 | TargetSelect | 仍可参考 §3.12；PushMap 默认优先当前威胁士兵 |
 
 **经验与科技点边界**
@@ -2383,14 +2402,14 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 | 优先级 | 内容 |
 |--------|------|
 | P0 | 地图标记契约、配置表、Stage 接线、目标点占领、刷怪/陷阱、BOSS 通关、护盾失败（已落地 PM-01～05/07） |
-| P1 | AggroMode 四态、空气墙 NavMesh（已落地 PM-06 / PM-08） |
+| P1 | AggroMode 四态、空气墙 NavMesh（已落地 PM-06 / PM-08）；Combat 镜头双模式跟随（已落地 PM-09）；怪物占地散开 / BodyRadius（已落地 PM-10） |
 | P2 | 占领奖励表现、副本解锁 UI；副本玩法另专题 |
 
 ### English
 
 **Status: Framework defined (rules library); Prepare/StartBattle/Shield/LossOfControl/WarriorCombat reuse §3.12; objective chain / CaptureZone / AirWall / SpawnPoint / TrapZone / Boss clear / AggroMode locked; Dungeon gameplay body TBD (unlock hook only); Demo implementation requires separate authorization and issue splits (see `.scratch/push-map/issues/`)**
 
-Entered when Level stage `GameplayType = PushMap`. May also be entered via Defend `BattleModeSelect` Mode2「推图战」through `TryHandoffModeSelectToPushMap` (see §3.8 D-044; rules authority is this section). Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`, [§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`, [§9.19](SPEC_04_Technical.md) `MonsterConfig` (`AggroMode` / `AlertRadius`), [§9.20](SPEC_04_Technical.md) `LossOfControlConfig`.
+Entered when Level stage `GameplayType = PushMap`. May also be entered via Defend `BattleModeSelect` Mode2「推图战」through `TryHandoffModeSelectToPushMap` (see §3.8 D-044; rules authority is this section). Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.22](SPEC_04_Technical.md) `PushMapGameplayConfig`, [§9.23](SPEC_04_Technical.md) `PushMapSpawnConfig`, [§9.19](SPEC_04_Technical.md) `MonsterConfig` (`AggroMode` / `AlertRadius` / `BodyRadius`), [§9.20](SPEC_04_Technical.md) `LossOfControlConfig`.
 
 **Relation to Defend (reuse boundary, Approach 2C)**
 
@@ -2401,6 +2420,8 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Shield / LOC | Same as §3.12: Shield init = `ProtagonistMaxHP`; `Shield ≤ 0` → **LevelFailure**; StartBattle locks Degree/Tier + Rebel |
 | WarriorCombat | Same §3.12 (EngageZone / AttackMode Melee\|Ranged / hit scheme D); **v1 normal attacks only** |
 | Not reused | Defend countdown spawns (`WaveSpawnConfig` / `SpawnRemainingSeconds`); clear-all victory (all rows fired + all killed) |
+| Presentation camera | Same orthographic top-down as Defend (`Euler(90,0,0)`); Combat must enable a dedicated battle camera — must not fall back to scene perspective Main Camera (see [SPEC_04 §6](SPEC_04_Technical.md)) |
+| Camera follow | Combat only (Prepare keeps FormationCamera). `CameraFollowMode`: `Auto` (default) = sticky-follow closest **loyal** (`!IsRebel`) to **CurrentObjective**; on invalid (destroyed/inactive/rebel; real `CombatDead` joins later) → repick; no loyal left → **freeze** last pose (not protagonist, not map center). `Manual` = LMB drag pans camera XZ; bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height unchanged; StartBattle default `orthographicSize=2`; Combat scroll-wheel zooms Size clamped **`[0.5, 20]`** (forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
 
 **PushMapPhase**
 
@@ -2439,6 +2460,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 |------|-------|
 | Order | Ascending `ObjectiveOrder`; current = min uncaptured |
 | Advance | **Shared current objective** for all loyal soldiers |
+| Advance ≠ capture probe | Living monsters in zone **only** reset the capture timer — they do **not** alone pause advance; Engage interrupt applies only when §3.12 WarriorCombat targeting is wired (this Demo advance layer keeps pathing to current objective) |
 | Arrive | Entering `CaptureZone` participates in capture timing |
 | “No enemies” | No **living Monsters** inside zone; Rebels do **not** block Capture |
 | Timer | Continuous **5s** with no enemies → **Capture**; monster presence resets timer |
@@ -2459,8 +2481,11 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Non-trap | At StartBattle: if no trap bind and linked objective uncaptured → spawn rows |
 | Trap | Bound `TrapZoneId`: first loyal enter while objective uncaptured → spawn once per point this battle (re-enter no re-spawn unless config TBD) |
 | Capture stop | Captured linked objective → no new spawns; living remain |
+| Footprint spread | Same-point `SpawnCount>1` or nearby living monsters: stagger on walkable NavMesh by each `MonsterConfig.BodyRadius` so XZ footprint circles do not overlap (may shrink ring on SamplePosition failure; final fallback to sampled base); trap spawns likewise avoid existing living monsters |
+| Ongoing avoidance | **Moving** monsters in Combat: `NavMeshAgent.radius = BodyRadius` (built-in avoidance); `Stationary*` do not relocate for avoidance (spawn placement only); soldier agent radius stays tiny this slice (monster–soldier stacking **deferred**) |
 | Forbidden | PushMap does **not** use `RemainingCombatSeconds` / `WaveSpawnConfig` activation |
-| Demo impl boundary | PM-05 (spawn/trap): monsters use Defend default-chase AI (not four-state, §9.23 contract); AggroMode four-state and Boss-clear settlement **deferred** (PM-06/07); spawn eligibility/trigger state in `PushMapSessionService`; position resolved by View via `SpawnPointId` / `BossPoint` |
+| Demo impl boundary | PM-05 (spawn/trap): monsters use Defend default-chase AI (not four-state, §9.23 contract); AggroMode four-state and Boss-clear settlement **deferred** (PM-06/07); spawn eligibility/trigger state in `PushMapSessionService`; position resolved by View via `SpawnPointId` / `BossPoint`; **StartBattle order**: Bake NavMesh → deploy loyal soldiers → `FireStartBattleSpawns` (avoids agents off-mesh when spawning before bake); footprint spread + agent radius → **PM-10** |
+| Demo walkable edge | `DigMapBounds` (and `WalkSurface` / `EngageZone`) must cover sample objectives / spawn points / BossPoint; runtime NavMesh bake uses `DigMapBounds`; markers outside the diamond leave advance/spawns unable to sit on NavMesh |
 
 **Boss & win/lose**
 
@@ -2480,7 +2505,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | `StationaryActive` | No move; attack while loyal in `AttackRange`; stop when leave |
 | `StationaryPassive` | No move; only after attacked and target still in `AttackRange` |
 
-`AttackMode` remains Melee/Ranged (hit scheme D). `AlertRadius` defaults may equal `AttackRange`.
+`AttackMode` remains Melee/Ranged (hit scheme D). `AlertRadius` defaults may equal `AttackRange`. `BodyRadius` defaults to `0.35`; PushMap spawn spread and moving-monster `NavMeshAgent.radius` share it ([SPEC_04 §9.19](SPEC_04_Technical.md)).
 
 **Exp boundary:** Only Boss-clear credits `LifetimeExperience`; capture loot has no Exp; normal kills grant no Exp.
 

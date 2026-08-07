@@ -9,6 +9,7 @@ namespace Gravedigger2026.Core.Config
         public AttackMode AttackMode;
         public AggroMode AggroMode;
         public float AlertRadius;
+        public float BodyRadius;
         public float MaxHP;
         public float MoveSpeed;
         public float AttackPower;

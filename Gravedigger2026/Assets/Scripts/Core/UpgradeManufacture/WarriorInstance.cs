@@ -26,5 +26,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public float ControlPowerCost;
         public StatBlock EquipStats;
         public float BodyLife;
+
+        /// <summary>Non-empty slot ItemIds consumed at manufacture (recipe for remake).</summary>
+        public readonly List<string> SourceItemIds = new List<string>();
+
+        /// <summary>Spirit cost paid at manufacture (recipe gate for remake).</summary>
+        public float SourceSpiritCost;
     }
 }

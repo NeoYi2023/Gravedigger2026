@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using Gravedigger2026.Gameplay.Defend;
+using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Maps;
 using Gravedigger2026.Gameplay.PushMap;
 using UnityEditor;
@@ -91,6 +92,9 @@ namespace Gravedigger2026.Editor.PushMap
                     Debug.LogWarning(
                         "[PushMapSampleMapBuilder] WalkSurface missing on sample map — expected from Ground_01.");
                 }
+
+                // Cover authored markers (objectives / spawns / Boss) on hand-tuned sample layout.
+                EnsureFootprint(contents, new Vector2(40f, 20f), engageScale: 0.85f);
 
                 PrefabUtility.SaveAsPrefabAsset(contents, SamplePrefabPath);
             }
@@ -215,6 +219,30 @@ namespace Gravedigger2026.Editor.PushMap
             }
 
             EditorUtility.SetDirty(t.gameObject);
+        }
+
+        private static void EnsureFootprint(GameObject mapRoot, Vector2 digHalfExtents, float engageScale)
+        {
+            var dig = mapRoot.GetComponentInChildren<DigMapBounds>(true);
+            if (dig != null)
+            {
+                dig.SetHalfExtents(digHalfExtents);
+                EditorUtility.SetDirty(dig);
+            }
+
+            var walk = mapRoot.GetComponentInChildren<WalkSurfaceIsoDiamond>(true);
+            if (walk != null)
+            {
+                walk.SetHalfExtents(digHalfExtents);
+                EditorUtility.SetDirty(walk);
+            }
+
+            var engage = mapRoot.GetComponentInChildren<EngageZone>(true);
+            if (engage != null)
+            {
+                engage.SetHalfExtents(digHalfExtents * Mathf.Clamp01(engageScale));
+                EditorUtility.SetDirty(engage);
+            }
         }
     }
 }

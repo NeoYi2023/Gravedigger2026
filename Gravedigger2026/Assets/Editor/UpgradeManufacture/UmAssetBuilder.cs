@@ -4,6 +4,7 @@ using System.IO;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using Gravedigger2026.Meta;
+using Gravedigger2026.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,7 +24,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
         private const string StageRootPath = PrefabUmDir + "/UpgradeManufactureStageRoot.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0500";
+        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0640";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -215,6 +216,8 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             StretchFill(manufactureZone.GetComponent<RectTransform>(), new Vector2(0f, 0.12f), new Vector2(1f, 0.92f), 8f);
             var manufactureView = BuildManufactureZone(manufactureZone.transform, previewAnchor, previewCam);
 
+            var umTips = BuildUmTips(canvasGo.transform);
+
             // Upgrade Modal (ConfirmDialog-style)
             var upgradeModal = CreateUiPanel(panelRoot.transform, "UpgradeModal", new Color(0f, 0f, 0f, 0.55f));
             Stretch(upgradeModal.GetComponent<RectTransform>());
@@ -268,6 +271,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             cso.FindProperty("_manufacturePanel").objectReferenceValue = manufactureView;
             cso.FindProperty("_mainUiRoot").objectReferenceValue = panelRoot;
             cso.FindProperty("_formationPanel").objectReferenceValue = null;
+            cso.FindProperty("_tipsView").objectReferenceValue = umTips;
             cso.ApplyModifiedPropertiesWithoutUndo();
 
             panelRoot.SetActive(false);
@@ -282,11 +286,15 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             var previewText = CreateUiText(previewPanel.transform, "PreviewText", "制造区预览", 13, TextAnchor.UpperLeft);
             StretchFill(previewText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 6f);
 
-            // Right PoolPanel
+            // Right PoolPanel — scrollable soldier frames
             var poolPanel = CreateUiPanel(zone, "PoolPanel", new Color(0.13f, 0.16f, 0.14f, 0.95f));
             StretchFill(poolPanel.GetComponent<RectTransform>(), new Vector2(0.78f, 0.22f), new Vector2(0.99f, 0.98f), 2f);
-            var poolText = CreateUiText(poolPanel.transform, "PoolText", "士兵池：空", 13, TextAnchor.UpperLeft);
-            StretchFill(poolText.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 6f);
+            var poolHeader = CreateUiText(poolPanel.transform, "PoolHeader", "士兵池", 14, TextAnchor.MiddleCenter);
+            StretchFill(poolHeader.GetComponent<RectTransform>(), new Vector2(0f, 0.92f), new Vector2(1f, 1f), 2f);
+            var poolScrollRoot = CreateUiPanel(poolPanel.transform, "PoolScrollRoot", new Color(0f, 0f, 0f, 0.05f));
+            StretchFill(poolScrollRoot.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0.92f), 2f);
+            var poolContent = CreateVerticalScrollBar(poolScrollRoot.transform, out var poolScroll);
+            var poolFrameTemplate = CreatePoolSoldierFrameTemplate(poolContent);
 
             // Center SlotColumn + soldier preview
             var slotColumn = CreateUiPanel(zone, "SlotColumn", new Color(0.14f, 0.15f, 0.2f, 0.9f));
@@ -370,7 +378,9 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             }
 
             so.FindProperty("_previewText").objectReferenceValue = previewText;
-            so.FindProperty("_poolText").objectReferenceValue = poolText;
+            so.FindProperty("_poolContent").objectReferenceValue = poolContent;
+            so.FindProperty("_poolFrameTemplate").objectReferenceValue = poolFrameTemplate;
+            so.FindProperty("_poolScroll").objectReferenceValue = poolScroll;
             so.FindProperty("_grantKitButton").objectReferenceValue = grantKit.GetComponent<Button>();
             so.FindProperty("_clearSlotsButton").objectReferenceValue = clearSlots.GetComponent<Button>();
             so.FindProperty("_manufactureButton").objectReferenceValue = manufacture.GetComponent<Button>();
@@ -443,6 +453,110 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             scroll.content = content;
             scroll.viewport = viewportGo.GetComponent<RectTransform>();
             return content;
+        }
+
+        private static RectTransform CreateVerticalScrollBar(Transform parent, out ScrollRect scroll)
+        {
+            var scrollGo = new GameObject("Scroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
+            scrollGo.transform.SetParent(parent, false);
+            StretchFill(scrollGo.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 2f);
+            scrollGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            StretchFill(viewportGo.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, 0f);
+            viewportGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var content = contentGo.GetComponent<RectTransform>();
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = new Vector2(0f, 0f);
+
+            var layout = contentGo.GetComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.spacing = 6f;
+            layout.padding = new RectOffset(6, 6, 6, 6);
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = true;
+
+            var fitter = contentGo.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.content = content;
+            scroll.viewport = viewportGo.GetComponent<RectTransform>();
+            return content;
+        }
+
+        private static PoolSoldierFrameView CreatePoolSoldierFrameTemplate(Transform content)
+        {
+            var go = new GameObject("PoolSoldierFrameTemplate", typeof(RectTransform), typeof(Image), typeof(Button),
+                typeof(LayoutElement), typeof(PoolSoldierFrameView));
+            go.transform.SetParent(content, false);
+            var bg = go.GetComponent<Image>();
+            bg.color = new Color(0.2f, 0.24f, 0.22f, 0.95f);
+            var le = go.GetComponent<LayoutElement>();
+            le.minHeight = 72f;
+            le.preferredHeight = 72f;
+            le.flexibleWidth = 1f;
+
+            var summary = CreateUiText(go.transform, "Summary", "W_001 士兵", 12, TextAnchor.UpperLeft);
+            StretchFill(summary.GetComponent<RectTransform>(), new Vector2(0.04f, 0.35f), new Vector2(0.96f, 0.95f), 2f);
+
+            var remake = CreateUiButton(go.transform, "RemakeButton", "再造1个", new Color(0.32f, 0.5f, 0.36f, 1f));
+            StretchFill(remake.GetComponent<RectTransform>(), new Vector2(0.15f, 0.05f), new Vector2(0.85f, 0.38f), 2f);
+            SetButtonFontSize(remake, 12);
+            remake.SetActive(false);
+
+            var view = go.GetComponent<PoolSoldierFrameView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_frameButton").objectReferenceValue = go.GetComponent<Button>();
+            so.FindProperty("_summaryText").objectReferenceValue = summary;
+            so.FindProperty("_remakeButton").objectReferenceValue = remake.GetComponent<Button>();
+            so.FindProperty("_background").objectReferenceValue = bg;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            go.SetActive(false);
+            return view;
+        }
+
+        private static ToastView BuildUmTips(Transform canvas)
+        {
+            var root = CreateUiPanel(canvas, "UmTips", new Color(0.05f, 0.05f, 0.08f, 0.9f));
+            Place(root.GetComponent<RectTransform>(), new Vector2(0.5f, 0.82f), new Vector2(0.5f, 0.82f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(480f, 52f));
+            var text = CreateUiText(root.transform, "Message", string.Empty, 22, TextAnchor.MiddleCenter);
+            Stretch(text.GetComponent<RectTransform>());
+
+            var cg = root.GetComponent<CanvasGroup>();
+            if (cg == null)
+            {
+                cg = root.AddComponent<CanvasGroup>();
+            }
+
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+
+            var view = root.AddComponent<ToastView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_messageText").objectReferenceValue = text;
+            so.FindProperty("_visibleSeconds").floatValue = 1f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            root.SetActive(true);
+            return view;
         }
 
         private static Button CreateSquareTemplate(Transform content, string name, float size)

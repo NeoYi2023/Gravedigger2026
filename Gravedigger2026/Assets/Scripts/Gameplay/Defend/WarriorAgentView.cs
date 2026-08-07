@@ -105,7 +105,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _agent.stoppingDistance = Mathf.Max(0.05f, state.AttackRange * 0.85f);
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            _agent.radius = 0.35f;
+            _agent.radius = 0.03f;
             _agent.height = 1.8f;
             _agent.autoBraking = true;
             // SPEC_04 §15.2: facing via Animator DirIndex; do not yaw the Visual sprite.

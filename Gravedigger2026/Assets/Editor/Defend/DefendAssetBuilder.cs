@@ -354,7 +354,7 @@ namespace Gravedigger2026.Editor.Defend
 
             root.AddComponent<MonsterAgentView>();
             var agent = root.AddComponent<UnityEngine.AI.NavMeshAgent>();
-            agent.radius = 0.35f;
+            agent.radius = 0.03f;
             agent.height = 1.2f;
             return root;
         }
