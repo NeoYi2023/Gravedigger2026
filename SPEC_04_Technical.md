@@ -2925,6 +2925,8 @@ Demo：`Digger` / `BattleProtagonist` 固定 **`DirIndex = 2`（南）**；士�
 
 **怪物（`MonsterAgentView` / `PushMapMonsterAgentView`，方案 A）：** 复用同一 `WarriorAnimView` 驱动 Creator 烘焙 Controller——追击时按本帧 steer / 位移 XZ 设朝向 + `IsRun`；进 `AttackRange` 后清 locomotion、朝向指向当前目标，普攻结算时 `Attack1`；死亡仍 `SetActive(false)`（可不播 `Die`）。Bind 时注入行的 `FacingYawFlip`。`NavMeshAgent.updateRotation = false`（与士兵相同）。
 
+**推图怪朝向稳定化（v0.75.10，仅 `PushMapMonsterAgentView` 表现层）：** 被士兵/怪群堵住时 steer 逐帧抖动 + 八向 45° 量化曾致动画剪辑高频切换（原地闪烁）。锁定常量：① **朝向迟滞** `FacingHysteresisDegrees = 12`——候选扇区与当前扇区中心角差 ≤ 22.5°+12° 时保持当前 `DirIndex`，越过才允许切换；② **最短保持** `FacingSwitchMinDwellSeconds = 0.12`——两次 `DirIndex` 切换的最小间隔；③ **受堵停滞**——`StuckWindowSeconds = 0.25` 滑窗内实际 XZ 位移 < `StuckDisplacementEpsilon = 0.05` 且 steer 非零 → 停滞：停播 Run（`SetMoving(false)`）并面向当前追击目标；窗口位移 ≥ 2×ε 或 steer 归零即退出。仅表现层：`Update()` 攻击判定与 `TryRefreshChaseGoal` 的 `AttackRange` 语义不变；士兵与防守战怪（`MonsterAgentView`）**不**启用本稳定化。
+
 #### 15.6 Mount / Wing
 
 见 [§9.14](#914-额外装备配置表-extraequipmentconfig)：视觉打进对应 `AppearanceId` 烘焙变体；运行时叠装另专题。
@@ -3013,6 +3015,8 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 Demo: `Digger` / `BattleProtagonist` fixed **`DirIndex = 2` (South)**; soldiers get dynamic facing from `WarriorAnimView` (move/aim, then `FacingYawFlip`). BattleProtagonist this slice: Idle only (no hit/death drive).
 
 **Monsters (`MonsterAgentView` / `PushMapMonsterAgentView`, Approach A):** reuse the same `WarriorAnimView` on Creator bake Controllers — while chasing, set facing + `IsRun` from this frame's steer / move XZ; in `AttackRange`, clear locomotion, face current target, fire `Attack1` on hit settle; death still `SetActive(false)` (`Die` optional / not required). Bind injects row `FacingYawFlip`. `NavMeshAgent.updateRotation = false` (same as soldiers).
+
+**PushMap monster facing stabilization (v0.75.10, `PushMapMonsterAgentView` presentation only):** when blocked by soldiers/packs, per-frame steer jitter plus 8-dir 45° quantization used to flip animation clips every frame (in-place flicker). Locked constants: ① **facing hysteresis** `FacingHysteresisDegrees = 12` — while the candidate sector's angle from the current sector center stays ≤ 22.5°+12°, keep the current `DirIndex`; switch only beyond that; ② **min dwell** `FacingSwitchMinDwellSeconds = 0.12` — minimum interval between two `DirIndex` switches; ③ **stuck hold** — actual XZ displacement over a `StuckWindowSeconds = 0.25` sliding window < `StuckDisplacementEpsilon = 0.05` while steer is non-zero → stuck: stop Run (`SetMoving(false)`) and face the current chase target; exit when window displacement ≥ 2×ε or steer goes zero. Presentation only: `Update()` attack checks and `TryRefreshChaseGoal` `AttackRange` semantics unchanged; soldiers and Defend monsters (`MonsterAgentView`) do **not** enable this stabilization.
 
 #### 15.6 Mount / Wing
 

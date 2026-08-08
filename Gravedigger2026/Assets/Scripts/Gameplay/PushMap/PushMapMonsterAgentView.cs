@@ -15,11 +15,20 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// Hits keep AttackMode scheme D; protagonist → onHitProtagonist (ApplyShieldHit);
     /// loyal soldier → onHitWarrior → Session.TryApplyMonsterDamageToWarrior (PM-13).
     /// Presentation: WarriorAnimView DirIndex / IsRun / Attack1 (SPEC_04 §15.5 Approach A).
+    /// v0.75.10: chase facing stabilized (hysteresis + min dwell) + stuck-hold → Idle facing
+    /// the chase target (SPEC_04 §15.5); presentation only — attack/slot rules unchanged.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PushMapMonsterAgentView : MonoBehaviour
     {
         private const float MoveAnimSpeedSqr = 0.01f;
+        private const float FacingHysteresisDegrees = 12f;
+        private const float FacingSwitchMinDwellSeconds = 0.12f;
+        private const float StuckWindowSeconds = 0.25f;
+        private const float StuckDisplacementEpsilon = 0.05f;
+
+        // DirIndex (0E 1W 2S 3N 4NE 5NW 6SE 7SW) → quantization sector of WarriorAnimView.DirIndexFromXZ.
+        private static readonly int[] DirIndexToSector = { 2, 6, 4, 0, 1, 7, 3, 5 };
 
         private MonsterConfigRow _config;
         private Transform _protagonist;
@@ -34,6 +43,11 @@ namespace Gravedigger2026.Gameplay.PushMap
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private Vector3 _lastSteerDirXZ;
+        private int _facingDirIndex = -1;
+        private float _facingSwitchTimer;
+        private Vector3 _stuckWindowStartPos;
+        private float _stuckWindowTimer;
+        private bool _stuck;
         private bool _alive = true;
         private bool _provoked;
         private bool _isBoss;
@@ -128,6 +142,11 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             EnsureAnim();
             _lastSteerDirXZ = Vector3.zero;
+            _facingDirIndex = -1;
+            _facingSwitchTimer = 0f;
+            _stuck = false;
+            _stuckWindowTimer = 0f;
+            _stuckWindowStartPos = transform.position;
             _anim.SetFacingYawFlip(_config != null && _config.FacingYawFlip == 1);
             _anim.ResetToIdle();
         }
@@ -389,11 +408,43 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
             }
 
+            TickStuckDetection(_lastSteerDirXZ.sqrMagnitude > 1e-8f);
             TickAnimPresentation();
         }
 
         /// <summary>
-        /// In AttackRange → face target + idle; else chase → IsRun + DirIndex from steer (SPEC_04 §15.5).
+        /// v0.75.10 stuck-hold (SPEC_04 §15.5): steer non-zero but the XZ displacement over a
+        /// StuckWindowSeconds window stays under StuckDisplacementEpsilon → stuck (blocked by
+        /// soldiers/pack). Exit threshold is 2×epsilon so borderline jostle does not flap.
+        /// </summary>
+        private void TickStuckDetection(bool wantsMove)
+        {
+            if (!wantsMove)
+            {
+                _stuck = false;
+                _stuckWindowTimer = 0f;
+                _stuckWindowStartPos = transform.position;
+                return;
+            }
+
+            _stuckWindowTimer += Time.deltaTime;
+            if (_stuckWindowTimer < StuckWindowSeconds)
+            {
+                return;
+            }
+
+            var dx = transform.position.x - _stuckWindowStartPos.x;
+            var dz = transform.position.z - _stuckWindowStartPos.z;
+            var displacementSqr = dx * dx + dz * dz;
+            var threshold = _stuck ? 2f * StuckDisplacementEpsilon : StuckDisplacementEpsilon;
+            _stuck = displacementSqr < threshold * threshold;
+            _stuckWindowTimer = 0f;
+            _stuckWindowStartPos = transform.position;
+        }
+
+        /// <summary>
+        /// In AttackRange → face target + idle; stuck (v0.75.10) → idle + face chase target;
+        /// else chase → IsRun + stabilized DirIndex from steer (SPEC_04 §15.5).
         /// </summary>
         private void TickAnimPresentation()
         {
@@ -410,12 +461,84 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
+            if (_stuck)
+            {
+                _anim.SetMoving(false);
+                if (TryGetCombatTargetPosition(out var stuckTargetPos))
+                {
+                    FaceToward(stuckTargetPos);
+                }
+
+                return;
+            }
+
             var moving = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             _anim.SetMoving(moving);
             if (moving)
             {
-                _anim.SetFacing(_lastSteerDirXZ);
+                SetFacingStabilized(_lastSteerDirXZ);
             }
+        }
+
+        /// <summary>
+        /// v0.75.10 facing stabilization (SPEC_04 §15.5): switch DirIndex only when the raw
+        /// steer leaves the current sector by more than FacingHysteresisDegrees and the last
+        /// switch was at least FacingSwitchMinDwellSeconds ago.
+        /// </summary>
+        private void SetFacingStabilized(Vector3 rawDirXZ)
+        {
+            _facingSwitchTimer += Time.deltaTime;
+            var next = StabilizeDirIndex(_facingDirIndex, rawDirXZ, FacingHysteresisDegrees);
+            if (next == _facingDirIndex)
+            {
+                return;
+            }
+
+            if (_facingDirIndex >= 0 && _facingSwitchTimer < FacingSwitchMinDwellSeconds)
+            {
+                return;
+            }
+
+            _facingDirIndex = next;
+            _facingSwitchTimer = 0f;
+            _anim.SetFacing(DirIndexToUnitXZ(next));
+        }
+
+        /// <summary>
+        /// Keeps the current DirIndex unless the raw direction passes the current sector
+        /// boundary by more than <paramref name="hysteresisDeg"/> (sector half-width 22.5°).
+        /// </summary>
+        private static int StabilizeDirIndex(int currentDirIndex, Vector3 rawDirXZ, float hysteresisDeg)
+        {
+            var candidate = WarriorAnimView.DirIndexFromXZ(rawDirXZ);
+            if (currentDirIndex < 0 || currentDirIndex > 7 || candidate == currentDirIndex)
+            {
+                return candidate;
+            }
+
+            rawDirXZ.y = 0f;
+            if (rawDirXZ.sqrMagnitude < 0.0001f)
+            {
+                return currentDirIndex;
+            }
+
+            var n = rawDirXZ.normalized;
+            var deg = Mathf.Atan2(n.x, n.z) * Mathf.Rad2Deg;
+            if (deg < 0f)
+            {
+                deg += 360f;
+            }
+
+            var currentCenterDeg = DirIndexToSector[currentDirIndex] * 45f;
+            var delta = Mathf.Abs(Mathf.DeltaAngle(deg, currentCenterDeg));
+            return delta > 22.5f + hysteresisDeg ? candidate : currentDirIndex;
+        }
+
+        /// <summary>Unit XZ vector at the sector center of <paramref name="dirIndex"/> (round-trips through DirIndexFromXZ).</summary>
+        private static Vector3 DirIndexToUnitXZ(int dirIndex)
+        {
+            var rad = DirIndexToSector[dirIndex] * 45f * Mathf.Deg2Rad;
+            return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
         }
 
         private bool TryGetCombatTargetPosition(out Vector3 targetPos)
@@ -456,6 +579,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (to.sqrMagnitude > 0.0001f)
             {
                 _anim.SetFacing(to);
+                // Keep the stabilized chase-facing state in sync with face-target writes.
+                _facingDirIndex = WarriorAnimView.DirIndexFromXZ(to);
             }
         }
 

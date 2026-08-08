@@ -47,6 +47,8 @@
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；士兵与怪物（Defend/PushMap）共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
+| FacingHysteresis | 朝向迟滞 | 推图怪八向切换迟滞：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；仅 `PushMapMonsterAgentView` | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| StuckHold | 受堵停滞 | 推图怪 steer 非零但 0.25s 滑窗 XZ 位移 < 0.05 → 停播 Run 面向追击目标；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorName | 士兵名字 | Prefix(es)+RaceName+ClassName+Suffix | [§3.11](SPEC_03_GameRules.md) |
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |

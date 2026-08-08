@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-08 | v0.75.10 | 推图怪朝向抖动修复（难度 2，选定方案 A+B — 纯表现层）：被士兵堵住时 steer 逐帧抖动 + 八向 45° 量化曾致原地频繁换向（闪烁）；`PushMapMonsterAgentView` 新增朝向迟滞 `FacingHysteresisDegrees`=12° + 最短保持 `FacingSwitchMinDwellSeconds`=0.12s，受堵停滞（0.25s 滑窗 XZ 位移 < `StuckDisplacementEpsilon`=0.05 且 steer 非零）时切 Idle 面向追击目标；不改攻击判定/槽位/寻路规则；同步 SPEC_04 §15.5、SPEC_03 §3.14、CONTEXT |
 | 2026-08-08 | v0.75.9 | 修复推图战/防守战角色前后叠序反向（难度 1，选定方案 A — 相机透明排序轴）：角色精灵统一 `sortingOrder`=200，默认按视距 tie-break，等高地面上顺序任意 → 上方兵挡住下方兵；Defend/PushMap 战斗相机设 `transparencySortMode=CustomAxis` + 轴 `(0,0,1)`，同层精灵按世界 Z 由远及近绘制（屏幕下方遮挡上方）；GoalKind 调试标签 200→205 防同 Z tie 闪烁；同步 SPEC_04 §15.2 |
 | 2026-08-08 | v0.75.8 | 修复推图战滚轮无法缩放：进档壳舞台激活时全屏 backdrop 仅透明仍 `raycastTarget=true`，挡住 `IsPointerOverGameObject`；`SetShellBackdropVisible` 同步关射线；同步 SPEC_04 Meta 壳注记 |
 | 2026-08-08 | v0.75.7 | 八向朝向加固（难度 2，选定方案）：资产强制 `IdleBT`/`RunBT` `Direction` 阈值=DirIndex 序（0E…7SW）+ Editor 规范化；运行时废止罗盘/按名双布局，始终 `Direction=DirIndex`；`BodyAppearanceConfig`/`MonsterConfig` 增 `FacingYawFlip`（0\|1，`(dir+4)%8`）；同步 SPEC_04 §15.5/§9.13/§9.19、CONTEXT |
@@ -207,6 +208,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-08 | v0.75.10 | PushMap monster facing jitter fix (diff 2, chosen combo A+B — presentation only): per-frame steer jitter + 8-dir 45° quantization flipped facing every frame when blocked by soldiers (in-place flicker); `PushMapMonsterAgentView` adds facing hysteresis `FacingHysteresisDegrees`=12° + min dwell `FacingSwitchMinDwellSeconds`=0.12s, and on stuck hold (XZ displacement over a 0.25s window < `StuckDisplacementEpsilon`=0.05 with non-zero steer) switches to Idle facing the chase target; attack checks / slot claims / pathing rules unchanged; synced SPEC_04 §15.5, SPEC_03 §3.14, CONTEXT |
 | 2026-08-08 | v0.75.9 | Fix inverted character front/back overlap in PushMap/Defend (diff 1, approach A — camera transparency sort axis): all character sprites share `sortingOrder`=200 and defaulted to view-distance tie-break — arbitrary on flat ground, so upper soldiers occluded lower ones; Defend/PushMap combat cameras now set `transparencySortMode=CustomAxis` with axis `(0,0,1)`, drawing same-band sprites far-to-near along world Z (lower on screen occludes higher); GoalKind debug label 200→205 to avoid same-Z tie flicker; synced SPEC_04 §15.2 |
 | 2026-08-08 | v0.75.8 | Fix PushMap Combat scroll-zoom: InSaveShell fullscreen backdrop kept `raycastTarget=true` while alpha=0, blocking `IsPointerOverGameObject`; `SetShellBackdropVisible` now clears raycasts; synced SPEC_04 Meta shell note |
 | 2026-08-08 | v0.75.7 | 8-dir facing harden (diff 2, locked approach): asset-force IdleBT/RunBT `Direction` thresholds = DirIndex order (0E…7SW) + Editor normalize; runtime retires compass/name dual layout — always `Direction=DirIndex`; add `FacingYawFlip` (0\|1, `(dir+4)%8`) on BodyAppearanceConfig/MonsterConfig; synced SPEC_04 §15.5/§9.13/§9.19, CONTEXT |
