@@ -8,6 +8,10 @@ namespace Gravedigger2026.Core.Pathing
     /// AttackSlot claim table (SPEC_03 §3.12 / SPEC_04 §9.7 Approach B).
     /// Pure C#: no Transform/Animator. Chase arrival = ring slot, not target center.
     /// Stage wiring is MP-05; this service only owns claim / release / recompute.
+    /// Approach B+ (SC-02): optional <see cref="SurroundParams"/> skips ring slots
+    /// inside the gap sector (default = far side vs the attacker centroid), so
+    /// melee multi-vs-one no longer packs a solid ring. Absent param → legacy
+    /// full-ring behavior, MP-02 semantics unchanged.
     /// </summary>
     public sealed class AttackSlotService
     {
@@ -45,6 +49,10 @@ namespace Gravedigger2026.Core.Pathing
         /// <summary>
         /// Claim or refresh a slot for <paramref name="attackerId"/> on <paramref name="targetId"/>.
         /// ≤1 slot per attacker; frees prior claim on retarget. Returns false if no free walkable slot.
+        /// <paramref name="surround"/> (SC-02): when set, slots inside the gap sector are skipped
+        /// in both keep and pick paths; gap center derives from the rolling attacker centroid
+        /// (only claims with a valid <paramref name="attackerPos"/> feed the centroid).
+        /// If the gap covers every slot the claim honestly fails.
         /// </summary>
         public bool TryClaim(
             string attackerId,
@@ -54,7 +62,8 @@ namespace Gravedigger2026.Core.Pathing
             out Vector3 worldPos,
             AttackMode attackMode = AttackMode.Melee,
             Vector3 attackerPos = default,
-            float targetBodyRadius = DefaultTargetBodyRadius)
+            float targetBodyRadius = DefaultTargetBodyRadius,
+            SurroundParams? surround = null)
         {
             worldPos = default;
             if (string.IsNullOrEmpty(attackerId) || string.IsNullOrEmpty(targetId))
@@ -76,14 +85,16 @@ namespace Gravedigger2026.Core.Pathing
                     table.Slots[existing.SlotIndex].AttackerId == attackerId)
                 {
                     MaybeRecomputePositions(table, ringRadius, targetPos);
+                    UpdateClaimerPos(table, existing.SlotIndex, attackerPos, targetPos);
                     var kept = table.Slots[existing.SlotIndex].WorldPos;
-                    if (IsAcceptableSlot(kept, targetPos, minDistFromCenter))
+                    if (IsAcceptableSlot(kept, targetPos, minDistFromCenter) &&
+                        !IsSlotInGap(table, kept, targetPos, surround, attackerPos))
                     {
                         worldPos = kept;
                         return true;
                     }
 
-                    // Slot became illegal after move — free and fall through to re-pick.
+                    // Slot became illegal after move / fell into the gap — free and re-pick.
                     ClearSlot(table, existing.SlotIndex);
                     _byAttacker.Remove(attackerId);
                 }
@@ -113,6 +124,11 @@ namespace Gravedigger2026.Core.Pathing
                     continue;
                 }
 
+                if (IsSlotInGap(targetTable, slot.WorldPos, targetPos, surround, attackerPos))
+                {
+                    continue;
+                }
+
                 var score = ScoreSlot(slot.WorldPos, targetPos, preferred);
                 if (score > bestScore)
                 {
@@ -128,6 +144,14 @@ namespace Gravedigger2026.Core.Pathing
 
             targetTable.Slots[bestIndex].AttackerId = attackerId;
             worldPos = targetTable.Slots[bestIndex].WorldPos;
+            if (IsValidClaimerPos(attackerPos, targetPos))
+            {
+                targetTable.Slots[bestIndex].ClaimerPos = attackerPos;
+                targetTable.Slots[bestIndex].HasClaimerPos = true;
+                targetTable.CentroidSumX += attackerPos.x;
+                targetTable.CentroidSumZ += attackerPos.z;
+            }
+
             _byAttacker[attackerId] = new AttackerClaim
             {
                 TargetId = targetId,
@@ -159,7 +183,7 @@ namespace Gravedigger2026.Core.Pathing
                 claim.SlotIndex < table.Slots.Length &&
                 table.Slots[claim.SlotIndex].AttackerId == attackerId)
             {
-                table.Slots[claim.SlotIndex].AttackerId = null;
+                ClearSlot(table, claim.SlotIndex);
             }
 
             if (CountOccupied(table) == 0)
@@ -213,6 +237,21 @@ namespace Gravedigger2026.Core.Pathing
             }
 
             worldPos = slot.WorldPos;
+            return true;
+        }
+
+        /// <summary>Current claimed target id for an attacker (if any).</summary>
+        public bool TryGetClaimedTargetId(string attackerId, out string targetId)
+        {
+            targetId = null;
+            if (string.IsNullOrEmpty(attackerId) ||
+                !_byAttacker.TryGetValue(attackerId, out var claim) ||
+                string.IsNullOrEmpty(claim.TargetId))
+            {
+                return false;
+            }
+
+            targetId = claim.TargetId;
             return true;
         }
 
@@ -270,22 +309,23 @@ namespace Gravedigger2026.Core.Pathing
                         }
                     }
 
-                    table = CreateTable(slotCount, ringRadius, targetPos);
+                    table = CreateTable(targetId, slotCount, ringRadius, targetPos);
                     _byTarget[targetId] = table;
                 }
 
                 return table;
             }
 
-            table = CreateTable(slotCount, ringRadius, targetPos);
+            table = CreateTable(targetId, slotCount, ringRadius, targetPos);
             _byTarget[targetId] = table;
             return table;
         }
 
-        private static TargetSlotTable CreateTable(int slotCount, float ringRadius, Vector3 targetPos)
+        private static TargetSlotTable CreateTable(string targetId, int slotCount, float ringRadius, Vector3 targetPos)
         {
             var table = new TargetSlotTable
             {
+                TargetId = targetId,
                 AnchorPos = targetPos,
                 RingRadius = ringRadius,
                 Slots = new SlotEntry[slotCount]
@@ -380,7 +420,159 @@ namespace Gravedigger2026.Core.Pathing
 
         private static void ClearSlot(TargetSlotTable table, int index)
         {
-            table.Slots[index].AttackerId = null;
+            ref var slot = ref table.Slots[index];
+            if (slot.HasClaimerPos)
+            {
+                table.CentroidSumX -= slot.ClaimerPos.x;
+                table.CentroidSumZ -= slot.ClaimerPos.z;
+                slot.ClaimerPos = default;
+                slot.HasClaimerPos = false;
+            }
+
+            slot.AttackerId = null;
+        }
+
+        // Rolling centroid of claimer positions (SPEC_04 §9.7: gap = back sector vs
+        // "target←attacker centroid"). Refreshed on keep / claim, subtracted on release.
+        private static void UpdateClaimerPos(
+            TargetSlotTable table, int index, Vector3 attackerPos, Vector3 targetPos)
+        {
+            if (!IsValidClaimerPos(attackerPos, targetPos))
+            {
+                return;
+            }
+
+            ref var slot = ref table.Slots[index];
+            if (slot.HasClaimerPos)
+            {
+                table.CentroidSumX += attackerPos.x - slot.ClaimerPos.x;
+                table.CentroidSumZ += attackerPos.z - slot.ClaimerPos.z;
+            }
+            else
+            {
+                table.CentroidSumX += attackerPos.x;
+                table.CentroidSumZ += attackerPos.z;
+            }
+
+            slot.ClaimerPos = attackerPos;
+            slot.HasClaimerPos = true;
+        }
+
+        private static bool IsValidClaimerPos(Vector3 attackerPos, Vector3 targetPos)
+        {
+            var dx = attackerPos.x - targetPos.x;
+            var dz = attackerPos.z - targetPos.z;
+            return dx * dx + dz * dz > 1e-8f;
+        }
+
+        /// <summary>
+        /// True when <paramref name="slotPos"/> falls inside the surround gap sector.
+        /// No surround / zero gap / degenerate axis → false (legacy full ring).
+        /// On an empty table the current claimer's position seeds the axis so the very
+        /// first claim already respects the gap. Boundary step exactly at ±half-width
+        /// counts as outside (claims stay dense).
+        /// </summary>
+        private static bool IsSlotInGap(
+            TargetSlotTable table,
+            Vector3 slotPos,
+            Vector3 targetPos,
+            SurroundParams? surround,
+            Vector3 fallbackPos)
+        {
+            if (!surround.HasValue)
+            {
+                return false;
+            }
+
+            var gapDeg = Mathf.Clamp(surround.Value.GapDegrees, 0f, 360f);
+            if (gapDeg <= 0f)
+            {
+                return false;
+            }
+
+            if (!TryComputeGapCenterDegrees(table, targetPos, surround.Value, fallbackPos, out var centerDeg))
+            {
+                return false;
+            }
+
+            var slotDeg = Mathf.Atan2(slotPos.z - targetPos.z, slotPos.x - targetPos.x) *
+                          Mathf.Rad2Deg;
+            return Mathf.Abs(Mathf.DeltaAngle(slotDeg, centerDeg)) < gapDeg * 0.5f;
+        }
+
+        /// <summary>Gap center for tests/debug; false when no centroid can be formed.</summary>
+        public bool TryGetGapCenterDegrees(
+            string targetId, Vector3 targetPos, SurroundParams surround, out float centerDeg)
+        {
+            centerDeg = 0f;
+            if (string.IsNullOrEmpty(targetId) ||
+                !_byTarget.TryGetValue(targetId, out var table))
+            {
+                return false;
+            }
+
+            return TryComputeGapCenterDegrees(table, targetPos, surround, targetPos, out centerDeg);
+        }
+
+        private static bool TryComputeGapCenterDegrees(
+            TargetSlotTable table,
+            Vector3 targetPos,
+            SurroundParams surround,
+            Vector3 fallbackPos,
+            out float centerDeg)
+        {
+            centerDeg = 0f;
+            if (surround.GapDir == SurroundGapDirection.Random)
+            {
+                // Debug only: deterministic per-target angle, no runtime RNG.
+                var h = unchecked((table.TargetId ?? string.Empty).GetHashCode());
+                centerDeg = (h & 0xFF) * (360f / 256f);
+                return true;
+            }
+
+            float centroidX;
+            float centroidZ;
+            var occupied = CountOccupied(table);
+            if (occupied > 0)
+            {
+                centroidX = table.CentroidSumX / occupied;
+                centroidZ = table.CentroidSumZ / occupied;
+            }
+            else if (IsValidClaimerPos(fallbackPos, targetPos))
+            {
+                // Empty table: seed the approach axis with this claimer's position.
+                centroidX = fallbackPos.x;
+                centroidZ = fallbackPos.z;
+            }
+            else
+            {
+                return false;
+            }
+            var axisX = targetPos.x - centroidX; // approach axis: centroid → target
+            var axisZ = targetPos.z - centroidZ;
+            if (axisX * axisX + axisZ * axisZ < 1e-8f)
+            {
+                return false;
+            }
+
+            var baseDeg = Mathf.Atan2(axisZ, axisX) * Mathf.Rad2Deg;
+            switch (surround.GapDir)
+            {
+                case SurroundGapDirection.Bottom: // far side beyond target (SPEC default)
+                    centerDeg = baseDeg;
+                    return true;
+                case SurroundGapDirection.Top: // toward the attackers
+                    centerDeg = baseDeg + 180f;
+                    return true;
+                case SurroundGapDirection.Left:
+                    centerDeg = baseDeg + 90f;
+                    return true;
+                case SurroundGapDirection.Right:
+                    centerDeg = baseDeg - 90f;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static int CountOccupied(TargetSlotTable table)
@@ -405,15 +597,20 @@ namespace Gravedigger2026.Core.Pathing
 
         private sealed class TargetSlotTable
         {
+            public string TargetId;
             public Vector3 AnchorPos;
             public float RingRadius;
             public SlotEntry[] Slots;
+            public float CentroidSumX;
+            public float CentroidSumZ;
         }
 
         private struct SlotEntry
         {
             public string AttackerId;
             public Vector3 WorldPos;
+            public Vector3 ClaimerPos;
+            public bool HasClaimerPos;
         }
     }
 }

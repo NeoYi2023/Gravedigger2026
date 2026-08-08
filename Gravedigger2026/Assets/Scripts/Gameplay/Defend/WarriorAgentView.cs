@@ -360,7 +360,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
             }
 
-            if (!_scheduler.TryGetSteer(_moveId, out var steer) || steer.sqrMagnitude < 1e-8f)
+            // SC-03: soft-collision impulse applies even on zero-steer frames (hold separation).
+            var hasSteer = _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+            var hasCorrection =
+                _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                correction.sqrMagnitude > 1e-8f;
+            if (!hasSteer && !hasCorrection)
             {
                 ClearPathingState();
                 return;
@@ -372,7 +377,15 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _agent.isStopped = false;
-            var delta = new Vector3(steer.x, 0f, steer.y) * (_moveSpeed * Time.deltaTime);
+            var delta = hasSteer
+                ? new Vector3(steer.x, 0f, steer.y) * (_moveSpeed * Time.deltaTime)
+                : Vector3.zero;
+            if (hasCorrection)
+            {
+                delta.x += correction.x;
+                delta.z += correction.y;
+            }
+
             _agent.Move(delta);
         }
 

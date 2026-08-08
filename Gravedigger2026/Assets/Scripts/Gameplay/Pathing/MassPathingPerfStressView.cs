@@ -17,6 +17,8 @@ namespace Gravedigger2026.Gameplay.Pathing
         [SerializeField] private bool _runHeadlessOnStart;
         [SerializeField] private bool _keepSimulating;
         [SerializeField] private float _stubScale = 0.15f;
+        [Tooltip("SC-04: off = control group; live sim lets you eyeball overlap when disabled.")]
+        [SerializeField] private bool _resolveCollisions = true;
 
         private MassPathingPerfStressResult _lastResult;
         private bool _hasLastResult;
@@ -82,9 +84,11 @@ namespace Gravedigger2026.Gameplay.Pathing
             if (_liveFrames > 0)
             {
                 var avg = _liveSumMs / _liveFrames;
+                var resolveOn = _scheduler != null && _scheduler.SoftCollision.ResolveCollisions;
                 GUI.Label(
                     new Rect(20f, y, w - 20f, 22f),
-                    $"Live moveLogic avg={avg:F3} ms  max={_liveMaxMs:F3}  frames={_liveFrames}",
+                    $"Live moveLogic avg={avg:F3} ms  max={_liveMaxMs:F3}  frames={_liveFrames}  " +
+                    $"softResolve={(resolveOn ? "ON" : "OFF")}",
                     style);
                 y += 22f;
             }
@@ -101,6 +105,24 @@ namespace Gravedigger2026.Gameplay.Pathing
         {
             _lastResult = MassPathingPerfStress.Run(_perSide, _measureFrames);
             _hasLastResult = true;
+        }
+
+        [ContextMenu("Run Headless SoftCollision Compare (SC-04)")]
+        public void RunHeadlessSoftCollisionCompare()
+        {
+            MassPathingPerfStress.RunSoftCollisionCompare(_perSide, _measureFrames);
+        }
+
+        [ContextMenu("Toggle SoftCollision Resolve (live)")]
+        public void ToggleSoftCollisionResolve()
+        {
+            _resolveCollisions = !_resolveCollisions;
+            if (_scheduler != null)
+            {
+                _scheduler.SoftCollision.ResolveCollisions = _resolveCollisions;
+            }
+
+            Debug.Log($"[MassPathingPerfStress] SoftCollision ResolveCollisions = {_resolveCollisions}");
         }
 
         [ContextMenu("Start Live Sim (stubs)")]
@@ -152,6 +174,7 @@ namespace Gravedigger2026.Gameplay.Pathing
             _flow.Configure(Vector3.zero, new Vector2(20f, 10f), MassPathingPerfStress.CellSize);
             _flow.Rebuild(new Vector3(14f, 0f, 0f), StubFullyWalkableMask.Instance);
             _scheduler.BindFlowField(_flow);
+            _scheduler.SoftCollision.ResolveCollisions = _resolveCollisions;
 
             for (var t = 0; t < _dummyTargets.Length; t++)
             {
@@ -286,7 +309,7 @@ namespace Gravedigger2026.Gameplay.Pathing
                 }
             }
 
-            _scheduler.Tick(_samples);
+            _scheduler.Tick(_samples, Time.deltaTime);
             _sw.Stop();
 
             var ms = _sw.Elapsed.TotalMilliseconds;

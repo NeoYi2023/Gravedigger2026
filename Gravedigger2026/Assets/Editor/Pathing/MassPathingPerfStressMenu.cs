@@ -22,6 +22,47 @@ namespace Gravedigger2026.Editor.Pathing
                 "OK");
         }
 
+        [MenuItem("Gravedigger2026/Pathing/Run MassPathing 200v200 SoftCollision Compare (SC-04)")]
+        public static void RunSoftCollisionCompare()
+        {
+            var compare = MassPathingPerfStress.RunSoftCollisionCompare();
+            EditorUtility.DisplayDialog(
+                "MassPathing SoftCollision Compare (SC-04)",
+                $"ON : avg={compare.On.AvgMoveLogicMs:F3} ms  p95={compare.On.P95MoveLogicMs:F3}  budgetOK={compare.On.WithinBudget}\n" +
+                $"OFF: avg={compare.Off.AvgMoveLogicMs:F3} ms  p95={compare.Off.P95MoveLogicMs:F3}  (control)\n" +
+                $"Delta avg={compare.DeltaAvgMoveLogicMs:+0.000;-0.000} ms  ≈ B+ resolve cost\n\n" +
+                "Full report in Console.",
+                "OK");
+        }
+
+        [MenuItem("Gravedigger2026/Pathing/Run AttackSlot Correctness Checks (incl. SC-02 Surround)")]
+        public static void RunAttackSlotCorrectness()
+        {
+            var error = AttackSlotCorrectnessChecks.RunAll();
+            if (error == null)
+            {
+                Debug.Log("[AttackSlotCorrectnessChecks] All checks passed (MP-02 + SC-02 Surround).");
+            }
+            else
+            {
+                Debug.LogError($"[AttackSlotCorrectnessChecks] FAILED:\n{error}");
+            }
+        }
+
+        [MenuItem("Gravedigger2026/Pathing/Run SoftCollision Wire Correctness Checks (SC-03)")]
+        public static void RunSoftCollisionWireCorrectness()
+        {
+            var error = SoftCollisionWireCorrectnessChecks.RunAll();
+            if (error == null)
+            {
+                Debug.Log("[SoftCollisionWireCorrectnessChecks] All checks passed (SC-03 scheduler wire).");
+            }
+            else
+            {
+                Debug.LogError($"[SoftCollisionWireCorrectnessChecks] FAILED:\n{error}");
+            }
+        }
+
         [MenuItem("Gravedigger2026/Pathing/Create MassPathingPerfStressView (scene)")]
         public static void CreateStressViewInScene()
         {

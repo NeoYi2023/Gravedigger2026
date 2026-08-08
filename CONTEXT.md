@@ -103,7 +103,7 @@
 | PushMapPhase | 推图战子状态 | Prepare / Combat / Ended | [§3.14](SPEC_03_GameRules.md) |
 | MapId | 地图编号 | PushMap 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo 样例 `PushMap_Demo_01`）→ `Prefabs/Maps/` | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | ObjectivePoint | 目标点 | 有序推进点 1→2→3…；全队共当前目标 | [§3.14](SPEC_03_GameRules.md) |
-| CaptureZone | 判定圈 | 默认半径 2；连续 5s 无存活怪物 → 占领 | [§3.14](SPEC_03_GameRules.md) |
+| CaptureZone | 判定圈 | 默认半径 2；任一忠诚兵进入当前圈 → 立即占领 | [§3.14](SPEC_03_GameRules.md) |
 | Capture | 占领 | 目标点本场已占领；关联刷怪停刷；可发奖励/副本解锁钩子 | [§3.14](SPEC_03_GameRules.md) |
 | AirWall | 空气墙 | 阻挡敌我；支持 Y 轴 45° 旋转 | [§3.14](SPEC_03_GameRules.md) |
 | SpawnPoint | 刷怪点 | 地图独立编号；由 PushMapSpawnConfig 驱动 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.23](SPEC_04_Technical.md) |
@@ -115,6 +115,8 @@
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto` / `Manual` | [§3.14](SPEC_03_GameRules.md) |
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
+| DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`；怪红 28 / 兵白 24 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| HitFlash | 受伤闪烁 | PushMap 命中后模型亮色；怪红/兵白；2×0.1s 紧接不灭；重伤刷新 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapGameplayConfig | 推图战配置表 | MapId/经验/占领掉落/副本解锁等 | [SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapSpawnConfig | 推图战刷怪表 | SpawnPointId+MonsterId+陷阱/目标关联 | [SPEC_04 §9.23](SPEC_04_Technical.md) |
 | DefendPhase | 防守子状态 | ModeSelect / Prepare / Combat / Ended | [§3.12](SPEC_03_GameRules.md) |

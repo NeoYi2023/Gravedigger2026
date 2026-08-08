@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Pathing;
-using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -34,7 +33,6 @@ namespace Gravedigger2026.Gameplay.PushMap
         private bool _isBoss;
         private int _moveId;
         private string _attackerId;
-        private Gameplay.Defend.MonsterAgentView _probeShim;
 
         public string MonsterId => _config != null ? _config.MonsterId : string.Empty;
         public string RuntimeTargetId => _attackerId;
@@ -55,18 +53,6 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// <summary>Passive stances stay idle until provoked (SPEC_03 §3.14).</summary>
         public bool IsPassive => _config != null &&
             (_config.AggroMode == AggroMode.PassiveChase || _config.AggroMode == AggroMode.StationaryPassive);
-
-        /// <summary>Presence-probe shim (PM-05): the capture probe scans MonsterAgentView.IsAlive.</summary>
-        public MonsterAgentView ProbeShim => _probeShim;
-
-        public void AttachProbeShim(MonsterAgentView shim)
-        {
-            _probeShim = shim;
-            if (_probeShim != null)
-            {
-                _probeShim.SyncAliveFrom(_alive);
-            }
-        }
 
         public void Bind(
             MonsterConfigRow config,
@@ -106,7 +92,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             // Combat radius must leave AttackRange reachable vs loyal Demo soldier radius 0.1.
             var maxCombatRadius = Mathf.Max(0.05f, config.AttackRange - SoldierDemoRadius - 0.05f);
             _agent.radius = Mathf.Min(BodyRadius, maxCombatRadius);
-            _agent.height = 1.8f;
+            _agent.height = 0.1f;
             _agent.autoBraking = false;
             _agent.updateRotation = false;
             _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
@@ -157,7 +143,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _alive = false;
-            _probeShim?.SyncAliveFrom(false);
             ReleaseSlotClaim();
             // Soldiers claiming this monster as target — Stage also ReleaseAllForTarget.
             _attackSlots?.ReleaseAllForTarget(_attackerId);
@@ -229,6 +214,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return true;
             }
 
+            // SC-03: melee chase → Surround gap claim (B+); ranged → Chase (full ring).
             if (slots == null ||
                 !slots.TryClaim(
                     _attackerId,
@@ -238,7 +224,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                     out var slotPos,
                     AttackMode,
                     transform.position,
-                    warriorView != null ? SoldierDemoRadius : 0.35f))
+                    warriorView != null ? SoldierDemoRadius : 0.35f,
+                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode)))
             {
                 // No free walkable slot: still seek a ring-ish offset (not raw center stack).
                 var ring = AttackSlotService.ComputeRingRadius(_config.AttackRange);
@@ -339,7 +326,12 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
             }
 
-            if (!_scheduler.TryGetSteer(_moveId, out var steer) || steer.sqrMagnitude < 1e-8f)
+            // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
+            var hasSteer = _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+            var hasCorrection =
+                _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                correction.sqrMagnitude > 1e-8f;
+            if (!hasSteer && !hasCorrection)
             {
                 return;
             }
@@ -351,7 +343,15 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _agent.isStopped = false;
             var speed = Mathf.Max(0.1f, _config != null ? _config.MoveSpeed : 3f);
-            var delta = new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime);
+            var delta = hasSteer
+                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
+                : Vector3.zero;
+            if (hasCorrection)
+            {
+                delta.x += correction.x;
+                delta.z += correction.y;
+            }
+
             _agent.Move(delta);
         }
 

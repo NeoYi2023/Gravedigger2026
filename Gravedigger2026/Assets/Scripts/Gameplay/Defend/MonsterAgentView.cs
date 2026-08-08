@@ -200,6 +200,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return true;
             }
 
+            // SC-03: melee chase → Surround gap claim (B+); ranged → Chase (full ring).
             if (slots == null ||
                 !slots.TryClaim(
                     _attackerId,
@@ -209,7 +210,8 @@ namespace Gravedigger2026.Gameplay.Defend
                     out var slotPos,
                     AttackMode,
                     transform.position,
-                    warriorView != null ? SoldierDemoRadius : 0.35f))
+                    warriorView != null ? SoldierDemoRadius : 0.35f,
+                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode)))
             {
                 var ring = AttackSlotService.ComputeRingRadius(_config.AttackRange);
                 var away = transform.position - targetTf.position;
@@ -321,7 +323,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
             }
 
-            if (!_scheduler.TryGetSteer(_moveId, out var steer) || steer.sqrMagnitude < 1e-8f)
+            // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
+            var hasSteer = _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+            var hasCorrection =
+                _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                correction.sqrMagnitude > 1e-8f;
+            if (!hasSteer && !hasCorrection)
             {
                 return;
             }
@@ -333,7 +340,15 @@ namespace Gravedigger2026.Gameplay.Defend
 
             _agent.isStopped = false;
             var speed = Mathf.Max(0.1f, _config.MoveSpeed);
-            var delta = new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime);
+            var delta = hasSteer
+                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
+                : Vector3.zero;
+            if (hasCorrection)
+            {
+                delta.x += correction.x;
+                delta.z += correction.y;
+            }
+
             _agent.Move(delta);
         }
 

@@ -3719,6 +3719,7 @@ MonoBehaviour:
   _backToSaveSelectButton: {fileID: 6509647956811714574}
   _debugCycleStateButton: {fileID: 239312732172554724}
   _debugAdvanceStageButton: {fileID: 1612985053425871305}
+  _debugWarriorTaskLabelButton: {fileID: 0}
   _toolsPanel: {fileID: 3350367055252747494}
   _placeholderView: {fileID: 8907410753710464946}
 --- !u!1 &4664807301700041644

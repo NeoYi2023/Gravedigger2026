@@ -843,7 +843,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
             }
 
-            _moveScheduler.Tick(_moveSamples);
+            _moveScheduler.Tick(_moveSamples, Time.deltaTime);
         }
 
         private void TickAttackSlotGoals()
@@ -922,6 +922,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            // SC-03: melee chase → Surround gap claim (B+); ranged → Chase (full ring).
             if (!_attackSlots.TryClaim(
                     warrior.AttackerId,
                     monster.RuntimeId,
@@ -930,7 +931,8 @@ namespace Gravedigger2026.Gameplay.Defend
                     out var slotPos,
                     warrior.AttackMode,
                     warrior.transform.position,
-                    monster.BodyRadius))
+                    monster.BodyRadius,
+                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode)))
             {
                 _moveScheduler.SetPaused(warrior.MoveId, true);
                 return;
@@ -968,7 +970,8 @@ namespace Gravedigger2026.Gameplay.Defend
                     out var slotPos,
                     warrior.AttackMode,
                     warrior.transform.position,
-                    bodyRadius))
+                    bodyRadius,
+                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode)))
             {
                 var ring = AttackSlotService.ComputeRingRadius(warrior.AttackRange);
                 var away = warrior.transform.position - targetPos;

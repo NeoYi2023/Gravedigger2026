@@ -1,32 +1,35 @@
-# PushMap — 多 Agent 垂直切片
+# PushMap — INDEX
 
-**状态：** 规则已录入 SPEC v0.52.0（§3.14 / SPEC_04 §9.22–§9.23）；PM-01 样例标记已落地（v0.54.0）；PM-02 配置表 Bake/CSV 加载已落地（v0.55.0）；PM-03 Stage 接线已落地（v0.56.0）；PM-04 目标点链与判定圈占领已落地（v0.57.0）；PM-05 刷怪点与陷阱已落地（v0.58.0）；PM-06 AggroMode 四态已落地（v0.59.0）；PM-07 BOSS 通关与奖励钩子已落地（v0.60.0）；PM-08 空气墙 NavMesh 已落地（v0.61.0）；PM-09 Combat 镜头双模式跟随（v0.67.0）+ 滚轮 Size 缩放（v0.67.1）；**PM-10 怪物占地散开（BodyRadius + Agent 避障）**（v0.69.0）。**Demo 已授权**（2026-08-06）：按 issue 分 Agent 编码；每会话最多推进一个无阻塞切片。
+**状态：** 规则已录入至 SPEC **v0.75.0**（§3.14 / SPEC_04 §9.22～§9.23）；PM-01～PM-10 已落地；**PM-11 SPEC（WarriorCombat + DamagePopup + HitFlash）已关闭**；编码切片 **PM-12 → PM-13**（方案 B）。**Demo 已授权**：按 issue 分 Agent 编码；每会话最多推进一个无阻塞切片。
 
-**工作量：** 整体难度 3，一律拆步；每 issue 独立 Agent 会话。
+**工作量：** PM-11～13 整体难度 3，一律拆步；每 issue 独立 Agent 会话。
 
 ## 切片一览
 
 | ID | 文件 | 依赖 | 难度 | 状态 |
 |----|------|------|------|------|
-| PM-00 | [00-spec-close.md](issues/00-spec-close.md) | — | 2 | done（本会话规则录入） |
-| PM-01 | [01-map-prefab-markers.md](issues/01-map-prefab-markers.md) | PM-00 | 2 | done（方案 A：`PushMap_Demo_01` + 标记组件） |
-| PM-02 | [02-config-tables.md](issues/02-config-tables.md) | PM-00 | 2 | done（方案 A：PushMap 表 + AggroMode 加载） |
-| PM-03 | [03-stage-module-wire.md](issues/03-stage-module-wire.md) | PM-02 | 3 | done（方案 A：`PushMapStageModule`+`PushMapSessionService`+`PushMapStageController`） |
-| PM-04 | [04-objective-capture.md](issues/04-objective-capture.md) | PM-01, PM-03 | 3 | done（方案 A：`PushMapSessionService` 目标链/占领 + Probe/AdvanceView + StageController 接线） |
-| PM-05 | [05-spawn-trap.md](issues/05-spawn-trap.md) | PM-01, PM-02, PM-04 | 3 | done（方案 A：`PushMapSessionService` 刷怪装载/开战触发/陷阱触发/占领停刷 + `PushMapStageController`/`PushMapMonsterAgentView`） |
-| PM-06 | [06-aggro-mode.md](issues/06-aggro-mode.md) | PM-05 | 3 | done（方案 A：`PushMapMonsterAgentView` 四态 + `NotifyProvoked` 挑衅接线） |
-| PM-07 | [07-boss-clear-rewards.md](issues/07-boss-clear-rewards.md) | PM-05 | 2 | done（方案 A：`TryNotifyBossKilled`/`VictorySettled`/`DungeonUnlockService`） |
-| PM-08 | [08-air-wall-navmesh.md](issues/08-air-wall-navmesh.md) | PM-01, PM-03 | 2 | done（方案 A：Bake 注入 Not Walkable Box） |
-| PM-09 | [09-camera-follow.md](issues/09-camera-follow.md) | PM-03, PM-04 | 2 | done（方案 A：跟随 + ResumeFollow；v0.67.1 滚轮 Size `[0.5,20]`） |
-| PM-10 | [10-monster-body-spread.md](issues/10-monster-body-spread.md) | PM-05 | 2 | done（方案 A：`BodyRadius` + `PushMapSpawnSpread` + Agent.radius） |
+| PM-00 | [00-spec-close.md](issues/00-spec-close.md) | — | 2 | done |
+| PM-01 | [01-map-prefab-markers.md](issues/01-map-prefab-markers.md) | PM-00 | 2 | done |
+| PM-02 | [02-config-tables.md](issues/02-config-tables.md) | PM-00 | 2 | done |
+| PM-03 | [03-stage-module-wire.md](issues/03-stage-module-wire.md) | PM-02 | 3 | done |
+| PM-04 | [04-objective-capture.md](issues/04-objective-capture.md) | PM-01, PM-03 | 3 | done |
+| PM-05 | [05-spawn-trap.md](issues/05-spawn-trap.md) | PM-01, PM-02, PM-04 | 3 | done |
+| PM-06 | [06-aggro-mode.md](issues/06-aggro-mode.md) | PM-05 | 3 | done |
+| PM-07 | [07-boss-clear-rewards.md](issues/07-boss-clear-rewards.md) | PM-05 | 2 | done |
+| PM-08 | [08-air-wall-navmesh.md](issues/08-air-wall-navmesh.md) | PM-01, PM-03 | 2 | done |
+| PM-09 | [09-camera-follow.md](issues/09-camera-follow.md) | PM-03, PM-04 | 2 | done |
+| PM-10 | [10-monster-body-spread.md](issues/10-monster-body-spread.md) | PM-05 | 2 | done |
+| PM-11 | [11-spec-warrior-combat-fx.md](issues/11-spec-warrior-combat-fx.md) | PM-01～10 | 3 | **done**（SPEC + 切片；本会话不编程） |
+| PM-12 | [12-soldier-hit-monster-fx.md](issues/12-soldier-hit-monster-fx.md) | PM-11 | 3 | todo（下一编码片） |
+| PM-13 | [13-monster-hit-soldier-fx.md](issues/13-monster-hit-soldier-fx.md) | PM-12 | 3 | todo |
 
 ## 并行建议
 
-- PM-01 ∥ PM-02
-- PM-06 可与 PM-07 部分并行
-- PM-08 可与 PM-04～05 并行
+- PM-12 与 PM-13 **不可**并行（PM-13 依赖 PM-12 的 Session/飘字/闪烁骨架）
+- New Agent 话述见 [new-agent-prompts.md](new-agent-prompts.md)
 
 ## 权威
 
 - [SPEC_03 §3.14](../../SPEC_03_GameRules.md)
-- [SPEC_04 §9.22–§9.23](../../SPEC_04_Technical.md)、[§9.19 AggroMode](../../SPEC_04_Technical.md)
+- [SPEC_04 §6 / §9.22](../../SPEC_04_Technical.md)
+- 计划：PushMap 命中结算、伤害飘字与受伤闪烁（方案 B）

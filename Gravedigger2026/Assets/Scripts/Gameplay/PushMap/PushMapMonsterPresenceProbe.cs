@@ -6,10 +6,8 @@ using UnityEngine;
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PM-04: living-monster-in-zone probe for Capture timer only (SPEC_04 §9.22).
-    /// Does not pause soldier advance — advance keeps pathing to CurrentObjective.
-    /// Default: scan injected MonsterAgentView list — IsAlive && CaptureZone.ContainsXZ.
-    /// Rebels do not block capture (not part of the monster list).
+    /// Legacy PM-04 living-monster-in-zone probe (pre-v0.74.8 Capture timer).
+    /// Capture is now arrive-based; Stage no longer wires this. Kept for optional debug injection.
     /// </summary>
     public sealed class PushMapMonsterPresenceProbe
     {
@@ -29,20 +27,20 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return true;
             }
 
-            if (zone == null)
+            if (zone == null || _monstersProvider == null)
             {
                 return false;
             }
 
-            var monsters = _monstersProvider != null ? _monstersProvider() : null;
-            if (monsters == null)
+            var list = _monstersProvider();
+            if (list == null)
             {
                 return false;
             }
 
-            for (var i = 0; i < monsters.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
-                var m = monsters[i];
+                var m = list[i];
                 if (m != null && m.IsAlive && zone.ContainsXZ(m.transform.position))
                 {
                     return true;

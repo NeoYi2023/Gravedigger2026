@@ -31,12 +31,9 @@ namespace Gravedigger2026.Core.PushMap
         public event Action<int> CurrentObjectiveChanged;
         public event Action<PushMapSpawnRequest> PushMapSpawnRequested;
 
-        private const float MinCaptureSeconds = 0.01f;
-
         private readonly List<int> _objectiveOrders = new List<int>();
         private readonly HashSet<int> _capturedObjectives = new HashSet<int>();
         private int _currentObjectiveOrder;
-        private float _captureTimerSeconds;
 
         private readonly List<PushMapSpawnConfigRow> _spawnRows = new List<PushMapSpawnConfigRow>();
         private readonly HashSet<string> _trapSpawnPointsFired = new HashSet<string>(StringComparer.Ordinal);
@@ -53,9 +50,6 @@ namespace Gravedigger2026.Core.PushMap
         public int PendingBossCount => _pendingBossCount;
         public bool OutcomeSettled => _outcomeSettled;
 
-        /// <summary>Capture seconds required (Config.CaptureSeconds, clamped ≥0.01; §3.14).</summary>
-        public float CaptureSecondsRequired => Mathf.Max(MinCaptureSeconds, Config?.CaptureSeconds ?? 5f);
-
         /// <summary>Current uncaptured objective order; 0 = not started / none / all captured.</summary>
         public int CurrentObjectiveOrder => _currentObjectiveOrder;
 
@@ -71,7 +65,7 @@ namespace Gravedigger2026.Core.PushMap
             ShieldChanged?.Invoke(_shield, _shieldCap);
             Debug.Log(
                 $"[PushMapSession] Prepare Config={config.GameplayConfigId} Map={config.MapId} " +
-                $"ExpReward={config.StageExpReward} CaptureSeconds={config.CaptureSeconds}");
+                $"ExpReward={config.StageExpReward} CaptureSeconds={config.CaptureSeconds} (ignored; arrive=Capture)");
         }
 
         public void Stop()
@@ -89,7 +83,6 @@ namespace Gravedigger2026.Core.PushMap
             _objectiveOrders.Clear();
             _capturedObjectives.Clear();
             _currentObjectiveOrder = 0;
-            _captureTimerSeconds = 0f;
             _spawnRows.Clear();
             _trapSpawnPointsFired.Clear();
             _spawnPointsStoppedByCapture.Clear();
@@ -385,7 +378,6 @@ namespace Gravedigger2026.Core.PushMap
         {
             _objectiveOrders.Clear();
             _capturedObjectives.Clear();
-            _captureTimerSeconds = 0f;
 
             if (objectiveOrders != null)
             {
@@ -403,7 +395,7 @@ namespace Gravedigger2026.Core.PushMap
             _currentObjectiveOrder = _objectiveOrders.Count > 0 ? _objectiveOrders[0] : 0;
             Debug.Log(
                 $"[PushMapSession] ObjectiveChain begin orders=[{string.Join(",", _objectiveOrders)}] " +
-                $"CurrentObjective={_currentObjectiveOrder} CaptureSeconds={CaptureSecondsRequired:0.##}");
+                $"CurrentObjective={_currentObjectiveOrder} (arrive=Capture)");
             if (previous != _currentObjectiveOrder)
             {
                 CurrentObjectiveChanged?.Invoke(_currentObjectiveOrder);
@@ -411,28 +403,17 @@ namespace Gravedigger2026.Core.PushMap
         }
 
         /// <summary>
-        /// PM-04: tick capture for CurrentObjective. hasLivingMonsterInCurrentZone=true → timer resets;
-        /// otherwise accumulate; reaching CaptureSecondsRequired → capture + ObjectiveCaptured + advance.
+        /// PM-04 / v0.74.8: any loyal soldier already in current CaptureZone → immediate Capture.
+        /// No timer; no clear-monsters condition (§3.14).
         /// </summary>
-        public void TickCapture(float deltaTime, bool hasLivingMonsterInCurrentZone)
+        public void TickCapture(bool anyLoyalSoldierInCurrentZone)
         {
             if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled || _currentObjectiveOrder <= 0)
             {
                 return;
             }
 
-            if (hasLivingMonsterInCurrentZone)
-            {
-                if (_captureTimerSeconds > 0f)
-                {
-                    Debug.Log($"[PushMapSession] Capture reset (monster in zone) Objective={_currentObjectiveOrder}");
-                }
-                _captureTimerSeconds = 0f;
-                return;
-            }
-
-            _captureTimerSeconds += deltaTime;
-            if (_captureTimerSeconds < CaptureSecondsRequired)
+            if (!anyLoyalSoldierInCurrentZone)
             {
                 return;
             }
@@ -442,7 +423,11 @@ namespace Gravedigger2026.Core.PushMap
 
         private void Capture(int order)
         {
-            _captureTimerSeconds = 0f;
+            if (_capturedObjectives.Contains(order))
+            {
+                return;
+            }
+
             _capturedObjectives.Add(order);
             MarkSpawnPointsStoppedByCapture(order);
             Debug.Log(
