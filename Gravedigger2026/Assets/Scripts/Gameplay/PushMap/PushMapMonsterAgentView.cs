@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -11,23 +12,28 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// PushMap monster View (SPEC_03 §3.14 / SPEC_04 §9.19 + §9.7 MP-05).
     /// AggroMode four-state preserved. Chase destination = AttackSlot (not target center);
     /// movement via MassMoveScheduler + LocalDetour — no per-frame CalculatePath / SetDestination.
-    /// Hits keep AttackMode scheme D; protagonist hit → onHitProtagonist (ApplyShieldHit).
+    /// Hits keep AttackMode scheme D; protagonist → onHitProtagonist (ApplyShieldHit);
+    /// loyal soldier → onHitWarrior → Session.TryApplyMonsterDamageToWarrior (PM-13).
+    /// Presentation: WarriorAnimView DirIndex / IsRun / Attack1 (SPEC_04 §15.5 Approach A).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PushMapMonsterAgentView : MonoBehaviour
     {
-        private const float SoldierDemoRadius = 0.1f;
+        private const float MoveAnimSpeedSqr = 0.01f;
 
         private MonsterConfigRow _config;
         private Transform _protagonist;
         private Func<IReadOnlyList<PushMapAdvanceView>> _warriorsProvider;
         private Action<string> _onHitProtagonist;
+        private Func<string, string, float, bool> _onHitWarrior;
         private AttackSlotService _attackSlots;
         private MassMoveScheduler _scheduler;
         private float _retargetInterval = 1f;
         private float _retargetTimer;
         private float _attackCooldown;
         private NavMeshAgent _agent;
+        private WarriorAnimView _anim;
+        private Vector3 _lastSteerDirXZ;
         private bool _alive = true;
         private bool _provoked;
         private bool _isBoss;
@@ -62,12 +68,14 @@ namespace Gravedigger2026.Gameplay.PushMap
             float retargetIntervalSeconds = 1f,
             AttackSlotService attackSlots = null,
             MassMoveScheduler scheduler = null,
-            int moveId = 0)
+            int moveId = 0,
+            Func<string, string, float, bool> onHitWarrior = null)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _protagonist = protagonist;
             _warriorsProvider = warriorsProvider;
             _onHitProtagonist = onHitProtagonist;
+            _onHitWarrior = onHitWarrior;
             _attackSlots = attackSlots;
             _scheduler = scheduler;
             _moveId = moveId;
@@ -90,7 +98,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
             // Combat radius must leave AttackRange reachable vs loyal Demo soldier radius 0.1.
-            var maxCombatRadius = Mathf.Max(0.05f, config.AttackRange - SoldierDemoRadius - 0.05f);
+            var maxCombatRadius = Mathf.Max(
+                0.05f,
+                config.AttackRange - BodyAppearanceConfigRow.DefaultBodyRadius - 0.05f);
             _agent.radius = Mathf.Min(BodyRadius, maxCombatRadius);
             _agent.height = 0.1f;
             _agent.autoBraking = false;
@@ -114,6 +124,20 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (IsStationary || (IsPassive && !_provoked))
             {
                 StopMovement();
+            }
+
+            EnsureAnim();
+            _lastSteerDirXZ = Vector3.zero;
+            _anim.SetFacingYawFlip(_config != null && _config.FacingYawFlip == 1);
+            _anim.ResetToIdle();
+        }
+
+        private void EnsureAnim()
+        {
+            _anim = GetComponent<WarriorAnimView>();
+            if (_anim == null)
+            {
+                _anim = gameObject.AddComponent<WarriorAnimView>();
             }
         }
 
@@ -224,7 +248,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     out var slotPos,
                     AttackMode,
                     transform.position,
-                    warriorView != null ? SoldierDemoRadius : 0.35f,
+                    warriorView != null ? warriorView.AgentRadius : 0.35f,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode)))
             {
                 // No free walkable slot: still seek a ring-ish offset (not raw center stack).
@@ -290,16 +314,25 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
+            FaceToward(targetTf.position);
+
             if (targetKind == TargetKind.Protagonist)
             {
                 _onHitProtagonist?.Invoke($"Monster:{_config.MonsterId}");
             }
             else if (warriorView != null)
             {
-                Debug.Log(
-                    $"[PushMapMonster] {_config.MonsterId} hits warrior {warriorView.name} " +
-                    $"for {_config.AttackPower} (warrior HP not tracked this slice).");
+                var applied = _onHitWarrior != null &&
+                              _onHitWarrior(_attackerId, warriorView.AttackerId, _config.AttackPower);
+                if (!applied)
+                {
+                    Debug.LogWarning(
+                        $"[PushMapMonster] {_config.MonsterId} hit warrior {warriorView.AttackerId} " +
+                        "but Session did not settle (inactive / already dead).");
+                }
             }
+
+            _anim?.PlayAttack();
 
             var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
@@ -307,52 +340,123 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void LateUpdate()
         {
-            if (!_alive || IsStationary || _agent == null || _scheduler == null || _moveId == 0)
-            {
-                return;
-            }
+            _lastSteerDirXZ = Vector3.zero;
 
-            if (!_agent.isOnNavMesh)
+            if (_alive && !IsStationary && _agent != null && _scheduler != null && _moveId != 0)
             {
-                var warpSample = Mathf.Max(1f, BodyRadius * 3f);
-                if (NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
-                {
-                    _agent.Warp(hit.position);
-                }
-
                 if (!_agent.isOnNavMesh)
                 {
-                    return;
+                    var warpSample = Mathf.Max(1f, BodyRadius * 3f);
+                    if (NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
+                    {
+                        _agent.Warp(hit.position);
+                    }
+                }
+
+                if (_agent.isOnNavMesh)
+                {
+                    // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
+                    var hasSteer =
+                        _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+                    var hasCorrection =
+                        _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                        correction.sqrMagnitude > 1e-8f;
+                    if (hasSteer || hasCorrection)
+                    {
+                        if (_agent.hasPath)
+                        {
+                            _agent.ResetPath();
+                        }
+
+                        _agent.isStopped = false;
+                        var speed = Mathf.Max(0.1f, _config != null ? _config.MoveSpeed : 3f);
+                        var delta = hasSteer
+                            ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
+                            : Vector3.zero;
+                        if (hasCorrection)
+                        {
+                            delta.x += correction.x;
+                            delta.z += correction.y;
+                        }
+
+                        if (hasSteer)
+                        {
+                            _lastSteerDirXZ = new Vector3(steer.x, 0f, steer.y);
+                        }
+
+                        _agent.Move(delta);
+                    }
                 }
             }
 
-            // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
-            var hasSteer = _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
-            var hasCorrection =
-                _scheduler.TryGetCorrection(_moveId, out var correction) &&
-                correction.sqrMagnitude > 1e-8f;
-            if (!hasSteer && !hasCorrection)
+            TickAnimPresentation();
+        }
+
+        /// <summary>
+        /// In AttackRange → face target + idle; else chase → IsRun + DirIndex from steer (SPEC_04 §15.5).
+        /// </summary>
+        private void TickAnimPresentation()
+        {
+            if (_anim == null || !_alive)
             {
                 return;
             }
 
-            if (_agent.hasPath)
+            if (TryGetCombatTargetPosition(out var targetPos) &&
+                Vector3.Distance(transform.position, targetPos) <= _config.AttackRange)
             {
-                _agent.ResetPath();
+                _anim.SetMoving(false);
+                FaceToward(targetPos);
+                return;
             }
 
-            _agent.isStopped = false;
-            var speed = Mathf.Max(0.1f, _config != null ? _config.MoveSpeed : 3f);
-            var delta = hasSteer
-                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
-                : Vector3.zero;
-            if (hasCorrection)
+            var moving = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            _anim.SetMoving(moving);
+            if (moving)
             {
-                delta.x += correction.x;
-                delta.z += correction.y;
+                _anim.SetFacing(_lastSteerDirXZ);
+            }
+        }
+
+        private bool TryGetCombatTargetPosition(out Vector3 targetPos)
+        {
+            targetPos = default;
+            if (_config == null)
+            {
+                return false;
             }
 
-            _agent.Move(delta);
+            var kind = ResolveTarget(out var warriorView, out var protagonistTf);
+            if (kind == TargetKind.None)
+            {
+                return false;
+            }
+
+            var targetTf = kind == TargetKind.Warrior && warriorView != null
+                ? warriorView.transform
+                : protagonistTf;
+            if (targetTf == null)
+            {
+                return false;
+            }
+
+            targetPos = targetTf.position;
+            return true;
+        }
+
+        private void FaceToward(Vector3 worldPos)
+        {
+            if (_anim == null)
+            {
+                return;
+            }
+
+            var to = worldPos - transform.position;
+            to.y = 0f;
+            if (to.sqrMagnitude > 0.0001f)
+            {
+                _anim.SetFacing(to);
+            }
         }
 
         private void OnDisable()
@@ -491,7 +595,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var i = 0; i < list.Count; i++)
             {
                 var w = list[i];
-                if (w == null || w.IsRebel)
+                if (w == null || w.IsRebel || !w.IsCombatActive)
                 {
                     continue;
                 }

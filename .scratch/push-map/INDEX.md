@@ -1,6 +1,6 @@
 # PushMap — INDEX
 
-**状态：** 规则已录入至 SPEC **v0.75.0**（§3.14 / SPEC_04 §9.22～§9.23）；PM-01～PM-10 已落地；**PM-11 SPEC（WarriorCombat + DamagePopup + HitFlash）已关闭**；编码切片 **PM-12 → PM-13**（方案 B）。**Demo 已授权**：按 issue 分 Agent 编码；每会话最多推进一个无阻塞切片。
+**状态：** 规则已录入至 SPEC **v0.75.0**（§3.14 / SPEC_04 §9.22～§9.23）；PM-01～PM-10 已落地；**PM-11 SPEC（WarriorCombat + DamagePopup + HitFlash）已关闭**；**PM-12 已落地**（士兵→怪 HitConfirm + 红飘字红闪）；**PM-13 已落地**（怪→兵扣血 + 白飘字白闪 + CombatDead `PlayDie`；方案 B + 死亡表现 A）。**Demo 已授权**：按 issue 分 Agent 编码；每会话最多推进一个无阻塞切片。
 
 **工作量：** PM-11～13 整体难度 3，一律拆步；每 issue 独立 Agent 会话。
 
@@ -20,8 +20,8 @@
 | PM-09 | [09-camera-follow.md](issues/09-camera-follow.md) | PM-03, PM-04 | 2 | done |
 | PM-10 | [10-monster-body-spread.md](issues/10-monster-body-spread.md) | PM-05 | 2 | done |
 | PM-11 | [11-spec-warrior-combat-fx.md](issues/11-spec-warrior-combat-fx.md) | PM-01～10 | 3 | **done**（SPEC + 切片；本会话不编程） |
-| PM-12 | [12-soldier-hit-monster-fx.md](issues/12-soldier-hit-monster-fx.md) | PM-11 | 3 | todo（下一编码片） |
-| PM-13 | [13-monster-hit-soldier-fx.md](issues/13-monster-hit-soldier-fx.md) | PM-12 | 3 | todo |
+| PM-12 | [12-soldier-hit-monster-fx.md](issues/12-soldier-hit-monster-fx.md) | PM-11 | 3 | **done**（方案 A：Session event + TextMesh） |
+| PM-13 | [13-monster-hit-soldier-fx.md](issues/13-monster-hit-soldier-fx.md) | PM-12 | 3 | **done**（方案 B + CombatDead A：`PlayDie`） |
 
 ## 并行建议
 

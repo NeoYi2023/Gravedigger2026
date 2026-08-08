@@ -3,11 +3,16 @@ using UnityEngine;
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
-    /// Defend soldier presentation. Drives Creator bake Animator: move / Attack1 / Die / DirIndex (SPEC_04 §15.5).
+    /// Character presentation for Creator bake Animator: move / Attack1 / Die / DirIndex (SPEC_04 §15.5).
+    /// Used by soldiers and monsters (Defend / PushMap).
+    /// IdleBT/RunBT BlendTrees blend on float Direction; DirIndex drives discrete Attack transitions.
+    /// After asset normalize, Direction thresholds match DirIndex order — always write the same value.
+    /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
     /// </summary>
     public sealed class WarriorAnimView : MonoBehaviour
     {
         private const string DirIndexParam = "DirIndex";
+        private const string DirectionParam = "Direction";
         private const string IdleStateName = "IdleBT";
         private const string IsRunParam = "IsRun";
         private const int SpriteSortingOrder = 200;
@@ -26,13 +31,16 @@ namespace Gravedigger2026.Gameplay.Defend
         [SerializeField] private int _defaultDirIndex = 2;
 
         private int _dirIndexHash;
+        private int _directionHash;
         private int _attackTriggerHash;
         private int _dieTriggerHash;
         private int _isRunHash;
         private bool _hasDirIndex;
+        private bool _hasDirection;
         private bool _hasAttackTrigger;
         private bool _hasDieTrigger;
         private bool _hasIsRun;
+        private bool _facingYawFlip;
         private bool _dead;
         private bool _moving;
 
@@ -41,6 +49,14 @@ namespace Gravedigger2026.Gameplay.Defend
             EnsureAnimator();
             CacheParamHashes();
             ApplySortingOrder();
+        }
+
+        /// <summary>
+        /// SPEC_04 §15.5: FacingYawFlip 1 → (dirIndex+4)%8 before writing Animator params.
+        /// </summary>
+        public void SetFacingYawFlip(bool flip)
+        {
+            _facingYawFlip = flip;
         }
 
         public void ResetToIdle()
@@ -63,7 +79,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
         public void SetFacing(Vector3 worldDirXZ)
         {
-            if (_dead || _animator == null || !_hasDirIndex)
+            if (_dead || _animator == null || (!_hasDirIndex && !_hasDirection))
             {
                 return;
             }
@@ -174,6 +190,15 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
+        /// <summary>
+        /// Applies FacingYawFlip: 1 → (dirIndex+4)%8.
+        /// </summary>
+        public static int ApplyFacingYawFlip(int dirIndex, bool facingYawFlip)
+        {
+            var clamped = dirIndex < 0 ? 0 : dirIndex % 8;
+            return facingYawFlip ? (clamped + 4) % 8 : clamped;
+        }
+
         private void EnsureAnimator()
         {
             if (_animator == null)
@@ -202,6 +227,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private void CacheParamHashes()
         {
             _hasDirIndex = false;
+            _hasDirection = false;
             _hasAttackTrigger = false;
             _hasDieTrigger = false;
             _hasIsRun = false;
@@ -214,15 +240,20 @@ namespace Gravedigger2026.Gameplay.Defend
             var attackName = string.IsNullOrEmpty(_attackTriggerParam) ? "Attack1" : _attackTriggerParam;
             var dieName = string.IsNullOrEmpty(_dieTriggerParam) ? "Die" : _dieTriggerParam;
             _dirIndexHash = Animator.StringToHash(DirIndexParam);
+            _directionHash = Animator.StringToHash(DirectionParam);
             _attackTriggerHash = Animator.StringToHash(attackName);
             _dieTriggerHash = Animator.StringToHash(dieName);
             _isRunHash = Animator.StringToHash(IsRunParam);
 
             foreach (var p in _animator.parameters)
             {
-                if (p.nameHash == _dirIndexHash)
+                if (p.nameHash == _dirIndexHash && p.type == AnimatorControllerParameterType.Int)
                 {
                     _hasDirIndex = true;
+                }
+                else if (p.nameHash == _directionHash && p.type == AnimatorControllerParameterType.Float)
+                {
+                    _hasDirection = true;
                 }
                 else if (p.nameHash == _attackTriggerHash)
                 {
@@ -241,12 +272,16 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void SetDirIndexValue(int dirIndex)
         {
-            if (!_hasDirIndex)
+            var written = ApplyFacingYawFlip(dirIndex, _facingYawFlip);
+            if (_hasDirIndex)
             {
-                return;
+                _animator.SetInteger(_dirIndexHash, written);
             }
 
-            _animator.SetInteger(_dirIndexHash, dirIndex);
+            if (_hasDirection)
+            {
+                _animator.SetFloat(_directionHash, written);
+            }
         }
 
         private void ClearLocomotionBools()

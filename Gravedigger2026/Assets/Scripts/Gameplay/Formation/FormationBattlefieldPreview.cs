@@ -320,20 +320,26 @@ namespace Gravedigger2026.Gameplay.Formation
             }
         }
 
-        private static void ApplyFixedFacing(Animator animator)
+        private static void ApplyFixedFacing(Animator animator, bool facingYawFlip = false)
         {
             if (animator == null || animator.runtimeAnimatorController == null)
             {
                 return;
             }
 
-            var hash = Animator.StringToHash(DirIndexParam);
+            var dirIndexHash = Animator.StringToHash(DirIndexParam);
+            var directionHash = Animator.StringToHash("Direction");
+            var written = WarriorAnimView.ApplyFacingYawFlip(FixedDirIndex, facingYawFlip);
+
             foreach (var p in animator.parameters)
             {
-                if (p.nameHash == hash)
+                if (p.nameHash == dirIndexHash && p.type == AnimatorControllerParameterType.Int)
                 {
-                    animator.SetInteger(hash, FixedDirIndex);
-                    return;
+                    animator.SetInteger(dirIndexHash, written);
+                }
+                else if (p.nameHash == directionHash && p.type == AnimatorControllerParameterType.Float)
+                {
+                    animator.SetFloat(directionHash, written);
                 }
             }
         }

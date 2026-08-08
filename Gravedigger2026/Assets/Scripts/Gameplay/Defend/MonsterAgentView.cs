@@ -11,11 +11,12 @@ namespace Gravedigger2026.Gameplay.Defend
     /// <summary>
     /// Monster movement + normal-attack View (D-040 / MP-06).
     /// Chase destination = AttackSlot via MassMoveScheduler — no center SetDestination / CalculatePath.
+    /// Presentation: WarriorAnimView DirIndex / IsRun / Attack1 (SPEC_04 §15.5 Approach A).
     /// </summary>
     public sealed class MonsterAgentView : MonoBehaviour
     {
-        private const float SoldierDemoRadius = 0.1f;
         private const float NavMeshSampleRadius = 4f;
+        private const float MoveAnimSpeedSqr = 0.01f;
 
         private DefendSessionService _session;
         private MonsterConfigRow _config;
@@ -26,6 +27,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private float _retargetTimer;
         private float _attackCooldown;
         private NavMeshAgent _agent;
+        private WarriorAnimView _anim;
+        private Vector3 _lastSteerDirXZ;
         private bool _alive = true;
         private bool _probeOnly;
 
@@ -113,7 +116,9 @@ namespace Gravedigger2026.Gameplay.Defend
             _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            var maxCombatRadius = Mathf.Max(0.05f, config.AttackRange - SoldierDemoRadius - 0.05f);
+            var maxCombatRadius = Mathf.Max(
+                0.05f,
+                config.AttackRange - BodyAppearanceConfigRow.DefaultBodyRadius - 0.05f);
             _agent.radius = Mathf.Min(BodyRadius, maxCombatRadius);
             _agent.height = 1.8f;
             _agent.autoBraking = false;
@@ -131,6 +136,20 @@ namespace Gravedigger2026.Gameplay.Defend
                 _scheduler.Register(_moveId, _agent.radius, MassMoveScheduler.DetourGroupMonster);
                 _scheduler.SetGoal(_moveId, GoalKind.AttackSlot);
                 _scheduler.SetPaused(_moveId, true);
+            }
+
+            EnsureAnim();
+            _lastSteerDirXZ = Vector3.zero;
+            _anim.SetFacingYawFlip(_config != null && _config.FacingYawFlip == 1);
+            _anim.ResetToIdle();
+        }
+
+        private void EnsureAnim()
+        {
+            _anim = GetComponent<WarriorAnimView>();
+            if (_anim == null)
+            {
+                _anim = gameObject.AddComponent<WarriorAnimView>();
             }
         }
 
@@ -210,7 +229,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     out var slotPos,
                     AttackMode,
                     transform.position,
-                    warriorView != null ? SoldierDemoRadius : 0.35f,
+                    warriorView != null ? warriorView.AgentRadius : 0.35f,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode)))
             {
                 var ring = AttackSlotService.ComputeRingRadius(_config.AttackRange);
@@ -287,6 +306,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            FaceToward(targetTf.position);
+
             if (targetKind == TargetKind.Protagonist)
             {
                 _session.ApplyProtagonistNormalHit($"Monster:{_config.MonsterId}");
@@ -299,57 +320,130 @@ namespace Gravedigger2026.Gameplay.Defend
                     _config.AttackPower);
             }
 
+            _anim?.PlayAttack();
+
             var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
         }
 
         private void LateUpdate()
         {
-            if (_probeOnly || !_alive || _agent == null || _scheduler == null || _moveId == 0 || _config == null)
-            {
-                return;
-            }
+            _lastSteerDirXZ = Vector3.zero;
 
-            if (!_agent.isOnNavMesh)
+            if (!_probeOnly && _alive && _agent != null && _scheduler != null && _moveId != 0 &&
+                _config != null)
             {
-                if (NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
-                {
-                    _agent.Warp(hit.position);
-                }
-
                 if (!_agent.isOnNavMesh)
                 {
-                    return;
+                    if (NavMesh.SamplePosition(
+                            transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
+                    {
+                        _agent.Warp(hit.position);
+                    }
+                }
+
+                if (_agent.isOnNavMesh)
+                {
+                    // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
+                    var hasSteer =
+                        _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+                    var hasCorrection =
+                        _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                        correction.sqrMagnitude > 1e-8f;
+                    if (hasSteer || hasCorrection)
+                    {
+                        if (_agent.hasPath)
+                        {
+                            _agent.ResetPath();
+                        }
+
+                        _agent.isStopped = false;
+                        var speed = Mathf.Max(0.1f, _config.MoveSpeed);
+                        var delta = hasSteer
+                            ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
+                            : Vector3.zero;
+                        if (hasCorrection)
+                        {
+                            delta.x += correction.x;
+                            delta.z += correction.y;
+                        }
+
+                        if (hasSteer)
+                        {
+                            _lastSteerDirXZ = new Vector3(steer.x, 0f, steer.y);
+                        }
+
+                        _agent.Move(delta);
+                    }
                 }
             }
 
-            // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
-            var hasSteer = _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
-            var hasCorrection =
-                _scheduler.TryGetCorrection(_moveId, out var correction) &&
-                correction.sqrMagnitude > 1e-8f;
-            if (!hasSteer && !hasCorrection)
+            if (!_probeOnly)
+            {
+                TickAnimPresentation();
+            }
+        }
+
+        /// <summary>
+        /// In AttackRange → face target + idle; else chase → IsRun + DirIndex from steer (SPEC_04 §15.5).
+        /// </summary>
+        private void TickAnimPresentation()
+        {
+            if (_anim == null || !_alive || _config == null)
             {
                 return;
             }
 
-            if (_agent.hasPath)
+            if (TryGetCombatTargetPosition(out var targetPos) &&
+                Vector3.Distance(transform.position, targetPos) <= _config.AttackRange)
             {
-                _agent.ResetPath();
+                _anim.SetMoving(false);
+                FaceToward(targetPos);
+                return;
             }
 
-            _agent.isStopped = false;
-            var speed = Mathf.Max(0.1f, _config.MoveSpeed);
-            var delta = hasSteer
-                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
-                : Vector3.zero;
-            if (hasCorrection)
+            var moving = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            _anim.SetMoving(moving);
+            if (moving)
             {
-                delta.x += correction.x;
-                delta.z += correction.y;
+                _anim.SetFacing(_lastSteerDirXZ);
+            }
+        }
+
+        private bool TryGetCombatTargetPosition(out Vector3 targetPos)
+        {
+            targetPos = default;
+            var kind = ResolveTarget(out var warriorView, out var protagonistTf);
+            if (kind == TargetKind.None)
+            {
+                return false;
             }
 
-            _agent.Move(delta);
+            var targetTf = kind == TargetKind.Warrior && warriorView != null
+                ? warriorView.transform
+                : protagonistTf;
+            if (targetTf == null)
+            {
+                return false;
+            }
+
+            targetPos = targetTf.position;
+            return true;
+        }
+
+        private void FaceToward(Vector3 worldPos)
+        {
+            if (_anim == null)
+            {
+                return;
+            }
+
+            var to = worldPos - transform.position;
+            to.y = 0f;
+            if (to.sqrMagnitude > 0.0001f)
+            {
+                _anim.SetFacing(to);
+            }
         }
 
         private void OnDisable()

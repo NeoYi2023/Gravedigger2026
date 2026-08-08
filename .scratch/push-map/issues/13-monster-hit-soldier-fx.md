@@ -1,9 +1,10 @@
 ---
 title: PushMap — 怪→兵扣血 + 白飘字白闪烁
-status: todo
+status: done
 difficulty: 3
 demo_scope: authorized
 approach: B
+combat_dead_fx: A
 spec_refs:
   - SPEC_03 §3.14 Demo 士兵受击 / DamagePopup / HitFlash / AggroMode 挑衅
   - SPEC_04 §6 PM-13
@@ -30,11 +31,17 @@ spec_refs:
 
 ## 验收
 
-- [ ] 怪打忠诚兵：扣 `AttackPower` + 白 `-N`(24) + 白闪（2×0.1s 紧接）
-- [ ] 连击刷新 HitFlash
-- [ ] 士兵 `HP≤0` 停手
-- [ ] 被动怪可被真实命中激怒（或进距兜底仍可用）
-- [ ] 勾 INDEX PM-13 done
+- [x] 怪打忠诚兵：扣 `AttackPower` + 白 `-N`(24) + 白闪（2×0.1s 紧接）— `TryApplyMonsterDamageToWarrior` → `WarriorDamageSettled` → StageController 白飘字/白闪
+- [x] 连击刷新 HitFlash — 复用 `HitFlashView.Play` 重入重置
+- [x] 士兵 `HP≤0` 停手 — `CombatDead` + `PushMapAdvanceView` `PlayDie` + `StopActing`（方案 A）
+- [x] 被动怪可被真实命中激怒（或进距兜底仍可用）— `MonsterDamageSettled`→`NotifyProvoked`；`PollPassiveProvocation` 兜底
+- [x] 勾 INDEX PM-13 done
+
+## 实现备忘
+
+- 选定：难度 3；CombatDead 最小表现 **方案 A**（`WarriorAnimView.PlayDie` + 停手；无 PermanentDeath 物资 polish；宝石仅 mark `IsPermanentDead`）
+- 事件：`WarriorDamageSettled(warriorId, damage)` / `WarriorCombatDead(warriorId)`
+- 怪 Bind 追加 `onHitWarrior` → Session；兵部署加 `HitFlashView`
 
 ## 依赖
 
@@ -42,4 +49,4 @@ spec_refs:
 
 ## 编码前
 
-- 难度 3：AskQuestion 确认难度与死亡表现最小方案，选定后再编码
+- 难度 3：AskQuestion 确认难度与死亡表现最小方案，选定后再编码 — **已确认：难度 3 + CombatDead 方案 A**

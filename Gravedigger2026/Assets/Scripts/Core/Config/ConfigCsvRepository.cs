@@ -41,6 +41,8 @@ namespace Gravedigger2026.Core.Config
         private readonly Dictionary<string, string> _gemSuffixByComboKey =
             new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly List<BodyAppearanceConfigRow> _appearances = new List<BodyAppearanceConfigRow>();
+        private readonly Dictionary<string, BodyAppearanceConfigRow> _appearanceById =
+            new Dictionary<string, BodyAppearanceConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<int, LossOfControlConfigRow> _lossOfControlByTier =
             new Dictionary<int, LossOfControlConfigRow>();
         private readonly List<TechTreeConfigRow> _techTreeRows = new List<TechTreeConfigRow>();
@@ -76,6 +78,7 @@ namespace Gravedigger2026.Core.Config
             _equipById.Clear();
             _gemSuffixByComboKey.Clear();
             _appearances.Clear();
+            _appearanceById.Clear();
             _lossOfControlByTier.Clear();
             _techTreeRows.Clear();
             _techTreeById.Clear();
@@ -323,6 +326,11 @@ namespace Gravedigger2026.Core.Config
 
         public IReadOnlyList<BodyAppearanceConfigRow> BodyAppearances => _appearances;
 
+        public bool TryGetAppearance(string appearanceId, out BodyAppearanceConfigRow row)
+        {
+            return _appearanceById.TryGetValue(appearanceId ?? string.Empty, out row);
+        }
+
         public IEnumerable<BodyPartConfigRow> BodyParts => _bodyPartById.Values;
 
         public IEnumerable<SoulConfigRow> Souls => _soulById.Values;
@@ -552,6 +560,8 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal BodyRadius '{bodyText}'.");
                 }
 
+                var facingYawFlip = ParseFacingYawFlip(raw, table, rowIndex);
+
                 _monsterById[id] = new MonsterConfigRow
                 {
                     MonsterId = id,
@@ -562,6 +572,7 @@ namespace Gravedigger2026.Core.Config
                     AggroMode = aggroMode,
                     AlertRadius = alertRadius,
                     BodyRadius = bodyRadius,
+                    FacingYawFlip = facingYawFlip,
                     MaxHP = RequireFloat(raw, "MaxHP", table, rowIndex),
                     MoveSpeed = RequireFloat(raw, "MoveSpeed", table, rowIndex),
                     AttackPower = RequireFloat(raw, "AttackPower", table, rowIndex),
@@ -574,6 +585,8 @@ namespace Gravedigger2026.Core.Config
                     LootDrop = OptionalText(raw, "LootDrop")
                 };
             }
+
+            WarnMonsterFacingYawFlipModelIdMismatch();
         }
 
         private void LoadPushMapGameplay()
@@ -1051,15 +1064,35 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal AppearanceLevel '{levelText}'.");
                 }
 
-                _appearances.Add(new BodyAppearanceConfigRow
+                var bodyText = OptionalText(raw, "BodyRadius");
+                float bodyRadius;
+                if (bodyText.Length == 0)
                 {
-                    AppearanceId = SimpleCsv.Require(raw, "AppearanceId", table, rowIndex),
+                    bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+                }
+                else if (!float.TryParse(bodyText, NumberStyles.Float, CultureInfo.InvariantCulture, out bodyRadius)
+                         || bodyRadius < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal BodyRadius '{bodyText}'.");
+                }
+
+                var facingYawFlip = ParseFacingYawFlip(raw, table, rowIndex);
+
+                var id = SimpleCsv.Require(raw, "AppearanceId", table, rowIndex);
+                var row = new BodyAppearanceConfigRow
+                {
+                    AppearanceId = id,
                     AppearanceLevel = level,
                     RaceId = SimpleCsv.Require(raw, "RaceId", table, rowIndex),
                     ClassAffinity = OptionalText(raw, "ClassAffinity"),
                     Description = OptionalText(raw, "Description"),
-                    IsFallback = string.Equals(OptionalText(raw, "IsFallback"), "1", StringComparison.Ordinal)
-                });
+                    IsFallback = string.Equals(OptionalText(raw, "IsFallback"), "1", StringComparison.Ordinal),
+                    BodyRadius = bodyRadius,
+                    FacingYawFlip = facingYawFlip
+                };
+                _appearances.Add(row);
+                _appearanceById[id] = row;
             }
         }
 
@@ -1188,6 +1221,49 @@ namespace Gravedigger2026.Core.Config
                     AttributeModifiers = OptionalText(raw, "AttributeModifiers"),
                     UnlockedFeatureSystemName = OptionalText(raw, "UnlockedFeatureSystemName")
                 };
+            }
+        }
+
+        private static int ParseFacingYawFlip(Dictionary<string, string> raw, string table, int rowIndex)
+        {
+            var text = OptionalText(raw, "FacingYawFlip");
+            if (text.Length == 0)
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var flip)
+                || (flip != 0 && flip != 1))
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal FacingYawFlip '{text}' (expected 0|1).");
+            }
+
+            return flip;
+        }
+
+        private void WarnMonsterFacingYawFlipModelIdMismatch()
+        {
+            var flipByModel = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var row in _monsterById.Values)
+            {
+                if (row == null || string.IsNullOrEmpty(row.ModelId))
+                {
+                    continue;
+                }
+
+                if (!flipByModel.TryGetValue(row.ModelId, out var existing))
+                {
+                    flipByModel[row.ModelId] = row.FacingYawFlip;
+                    continue;
+                }
+
+                if (existing != row.FacingYawFlip)
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] Defend_MonsterConfig: ModelId '{row.ModelId}' has inconsistent " +
+                        $"FacingYawFlip values ({existing} vs {row.FacingYawFlip} on MonsterId '{row.MonsterId}').");
+                }
             }
         }
 

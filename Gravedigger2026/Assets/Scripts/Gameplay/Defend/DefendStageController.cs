@@ -156,6 +156,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
                 _defendCamera.nearClipPlane = 0.1f;
                 _defendCamera.farClipPlane = 100f;
+                // SPEC_04 §15.2: same-order character sprites draw far-to-near along
+                // world +Z — lower on screen (smaller Z) occludes higher.
+                _defendCamera.transparencySortMode = TransparencySortMode.CustomAxis;
+                _defendCamera.transparencySortAxis = Vector3.forward;
             }
 
             EnsureDefendLight();
@@ -363,6 +367,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 _defendCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
                 _defendCamera.orthographic = true;
                 _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
+                // SPEC_04 §15.2: same-order character sprites draw far-to-near along
+                // world +Z — lower on screen (smaller Z) occludes higher.
+                _defendCamera.transparencySortMode = TransparencySortMode.CustomAxis;
+                _defendCamera.transparencySortAxis = Vector3.forward;
             }
 
             EnsurePathingServices();
@@ -731,6 +739,15 @@ namespace Gravedigger2026.Gameplay.Defend
                     continue;
                 }
 
+                var bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+                var facingYawFlip = false;
+                if (_configs.TryGetAppearance(warrior.AppearanceId, out var appearanceRow) &&
+                    appearanceRow != null)
+                {
+                    bodyRadius = appearanceRow.BodyRadius;
+                    facingYawFlip = appearanceRow.FacingYawFlip == 1;
+                }
+
                 var go = Instantiate(appearancePrefab, _worldRoot);
                 go.name = $"Warrior_{warrior.Id}";
                 var formationHome = new Vector3(
@@ -760,7 +777,9 @@ namespace Gravedigger2026.Gameplay.Defend
                     formationHome,
                     _moveScheduler,
                     _attackSlots,
-                    moveId);
+                    moveId,
+                    bodyRadius,
+                    facingYawFlip);
                 _warriorAgents.Add(agent);
             }
 

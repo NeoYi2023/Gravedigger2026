@@ -103,7 +103,9 @@ namespace Gravedigger2026.Gameplay.Pathing
                         renderer.sharedMaterial = font.material;
                     }
 
-                    renderer.sortingOrder = 200;
+                    // SPEC_04 §15.2: above the character band (200) so the camera
+                    // Z-sort cannot tie it with the body sprite at the same XZ.
+                    renderer.sortingOrder = 205;
                 }
             }
 

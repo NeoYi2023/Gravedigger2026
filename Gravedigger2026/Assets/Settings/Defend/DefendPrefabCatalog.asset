@@ -15,6 +15,7 @@ MonoBehaviour:
   _defendStageRootPrefab: {fileID: 5195272429028053511, guid: 079d4c2fb60749d40a3c468990405b70, type: 3}
   _battleProtagonistPrefab: {fileID: 4104538918496031396, guid: 8a7dab25f0ea1134a82ffc108f6fdfc6, type: 3}
   _projectilePrefab: {fileID: 7104538918496031401, guid: c4e8a1b2d3f5467890abcdef12345678, type: 3}
+  _damagePopupPrefab: {fileID: 5195272429028053599, guid: c8f5b2d0e3a6597f0b1c2d3e4f5a6b7c, type: 3}
   _maps:
   - MapId: Ground_01
     Prefab: {fileID: 2120705586636139558, guid: 2b55ec59d080c0c4a95b02b760b12e4b, type: 3}

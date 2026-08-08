@@ -10,6 +10,8 @@ namespace Gravedigger2026.Core.Config
         public AggroMode AggroMode;
         public float AlertRadius;
         public float BodyRadius;
+        /// <summary>0|1; presentation-only (SPEC_04 §15.5).</summary>
+        public int FacingYawFlip;
         public float MaxHP;
         public float MoveSpeed;
         public float AttackPower;

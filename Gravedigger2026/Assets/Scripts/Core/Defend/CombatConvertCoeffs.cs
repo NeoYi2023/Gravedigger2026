@@ -9,7 +9,7 @@ namespace Gravedigger2026.Core.Defend
     /// </summary>
     public readonly struct CombatConvertCoeffs
     {
-        public const float DefaultNormalAttackPrimaryMult = 1.5f;
+        public const float DefaultNormalAttackPrimaryMult = 15f;
         public const float DefaultAttackSpeedBase = 0.5f;
         public const float DefaultAttackSpeedAgiDiv = 60f;
         public const float DefaultSkillCdIntDiv = 30f;

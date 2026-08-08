@@ -30,7 +30,6 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         private const float MoveAnimSpeedSqr = 0.04f;
-        private const float SoldierDemoRadius = 0.1f;
         private const float NavMeshSampleRadius = 4f;
 
         private DefendSessionService _session;
@@ -53,6 +52,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private WarriorAnimView _anim;
         private bool _diePlayed;
         private float _moveSpeed = 3.5f;
+        private float _bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+        private bool _facingYawFlip;
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
@@ -61,7 +62,7 @@ namespace Gravedigger2026.Gameplay.Defend
         public string WarriorId => _warriorId;
         public string AttackerId => _warriorId;
         public int MoveId => _moveId;
-        public float AgentRadius => SoldierDemoRadius;
+        public float AgentRadius => _bodyRadius;
         public Vector3 FormationHome => _formationHome;
         public bool HasFormationHome => _hasFormationHome;
         /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ≤50/frame (SPEC_04 §9.7).</summary>
@@ -124,7 +125,9 @@ namespace Gravedigger2026.Gameplay.Defend
             Vector3? formationHomeWorld = null,
             MassMoveScheduler scheduler = null,
             AttackSlotService attackSlots = null,
-            int moveId = 0)
+            int moveId = 0,
+            float bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius,
+            bool facingYawFlip = false)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
@@ -146,6 +149,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _scheduler = scheduler;
             _attackSlots = attackSlots;
             _moveId = moveId;
+            _bodyRadius = Mathf.Max(0.05f, bodyRadius);
+            _facingYawFlip = facingYawFlip;
 
             if (!_session.TryGetWarrior(_warriorId, out var state) || state == null)
             {
@@ -168,11 +173,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 _anim = gameObject.AddComponent<WarriorAnimView>();
             }
 
+            _anim.SetFacingYawFlip(_facingYawFlip);
             _agent.speed = _moveSpeed;
             _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            _agent.radius = SoldierDemoRadius;
+            _agent.radius = _bodyRadius;
             _agent.height = 0.1f;
             _agent.autoBraking = false;
             // SPEC_04 §15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
@@ -189,7 +195,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_scheduler != null && _moveId != 0)
             {
-                _scheduler.Register(_moveId, SoldierDemoRadius, MassMoveScheduler.DetourGroupLoyal);
+                _scheduler.Register(_moveId, _bodyRadius, MassMoveScheduler.DetourGroupLoyal);
                 if (_hasFormationHome)
                 {
                     _scheduler.SetGoal(
@@ -221,7 +227,7 @@ namespace Gravedigger2026.Gameplay.Defend
             return new MassMoveSample(
                 _moveId,
                 new Vector2(pos.x, pos.z),
-                SoldierDemoRadius,
+                _bodyRadius,
                 active);
         }
 
@@ -280,7 +286,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (kind == RebelTargetKind.Warrior)
             {
-                bodyRadius = SoldierDemoRadius;
+                bodyRadius = _bodyRadius;
             }
             else if (kind == RebelTargetKind.Monster)
             {
@@ -588,7 +594,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 _session,
                 _warriorId,
                 target.RuntimeId,
-                FindMonsterByRuntimeId,
+                ResolveMonsterTransform,
                 state.RangedProjectileSpeed,
                 state.RangedTimeoutSeconds);
 
@@ -819,6 +825,13 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             return kind != RebelTargetKind.None;
+        }
+
+        /// <summary>ProjectileView target resolver (PM-12 shared contract).</summary>
+        private Transform ResolveMonsterTransform(string runtimeId)
+        {
+            var m = FindMonsterByRuntimeId(runtimeId);
+            return m != null ? m.transform : null;
         }
 
         private MonsterAgentView FindMonsterByRuntimeId(string runtimeId)

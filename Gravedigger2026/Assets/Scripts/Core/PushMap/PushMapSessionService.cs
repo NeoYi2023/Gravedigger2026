@@ -2,17 +2,21 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.PushMap
 {
     /// <summary>
-    /// PushMap stage rules (PM-03–PM-07, Approach A).
+    /// PushMap stage rules (PM-03–PM-07, Approach A; PM-12/13 Approach B).
     /// Prepare→Combat, StartBattle ≥1, Shield, LOC lock, objective capture, spawn/trap,
     /// Boss clear → VictorySettled(StageExpReward), CaptureLoot/DungeonUnlock hooks.
+    /// PM-12/13: independently mirrors Defend StartBattle registry + HitConfirm
+    /// (WarriorCombatMath + ClassConfig; no DefendSessionService lifetime binding).
+    /// Soldier→monster RemainingHp≤0 → MonsterKilled; monster→soldier → CombatDead.
     /// Position resolution and instantiation are View concerns.
     /// </summary>
-    public sealed class PushMapSessionService
+    public sealed class PushMapSessionService : IProjectileCombatSession
     {
         private bool _active;
         private bool _outcomeSettled;
@@ -30,6 +34,23 @@ namespace Gravedigger2026.Core.PushMap
         public event Action<int> ObjectiveCaptured;
         public event Action<int> CurrentObjectiveChanged;
         public event Action<PushMapSpawnRequest> PushMapSpawnRequested;
+
+        /// <summary>PM-12: soldier HitConfirm settled damage on a monster (runtimeId, damage).</summary>
+        public event Action<string, float> MonsterDamageSettled;
+
+        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
+        public event Action<string> MonsterKilled;
+
+        /// <summary>PM-13: monster AttackPower settled on a warrior (warriorId, damage).</summary>
+        public event Action<string, float> WarriorDamageSettled;
+
+        /// <summary>PM-13: warrior RemainingHp≤0 → CombatDead (or gem PermanentDeath mark); View PlayDie + stop.</summary>
+        public event Action<string> WarriorCombatDead;
+
+        private readonly Dictionary<string, DefendCombatWarriorState> _warriors =
+            new Dictionary<string, DefendCombatWarriorState>(StringComparer.Ordinal);
+        private readonly Dictionary<string, DefendCombatMonsterState> _monsters =
+            new Dictionary<string, DefendCombatMonsterState>(StringComparer.Ordinal);
 
         private readonly List<int> _objectiveOrders = new List<int>();
         private readonly HashSet<int> _capturedObjectives = new HashSet<int>();
@@ -86,6 +107,8 @@ namespace Gravedigger2026.Core.PushMap
             _spawnRows.Clear();
             _trapSpawnPointsFired.Clear();
             _spawnPointsStoppedByCapture.Clear();
+            _warriors.Clear();
+            _monsters.Clear();
         }
 
         public bool CanStartBattle(int deployedSoldierCount)
@@ -488,6 +511,269 @@ namespace Gravedigger2026.Core.PushMap
             {
                 RequestLevelFailure("护盾归零");
             }
+        }
+
+        /// <summary>
+        /// PM-12 (SPEC_04 §9.22): deploy-time warrior registry, mirrored from Defend —
+        /// WarriorCombatMath + ClassConfig → HP / NormalAttackPower / AttackSpeed / windup /
+        /// projectile params. Rebel flag stays View-owned this slice (stage SetRebel).
+        /// </summary>
+        public bool TryRegisterWarrior(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            out DefendCombatWarriorState state,
+            out string error)
+        {
+            state = null;
+            error = null;
+            if (!_active || Phase != PushMapPhase.Combat)
+            {
+                error = "Not in Combat";
+                return false;
+            }
+
+            if (warrior == null || string.IsNullOrEmpty(warrior.Id))
+            {
+                error = "Warrior missing";
+                return false;
+            }
+
+            if (_warriors.ContainsKey(warrior.Id))
+            {
+                error = "Warrior already registered";
+                return false;
+            }
+
+            var battleStats = WarriorCombatMath.ComputeBattleStats(warrior);
+            var coeffs = CombatConvertCoeffs.Parse(classRow != null ? classRow.CombatConvertCoeffs : null);
+            var primaryKind = classRow != null ? classRow.PrimaryStat : StatKind.Strength;
+            var primary = WarriorCombatMath.ResolvePrimary(battleStats, primaryKind);
+            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats);
+            var remaining = Math.Min(Math.Max(0f, warrior.RemainingHP), maxHp);
+            if (remaining <= 0f && maxHp > 0)
+            {
+                remaining = maxHp;
+            }
+
+            state = new DefendCombatWarriorState
+            {
+                WarriorId = warrior.Id,
+                AttackMode = warrior.AttackMode,
+                MaxHp = maxHp,
+                RemainingHp = remaining,
+                NormalAttackPower = WarriorCombatMath.ComputeNormalAttackPower(primary, coeffs),
+                AttackSpeed = WarriorCombatMath.ComputeAttackSpeed(battleStats.Agility, coeffs),
+                MoveSpeed = Math.Max(0.1f, battleStats.MoveSpeed > 0.01f ? battleStats.MoveSpeed : 3.5f),
+                AttackRange = classRow != null ? Math.Max(0.1f, classRow.AttackRange) : 1.5f,
+                MeleeWindupSeconds = classRow != null ? Math.Max(0f, classRow.MeleeWindupSeconds) : 0.3f,
+                RangedProjectileSpeed = classRow != null ? Math.Max(0.1f, classRow.RangedProjectileSpeed) : 10f,
+                RangedTimeoutSeconds = classRow != null ? Math.Max(0.1f, classRow.RangedTimeoutSeconds) : 2f,
+                HasGems = warrior.GemIds != null && warrior.GemIds.Count > 0,
+                IsCombatDead = remaining <= 0f,
+                IsPermanentDead = false,
+                IsRebel = false,
+                RaceId = warrior.RaceId ?? string.Empty,
+                GemIds = warrior.GemIds != null ? new List<string>(warrior.GemIds) : new List<string>()
+            };
+
+            _warriors[warrior.Id] = state;
+            warrior.RemainingHP = state.RemainingHp;
+            Debug.Log(
+                $"[PushMapSession] RegisterWarrior {state.WarriorId} Mode={state.AttackMode} " +
+                $"HP={state.RemainingHp:0}/{state.MaxHp} Atk={state.NormalAttackPower:0.##} " +
+                $"ASPD={state.AttackSpeed:0.##} Range={state.AttackRange:0.##} " +
+                $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##}");
+            return true;
+        }
+
+        /// <summary>PM-12: spawn-time monster registry. runtimeId = View RuntimeTargetId (GameObject name).</summary>
+        public bool RegisterMonster(string runtimeId, string monsterId, float maxHp)
+        {
+            if (!_active || Phase != PushMapPhase.Combat || string.IsNullOrEmpty(runtimeId))
+            {
+                return false;
+            }
+
+            if (_monsters.ContainsKey(runtimeId))
+            {
+                Debug.LogWarning($"[PushMapSession] RegisterMonster duplicate runtimeId '{runtimeId}' — ignored.");
+                return false;
+            }
+
+            _monsters[runtimeId] = new DefendCombatMonsterState
+            {
+                RuntimeId = runtimeId,
+                MonsterId = monsterId ?? string.Empty,
+                MaxHp = Math.Max(1f, maxHp),
+                RemainingHp = Math.Max(1f, maxHp),
+                IsAlive = true
+            };
+            return true;
+        }
+
+        public bool TryGetWarrior(string warriorId, out DefendCombatWarriorState state)
+        {
+            state = null;
+            return !string.IsNullOrEmpty(warriorId)
+                   && _warriors.TryGetValue(warriorId, out state)
+                   && state != null;
+        }
+
+        public bool TryGetMonster(string runtimeId, out DefendCombatMonsterState state)
+        {
+            state = null;
+            return !string.IsNullOrEmpty(runtimeId)
+                   && _monsters.TryGetValue(runtimeId, out state)
+                   && state != null;
+        }
+
+        public bool IsWarriorCombatActive(string warriorId)
+        {
+            return TryGetWarrior(warriorId, out var state)
+                   && !state.IsCombatDead
+                   && !state.IsPermanentDead
+                   && state.RemainingHp > 0f;
+        }
+
+        public bool IsMonsterAlive(string runtimeId)
+        {
+            return TryGetMonster(runtimeId, out var state) && state.IsAlive && state.RemainingHp > 0f;
+        }
+
+        /// <summary>IProjectileCombatSession: gates ProjectileView flight/settlement.</summary>
+        public bool IsProjectileCombatActive(string warriorId)
+        {
+            return _active && Phase == PushMapPhase.Combat && IsWarriorCombatActive(warriorId);
+        }
+
+        /// <summary>
+        /// PM-12 melee HitConfirm: View finished windup and re-checked range; rules re-check
+        /// alive + View-supplied inRange, then settle NormalAttackPower.
+        /// </summary>
+        public bool TryConfirmMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange)
+        {
+            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled || !stillInRange)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            if (warrior.AttackMode != AttackMode.Melee)
+            {
+                return false;
+            }
+
+            return SettleMonsterDamage(warrior, monsterRuntimeId, "MeleeHit");
+        }
+
+        /// <summary>
+        /// PM-12 ranged HitConfirm: View reports soft-collision hit; rules settle
+        /// NormalAttackPower if still alive. Timeout miss must not call this.
+        /// </summary>
+        public bool TryConfirmRangedHit(string warriorId, string monsterRuntimeId)
+        {
+            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            if (warrior.AttackMode != AttackMode.Ranged)
+            {
+                return false;
+            }
+
+            return SettleMonsterDamage(warrior, monsterRuntimeId, "RangedHit");
+        }
+
+        /// <summary>
+        /// PM-13: monster normal attack on a loyal soldier — AttackPower, no armor.
+        /// RemainingHp≤0 → CombatDead (gems → PermanentDeath mark Demo-min; no material polish).
+        /// </summary>
+        public bool TryApplyMonsterDamageToWarrior(string monsterRuntimeId, string warriorId, float attackPower)
+        {
+            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled)
+            {
+                return false;
+            }
+
+            if (!IsMonsterAlive(monsterRuntimeId))
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            var dmg = Math.Max(0f, attackPower);
+            warrior.RemainingHp = Math.Max(0f, warrior.RemainingHp - dmg);
+            Debug.Log(
+                $"[PushMapSession] MonsterHit {monsterRuntimeId} -> {warriorId} dmg={dmg:0.##} " +
+                $"HP={warrior.RemainingHp:0}/{warrior.MaxHp}");
+
+            WarriorDamageSettled?.Invoke(warriorId, dmg);
+            if (warrior.RemainingHp <= 0f)
+            {
+                EnterWarriorDowned(warrior);
+            }
+
+            return true;
+        }
+
+        private bool SettleMonsterDamage(DefendCombatWarriorState warrior, string monsterRuntimeId, string tag)
+        {
+            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            {
+                return false;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - warrior.NormalAttackPower);
+            Debug.Log(
+                $"[PushMapSession] {tag} {warrior.WarriorId} -> {monsterRuntimeId} " +
+                $"dmg={warrior.NormalAttackPower:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+
+            MonsterDamageSettled?.Invoke(monsterRuntimeId, warrior.NormalAttackPower);
+            if (monster.RemainingHp <= 0f)
+            {
+                monster.IsAlive = false;
+                Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
+                MonsterKilled?.Invoke(monsterRuntimeId);
+            }
+
+            return true;
+        }
+
+        private void EnterWarriorDowned(DefendCombatWarriorState warrior)
+        {
+            if (warrior == null || warrior.IsCombatDead)
+            {
+                return;
+            }
+
+            if (warrior.HasGems)
+            {
+                warrior.IsPermanentDead = true;
+                warrior.IsCombatDead = true;
+                Debug.LogWarning(
+                    $"[PushMapSession] PermanentDeath (gems) {warrior.WarriorId} — material fate deferred; stop acting.");
+            }
+            else
+            {
+                warrior.IsCombatDead = true;
+                Debug.Log($"[PushMapSession] CombatDead {warrior.WarriorId} (stop acting)");
+            }
+
+            WarriorCombatDead?.Invoke(warrior.WarriorId);
         }
 
         private void EnterVictory()

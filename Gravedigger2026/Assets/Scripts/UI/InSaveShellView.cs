@@ -147,6 +147,8 @@ namespace Gravedigger2026.UI
             }
 
             _backdropImage.color = c;
+            // Hidden backdrop must not raycast (blocks Combat scroll-zoom / drag-pan).
+            _backdropImage.raycastTarget = visible;
         }
 
         public void ShowGameplayState(GameplayState state)

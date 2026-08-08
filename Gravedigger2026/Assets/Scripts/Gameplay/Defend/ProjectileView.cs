@@ -6,13 +6,15 @@ namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
     /// Kinematic ranged projectile (scheme D / Approach A). Soft-hit by distance; timeout = miss.
+    /// Session-agnostic via <see cref="IProjectileCombatSession"/> so Defend and PushMap (PM-12)
+    /// share the same Projectile prefab/View without binding each other's session lifetime.
     /// </summary>
     public sealed class ProjectileView : MonoBehaviour
     {
-        private DefendSessionService _session;
+        private IProjectileCombatSession _session;
         private string _warriorId;
         private string _targetRuntimeId;
-        private Func<string, MonsterAgentView> _resolveMonster;
+        private Func<string, Transform> _resolveTarget;
         private float _speed;
         private float _timeoutRemaining;
         private float _hitRadius;
@@ -20,10 +22,10 @@ namespace Gravedigger2026.Gameplay.Defend
         private Vector3 _lastKnownTargetPos;
 
         public void Launch(
-            DefendSessionService session,
+            IProjectileCombatSession session,
             string warriorId,
             string targetRuntimeId,
-            Func<string, MonsterAgentView> resolveMonster,
+            Func<string, Transform> resolveTarget,
             float speed,
             float timeoutSeconds,
             float hitRadius = 0.55f)
@@ -31,15 +33,15 @@ namespace Gravedigger2026.Gameplay.Defend
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
             _targetRuntimeId = targetRuntimeId ?? throw new ArgumentNullException(nameof(targetRuntimeId));
-            _resolveMonster = resolveMonster ?? throw new ArgumentNullException(nameof(resolveMonster));
+            _resolveTarget = resolveTarget ?? throw new ArgumentNullException(nameof(resolveTarget));
             _speed = Mathf.Max(0.1f, speed);
             _timeoutRemaining = Mathf.Max(0.05f, timeoutSeconds);
             _hitRadius = Mathf.Max(0.05f, hitRadius);
             _settled = false;
 
-            var target = _resolveMonster(_targetRuntimeId);
+            var target = _resolveTarget(_targetRuntimeId);
             _lastKnownTargetPos = target != null
-                ? target.transform.position
+                ? target.position
                 : transform.position + transform.forward;
         }
 
@@ -50,10 +52,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            if (_session == null
-                || !_session.IsActive
-                || _session.Phase != DefendPhase.Combat
-                || !_session.IsWarriorCombatActive(_warriorId))
+            if (_session == null || !_session.IsProjectileCombatActive(_warriorId))
             {
                 DespawnMiss("shooter inactive");
                 return;
@@ -66,10 +65,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            var target = _resolveMonster != null ? _resolveMonster(_targetRuntimeId) : null;
-            if (target != null && target.IsAlive)
+            var target = _resolveTarget != null ? _resolveTarget(_targetRuntimeId) : null;
+            if (target != null && _session.IsMonsterAlive(_targetRuntimeId))
             {
-                _lastKnownTargetPos = target.transform.position;
+                _lastKnownTargetPos = target.position;
             }
 
             var pos = transform.position;

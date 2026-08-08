@@ -19,10 +19,12 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// <summary>
     /// PushMap stage presentation bridge (Approach A / PM-03–PM-09 + MassCombatPathing MP-04).
     /// Prepare reuses FormationEditorRoot; StartBattle initializes Shield/LOC. Objective chain,
-    /// spawn/trap, AggroMode four-state, and PM-07 Boss clear: Demo kill = AttackSlot claim vs
-    /// that monster + center dist ≤ max(monster, soldier) AttackRange + ArriveEpsilon + claim
-    /// held ≥ DemoKillEngageSeconds → NotifyKilled + TryNotifyBossKilled (Objective advance
-    /// pass-by does not kill);
+    /// spawn/trap, AggroMode four-state, and PM-07 Boss clear.
+    /// PM-12 (Approach B): StartBattle registers warriors (TryRegisterWarrior) and spawns
+    /// register monsters (RegisterMonster) on PushMapSessionService; soldier→monster damage
+    /// settles via scheme-D HitConfirm → MonsterDamageSettled (red popup/flash + provoke) /
+    /// MonsterKilled. PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
+    /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
     /// VictorySettled → AddExperience → advance;
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
     /// PM-08: StartBattle NavMesh bake injects AirWall Not Walkable boxes (incl. 45°).
@@ -33,9 +35,8 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// PM-09: PushMapCameraFollowController Auto/Manual + ResumeFollow.
     /// PM-10: BodyRadius spawn spread + NavMeshAgent.radius for RVO.
     /// v0.66: Bake → deploy → FireStartBattleSpawns; advance does not pause on capture probe.
-    /// v0.74.10: engage-clock tolerance (retarget while engaged keeps StartedAt; only
-    /// disengagement clears) + sticky target selection (view side) fix the starvation
-    /// deadlock; objective chain exhausted → FlowField redirects to BossPoint
+    /// v0.74.10: sticky target selection (view side) fixes the starvation deadlock;
+    /// objective chain exhausted → FlowField redirects to BossPoint
     /// (ObjectiveArriveRadius = BossAdvanceArriveRadius).
     /// </summary>
     public sealed class PushMapStageController : MonoBehaviour
@@ -77,9 +78,6 @@ namespace Gravedigger2026.Gameplay.PushMap
         private NavMeshDataInstance _navMeshInstance;
         private GameObject _battleProtagonistInstance;
 
-        /// <summary>SPEC_03 §3.14 pacing gate: seconds an AttackSlot claim must be held before Demo kill.</summary>
-        private const float DemoKillEngageSeconds = 0.4f;
-
         /// <summary>
         /// SPEC_03 §3.14 v0.74.10 Boss guidance: with the objective chain exhausted the
         /// shared field aims at the BossPoint and the Objective hold bubble tightens to
@@ -93,7 +91,6 @@ namespace Gravedigger2026.Gameplay.PushMap
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
         private readonly List<MassMoveSample> _moveSamples = new List<MassMoveSample>(64);
-        private readonly Dictionary<string, EngageClaim> _engageClaims = new Dictionary<string, EngageClaim>(64);
         private int _nextAdvanceMoveId;
         private int _slotGoalCursor;
         private int _lastSlotGoalRefreshCount;
@@ -178,6 +175,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.ObjectiveCaptured += HandleObjectiveCaptured;
             _session.CurrentObjectiveChanged += HandleCurrentObjectiveChanged;
             _session.PushMapSpawnRequested += HandlePushMapSpawnRequested;
+            _session.MonsterDamageSettled += HandleMonsterDamageSettled;
+            _session.MonsterKilled += HandleMonsterKilled;
+            _session.WarriorDamageSettled += HandleWarriorDamageSettled;
             _session.BeginPrepare(context.PushMapConfig);
 
             if (_hudView != null)
@@ -211,6 +211,9 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _session.ObjectiveCaptured -= HandleObjectiveCaptured;
                 _session.CurrentObjectiveChanged -= HandleCurrentObjectiveChanged;
                 _session.PushMapSpawnRequested -= HandlePushMapSpawnRequested;
+                _session.MonsterDamageSettled -= HandleMonsterDamageSettled;
+                _session.MonsterKilled -= HandleMonsterKilled;
+                _session.WarriorDamageSettled -= HandleWarriorDamageSettled;
                 _session.Stop();
                 _session = null;
             }
@@ -320,7 +323,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _hudView.SetPhaseText("推图战 — Combat");
                 RefreshCombatHud();
                 _hudView.SetHint(
-                    $"忠诚兵推进/占领；进 BOSS AttackRange 击杀通关（Exp={_session.Config?.StageExpReward ?? 0}）；" +
+                    $"忠诚兵推进/占领；近身普攻击杀 BOSS 通关（Exp={_session.Config?.StageExpReward ?? 0}）；" +
                     "护盾归零失败不入账；拖拽镜头可手动平移，点「恢复跟随」回默认");
             }
 
@@ -402,116 +405,103 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.TickCapture(hasLoyalInZone);
             TickMassCombatPathing();
             PollTrapEntry();
-            PollMonsterDemoKill();
             PollPassiveProvocation();
         }
 
         /// <summary>
-        /// Demo kill (WarriorCombat hit polish deferred): only while loyal soldier is on
-        /// GoalKind.AttackSlot against that monster, and center dist ≤
-        /// max(monster, soldier) AttackRange + ArriveEpsilon → NotifyKilled.
-        /// Gates out Objective advance pass-by (drive-by vanish). Soldier reach covers
-        /// AttackSlot ring arrival when monster AttackRange is smaller.
-        /// Boss also TryNotifyBossKilled.
-        /// Pacing gate (SPEC_03 §3.14): the claim must be held ≥ DemoKillEngageSeconds —
-        /// engage-detect radius equals kill range on current configs, which would otherwise
-        /// kill on the very frame the slot is claimed (zero-frame chase; the soldier label
-        /// never leaves 推进). The delay lets the soldier visibly close onto the ring first.
-        /// v0.74.10 tolerance: the clock tracks continuous engagement per soldier — a
-        /// retarget of the claim while engaged (sticky switch) or a brief soft-collision
-        /// push-out of kill range keeps StartedAt; only disengagement clears it (handled
-        /// in RefreshSoldierSlotGoal / on kill). Without this, nearest-target flip-flop in
-        /// dense packs starves the gate forever (no monster ever dies).
+        /// PM-12: soldier HitConfirm settled damage on a monster — provoke it (PM-06 real-hit
+        /// channel), flash it red, and pop a red `-N` (font 12) overhead DamagePopup.
         /// </summary>
-        private void PollMonsterDemoKill()
+        private void HandleMonsterDamageSettled(string runtimeId, float damage)
         {
-            if (_monsters.Count == 0 || _advanceViews.Count == 0 || _session == null || _session.OutcomeSettled)
+            var monster = FindMonsterView(runtimeId);
+            if (monster == null)
             {
                 return;
             }
 
-            for (var m = 0; m < _monsters.Count; m++)
+            monster.NotifyProvoked();
+            var flash = monster.GetComponent<HitFlashView>();
+            if (flash != null)
             {
-                var monster = _monsters[m];
-                if (monster == null || !monster.IsAlive)
+                flash.Play(HitFlashView.MonsterFlashColor);
+            }
+
+            SpawnDamagePopup(monster.transform.position, damage, DamagePopupStyle.Monster);
+        }
+
+        /// <summary>
+        /// PM-13: monster AttackPower settled on a warrior — white HitFlash + white `-N` (font 12).
+        /// CombatDead presentation (PlayDie) is owned by PushMapAdvanceView.
+        /// </summary>
+        private void HandleWarriorDamageSettled(string warriorId, float damage)
+        {
+            var soldier = FindAdvanceView(warriorId);
+            if (soldier == null)
+            {
+                return;
+            }
+
+            var flash = soldier.GetComponent<HitFlashView>();
+            if (flash != null)
+            {
+                flash.Play(HitFlashView.SoldierFlashColor);
+            }
+
+            SpawnDamagePopup(soldier.transform.position, damage, DamagePopupStyle.Soldier);
+        }
+
+        private void SpawnDamagePopup(Vector3 worldPos, float damage, DamagePopupStyle style)
+        {
+            var prefab = _catalog != null ? _catalog.DamagePopupPrefab : null;
+            if (prefab == null)
+            {
+                Debug.LogWarning("[PushMapStage] DamagePopup prefab missing in DefendPrefabCatalog — popup skipped.");
+                return;
+            }
+
+            DamagePopupView.Spawn(prefab, _worldRoot, worldPos, damage, style);
+        }
+
+        /// <summary>PM-12: monster RemainingHp≤0 → presentation kill; Boss also advances clear.</summary>
+        private void HandleMonsterKilled(string runtimeId)
+        {
+            var monster = FindMonsterView(runtimeId);
+            if (monster == null)
+            {
+                return;
+            }
+
+            var isBoss = monster.IsBoss;
+            monster.NotifyKilled();
+            if (isBoss)
+            {
+                _session?.TryNotifyBossKilled();
+            }
+        }
+
+        private PushMapMonsterAgentView FindMonsterView(string runtimeId)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return null;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var m = _monsters[i];
+                if (m != null && string.Equals(m.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
                 {
-                    continue;
-                }
-
-                for (var i = 0; i < _advanceViews.Count; i++)
-                {
-                    var soldier = _advanceViews[i];
-                    if (soldier == null || soldier.IsRebel)
-                    {
-                        continue;
-                    }
-
-                    // Must be engaged on AttackSlot vs this monster — not Objective advance.
-                    if (_moveScheduler == null ||
-                        !_moveScheduler.TryGetGoal(soldier.MoveId, out var goalKind, out _) ||
-                        goalKind != GoalKind.AttackSlot)
-                    {
-                        continue;
-                    }
-
-                    if (_attackSlots == null ||
-                        !_attackSlots.TryGetClaimedTargetId(soldier.AttackerId, out var claimedTarget) ||
-                        claimedTarget != monster.RuntimeTargetId)
-                    {
-                        continue;
-                    }
-
-                    var range = Mathf.Max(monster.AttackRange, soldier.AttackRange) +
-                                MassMoveScheduler.ArriveEpsilon;
-                    if (range <= 0f)
-                    {
-                        continue;
-                    }
-
-                    var dist = Vector3.Distance(monster.transform.position, soldier.transform.position);
-                    if (dist > range)
-                    {
-                        continue;
-                    }
-
-                    // Engage pacing: first qualifying frame starts the clock instead of killing.
-                    if (!_engageClaims.TryGetValue(soldier.AttackerId, out var engage))
-                    {
-                        _engageClaims[soldier.AttackerId] = new EngageClaim(monster.RuntimeTargetId, Time.time);
-                        continue;
-                    }
-
-                    // v0.74.10: retarget while engaged keeps StartedAt (starvation fix).
-                    if (engage.TargetId != monster.RuntimeTargetId)
-                    {
-                        engage.TargetId = monster.RuntimeTargetId;
-                        _engageClaims[soldier.AttackerId] = engage;
-                    }
-
-                    if (Time.time - engage.StartedAt < DemoKillEngageSeconds)
-                    {
-                        continue;
-                    }
-
-                    var isBoss = monster.IsBoss;
-                    Debug.Log(
-                        $"[PushMapStage] Demo monster kill — loyal soldier in reach of " +
-                        $"'{(isBoss ? "BOSS " : "")}{monster.MonsterId}' " +
-                        $"(max ranges + ArriveEpsilon={range:0.###}, engage≥{DemoKillEngageSeconds:0.##}s).");
-                    monster.NotifyKilled();
-                    _engageClaims.Remove(soldier.AttackerId);
-                    if (isBoss)
-                    {
-                        _session.TryNotifyBossKilled();
-                    }
-
-                    break;
+                    return m;
                 }
             }
+
+            return null;
         }
 
         // PM-06 Demo contract: a loyal soldier's first entry into a passive monster's
         // AttackRange stands in for "soldier attacks first" → NotifyProvoked.
+        // Prefer real HitConfirm (HandleMonsterDamageSettled → NotifyProvoked); this is fallback.
         private void PollPassiveProvocation()
         {
             if (_monsters.Count == 0 || _advanceViews.Count == 0)
@@ -536,7 +526,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 for (var i = 0; i < _advanceViews.Count; i++)
                 {
                     var soldier = _advanceViews[i];
-                    if (soldier == null || soldier.IsRebel)
+                    if (soldier == null || soldier.IsRebel || !soldier.IsCombatActive)
                     {
                         continue;
                     }
@@ -704,7 +694,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var i = 0; i < _advanceViews.Count; i++)
             {
                 var soldier = _advanceViews[i];
-                if (soldier == null || soldier.IsRebel)
+                if (soldier == null || soldier.IsRebel || !soldier.IsCombatActive)
                 {
                     continue;
                 }
@@ -737,7 +727,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 for (var i = 0; i < _advanceViews.Count; i++)
                 {
                     var soldier = _advanceViews[i];
-                    if (soldier == null || soldier.IsRebel)
+                    if (soldier == null || soldier.IsRebel || !soldier.IsCombatActive)
                     {
                         continue;
                     }
@@ -829,10 +819,20 @@ namespace Gravedigger2026.Gameplay.PushMap
                     1f,
                     _attackSlots,
                     _moveScheduler,
-                    ++_nextAdvanceMoveId);
+                    ++_nextAdvanceMoveId,
+                    (monsterRuntimeId, warriorId, attackPower) =>
+                        _session != null &&
+                        _session.TryApplyMonsterDamageToWarrior(monsterRuntimeId, warriorId, attackPower));
                 if (request.IsBoss)
                 {
                     view.MarkAsBoss(true);
+                }
+
+                // PM-12: register monster HP on the session (kill = RemainingHp≤0 via HitConfirm).
+                _session?.RegisterMonster(view.RuntimeTargetId, monsterRow.MonsterId, monsterRow.MaxHP);
+                if (go.GetComponent<HitFlashView>() == null)
+                {
+                    go.AddComponent<HitFlashView>();
                 }
 
                 _monsters.Add(view);
@@ -944,23 +944,47 @@ namespace Gravedigger2026.Gameplay.PushMap
                     _mapCenter.x + entry.PositionX,
                     _mapCenter.y,
                     _mapCenter.z + entry.PositionZ);
-                _deployedViews.Add(go);
+
+                ClassConfigRow classRow = null;
+                if (_configs != null && !string.IsNullOrEmpty(warrior.ClassId))
+                {
+                    _configs.TryGetClass(warrior.ClassId, out classRow);
+                }
 
                 var attackRange = 1f;
-                if (_configs != null &&
-                    !string.IsNullOrEmpty(warrior.ClassId) &&
-                    _configs.TryGetClass(warrior.ClassId, out var classRow) &&
-                    classRow != null &&
-                    classRow.AttackRange > 0.05f)
+                if (classRow != null && classRow.AttackRange > 0.05f)
                 {
                     attackRange = classRow.AttackRange;
                 }
+
+                // PM-12: register combat stats (HP / NormalAttackPower / AttackSpeed / windup /
+                // projectile) on the PushMap session before the view goes live.
+                if (_session != null &&
+                    !_session.TryRegisterWarrior(warrior, classRow, out _, out var regError))
+                {
+                    Debug.LogWarning($"[PushMapStage] RegisterWarrior failed: {regError}");
+                    Destroy(go);
+                    continue;
+                }
+
+                _deployedViews.Add(go);
 
                 var advance = go.GetComponent<PushMapAdvanceView>();
                 if (advance == null)
                 {
                     advance = go.AddComponent<PushMapAdvanceView>();
                 }
+
+                var bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+                var facingYawFlip = false;
+                if (_configs != null &&
+                    _configs.TryGetAppearance(warrior.AppearanceId, out var appearanceRow) &&
+                    appearanceRow != null)
+                {
+                    bodyRadius = appearanceRow.BodyRadius;
+                    facingYawFlip = appearanceRow.FacingYawFlip == 1;
+                }
+
                 _nextAdvanceMoveId++;
                 advance.Bind(
                     _moveScheduler,
@@ -970,7 +994,17 @@ namespace Gravedigger2026.Gameplay.PushMap
                     attackRange,
                     warrior.AttackMode,
                     warrior.Id,
-                    _attackSlots);
+                    _attackSlots,
+                    _session,
+                    _catalog != null ? _catalog.ProjectilePrefab : null,
+                    _worldRoot,
+                    bodyRadius,
+                    facingYawFlip);
+                if (go.GetComponent<HitFlashView>() == null)
+                {
+                    go.AddComponent<HitFlashView>();
+                }
+
                 _advanceViews.Add(advance);
             }
 
@@ -984,14 +1018,21 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private PushMapAdvanceView FindAdvanceView(string warriorId)
         {
+            if (string.IsNullOrEmpty(warriorId))
+            {
+                return null;
+            }
+
             for (var i = 0; i < _advanceViews.Count; i++)
             {
                 var view = _advanceViews[i];
-                if (view != null && view.gameObject.name == $"Warrior_{warriorId}")
+                if (view != null &&
+                    string.Equals(view.AttackerId, warriorId, StringComparison.Ordinal))
                 {
                     return view;
                 }
             }
+
             return null;
         }
 
@@ -1008,8 +1049,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             _advanceViews.Clear();
             _moveScheduler?.Clear();
             _attackSlots?.Clear();
-            // Reset pacing clocks: monster RuntimeTargetId (= GameObject name) may repeat next battle.
-            _engageClaims.Clear();
             _battleProtagonistInstance = null;
         }
 
@@ -1185,7 +1224,11 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void RefreshSoldierSlotGoal(PushMapAdvanceView soldier)
         {
-            if (soldier == null || soldier.IsRebel || _moveScheduler == null || _attackSlots == null)
+            if (soldier == null ||
+                soldier.IsRebel ||
+                !soldier.IsCombatActive ||
+                _moveScheduler == null ||
+                _attackSlots == null)
             {
                 return;
             }
@@ -1193,21 +1236,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (!soldier.TryGetEngageMonster(out var monster) || monster == null)
             {
                 _attackSlots.Release(soldier.AttackerId);
-                // v0.74.10: disengage (no candidate in detect) → pacing clock resets.
-                _engageClaims.Remove(soldier.AttackerId);
                 _moveScheduler.SetPaused(soldier.MoveId, false);
                 _moveScheduler.SetGoal(soldier.MoveId, GoalKind.Objective);
                 return;
-            }
-
-            // v0.74.10: fresh claim (none held right now — e.g. previous target died to an
-            // ally and was released) restarts the pacing clock; only sticky retargets while
-            // the claim is continuously held keep StartedAt (handled in PollMonsterDemoKill).
-            if (!_attackSlots.TryGetClaimedTargetId(soldier.AttackerId, out _) &&
-                _engageClaims.TryGetValue(soldier.AttackerId, out var staleClock) &&
-                staleClock.TargetId != monster.RuntimeTargetId)
-            {
-                _engageClaims.Remove(soldier.AttackerId);
             }
 
             var targetBody = monster.BodyRadius;
@@ -1224,9 +1255,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, soldier.AttackMode)))
             {
                 // No free slot: keep Objective FlowField (do not hard-freeze). Overflow soldiers
-                // continue advance / LocalDetour around the ring until a slot frees or Demo kill.
-                // v0.74.10: claim lost/none → not engaged → pacing clock resets.
-                _engageClaims.Remove(soldier.AttackerId);
+                // continue advance / LocalDetour around the ring until a slot frees or the
+                // monster dies to an ally's HitConfirm (PM-12).
                 _moveScheduler.SetPaused(soldier.MoveId, false);
                 _moveScheduler.SetGoal(soldier.MoveId, GoalKind.Objective);
                 return;
@@ -1571,23 +1601,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             _pushMapCamera.orthographicSize = 2f;
             _pushMapCamera.nearClipPlane = 0.1f;
             _pushMapCamera.farClipPlane = 100f;
+            // SPEC_04 §15.2: same-order character sprites draw far-to-near along world
+            // +Z — lower on screen (smaller Z) occludes higher.
+            _pushMapCamera.transparencySortMode = TransparencySortMode.CustomAxis;
+            _pushMapCamera.transparencySortAxis = Vector3.forward;
         }
 
-        /// <summary>
-        /// Demo-kill pacing clock per attacker. StartedAt marks the first qualifying frame of
-        /// the current continuous engagement; TargetId follows claim retargets without
-        /// resetting StartedAt (v0.74.10 tolerance). Cleared on kill and on disengagement.
-        /// </summary>
-        private struct EngageClaim
-        {
-            public string TargetId;
-            public float StartedAt;
-
-            public EngageClaim(string targetId, float startedAt)
-            {
-                TargetId = targetId;
-                StartedAt = startedAt;
-            }
-        }
     }
 }

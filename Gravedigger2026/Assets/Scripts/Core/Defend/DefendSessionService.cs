@@ -10,7 +10,7 @@ namespace Gravedigger2026.Core.Defend
     /// Pure Defend rules: Prepare / StartBattle / Shield / countdown / wave spawn /
     /// melee + ranged HitConfirm / LossOfControl Rebel / clear victory / LevelFailure (SPEC_03 §3.12 / D-040–D-043).
     /// </summary>
-    public sealed class DefendSessionService
+    public sealed class DefendSessionService : IProjectileCombatSession
     {
         /// <summary>Demo fixed stage Exp credited on clear victory (SPEC_03 §3.12 / D-043).</summary>
         public const long DemoStageExperienceReward = 100;
@@ -370,6 +370,12 @@ namespace Gravedigger2026.Core.Defend
         public bool IsMonsterAlive(string runtimeId)
         {
             return TryGetMonster(runtimeId, out var state) && state.IsAlive && state.RemainingHp > 0f;
+        }
+
+        /// <summary>IProjectileCombatSession: gates ProjectileView flight/settlement (PM-12 shared contract).</summary>
+        public bool IsProjectileCombatActive(string warriorId)
+        {
+            return _active && _phase == DefendPhase.Combat && IsWarriorCombatActive(warriorId);
         }
 
         /// <summary>

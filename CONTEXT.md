@@ -45,7 +45,8 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
-| WarriorAnimView | 士兵动画表现 | Defend 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`） | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；士兵与怪物（Defend/PushMap）共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorName | 士兵名字 | Prefix(es)+RaceName+ClassName+Suffix | [§3.11](SPEC_03_GameRules.md) |
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
@@ -60,10 +61,10 @@
 | StaticStat | 静态属性 | 制造/布阵：不含 SkillBuff 的终值 | [§3.11](SPEC_03_GameRules.md) |
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×3) | [§3.11](SPEC_03_GameRules.md) |
-| NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（缺省 1.5；见 ClassConfig.CombatConvertCoeffs） | [§3.12](SPEC_03_GameRules.md) |
+| NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（缺省 15；见 ClassConfig.CombatConvertCoeffs） | [§3.12](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底 | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
+| BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行 | [§3.11](SPEC_03_GameRules.md) |
 | Race | 种族 | 部位权重1加权随机定稿；五维 RaceAdjustCoeff；主标签 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维调整系数、失控概率加成 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
@@ -111,11 +112,11 @@
 | BossPoint | BOSS 点 | 击杀该点 BOSS → PushMap 阶段通关 | [§3.14](SPEC_03_GameRules.md) |
 | AggroMode | 仇恨模式 | ActiveChase/PassiveChase/StationaryActive/StationaryPassive；异于 AttackMode | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
 | AlertRadius | 警戒半径 | AggroMode 主动发现半径 | [§3.14](SPEC_03_GameRules.md) |
-| BodyRadius | 占地半径 | 怪物 XZ 占地圆；PushMap 刷出散开与移动怪 NavMeshAgent 避障半径 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
+| BodyRadius | 占地半径 | 单位 XZ 占地圆；怪物=`MonsterConfig`；士兵=`BodyAppearanceConfig`（按 AppearanceId，缺省 0.1）；PushMap 刷出散开与 NavMeshAgent/MassMove 避障 | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto` / `Manual` | [§3.14](SPEC_03_GameRules.md) |
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
-| DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`；怪红 28 / 兵白 24 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`；怪红/兵白字号 12；0.5s Z +0→+0.5 后销毁 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | HitFlash | 受伤闪烁 | PushMap 命中后模型亮色；怪红/兵白；2×0.1s 紧接不灭；重伤刷新 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapGameplayConfig | 推图战配置表 | MapId/经验/占领掉落/副本解锁等 | [SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapSpawnConfig | 推图战刷怪表 | SpawnPointId+MonsterId+陷阱/目标关联 | [SPEC_04 §9.23](SPEC_04_Technical.md) |
@@ -143,7 +144,7 @@
 | BattleProtagonist | 战斗主角 | 地图中央；异于 Digger；Defend 用护盾承受普通攻击；烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | Shield | 护盾 | 普通攻击承受次数（敌人或叛变士兵）；开战 = ProtagonistMaxHP；归零 LevelFailure | [§3.12](SPEC_03_GameRules.md) |
 | Monster | 怪物 | 防守敌方；InsideMap/OutsideMap；ModelId 烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/AggroMode/AlertRadius/BodyRadius/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/AggroMode/AlertRadius/BodyRadius/FacingYawFlip/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | Wave | 波次 | WaveConfigId 下刷怪行集合；全触发且全灭为胜利条件之一 | [§3.12](SPEC_03_GameRules.md) |
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 顺序/剩余秒/怪物/数量/位置/方式 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.18](SPEC_04_Technical.md) |
 | WaveConfigId | 波次配置ID | DefendGameplayConfig → WaveSpawnConfig 分组键 | [SPEC_04 §9.7](SPEC_04_Technical.md) |
