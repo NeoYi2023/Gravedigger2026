@@ -9,6 +9,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// <summary>
     /// PushMap Combat camera follow (PM-09 Approach A / SPEC_03 §3.14).
     /// Auto: sticky-follow closest loyal AdvanceView to CurrentObjective; freeze when none.
+    /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto / repick.
     /// Manual: LMB drag pans XZ; ResumeFollow returns to Auto.
     /// Scroll wheel zooms orthographicSize in [0.5, 20] (forward zoom-in).
     /// </summary>
@@ -24,6 +25,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private const float ZoomStepPerNotch = 0.5f;
         private const float OrthoSizeMin = 0.5f;
         private const float OrthoSizeMax = 20f;
+        private const float FollowDeadzone = 0.15f;
+        private const float FollowSmoothTime = 0.25f;
 
         private Camera _camera;
         private IReadOnlyList<PushMapAdvanceView> _advanceViews;
@@ -36,6 +39,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private bool _dragArmed;
         private Vector3 _lastMousePosition;
         private float _dragAccumPixels;
+        private Vector3 _smoothVelocity;
 
         public Mode CurrentMode => _mode;
 
@@ -82,6 +86,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _followTarget = null;
             _dragArmed = false;
             _mode = Mode.Auto;
+            _smoothVelocity = Vector3.zero;
             RefreshResumeButtonVisibility();
         }
 
@@ -95,6 +100,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _mode = Mode.Auto;
             _followTarget = null;
             TryPickClosestLoyal();
+            SnapFollowToTarget();
             RefreshResumeButtonVisibility();
             if (!silent)
             {
@@ -111,6 +117,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _mode = Mode.Manual;
             _followTarget = null;
+            _smoothVelocity = Vector3.zero;
             RefreshResumeButtonVisibility();
             ModeChanged?.Invoke(_mode);
         }
@@ -140,10 +147,44 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             if (!IsFollowable(_followTarget))
             {
+                var previous = _followTarget;
                 TryPickClosestLoyal();
+                if (_followTarget != null && _followTarget != previous)
+                {
+                    SnapFollowToTarget();
+                }
             }
 
             if (_followTarget == null)
+            {
+                return;
+            }
+
+            var p = _camera.transform.position;
+            var t = _followTarget.transform.position;
+            var dx = t.x - p.x;
+            var dz = t.z - p.z;
+            var distSq = dx * dx + dz * dz;
+            if (distSq <= FollowDeadzone * FollowDeadzone)
+            {
+                _smoothVelocity = Vector3.zero;
+                return;
+            }
+
+            var desired = new Vector3(t.x, p.y, t.z);
+            var next = Vector3.SmoothDamp(
+                p,
+                desired,
+                ref _smoothVelocity,
+                FollowSmoothTime);
+            _smoothVelocity.y = 0f;
+            _camera.transform.position = new Vector3(next.x, p.y, next.z);
+        }
+
+        private void SnapFollowToTarget()
+        {
+            _smoothVelocity = Vector3.zero;
+            if (_camera == null || !IsFollowable(_followTarget))
             {
                 return;
             }

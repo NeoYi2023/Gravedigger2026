@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Defend
@@ -8,6 +9,7 @@ namespace Gravedigger2026.Gameplay.Defend
     /// IdleBT/RunBT BlendTrees blend on float Direction; DirIndex drives discrete Attack transitions.
     /// After asset normalize, Direction thresholds match DirIndex order — always write the same value.
     /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
+    /// Death: latch last non-null Die sprite + darken + CorpseSortingOrder=100 + disable Animator.
     /// </summary>
     public sealed class WarriorAnimView : MonoBehaviour
     {
@@ -15,7 +17,22 @@ namespace Gravedigger2026.Gameplay.Defend
         private const string DirectionParam = "Direction";
         private const string IdleStateName = "IdleBT";
         private const string IsRunParam = "IsRun";
+        private const string DieClipPrefix = "Die";
         private const int SpriteSortingOrder = 200;
+        /// <summary>SPEC_04 §15.2/§15.5: below living combat band 200 (soldiers/monsters/protagonist).</summary>
+        private const int CorpseSortingOrder = 100;
+
+        /// <summary>
+        /// Creator Die clips end with a null sprite key (visual despawn). Latch the last
+        /// non-null frame instead of normalizedTime≈1 / Play(...,1).
+        /// </summary>
+        private const float DieLatchNormalizedTime = 0.92f;
+
+        /// <summary>SPEC_04 §15.5: RGB multiply on corpse sprites (α unchanged).</summary>
+        private const float CorpseDarkenMul = 0.4f;
+
+        /// <summary>Fallback if Die clip never enters after PlayDie.</summary>
+        private const float DieLatchFallbackSeconds = 2f;
 
         private static readonly string[] LocomotionBools =
         {
@@ -42,13 +59,31 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _hasIsRun;
         private bool _facingYawFlip;
         private bool _dead;
+        private bool _dieLatched;
+        private bool _enteredDieClip;
         private bool _moving;
+        private float _dieStartedAt;
+        private float _lastGoodDieNormalizedTime;
+        private int _dieStateFullPathHash;
+        private Dictionary<SpriteRenderer, Color> _spriteOriginals;
+        private Dictionary<SpriteRenderer, Sprite> _lastNonNullDieSprites;
 
         private void Awake()
         {
             EnsureAnimator();
             CacheParamHashes();
             ApplySortingOrder();
+            CacheSpriteOriginals();
+        }
+
+        private void Update()
+        {
+            if (!_dead || _dieLatched || _animator == null)
+            {
+                return;
+            }
+
+            TickDieLatch();
         }
 
         /// <summary>
@@ -64,13 +99,23 @@ namespace Gravedigger2026.Gameplay.Defend
             EnsureAnimator();
             CacheParamHashes();
             ApplySortingOrder();
+            CacheSpriteOriginals();
             _dead = false;
+            _dieLatched = false;
+            _enteredDieClip = false;
             _moving = false;
+            _dieStartedAt = 0f;
+            _lastGoodDieNormalizedTime = 0f;
+            _dieStateFullPathHash = 0;
+            _lastNonNullDieSprites = null;
             if (_animator == null)
             {
                 return;
             }
 
+            _animator.enabled = true;
+            _animator.speed = 1f;
+            RestoreSpriteColors();
             ClearLocomotionBools();
             SetDirIndexValue(_defaultDirIndex);
             _animator.Play(IdleStateName, 0, 0f);
@@ -141,9 +186,16 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _dead = true;
+            _dieLatched = false;
+            _enteredDieClip = false;
             _moving = false;
+            _dieStartedAt = Time.time;
+            _lastGoodDieNormalizedTime = 0f;
+            _dieStateFullPathHash = 0;
+            _lastNonNullDieSprites = null;
             if (_animator == null)
             {
+                LatchDeathPresentation();
                 return;
             }
 
@@ -152,6 +204,10 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _animator.ResetTrigger(_dieTriggerHash);
                 _animator.SetTrigger(_dieTriggerHash);
+            }
+            else
+            {
+                LatchDeathPresentation();
             }
         }
 
@@ -199,6 +255,226 @@ namespace Gravedigger2026.Gameplay.Defend
             return facingYawFlip ? (clamped + 4) % 8 : clamped;
         }
 
+        private void TickDieLatch()
+        {
+            if (TryGetCurrentDieClip(out _))
+            {
+                _enteredDieClip = true;
+                var info = _animator.GetCurrentAnimatorStateInfo(0);
+                _dieStateFullPathHash = info.fullPathHash;
+                RememberNonNullDieSprites();
+
+                // Creator Die ends with a null sprite key — latch as soon as it appears.
+                if (HasRememberedSpriteGoneNull())
+                {
+                    LatchDeathPresentation();
+                    return;
+                }
+
+                if (_lastNonNullDieSprites != null && _lastNonNullDieSprites.Count > 0)
+                {
+                    _lastGoodDieNormalizedTime = Mathf.Clamp(info.normalizedTime, 0f, DieLatchNormalizedTime);
+                }
+
+                // Near end (before null key) or ExitTime starting Die→Idle.
+                if ((info.normalizedTime >= DieLatchNormalizedTime &&
+                     _lastNonNullDieSprites != null &&
+                     _lastNonNullDieSprites.Count > 0) ||
+                    _animator.IsInTransition(0))
+                {
+                    LatchDeathPresentation();
+                }
+
+                return;
+            }
+
+            // Left Die before latch — snap to last good Die time (never 1.0: that is the null key).
+            if (_enteredDieClip)
+            {
+                if (_dieStateFullPathHash != 0 && _animator != null)
+                {
+                    var t = _lastGoodDieNormalizedTime > 0.01f
+                        ? _lastGoodDieNormalizedTime
+                        : DieLatchNormalizedTime;
+                    _animator.Play(_dieStateFullPathHash, 0, t);
+                    _animator.Update(0f);
+                    RememberNonNullDieSprites();
+                }
+
+                LatchDeathPresentation();
+                return;
+            }
+
+            if (Time.time - _dieStartedAt >= DieLatchFallbackSeconds)
+            {
+                LatchDeathPresentation();
+            }
+        }
+
+        private void LatchDeathPresentation()
+        {
+            if (_dieLatched)
+            {
+                return;
+            }
+
+            _dieLatched = true;
+            if (_animator != null)
+            {
+                _animator.speed = 0f;
+            }
+
+            // Re-apply last corpse pose: trailing null key / Play(…,1) would otherwise clear sprites.
+            RestoreLastNonNullDieSprites();
+            ApplyCorpseDarken();
+            ApplySortingOrder(CorpseSortingOrder);
+
+            // Stop Animator writes so the null key cannot clear sprites on a later evaluate.
+            if (_animator != null)
+            {
+                _animator.enabled = false;
+            }
+        }
+
+        private void RememberNonNullDieSprites()
+        {
+            CacheSpriteOriginals();
+            if (_spriteOriginals == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _spriteOriginals)
+            {
+                var renderer = pair.Key;
+                if (renderer == null || renderer.sprite == null)
+                {
+                    continue;
+                }
+
+                _lastNonNullDieSprites ??= new Dictionary<SpriteRenderer, Sprite>();
+                _lastNonNullDieSprites[renderer] = renderer.sprite;
+            }
+        }
+
+        private bool HasRememberedSpriteGoneNull()
+        {
+            if (_lastNonNullDieSprites == null || _lastNonNullDieSprites.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var pair in _lastNonNullDieSprites)
+            {
+                if (pair.Key != null && pair.Key.sprite == null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void RestoreLastNonNullDieSprites()
+        {
+            if (_lastNonNullDieSprites == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _lastNonNullDieSprites)
+            {
+                if (pair.Key != null && pair.Value != null)
+                {
+                    pair.Key.sprite = pair.Value;
+                }
+            }
+        }
+
+        private static bool IsDieClipName(string clipName)
+        {
+            return !string.IsNullOrEmpty(clipName) &&
+                   clipName.StartsWith(DieClipPrefix, System.StringComparison.Ordinal);
+        }
+
+        private bool TryGetCurrentDieClip(out AnimationClip clip)
+        {
+            clip = null;
+            if (_animator == null)
+            {
+                return false;
+            }
+
+            var infos = _animator.GetCurrentAnimatorClipInfo(0);
+            if (infos == null || infos.Length == 0 || infos[0].clip == null)
+            {
+                return false;
+            }
+
+            clip = infos[0].clip;
+            return IsDieClipName(clip.name);
+        }
+
+        private void ApplyCorpseDarken()
+        {
+            CacheSpriteOriginals();
+            if (_spriteOriginals == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _spriteOriginals)
+            {
+                var sprite = pair.Key;
+                if (sprite == null)
+                {
+                    continue;
+                }
+
+                var c = pair.Value;
+                sprite.color = new Color(
+                    c.r * CorpseDarkenMul,
+                    c.g * CorpseDarkenMul,
+                    c.b * CorpseDarkenMul,
+                    c.a);
+            }
+        }
+
+        private void RestoreSpriteColors()
+        {
+            if (_spriteOriginals == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _spriteOriginals)
+            {
+                if (pair.Key != null)
+                {
+                    pair.Key.color = pair.Value;
+                }
+            }
+        }
+
+        private void CacheSpriteOriginals()
+        {
+            if (_spriteOriginals != null)
+            {
+                return;
+            }
+
+            _spriteOriginals = new Dictionary<SpriteRenderer, Color>();
+            var sprites = GetComponentsInChildren<SpriteRenderer>(true);
+            for (var i = 0; i < sprites.Length; i++)
+            {
+                var sprite = sprites[i];
+                if (sprite != null)
+                {
+                    _spriteOriginals[sprite] = sprite.color;
+                }
+            }
+        }
+
         private void EnsureAnimator()
         {
             if (_animator == null)
@@ -214,12 +490,17 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void ApplySortingOrder()
         {
+            ApplySortingOrder(SpriteSortingOrder);
+        }
+
+        private void ApplySortingOrder(int order)
+        {
             var renderers = GetComponentsInChildren<SpriteRenderer>(true);
             for (var i = 0; i < renderers.Length; i++)
             {
                 if (renderers[i] != null)
                 {
-                    renderers[i].sortingOrder = SpriteSortingOrder;
+                    renderers[i].sortingOrder = order;
                 }
             }
         }

@@ -69,7 +69,7 @@
 | AttackSpeed | 攻击速度 | 次/秒：`0.5+60/max(Agi,1)`；攻击开始间隔=`1/AttackSpeed`（§3.12）。 |
 | BodyAppearance | 躯体外观 | 预设整体外观造型；制造时按平均躯体等级+定稿种族+职业名选取（§3.11，[SPEC_04 §9.13](SPEC_04_Technical.md)）；资源为 Character Creator **烘焙整角** Prefab，见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → 外观等级/隶属种族/职业倾向/介绍/保底外形/`BodyRadius`（§3.11，[SPEC_04 §9.13](SPEC_04_Technical.md)）。 |
-| IsFallback | 保底外形 | 外观表字段；`1`=该种族保底外观；每种族至多一行（§3.11）。 |
+| IsFallback | 保底外形 | 外观表字段；`1`=该种族保底外观；每种族至多一行；等级+种族命中但职业倾向无匹配时亦走保底（§3.11）。 |
 | Race | 种族 | 由已放入躯体部位（头/躯干/臂/腿）各权重 1 **加权随机**定稿；一士兵一族；提供五维 `RaceAdjustCoeff`；配置见 `RaceConfig`（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维种族属性调整系数（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
 | RaceAdjustCoeff | 种族属性调整系数 | 五维（对应五项基础属性）；缺省维为 0；可正可负；代入 `BaseStat × RaceAdjustCoeff`；**不**单独计入控制力占用（§3.11）。 |
@@ -115,6 +115,8 @@
 | DungeonUnlock | 副本解锁 | PushMap 占领/通关配置的副本 ID 写入存档钩子；副本玩法正文 **TBD**（§3.14）。 |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat 表现层：`Auto`（粘随最近忠诚兵）/ `Manual`（拖拽平移）；见 §3.14。 |
 | ResumeFollow | 恢复跟随 | PushMap 手动模式下底中按钮；点击回到 `Auto`；见 §3.14。 |
+| FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移；见 §3.14。 |
+| FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s；见 §3.14。 |
 | DamagePopup | 伤害飘字 | PushMap 命中成功后在**被击目标**头顶显示单次伤害文本（格式 `-受伤值`）；敌我字号均为 **12**（怪红 / 兵白）；0.5s 内 `position.z` 相对起点 +0→+0.5 后销毁；见 §3.14。 |
 | HitFlash | 受伤闪烁 | PushMap 命中成功后目标模型临时亮色闪烁；怪亮红、兵亮白；共 2 次×0.1s 紧接中间不灭（≈连续亮 0.2s）；过程中再受伤则刷新；见 §3.14。 |
 | DefendPhase | 防守子状态 | 阶段内子状态：`ModeSelect`（选模式/关卡，若启用）→ `Prepare`（准备）→ `Combat`（战斗中）→ `Ended`（已结束）。 |
@@ -212,7 +214,7 @@
 | AttackSpeed | 攻击速度 | Attacks/sec: `0.5+60/max(Agi,1)`; attack-start interval = `1/AttackSpeed` (§3.12). |
 | BodyAppearance | 躯体外观 | Preset overall look; picked by avg BodyLevel + finalized Race + class ClassName (§3.11, [SPEC_04 §9.13](SPEC_04_Technical.md)); assets are Character Creator **baked whole-character** Prefabs — [SPEC_04 §15](SPEC_04_Technical.md). |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → AppearanceLevel / RaceId / ClassAffinity / Description / IsFallback / `BodyRadius` (§3.11, [SPEC_04 §9.13](SPEC_04_Technical.md)). |
-| IsFallback | 保底外形 | Appearance field; `1` = race fallback; at most one per RaceId (§3.11). |
+| IsFallback | 保底外形 | Appearance field; `1` = race fallback; at most one per RaceId; also used when level+race matches but class affinity does not (§3.11). |
 | Race | 种族 | Finalized by **weighted random** over filled BodyParts (Head/Torso/Arm/Leg), weight **1** each; one race per soldier; five-dim `RaceAdjustCoeff`; config via `RaceConfig` (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
 | RaceConfig | 种族配置表 | RaceId → display name, five-dimensional race adjust coeffs (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
 | RaceAdjustCoeff | 种族属性调整系数 | Five dims (one per BaseStat); missing dim = 0; may be +/-; used as `BaseStat × RaceAdjustCoeff`; does **not** add to ControlPowerCost alone (§3.11). |
@@ -258,6 +260,8 @@
 | DungeonUnlock | 副本解锁 | Save-slot unlock hook from PushMap config; dungeon gameplay **TBD** (§3.14). |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat presentation: `Auto` (sticky closest loyal) / `Manual` (drag pan); §3.14. |
 | ResumeFollow | 恢复跟随 | PushMap Manual-only bottom-center button → back to `Auto`; §3.14. |
+| FollowDeadzone | Follow deadzone | Auto world-XZ radius 0.15; ignore small target motion inside; §3.14. |
+| FollowSmoothTime | Follow smooth time | Auto XZ SmoothDamp time 0.25s when outside deadzone; §3.14. |
 | DamagePopup | 伤害飘字 | PushMap floating damage text above the **hit target** after a successful hit (format `-damage`); font size **12** for both sides (monster red / soldier white); over **0.5s** world `position.z` rises relative start +0→+0.5 then despawn; §3.14. |
 | HitFlash | 受伤闪烁 | PushMap hit-flash on the target model after a successful hit; monster bright red, soldier bright white; 2×0.1s pulses back-to-back with no off gap (≈0.2s continuous); refresh if hit again mid-flash; §3.14. |
 | DefendPhase | 防守子状态 | In-stage phases: `ModeSelect` (if enabled) → `Prepare` → `Combat` → `Ended`. |
@@ -1122,8 +1126,8 @@ EffectiveDigDuration countdown → 0
 |------|------|
 | 1. 平均等级 | 对已放入全部躯体槽的 `BodyLevel` 取算术平均 → **保留 1 位小数** → 再 **四舍五入为整数** `AvgLevelInt`（空槽不计） |
 | 2. 等级+种族 | 候选集 A = `BodyAppearanceConfig` 中 `AppearanceLevel == AvgLevelInt` **且** `RaceId ==` 定稿种族 |
-| 3. 职业倾向 | 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经灵魂 `ClassId`）的行；B 非空 → 在 B 中均匀随机；否则在 A 中均匀随机 |
-| 4. 保底外形 | 若 A 为空：取同种族 `IsFallback == 1` 的行（每种族至多配置 1 个；常规行为空/`0`） |
+| 3. 职业倾向 | 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经灵魂 `ClassId`）的行；B 非空 → 在 B 中均匀随机；**B 为空（职业不匹配）→ 不采用 A，改走步骤 4 同种族保底** |
+| 4. 保底外形 | 若 A 为空，**或** A 非空但 B 为空：取同种族 `IsFallback == 1` 的行（每种族至多配置 1 个；常规行为空/`0`） |
 | 5. 全表随机 | 若仍无匹配 → 在 **全表** 中均匀随机一行 |
 | 写入 | 定稿 `AppearanceId` 写入士兵实例 |
 
@@ -1284,7 +1288,7 @@ UpgradeManufacture stage
   → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg+Soul
        → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
        → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
-       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity; IsFallback; else table-random)
+       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity match else race IsFallback; else table-random)
        → Gem: GemIds[]; GemMult(S)=Σ socketed GemMult(S) (5D; all 0 if none)
        → WarriorName = Prefix(es)+RaceName+ClassName+Suffix; WarriorInfo primary = Race
        → Warrior instance {Id, WarriorName, RemainingHP, RaceId, RaceAdjustCoeff, BaseStats, AppearanceId, SoulId, ClassId, AttackMode, LockedEquipIds, GemIds[], GemMult(5D), ControlPowerCost}
@@ -1433,8 +1437,8 @@ BodyAppearance is a preset **overall look**. Finalized at manufacture (same batc
 |------|-------|
 | 1. Average level | Mean `BodyLevel` over filled body slots → keep **1 decimal** → **round half-up to int** `AvgLevelInt` (empty slots excluded) |
 | 2. Level + race | Set A = `BodyAppearanceConfig` rows with `AppearanceLevel == AvgLevelInt` **and** `RaceId ==` finalized race |
-| 3. Class affinity | If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via soul `ClassId`); if B non-empty → uniform random in B; else uniform random in A |
-| 4. Fallback | If A empty: same-race row with `IsFallback == 1` (at most one per race; normal rows empty/`0`) |
+| 3. Class affinity | If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via soul `ClassId`); if B non-empty → uniform random in B; **if B empty (class mismatch) → do not use A; go to step 4 same-race fallback** |
+| 4. Fallback | If A empty, **or** A non-empty but B empty: same-race row with `IsFallback == 1` (at most one per race; normal rows empty/`0`) |
 | 5. Table random | If still none → uniform random over **entire table** |
 | Write | Final `AppearanceId` onto soldier instance |
 
@@ -1595,7 +1599,7 @@ UpgradeManufacture stage
   → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg+Soul
        → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
        → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
-       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity; IsFallback; else table-random)
+       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity match else race IsFallback; else table-random)
        → Gem: GemIds[]; GemMult(S)=Σ socketed GemMult(S) (5D; all 0 if none)
        → WarriorName = Prefix(es)+RaceName+ClassName+Suffix; WarriorInfo primary = Race
        → Warrior instance {Id, WarriorName, RemainingHP, RaceId, RaceAdjustCoeff, BaseStats, AppearanceId, SoulId, ClassId, AttackMode, LockedEquipIds, GemIds[], GemMult(5D), ControlPowerCost}
@@ -2465,7 +2469,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 士兵战斗 | 同 §3.12 WarriorCombat（EngageZone / AttackMode Melee\|Ranged / 命中方案 D）；**第一版仅普攻** |
 | 不复用 | Defend 倒计时刷怪（`WaveSpawnConfig` / `SpawnRemainingSeconds`）；清场胜利条件（刷怪行全触发+全灭） |
 | 表现机位 | 与 Defend **同为正交俯视**（`Euler(90,0,0)`）；Combat 须启用专用战斗相机，不得落到场景透视主相机（见 [SPEC_04 §6](SPEC_04_Technical.md)） |
-| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。`CameraFollowMode`：`Auto`（默认）= 粘随距 **CurrentObjective** 最近的**忠诚**士兵（`!IsRebel`）；目标失效（销毁/失活/叛变；真实 `CombatDead` 接入后并入）后重选；无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。`Manual` = 左键拖动画布，镜头 XZ 平移；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度不变；开战默认 `orthographicSize=2`；Combat 滚轮缩放 Size，钳制 **`[0.5, 20]`**（前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
+| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。`CameraFollowMode`：`Auto`（默认）= 粘随距 **CurrentObjective** 最近的**忠诚**士兵（`!IsRebel`）；目标失效（销毁/失活/叛变；真实 `CombatDead` 接入后并入）后重选；无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。Auto 表现：世界 XZ 圆形死区 **`FollowDeadzone=0.15`** 内忽略目标小幅位移（镜头不动）；超出后以 **`FollowSmoothTime=0.25`** 对 XZ 做 `SmoothDamp` 缓动追赶（Y/旋转不变）；`EnterAuto` / 开战启用 / 跟随目标重选成功 → **立刻 Snap** 到目标 XZ（清零 damp 速度）。`Manual` = 左键拖动画布，镜头 XZ 平移；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度不变；开战默认 `orthographicSize=2`；Combat 滚轮缩放 Size，钳制 **`[0.5, 20]`**（前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
 
 **阶段内子状态（PushMapPhase）**
 
@@ -2614,7 +2618,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | WarriorCombat | Same §3.12 (EngageZone / AttackMode Melee\|Ranged / hit scheme D); **v1 normal attacks only** |
 | Not reused | Defend countdown spawns (`WaveSpawnConfig` / `SpawnRemainingSeconds`); clear-all victory (all rows fired + all killed) |
 | Presentation camera | Same orthographic top-down as Defend (`Euler(90,0,0)`); Combat must enable a dedicated battle camera — must not fall back to scene perspective Main Camera (see [SPEC_04 §6](SPEC_04_Technical.md)) |
-| Camera follow | Combat only (Prepare keeps FormationCamera). `CameraFollowMode`: `Auto` (default) = sticky-follow closest **loyal** (`!IsRebel`) to **CurrentObjective**; on invalid (destroyed/inactive/rebel; real `CombatDead` joins later) → repick; no loyal left → **freeze** last pose (not protagonist, not map center). `Manual` = LMB drag pans camera XZ; bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height unchanged; StartBattle default `orthographicSize=2`; Combat scroll-wheel zooms Size clamped **`[0.5, 20]`** (forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
+| Camera follow | Combat only (Prepare keeps FormationCamera). `CameraFollowMode`: `Auto` (default) = sticky-follow closest **loyal** (`!IsRebel`) to **CurrentObjective**; on invalid (destroyed/inactive/rebel; real `CombatDead` joins later) → repick; no loyal left → **freeze** last pose (not protagonist, not map center). Auto presentation: ignore small target motion inside world-XZ circular deadzone **`FollowDeadzone=0.15`** (camera holds); outside → XZ `SmoothDamp` with **`FollowSmoothTime=0.25`** (Y/rotation unchanged); `EnterAuto` / combat enable / successful follow-target repick → **immediate Snap** to target XZ (clear damp velocity). `Manual` = LMB drag pans camera XZ; bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height unchanged; StartBattle default `orthographicSize=2`; Combat scroll-wheel zooms Size clamped **`[0.5, 20]`** (forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
 
 **PushMapPhase**
 

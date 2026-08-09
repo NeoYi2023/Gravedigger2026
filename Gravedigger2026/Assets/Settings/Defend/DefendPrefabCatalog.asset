@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: DefendPrefabCatalog
   m_EditorClassIdentifier: 
   _defendStageRootPrefab: {fileID: 5195272429028053511, guid: 079d4c2fb60749d40a3c468990405b70, type: 3}
+  _battleModeSelectRootPrefab: {fileID: 7470581785141653830, guid: 0d0d8e2d01733d140b38e14403dde43d, type: 3}
   _battleProtagonistPrefab: {fileID: 4104538918496031396, guid: 8a7dab25f0ea1134a82ffc108f6fdfc6, type: 3}
   _projectilePrefab: {fileID: 7104538918496031401, guid: c4e8a1b2d3f5467890abcdef12345678, type: 3}
   _damagePopupPrefab: {fileID: 5195272429028053599, guid: c8f5b2d0e3a6597f0b1c2d3e4f5a6b7c, type: 3}
@@ -50,24 +51,26 @@ MonoBehaviour:
     Prefab: {fileID: 5668095864612883419, guid: 8afc6ea8c3e189a4eb28059daca33470, type: 3}
   - AppearanceId: App_10
     Prefab: {fileID: 2259025151361738304, guid: c85e66db2a00d6347b6ff74fa22e7dfe, type: 3}
+  - AppearanceId: App_90
+    Prefab: {fileID: 5571087911832153802, guid: 5d81f373f8150b44982e2164160419af, type: 3}
+  - AppearanceId: App_91
+    Prefab: {fileID: 5571087911832153802, guid: f6789079df00f8f42ba4b2b023fe5ca6, type: 3}
+  - AppearanceId: App_92
+    Prefab: {fileID: 5571087911832153802, guid: a2594ebe71a18fb49ad0c29127fb9083, type: 3}
+  - AppearanceId: App_93
+    Prefab: {fileID: 5571087911832153802, guid: 2ce34ccfdb3a7a84186722172a99b77c, type: 3}
+  - AppearanceId: App_94
+    Prefab: {fileID: 5571087911832153802, guid: 8a449d5b424a9e5498c08886b01e334e, type: 3}
+  - AppearanceId: App_95
+    Prefab: {fileID: 5571087911832153802, guid: dd4b97233ec506148b55f4a021bd0e67, type: 3}
+  - AppearanceId: App_96
+    Prefab: {fileID: 5571087911832153802, guid: 181eb331119d77b4c801d9d8cbf7918b, type: 3}
+  - AppearanceId: App_97
+    Prefab: {fileID: 5571087911832153802, guid: 9869e122e14d69c46991fc3a55e881ed, type: 3}
+  - AppearanceId: App_98
+    Prefab: {fileID: 5571087911832153802, guid: 32607818f01d5254a9b95f017004bc84, type: 3}
+  - AppearanceId: App_99
+    Prefab: {fileID: 5571087911832153802, guid: 96e393b6f2dee0945816140228b632f0, type: 3}
   _monsterModels:
-  - ModelId: MonsterModel_01
-    Prefab: {fileID: 4104538918496031396, guid: 1ccbe6d85da84fa1add847a22decfb29, type: 3}
-  - ModelId: MonsterModel_02
-    Prefab: {fileID: 4104538918496031396, guid: 724ab3882eb2427485a26b2caafae012, type: 3}
-  - ModelId: MonsterModel_03
-    Prefab: {fileID: 4104538918496031396, guid: d0c8bd4776b04537909611dfc2c1ab9d, type: 3}
-  - ModelId: MonsterModel_04
-    Prefab: {fileID: 4104538918496031396, guid: 15b74ddd604c44a397681aae2a03cd18, type: 3}
   - ModelId: MonsterModel_05
     Prefab: {fileID: 4104538918496031396, guid: b2edd44343f44fb6a4a022ed1beddf16, type: 3}
-  - ModelId: MonsterModel_06
-    Prefab: {fileID: 4104538918496031396, guid: 3d8a3378a0b14206bad5bd83eeb71391, type: 3}
-  - ModelId: MonsterModel_07
-    Prefab: {fileID: 4104538918496031396, guid: e79d54b1f1f44eccaa604692e741c74b, type: 3}
-  - ModelId: MonsterModel_08
-    Prefab: {fileID: 4104538918496031396, guid: 62333f02a00841b999102cf24045080b, type: 3}
-  - ModelId: MonsterModel_09
-    Prefab: {fileID: 4104538918496031396, guid: f3e295caaeb24927a5716260b4d9de58, type: 3}
-  - ModelId: MonsterModel_10
-    Prefab: {fileID: 4104538918496031396, guid: db8f62920b8045459abaa3722131751f, type: 3}

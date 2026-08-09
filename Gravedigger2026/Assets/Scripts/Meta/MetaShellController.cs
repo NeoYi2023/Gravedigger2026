@@ -224,6 +224,9 @@ namespace Gravedigger2026.Meta
                 _configs.TryLoadAll();
             }
 
+            // Legacy JsonUtility dropped non-[Serializable] StatBlock; rebuild from SourceItemIds.
+            _manufacture?.RepairMissingStatSnapshots();
+
             _progress.ResetToLevelOne(_configs);
             _techTree.ResetForNewSave();
             if (_techTreeCanvasView != null)

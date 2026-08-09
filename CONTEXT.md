@@ -45,7 +45,7 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
-| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；士兵与怪物（Defend/PushMap）共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；士兵死亡：锁存 Die **最后非空**精灵（跳过末尾 null 关键帧）+ RGB×`CorpseDarkenMul` 变暗 + `sortingOrder`→100（低于存活单位 200）；士兵与怪物（Defend/PushMap）共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | FacingHysteresis | 朝向迟滞 | 推图怪八向切换迟滞：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；仅 `PushMapMonsterAgentView` | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | StuckHold | 受堵停滞 | 推图怪 steer 非零但 0.25s 滑窗 XZ 位移 < 0.05 → 停播 Run 面向追击目标；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
@@ -67,7 +67,7 @@
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行 | [§3.11](SPEC_03_GameRules.md) |
+| IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；等级+种族命中但职业倾向无匹配时亦走保底 | [§3.11](SPEC_03_GameRules.md) |
 | Race | 种族 | 部位权重1加权随机定稿；五维 RaceAdjustCoeff；主标签 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维调整系数、失控概率加成 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceAdjustCoeff | 种族属性调整系数 | Base(S)×系数；缺省维=0；可正负；不计控制力 | [§3.11](SPEC_03_GameRules.md) |
@@ -118,7 +118,9 @@
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto` / `Manual` | [§3.14](SPEC_03_GameRules.md) |
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
-| DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`；怪红/兵白字号 12；0.5s Z +0→+0.5 后销毁 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移 | [§3.14](SPEC_03_GameRules.md) |
+| FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s | [§3.14](SPEC_03_GameRules.md) |
+| DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`（`RoundToInt` 实际伤害，无下限 1）；怪红/兵白字号 12；0.5s Z +0→+0.5 后销毁 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | HitFlash | 受伤闪烁 | PushMap 命中后模型亮色；怪红/兵白；2×0.1s 紧接不灭；重伤刷新 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapGameplayConfig | 推图战配置表 | MapId/经验/占领掉落/副本解锁等 | [SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapSpawnConfig | 推图战刷怪表 | SpawnPointId+MonsterId+陷阱/目标关联 | [SPEC_04 §9.23](SPEC_04_Technical.md) |

@@ -61,7 +61,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             transform.position = worldPos + Vector3.up * HeadOffsetY;
             _startZ = transform.position.z;
             _elapsed = 0f;
-            var text = $"-{Mathf.Max(1, Mathf.RoundToInt(damage))}";
+            var text = $"-{Mathf.RoundToInt(damage)}";
             var label = EnsureLabel();
             label.text = text;
             label.color = style == DamagePopupStyle.Soldier ? SoldierColor : MonsterColor;

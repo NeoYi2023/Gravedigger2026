@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.75.8
-**最后更新 / Last Updated:** 2026-08-08  
+**文档版本 / Document Version:** v0.75.16
+**最后更新 / Last Updated:** 2026-08-09  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,12 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-09 | v0.75.16 | 躯体外观选取：集合 A 有等级+种族匹配但职业倾向 B 为空时，**不再在 A 中随机**，改用同种族 `IsFallback` 保底（再无则全表随机）；同步 SPEC_03 §3.11、SPEC_04 §9.13、CONTEXT、`ManufactureService.PickAppearance` |
+| 2026-08-09 | v0.75.15 | 存档士兵属性修复（难度 1，方案 A）：`StatBlock` 标 `[Serializable]` 使 `JsonUtility` 写入五维快照；进档后若 `BaseStats` 全 0 且有 `SourceItemIds` 则按配方重算并写回；DamagePopup 取消 `Max(1,…)` 下限（显示真实 `RoundToInt` 伤害）；同步 SPEC_04 §6/§9.9/§9.22 |
+| 2026-08-09 | v0.75.14 | 士兵尸体叠序：CombatDead 锁存变暗后 `sortingOrder` 200→**100**（`CorpseSortingOrder`），低于所有存活战斗单位（我方/敌方/主角 200）；`ResetToIdle` 恢复；同步 SPEC_04 §15.2/§15.5 |
+| 2026-08-09 | v0.75.13 | 士兵死亡锁存修复：Creator Die clip 末关键帧为 null sprite，先前 `Play(...,1)`/`normalizedTime≈1` 定格空白致「消失」；改为记录最后非空精灵并在 null 前锁存+变暗，禁用 Animator 防再写入；同步 SPEC_04 §15.5、CONTEXT |
+| 2026-08-09 | v0.75.12 | PushMap Combat Auto 镜头死区+缓动（难度 1）：世界 XZ `FollowDeadzone=0.15` 内忽略目标小幅位移；超出后 `SmoothDamp`（`FollowSmoothTime=0.25`）追赶；`EnterAuto`/开战启用/目标重选 Snap；Manual/缩放不变；同步 SPEC_03 §3.14、SPEC_04 §6、CONTEXT |
+| 2026-08-09 | v0.75.11 | 士兵死亡表现锁存（难度 1，选定方案 A + 末帧变暗）：`WarriorAnimView.PlayDie` 后 Creator Controller 在 Die ExitTime=1 回 Idle，尸体变站桩；改为 Die clip `normalizedTime≥0.98` 时 `animator.speed=0` 锁存末帧，子树 Sprite RGB×`CorpseDarkenMul=0.4` 变暗；`ResetToIdle` 恢复；Defend/PushMap 共用；同步 SPEC_04 §15.5、CONTEXT |
 | 2026-08-08 | v0.75.10 | 推图怪朝向抖动修复（难度 2，选定方案 A+B — 纯表现层）：被士兵堵住时 steer 逐帧抖动 + 八向 45° 量化曾致原地频繁换向（闪烁）；`PushMapMonsterAgentView` 新增朝向迟滞 `FacingHysteresisDegrees`=12° + 最短保持 `FacingSwitchMinDwellSeconds`=0.12s，受堵停滞（0.25s 滑窗 XZ 位移 < `StuckDisplacementEpsilon`=0.05 且 steer 非零）时切 Idle 面向追击目标；不改攻击判定/槽位/寻路规则；同步 SPEC_04 §15.5、SPEC_03 §3.14、CONTEXT |
 | 2026-08-08 | v0.75.9 | 修复推图战/防守战角色前后叠序反向（难度 1，选定方案 A — 相机透明排序轴）：角色精灵统一 `sortingOrder`=200，默认按视距 tie-break，等高地面上顺序任意 → 上方兵挡住下方兵；Defend/PushMap 战斗相机设 `transparencySortMode=CustomAxis` + 轴 `(0,0,1)`，同层精灵按世界 Z 由远及近绘制（屏幕下方遮挡上方）；GoalKind 调试标签 200→205 防同 Z tie 闪烁；同步 SPEC_04 §15.2 |
 | 2026-08-08 | v0.75.8 | 修复推图战滚轮无法缩放：进档壳舞台激活时全屏 backdrop 仅透明仍 `raycastTarget=true`，挡住 `IsPointerOverGameObject`；`SetShellBackdropVisible` 同步关射线；同步 SPEC_04 Meta 壳注记 |
@@ -208,6 +214,12 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-09 | v0.75.16 | BodyAppearance pick: when set A matches level+race but class-affinity set B is empty, **do not random in A** — use same-race `IsFallback` instead (else table-random); synced SPEC_03 §3.11, SPEC_04 §9.13, CONTEXT, `ManufactureService.PickAppearance` |
+| 2026-08-09 | v0.75.15 | Warrior save-stat fix (diff 1, Approach A): mark `StatBlock` `[Serializable]` so `JsonUtility` persists five-dim snapshots; on enter-save, if `BaseStats` all-zero with `SourceItemIds`, recompute from recipe and write back; DamagePopup drops `Max(1,…)` floor (shows real `RoundToInt` damage); synced SPEC_04 §6/§9.9/§9.22 |
+| 2026-08-09 | v0.75.14 | Soldier corpse sorting: after CombatDead latch+darken, `sortingOrder` 200→**100** (`CorpseSortingOrder`), below all living combat units (friendly/enemy/protagonist at 200); `ResetToIdle` restores; synced SPEC_04 §15.2/§15.5 |
+| 2026-08-09 | v0.75.13 | Soldier death latch fix: Creator Die clips end with a null sprite key — prior `Play(...,1)` / `normalizedTime≈1` froze a blank frame (looked like despawn); now remember last non-null sprite, latch before null + darken, disable Animator; synced SPEC_04 §15.5, CONTEXT |
+| 2026-08-09 | v0.75.12 | PushMap Combat Auto camera deadzone + smooth follow (diff 1): ignore small target motion inside world-XZ `FollowDeadzone=0.15`; outside → `SmoothDamp` (`FollowSmoothTime=0.25`); Snap on `EnterAuto` / combat enable / target repick; Manual/zoom unchanged; synced SPEC_03 §3.14, SPEC_04 §6, CONTEXT |
+| 2026-08-09 | v0.75.11 | Soldier death latch (diff 1, approach A + end-frame darken): after `WarriorAnimView.PlayDie`, Creator Controllers returned to Idle at Die ExitTime=1 (standing corpse); now latch at Die clip `normalizedTime≥0.98` with `animator.speed=0`, multiply subtree Sprite RGB by `CorpseDarkenMul=0.4`; `ResetToIdle` restores; shared Defend/PushMap; synced SPEC_04 §15.5, CONTEXT |
 | 2026-08-08 | v0.75.10 | PushMap monster facing jitter fix (diff 2, chosen combo A+B — presentation only): per-frame steer jitter + 8-dir 45° quantization flipped facing every frame when blocked by soldiers (in-place flicker); `PushMapMonsterAgentView` adds facing hysteresis `FacingHysteresisDegrees`=12° + min dwell `FacingSwitchMinDwellSeconds`=0.12s, and on stuck hold (XZ displacement over a 0.25s window < `StuckDisplacementEpsilon`=0.05 with non-zero steer) switches to Idle facing the chase target; attack checks / slot claims / pathing rules unchanged; synced SPEC_04 §15.5, SPEC_03 §3.14, CONTEXT |
 | 2026-08-08 | v0.75.9 | Fix inverted character front/back overlap in PushMap/Defend (diff 1, approach A — camera transparency sort axis): all character sprites share `sortingOrder`=200 and defaulted to view-distance tie-break — arbitrary on flat ground, so upper soldiers occluded lower ones; Defend/PushMap combat cameras now set `transparencySortMode=CustomAxis` with axis `(0,0,1)`, drawing same-band sprites far-to-near along world Z (lower on screen occludes higher); GoalKind debug label 200→205 to avoid same-Z tie flicker; synced SPEC_04 §15.2 |
 | 2026-08-08 | v0.75.8 | Fix PushMap Combat scroll-zoom: InSaveShell fullscreen backdrop kept `raycastTarget=true` while alpha=0, blocking `IsPointerOverGameObject`; `SetShellBackdropVisible` now clears raycasts; synced SPEC_04 Meta shell note |

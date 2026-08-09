@@ -309,6 +309,99 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         }
 
         /// <summary>
+        /// Legacy save repair (SPEC_04 §6): warriors whose StatBlock fields were dropped by JsonUtility
+        /// (BaseStats all-zero) but still have SourceItemIds — rebuild Base/Equip/GemMult/RaceAdjust/BodyLife
+        /// and persist. Preserves Id / RaceId / AppearanceId / RemainingHP / ControlPowerCost / names.
+        /// </summary>
+        public int RepairMissingStatSnapshots()
+        {
+            var repaired = 0;
+            var warriors = _pool.Warriors;
+            for (var i = 0; i < warriors.Count; i++)
+            {
+                var warrior = warriors[i];
+                if (!NeedsStatSnapshotRepair(warrior))
+                {
+                    continue;
+                }
+
+                if (!TryApplyRecipeStatSnapshot(warrior))
+                {
+                    Debug.LogWarning(
+                        $"[UM SaveRepair] Failed to rebuild stats for {warrior.Id} " +
+                        $"(SourceItemIds={warrior.SourceItemIds.Count}).");
+                    continue;
+                }
+
+                repaired++;
+            }
+
+            if (repaired > 0)
+            {
+                _pool.NotifyMutated();
+                Debug.Log($"[UM SaveRepair] Rebuilt StatBlock snapshots for {repaired} warrior(s).");
+            }
+
+            return repaired;
+        }
+
+        private static bool NeedsStatSnapshotRepair(WarriorInstance warrior)
+        {
+            return warrior != null
+                   && warrior.BaseStats.IsAllZero
+                   && warrior.SourceItemIds != null
+                   && warrior.SourceItemIds.Count > 0;
+        }
+
+        private bool TryApplyRecipeStatSnapshot(WarriorInstance warrior)
+        {
+            var aggregate = AggregateFromItemIds(warrior.SourceItemIds);
+            if (aggregate.Base.IsAllZero && aggregate.Equip.IsAllZero)
+            {
+                return false;
+            }
+
+            var raceId = !string.IsNullOrEmpty(warrior.RaceId)
+                ? warrior.RaceId
+                : PickRace(aggregate.RaceCandidates);
+            _configs.TryGetRace(raceId, out var raceRow);
+            var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
+
+            warrior.BaseStats = aggregate.Base;
+            warrior.EquipStats = aggregate.Equip;
+            warrior.GemMult = aggregate.GemMult;
+            warrior.RaceAdjustCoeff = raceAdjust;
+            warrior.BodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
+
+            if (warrior.GemIds.Count == 0 && aggregate.GemIds.Count > 0)
+            {
+                warrior.GemIds.AddRange(aggregate.GemIds);
+            }
+
+            if (warrior.LockedEquipIds.Count == 0 && aggregate.EquipIds.Count > 0)
+            {
+                warrior.LockedEquipIds.AddRange(aggregate.EquipIds);
+            }
+
+            if (aggregate.Soul != null)
+            {
+                if (string.IsNullOrEmpty(warrior.SoulId))
+                {
+                    warrior.SoulId = aggregate.Soul.SoulId;
+                }
+
+                if (string.IsNullOrEmpty(warrior.ClassId))
+                {
+                    warrior.ClassId = aggregate.Soul.ClassId;
+                }
+
+                warrior.AttackMode = aggregate.Soul.AttackMode;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Demo-only: grants one legal parts set + every SoulConfig row ×1 + Spirit so D-031 can be
         /// hand-verified before Soul / Gem / ExtraEquipment acquisition rules exist.
         /// </summary>
@@ -768,10 +861,25 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                     }
                 }
 
-                var pool = setB.Count > 0 ? setB : setA;
-                return pool[_rng.Next(pool.Count)].AppearanceId;
+                if (setB.Count > 0)
+                {
+                    return setB[_rng.Next(setB.Count)].AppearanceId;
+                }
+
+                // Class mismatch: do not use unmatched set A — race IsFallback instead (SPEC_03 §3.11).
             }
 
+            var fallbackId = TryPickRaceFallback(all, raceId);
+            if (!string.IsNullOrEmpty(fallbackId))
+            {
+                return fallbackId;
+            }
+
+            return all[_rng.Next(all.Count)].AppearanceId;
+        }
+
+        private static string TryPickRaceFallback(IReadOnlyList<BodyAppearanceConfigRow> all, string raceId)
+        {
             for (var i = 0; i < all.Count; i++)
             {
                 var row = all[i];
@@ -781,7 +889,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 }
             }
 
-            return all[_rng.Next(all.Count)].AppearanceId;
+            return null;
         }
 
         private static bool HasClassAffinity(string classAffinity, string className)

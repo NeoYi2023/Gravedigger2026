@@ -41,6 +41,14 @@ namespace Gravedigger2026.Editor.Defend
             "Ground_01", "Ground_02", "Ground_03", "Ground_04", "Ground_05"
         };
 
+        /// <summary>
+        /// Bound into Catalog.Maps only (no Dig EngageZone/SpawnPoint ensure — PushMap has its own markers).
+        /// </summary>
+        private static readonly string[] CatalogExtraMapIds =
+        {
+            "PushMap_Demo_01"
+        };
+
         private static readonly Color[] MonsterColors =
         {
             new Color(0.75f, 0.25f, 0.25f),
@@ -108,19 +116,8 @@ namespace Gravedigger2026.Editor.Defend
             var modeSelectPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BattleModeSelectRootPath);
 
             var mapEntries = new List<DefendPrefabCatalog.MapEntry>();
-            for (var i = 0; i < MapIds.Length; i++)
-            {
-                var id = MapIds[i];
-                var path = $"{PrefabMapsDir}/{id}.prefab";
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null)
-                {
-                    Debug.LogWarning($"[DefendAssetBuilder] Map missing: {path} — run Dig builder first.");
-                    continue;
-                }
-
-                mapEntries.Add(new DefendPrefabCatalog.MapEntry { MapId = id, Prefab = prefab });
-            }
+            AppendMapEntries(mapEntries, MapIds, warnIfMissing: true);
+            AppendMapEntries(mapEntries, CatalogExtraMapIds, warnIfMissing: true);
 
             var warriorEntries = BuildWarriorAppearanceEntries();
             var monsterEntries = BuildMonsterModelEntries();
@@ -160,6 +157,30 @@ namespace Gravedigger2026.Editor.Defend
             AssetDatabase.Refresh();
             Debug.Log(
                 $"[DefendAssetBuilder] Generated Defend Prefabs + Catalog (maps={mapEntries.Count}, warriors={warriorEntries.Count}, monsters={monsterEntries.Count}) and wired MetaShellRoot.");
+        }
+
+        private static void AppendMapEntries(
+            List<DefendPrefabCatalog.MapEntry> mapEntries,
+            string[] mapIds,
+            bool warnIfMissing)
+        {
+            for (var i = 0; i < mapIds.Length; i++)
+            {
+                var id = mapIds[i];
+                var path = $"{PrefabMapsDir}/{id}.prefab";
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null)
+                {
+                    if (warnIfMissing)
+                    {
+                        Debug.LogWarning($"[DefendAssetBuilder] Map missing: {path}");
+                    }
+
+                    continue;
+                }
+
+                mapEntries.Add(new DefendPrefabCatalog.MapEntry { MapId = id, Prefab = prefab });
+            }
         }
 
         public static void EnsureEngageZonesAndSpawnPointsOnMaps()

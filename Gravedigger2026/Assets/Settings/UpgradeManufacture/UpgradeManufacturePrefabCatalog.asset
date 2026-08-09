@@ -34,3 +34,23 @@ MonoBehaviour:
     Prefab: {fileID: 5668095864612883419, guid: 8afc6ea8c3e189a4eb28059daca33470, type: 3}
   - AppearanceId: App_10
     Prefab: {fileID: 2259025151361738304, guid: c85e66db2a00d6347b6ff74fa22e7dfe, type: 3}
+  - AppearanceId: App_90
+    Prefab: {fileID: 5571087911832153802, guid: 5d81f373f8150b44982e2164160419af, type: 3}
+  - AppearanceId: App_91
+    Prefab: {fileID: 5571087911832153802, guid: f6789079df00f8f42ba4b2b023fe5ca6, type: 3}
+  - AppearanceId: App_92
+    Prefab: {fileID: 5571087911832153802, guid: a2594ebe71a18fb49ad0c29127fb9083, type: 3}
+  - AppearanceId: App_93
+    Prefab: {fileID: 5571087911832153802, guid: 2ce34ccfdb3a7a84186722172a99b77c, type: 3}
+  - AppearanceId: App_94
+    Prefab: {fileID: 5571087911832153802, guid: 8a449d5b424a9e5498c08886b01e334e, type: 3}
+  - AppearanceId: App_95
+    Prefab: {fileID: 5571087911832153802, guid: dd4b97233ec506148b55f4a021bd0e67, type: 3}
+  - AppearanceId: App_96
+    Prefab: {fileID: 5571087911832153802, guid: 181eb331119d77b4c801d9d8cbf7918b, type: 3}
+  - AppearanceId: App_97
+    Prefab: {fileID: 5571087911832153802, guid: 9869e122e14d69c46991fc3a55e881ed, type: 3}
+  - AppearanceId: App_98
+    Prefab: {fileID: 5571087911832153802, guid: 32607818f01d5254a9b95f017004bc84, type: 3}
+  - AppearanceId: App_99
+    Prefab: {fileID: 5571087911832153802, guid: 96e393b6f2dee0945816140228b632f0, type: 3}
