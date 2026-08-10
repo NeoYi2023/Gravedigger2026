@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.75.16
-**最后更新 / Last Updated:** 2026-08-09  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签）  
+**文档版本 / Document Version:** v0.75.33
+**最后更新 / Last Updated:** 2026-08-10  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,23 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-10 | v0.75.33 | AllyFootCircle：localRotation X=-30；Order In Layer 保持 1；`WarriorAnimView` 批量改 sortingOrder/尸体变暗时跳过脚下圈（避免被刷成 200） |
+| 2026-08-10 | v0.75.32 | AllyFootCircle 调参：内填 α=160/255；localPos Y=-0.05 Z=-0.2；rotation X/Y=0；`sortingOrder=1`；同步 SPEC_03/04、CONTEXT |
+| 2026-08-10 | v0.75.31 | 友军脚下绿圈 AllyFootCircle（难度 1）：Defend/PushMap Combat 忠诚存活士兵脚下绿描边圆 + 内黑 α0.35；半径=`BodyRadius`；子物体跟随；叛变/死亡隐藏；`sortingOrder=50`；同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.7/§15.5、CONTEXT |
+| 2026-08-10 | v0.75.30 | 受堵停滞 StuckHold 全单位扩展（难度 2）：检测窗 0.5s + 位移 &lt;0.2 → 强制 Idle 1s 后恢复；仅表现层；Defend+PushMap 敌我可移动单位共用 `StuckHoldTracker`；废止旧推图怪 0.25/0.05 连续滞回；同步 SPEC_04 §15.5、SPEC_03 §3.14、CONTEXT |
+| 2026-08-10 | v0.75.29 | PushMap Combat 手动拖拽镜像平移（难度 1）：左键拖动时镜头 XZ 位移与鼠标屏幕位移**反向**（抓地图感）；Auto/缩放/恢复跟随不变；同步 SPEC_03 §3.14、SPEC_04 §6 |
+| 2026-08-10 | v0.75.28 | 士兵技能配置表扩写：`SkillConfig` 复合主键 `(SkillId,SkillLevel)` + CooldownMode(Mode1/Mode2) + CastTarget 七枚举 + 展示文案 + SkillEffectId；保留 BaseCooldownSeconds/失控加成；新建 `SkillEffectConfig` 骨架；废止效果同文件扩写；Demo 仍不施放；同步 SPEC_03 §3.12、SPEC_04 §9.21/§9.21b/§14、CONTEXT、样例表 |
+| 2026-08-10 | v0.75.27 | 士兵攻击被移动立即打断（难度 1）：`WarriorAnimView.SetMoving(true)` 时 `ResetTrigger(Attack1)` 并强制切入 `RunBT`（Creator Attack 仅 ExitTime 回 Idle）；规则前摇/HitConfirm 不变；同步 SPEC_04 §15.5、CONTEXT |
+| 2026-08-10 | v0.75.26 | 怪物死亡击退时长 `DeathKnockbackSeconds` 0.6→**0.3**；同步 SPEC_04 §15.5、SPEC_03、CONTEXT |
+| 2026-08-10 | v0.75.25 | `AttackRange` 边缘距（难度 2 切片 2）：Defend `WarriorAgentView` / `MonsterAgentView` / `DefendStageController` 进距·HitConfirm·AttackSlot 环对齐 `CombatReach`；Defend 怪 `NavMeshAgent.radius=BodyRadius`；**不改**配置表 `AttackRange` 数值；同步 SPEC_03 §3.12、SPEC_04 §9.7/§9.19/§9.22 |
+| 2026-08-10 | v0.75.24 | `AttackRange` 改**边缘距**判定（难度 2 切片 1）：可攻 ⟺ `中心距 ≤ AttackRange + 双方 BodyRadius`；`CombatReach` + AttackSlot 环含双方半径；PushMap 士兵/怪进距与遇敌检测对齐；怪 Agent 半径=`BodyRadius`；Defend 进距对齐后置；同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.7/§9.9b/§9.19/§9.22、CONTEXT |
+| 2026-08-10 | v0.75.23 | 怪物死亡击退按职业缩放：`ClassConfig.DeathKnockbackMult`（击退距离系数，缺省 1）；终点=`M+(T−M)×系数`（`T=2M−S`）；同步 SPEC_04 §9.9b/§15.5、SPEC_03 §3.12、CONTEXT |
+| 2026-08-10 | v0.75.22 | 怪物死亡表现（难度 2）：Defend+PushMap 击杀播 `PlayDie`+尸体锁存（废止 `SetActive(false)`）；仅怪镜像反向位移 `T=2M−S`、`DeathKnockbackSeconds=0.6`；Session 致命事件带 `killerWarriorId`；士兵无击退；同步 SPEC_04 §15.5、SPEC_03 §3.14、CONTEXT |
+| 2026-08-10 | v0.75.21 | 八向朝向抖动：迟滞+最短保持从推图怪抽到 `WarriorAnimView.SetFacing`（难度 2，选定方案 A）；士兵与防守怪启用；推图怪 `FaceToward` 不再旁路；受堵停滞仍仅推图怪；同步 SPEC_04 §15.5、SPEC_03 §3.14、CONTEXT |
+| 2026-08-10 | v0.75.20 | 士兵移动动画：`WarriorAgentView`/`PushMapAdvanceView` 的 `IsRun` 改由 MassMove **steer** 判定（对齐怪）；废止 `NavMeshAgent.velocity`（`Move`+`ResetPath` 下恒近 0）；同步 SPEC_04 §15.5、CONTEXT |
+| 2026-08-10 | v0.75.19 | 敌我移速系数：士兵 `ClassConfig.ChaseMoveSpeedMult`（`GoalKind=AttackSlot` 时 × 基础移速）；怪 `MonsterConfig.ActiveMoveMult`/`PassiveMoveMult`（ActiveChase/PassiveChase）；缺省 1；同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.9b/§9.19、CONTEXT |
+| 2026-08-10 | v0.75.18 | SoftCollision 单体 `RepulsionScale` 迁入 `BodyAppearanceConfig` / `MonsterConfig`（缺省 1；`Register` 注入）；废止 `SetGoal` 按 GoalKind 覆盖为 0.35；同步 SPEC_03 §3.12、SPEC_04 §9.7/§9.13/§9.19、CONTEXT |
+| 2026-08-10 | v0.75.17 | SoftCollision 方案 B：`BodyRadius` 仅体积/占地；新增 `PushCoefficient`（士兵 `BodyAppearanceConfig` / 怪 `MonsterConfig`，缺省 1）只缩放排斥冲量（邻域贡献 × 对方系数）；同步 SPEC_03 §3.12、SPEC_04 §9.7/§9.13/§9.19、CONTEXT |
 | 2026-08-09 | v0.75.16 | 躯体外观选取：集合 A 有等级+种族匹配但职业倾向 B 为空时，**不再在 A 中随机**，改用同种族 `IsFallback` 保底（再无则全表随机）；同步 SPEC_03 §3.11、SPEC_04 §9.13、CONTEXT、`ManufactureService.PickAppearance` |
 | 2026-08-09 | v0.75.15 | 存档士兵属性修复（难度 1，方案 A）：`StatBlock` 标 `[Serializable]` 使 `JsonUtility` 写入五维快照；进档后若 `BaseStats` 全 0 且有 `SourceItemIds` 则按配方重算并写回；DamagePopup 取消 `Max(1,…)` 下限（显示真实 `RoundToInt` 伤害）；同步 SPEC_04 §6/§9.9/§9.22 |
 | 2026-08-09 | v0.75.14 | 士兵尸体叠序：CombatDead 锁存变暗后 `sortingOrder` 200→**100**（`CorpseSortingOrder`），低于所有存活战斗单位（我方/敌方/主角 200）；`ResetToIdle` 恢复；同步 SPEC_04 §15.2/§15.5 |
@@ -214,6 +231,23 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-10 | v0.75.33 | AllyFootCircle: localRotation X=-30; Order In Layer stays 1; `WarriorAnimView` skips foot circle when batching sortingOrder/corpse darken (was overwritten to 200) |
+| 2026-08-10 | v0.75.32 | AllyFootCircle tune: fill α=160/255; localPos Y=-0.05 Z=-0.2; rotation X/Y=0; `sortingOrder=1`; synced SPEC_03/04, CONTEXT |
+| 2026-08-10 | v0.75.31 | AllyFootCircle (diff 1): Defend/PushMap Combat loyal living soldiers get green-stroke foot circle + black fill α0.35; radius=`BodyRadius`; child follows; hide on Rebel/death; `sortingOrder=50`; synced SPEC_03 §3.12/§3.14, SPEC_04 §9.7/§15.5, CONTEXT |
+| 2026-08-10 | v0.75.30 | StuckHold for all movable combat units (diff 2): detect window 0.5s + XZ disp &lt;0.2 → force Idle 1s then resume; presentation only; Defend+PushMap both factions share `StuckHoldTracker`; retires old PushMap-monster 0.25/0.05 continuous hysteresis; synced SPEC_04 §15.5, SPEC_03 §3.14, CONTEXT |
+| 2026-08-10 | v0.75.29 | PushMap Combat Manual drag mirrored pan (diff 1): LMB drag moves camera XZ **opposite** to screen delta (grab-map feel); Auto/zoom/ResumeFollow unchanged; synced SPEC_03 §3.14, SPEC_04 §6 |
+| 2026-08-10 | v0.75.28 | Soldier skill config expand: `SkillConfig` composite PK `(SkillId,SkillLevel)` + CooldownMode(Mode1/Mode2) + CastTarget (7 enums) + display text + SkillEffectId; keep BaseCooldownSeconds/LossOfControl bonus; new `SkillEffectConfig` skeleton; retire same-file effect-column plan; Demo still no cast; synced SPEC_03 §3.12, SPEC_04 §9.21/§9.21b/§14, CONTEXT, sample tables |
+| 2026-08-10 | v0.75.27 | Move immediately interrupts attack presentation (diff 1): `WarriorAnimView.SetMoving(true)` resets `Attack1` and force-enters `RunBT` (Creator Attack exits only via ExitTime); windup/HitConfirm rules unchanged; synced SPEC_04 §15.5, CONTEXT |
+| 2026-08-10 | v0.75.26 | Monster death knockback duration `DeathKnockbackSeconds` 0.6→**0.3**; synced SPEC_04 §15.5, SPEC_03, CONTEXT |
+| 2026-08-10 | v0.75.25 | `AttackRange` edge-gap (difficulty 2 slice 2): Defend `WarriorAgentView` / `MonsterAgentView` / `DefendStageController` in-range·HitConfirm·AttackSlot ring align to `CombatReach`; Defend monster `NavMeshAgent.radius=BodyRadius`; **no** config-table `AttackRange` value edits; synced SPEC_03 §3.12, SPEC_04 §9.7/§9.19/§9.22 |
+| 2026-08-10 | v0.75.24 | `AttackRange` → **edge-gap** reach (difficulty 2 slice 1): in range ⟺ `centerDist ≤ AttackRange + both BodyRadii`; `CombatReach` + AttackSlot ring includes both radii; PushMap soldier/monster in-range + engage detect aligned; monster Agent radius=`BodyRadius`; Defend parity deferred; synced SPEC_03 §3.12/§3.14, SPEC_04 §9.7/§9.9b/§9.19/§9.22, CONTEXT |
+| 2026-08-10 | v0.75.23 | Monster death knockback scaled by class: `ClassConfig.DeathKnockbackMult` (default 1); end=`M+(T−M)×mult` (`T=2M−S`); synced SPEC_04 §9.9b/§15.5, SPEC_03 §3.12, CONTEXT |
+| 2026-08-10 | v0.75.22 | Monster death FX (diff 2): Defend+PushMap kill plays `PlayDie`+corpse latch (retire `SetActive(false)`); monster-only mirror knockback `T=2M−S`, `DeathKnockbackSeconds=0.6`; Session fatal event carries `killerWarriorId`; soldiers have no knockback; synced SPEC_04 §15.5, SPEC_03 §3.14, CONTEXT |
+| 2026-08-10 | v0.75.21 | 8-dir facing flicker: move hysteresis+min dwell into `WarriorAnimView.SetFacing` (diff 2, Approach A); enable for soldiers and Defend monsters; PushMap `FaceToward` no longer bypasses; stuck hold remains PushMap-monster-only; synced SPEC_04 §15.5, SPEC_03 §3.14, CONTEXT |
+| 2026-08-10 | v0.75.20 | Soldier move anim: `WarriorAgentView`/`PushMapAdvanceView` drive `IsRun` from MassMove **steer** (align monsters); retire `NavMeshAgent.velocity` (stays ≈0 under `Move`+`ResetPath`); synced SPEC_04 §15.5, CONTEXT |
+| 2026-08-10 | v0.75.19 | Move-speed mults: soldier `ClassConfig.ChaseMoveSpeedMult` (× base when `GoalKind=AttackSlot`); monster `MonsterConfig.ActiveMoveMult`/`PassiveMoveMult` (ActiveChase/PassiveChase); default 1; synced SPEC_03 §3.12/§3.14, SPEC_04 §9.9b/§9.19, CONTEXT |
+| 2026-08-10 | v0.75.18 | SoftCollision per-body `RepulsionScale` moved to `BodyAppearanceConfig` / `MonsterConfig` (default 1; inject at `Register`); retire `SetGoal` GoalKind override to 0.35; synced SPEC_03 §3.12, SPEC_04 §9.7/§9.13/§9.19, CONTEXT |
+| 2026-08-10 | v0.75.17 | SoftCollision Approach B: `BodyRadius` = footprint only; add `PushCoefficient` (soldier `BodyAppearanceConfig` / monster `MonsterConfig`, default 1) scales repulsion impulse only (neighbor contribution × other's coeff); synced SPEC_03 §3.12, SPEC_04 §9.7/§9.13/§9.19, CONTEXT |
 | 2026-08-09 | v0.75.16 | BodyAppearance pick: when set A matches level+race but class-affinity set B is empty, **do not random in A** — use same-race `IsFallback` instead (else table-random); synced SPEC_03 §3.11, SPEC_04 §9.13, CONTEXT, `ManufactureService.PickAppearance` |
 | 2026-08-09 | v0.75.15 | Warrior save-stat fix (diff 1, Approach A): mark `StatBlock` `[Serializable]` so `JsonUtility` persists five-dim snapshots; on enter-save, if `BaseStats` all-zero with `SourceItemIds`, recompute from recipe and write back; DamagePopup drops `Max(1,…)` floor (shows real `RoundToInt` damage); synced SPEC_04 §6/§9.9/§9.22 |
 | 2026-08-09 | v0.75.14 | Soldier corpse sorting: after CombatDead latch+darken, `sortingOrder` 200→**100** (`CorpseSortingOrder`), below all living combat units (friendly/enemy/protagonist at 200); `ResetToIdle` restores; synced SPEC_04 §15.2/§15.5 |

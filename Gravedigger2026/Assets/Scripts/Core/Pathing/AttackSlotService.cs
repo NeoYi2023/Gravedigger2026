@@ -36,9 +36,22 @@ namespace Gravedigger2026.Core.Pathing
             _walkable = walkable ?? StubAttackSlotFullyWalkable.Instance;
         }
 
-        public static float ComputeRingRadius(float attackRange)
+        /// <summary>
+        /// Ring radius from target center. AttackRange is edge-gap (SPEC_03 §3.12 v0.75.24+):
+        /// <c>AttackRange + attackerBody + targetBody − slotMargin</c>.
+        /// Body radii default 0 → legacy <c>AttackRange − slotMargin</c>.
+        /// </summary>
+        public static float ComputeRingRadius(
+            float attackRange,
+            float attackerBodyRadius = 0f,
+            float targetBodyRadius = 0f)
         {
-            return Mathf.Max(MinRingRadius, attackRange - SlotMargin);
+            return Mathf.Max(
+                MinRingRadius,
+                attackRange
+                + Mathf.Max(0f, attackerBodyRadius)
+                + Mathf.Max(0f, targetBodyRadius)
+                - SlotMargin);
         }
 
         public static int SlotCountFor(AttackMode attackMode)
@@ -63,6 +76,7 @@ namespace Gravedigger2026.Core.Pathing
             AttackMode attackMode = AttackMode.Melee,
             Vector3 attackerPos = default,
             float targetBodyRadius = DefaultTargetBodyRadius,
+            float attackerBodyRadius = 0f,
             SurroundParams? surround = null)
         {
             worldPos = default;
@@ -71,7 +85,7 @@ namespace Gravedigger2026.Core.Pathing
                 return false;
             }
 
-            var ringRadius = ComputeRingRadius(attackRange);
+            var ringRadius = ComputeRingRadius(attackRange, attackerBodyRadius, targetBodyRadius);
             var slotCount = SlotCountFor(attackMode);
             var minDistFromCenter = Mathf.Max(0f, targetBodyRadius * 0.5f);
 

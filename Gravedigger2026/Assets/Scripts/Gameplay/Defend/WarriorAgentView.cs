@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Gameplay.Combat;
 using Gravedigger2026.Gameplay.Pathing;
 using UnityEngine;
 using UnityEngine.AI;
@@ -29,7 +30,7 @@ namespace Gravedigger2026.Gameplay.Defend
             Monster = 3
         }
 
-        private const float MoveAnimSpeedSqr = 0.04f;
+        private const float MoveAnimSpeedSqr = 0.01f;
         private const float NavMeshSampleRadius = 4f;
 
         private DefendSessionService _session;
@@ -51,13 +52,20 @@ namespace Gravedigger2026.Gameplay.Defend
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private bool _diePlayed;
-        private float _moveSpeed = 3.5f;
+        private float _baseMoveSpeed = 3.5f;
+        private float _chaseMoveSpeedMult = ClassConfigRow.DefaultChaseMoveSpeedMult;
         private float _bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+        private float _pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient;
+        private float _repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale;
         private bool _facingYawFlip;
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
         private int _moveId;
+        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun — not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
+        private Vector3 _lastSteerDirXZ;
+        private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
+        private AllyFootCircleView _footCircle;
 
         public string WarriorId => _warriorId;
         public string AttackerId => _warriorId;
@@ -127,7 +135,10 @@ namespace Gravedigger2026.Gameplay.Defend
             AttackSlotService attackSlots = null,
             int moveId = 0,
             float bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius,
-            bool facingYawFlip = false)
+            bool facingYawFlip = false,
+            float pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient,
+            float repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale,
+            float chaseMoveSpeedMult = ClassConfigRow.DefaultChaseMoveSpeedMult)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
@@ -146,11 +157,16 @@ namespace Gravedigger2026.Gameplay.Defend
             _windupKind = RebelTargetKind.None;
             _windupTargetId = null;
             _diePlayed = false;
+            _stuckHold.Reset();
+            _lastSteerDirXZ = Vector3.zero;
             _scheduler = scheduler;
             _attackSlots = attackSlots;
             _moveId = moveId;
             _bodyRadius = Mathf.Max(0.05f, bodyRadius);
+            _pushCoefficient = Mathf.Max(0f, pushCoefficient);
+            _repulsionScale = Mathf.Max(0f, repulsionScale);
             _facingYawFlip = facingYawFlip;
+            _chaseMoveSpeedMult = Mathf.Max(0f, chaseMoveSpeedMult);
 
             if (!_session.TryGetWarrior(_warriorId, out var state) || state == null)
             {
@@ -159,7 +175,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            _moveSpeed = Mathf.Max(0.1f, state.MoveSpeed);
+            _baseMoveSpeed = Mathf.Max(0.1f, state.MoveSpeed);
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -174,7 +190,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _anim.SetFacingYawFlip(_facingYawFlip);
-            _agent.speed = _moveSpeed;
+            ApplyEffectiveMoveSpeed();
             _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
@@ -195,7 +211,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_scheduler != null && _moveId != 0)
             {
-                _scheduler.Register(_moveId, _bodyRadius, MassMoveScheduler.DetourGroupLoyal);
+                _scheduler.Register(
+                    _moveId,
+                    _bodyRadius,
+                    MassMoveScheduler.DetourGroupLoyal,
+                    _pushCoefficient,
+                    _repulsionScale);
                 if (_hasFormationHome)
                 {
                     _scheduler.SetGoal(
@@ -212,6 +233,56 @@ namespace Gravedigger2026.Gameplay.Defend
 
                 taskLabel.Bind(_scheduler, _moveId);
             }
+
+            EnsureFootCircle();
+            _footCircle.Bind(_bodyRadius);
+            _footCircle.SetVisible(!state.IsRebel);
+        }
+
+        private void EnsureFootCircle()
+        {
+            if (_footCircle != null)
+            {
+                return;
+            }
+
+            _footCircle = GetComponent<AllyFootCircleView>();
+            if (_footCircle == null)
+            {
+                _footCircle = gameObject.AddComponent<AllyFootCircleView>();
+            }
+        }
+
+        private void HideFootCircle()
+        {
+            if (_footCircle != null)
+            {
+                _footCircle.SetVisible(false);
+            }
+        }
+
+        private float ResolveEffectiveMoveSpeed()
+        {
+            var mult = 1f;
+            if (_scheduler != null &&
+                _moveId != 0 &&
+                _scheduler.TryGetGoal(_moveId, out var kind, out _) &&
+                kind == GoalKind.AttackSlot)
+            {
+                mult = _chaseMoveSpeedMult;
+            }
+
+            return Mathf.Max(0.1f, _baseMoveSpeed * mult);
+        }
+
+        private void ApplyEffectiveMoveSpeed()
+        {
+            if (_agent == null)
+            {
+                return;
+            }
+
+            _agent.speed = ResolveEffectiveMoveSpeed();
         }
 
         /// <summary>XZ sample for MassMoveScheduler (inactive when dead / windup).</summary>
@@ -284,17 +355,28 @@ namespace Gravedigger2026.Gameplay.Defend
                 return false;
             }
 
-            if (kind == RebelTargetKind.Warrior)
-            {
-                bodyRadius = _bodyRadius;
-            }
-            else if (kind == RebelTargetKind.Monster)
-            {
-                var m = FindMonsterByRuntimeId(targetId);
-                bodyRadius = m != null ? m.BodyRadius : AttackSlotService.DefaultTargetBodyRadius;
-            }
-
+            bodyRadius = ResolveRebelTargetBodyRadius(kind, targetId);
             return true;
+        }
+
+        private float ResolveRebelTargetBodyRadius(RebelTargetKind kind, string targetId)
+        {
+            switch (kind)
+            {
+                case RebelTargetKind.Warrior:
+                {
+                    var other = FindWarriorById(targetId);
+                    return other != null ? other.AgentRadius : _bodyRadius;
+                }
+                case RebelTargetKind.Monster:
+                {
+                    var m = FindMonsterByRuntimeId(targetId);
+                    return m != null ? m.BodyRadius : AttackSlotService.DefaultTargetBodyRadius;
+                }
+                case RebelTargetKind.Protagonist:
+                default:
+                    return AttackSlotService.DefaultTargetBodyRadius;
+            }
         }
 
         private void Update()
@@ -311,6 +393,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!_session.IsWarriorCombatActive(_warriorId) || !_session.TryGetWarrior(_warriorId, out var state))
             {
+                HideFootCircle();
                 PlayDieOnce();
                 StopAgent();
                 return;
@@ -320,6 +403,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (state.IsRebel)
             {
+                HideFootCircle();
                 TickRebel(state);
             }
             else if (state.AttackMode == AttackMode.Melee)
@@ -345,11 +429,15 @@ namespace Gravedigger2026.Gameplay.Defend
                 string.IsNullOrEmpty(_warriorId) ||
                 !_session.IsWarriorCombatActive(_warriorId))
             {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 return;
             }
 
             if (_attackPhase == AttackPhase.Windup)
             {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 return;
             }
 
@@ -362,6 +450,8 @@ namespace Gravedigger2026.Gameplay.Defend
 
                 if (!_agent.isOnNavMesh)
                 {
+                    _lastSteerDirXZ = Vector3.zero;
+                    _stuckHold.Tick(false, transform.position, Time.deltaTime);
                     return;
                 }
             }
@@ -373,6 +463,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 correction.sqrMagnitude > 1e-8f;
             if (!hasSteer && !hasCorrection)
             {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 ClearPathingState();
                 return;
             }
@@ -383,8 +475,10 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _agent.isStopped = false;
+            ApplyEffectiveMoveSpeed();
+            var speed = ResolveEffectiveMoveSpeed();
             var delta = hasSteer
-                ? new Vector3(steer.x, 0f, steer.y) * (_moveSpeed * Time.deltaTime)
+                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
                 : Vector3.zero;
             if (hasCorrection)
             {
@@ -392,7 +486,17 @@ namespace Gravedigger2026.Gameplay.Defend
                 delta.z += correction.y;
             }
 
+            _lastSteerDirXZ = hasSteer
+                ? new Vector3(steer.x, 0f, steer.y)
+                : Vector3.zero;
             _agent.Move(delta);
+
+            var wantsMove = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
+            if (_stuckHold.IsHolding && _anim != null)
+            {
+                _anim.SetMoving(false);
+            }
         }
 
         private void OnDisable()
@@ -411,11 +515,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            var moving = _attackPhase != AttackPhase.Windup
-                         && _agent != null
-                         && _agent.isOnNavMesh
-                         && !_agent.isStopped
-                         && _agent.velocity.sqrMagnitude > MoveAnimSpeedSqr;
+            // MassMove uses Move()+ResetPath — velocity≈0; use steer like monsters (SPEC_04 §15.5).
+            var wantsMove = _attackPhase != AttackPhase.Windup
+                            && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            var moving = wantsMove && !_stuckHold.IsHolding;
 
             if (_attackPhase != AttackPhase.Windup)
             {
@@ -433,14 +536,9 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
             }
 
-            if (moving && _agent != null)
+            if (moving)
             {
-                var vel = _agent.velocity;
-                vel.y = 0f;
-                if (vel.sqrMagnitude > 0.0001f)
-                {
-                    _anim.SetFacing(vel);
-                }
+                _anim.SetFacing(_lastSteerDirXZ);
             }
         }
 
@@ -470,6 +568,8 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _diePlayed = true;
+            HideFootCircle();
+            _stuckHold.Reset();
             _anim.PlayDie();
         }
 
@@ -488,7 +588,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            if (Vector3.Distance(transform.position, target.transform.position) > state.AttackRange)
+            var dist = Vector3.Distance(transform.position, target.transform.position);
+            if (!CombatReach.IsInAttackRange(dist, state.AttackRange, _bodyRadius, target.BodyRadius))
             {
                 return;
             }
@@ -505,7 +606,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            if (Vector3.Distance(transform.position, target.transform.position) > state.AttackRange)
+            var dist = Vector3.Distance(transform.position, target.transform.position);
+            if (!CombatReach.IsInAttackRange(dist, state.AttackRange, _bodyRadius, target.BodyRadius))
             {
                 return;
             }
@@ -528,7 +630,9 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            if (Vector3.Distance(transform.position, targetPos) > state.AttackRange)
+            var targetBody = ResolveRebelTargetBodyRadius(kind, targetId);
+            var dist = Vector3.Distance(transform.position, targetPos);
+            if (!CombatReach.IsInAttackRange(dist, state.AttackRange, _bodyRadius, targetBody))
             {
                 return;
             }
@@ -681,7 +785,12 @@ namespace Gravedigger2026.Gameplay.Defend
             var target = FindMonsterByRuntimeId(_windupTargetId);
             var inRange = target != null
                           && target.IsAlive
-                          && Vector3.Distance(transform.position, target.transform.position) <= state.AttackRange + 0.05f;
+                          && CombatReach.IsInAttackRange(
+                              Vector3.Distance(transform.position, target.transform.position),
+                              state.AttackRange,
+                              _bodyRadius,
+                              target.BodyRadius,
+                              CombatReach.HitConfirmSlack);
 
             _session.TryConfirmMeleeHit(_warriorId, _windupTargetId, inRange);
             ClearWindup();
@@ -701,7 +810,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 {
                     var tf = _protagonistProvider != null ? _protagonistProvider() : null;
                     var inRange = tf != null
-                                  && Vector3.Distance(transform.position, tf.position) <= state.AttackRange + 0.05f;
+                                  && CombatReach.IsInAttackRange(
+                                      Vector3.Distance(transform.position, tf.position),
+                                      state.AttackRange,
+                                      _bodyRadius,
+                                      AttackSlotService.DefaultTargetBodyRadius,
+                                      CombatReach.HitConfirmSlack);
                     if (inRange)
                     {
                         _session.ApplyProtagonistNormalHit($"Rebel:{_warriorId}");
@@ -713,8 +827,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 {
                     var other = FindWarriorById(_windupTargetId);
                     var inRange = other != null
-                                  && Vector3.Distance(transform.position, other.transform.position)
-                                  <= state.AttackRange + 0.05f;
+                                  && CombatReach.IsInAttackRange(
+                                      Vector3.Distance(transform.position, other.transform.position),
+                                      state.AttackRange,
+                                      _bodyRadius,
+                                      other.AgentRadius,
+                                      CombatReach.HitConfirmSlack);
                     _session.TryConfirmRebelHitOnWarrior(_warriorId, _windupTargetId, inRange);
                     break;
                 }
@@ -723,8 +841,12 @@ namespace Gravedigger2026.Gameplay.Defend
                     var target = FindMonsterByRuntimeId(_windupTargetId);
                     var inRange = target != null
                                   && target.IsAlive
-                                  && Vector3.Distance(transform.position, target.transform.position)
-                                  <= state.AttackRange + 0.05f;
+                                  && CombatReach.IsInAttackRange(
+                                      Vector3.Distance(transform.position, target.transform.position),
+                                      state.AttackRange,
+                                      _bodyRadius,
+                                      target.BodyRadius,
+                                      CombatReach.HitConfirmSlack);
                     if (state.AttackMode == AttackMode.Melee)
                     {
                         _session.TryConfirmMeleeHit(_warriorId, _windupTargetId, inRange);

@@ -1,0 +1,4 @@
+122: | AllyFootCircle | 友军脚下圈 | Defend / PushMap Combat 中**忠诚存活**士兵脚下绿色描边圆 + 内部黑色半透明（α=**160/255**）；世界半径=`BodyRadius`；localPos Y=-0.05 Z=-0.2；rotation X=**-30**；Orde
+268: | AllyFootCircle | 友军脚下圈 | During Defend / PushMap Combat, **loyal living** soldiers show a green-stroke foot circle with black fill α=**160/255**; world radius
+2527: | Demo 受伤闪烁边界 | **HitFlash（PM-12/13）：** 与飘字同一命中成功事件。目标子树 Renderer 临时亮色（`MaterialPropertyBlock`，勿永久改共享材质）。怪物亮**红**；士兵亮**白**。共 **2** 次脉冲（立即 1 + 再 1），每次持续 **0.1s**
+2676: | Demo HitFlash edge | **HitFlash (PM-12/13):** same successful-hit event as DamagePopup. Temporarily tint target subtree Renderers (MaterialPropertyBlock; do n

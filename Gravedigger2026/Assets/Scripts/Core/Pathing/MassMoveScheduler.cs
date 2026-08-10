@@ -11,8 +11,8 @@ namespace Gravedigger2026.Core.Pathing
     /// LocalDetour neighbors are same DetourGroup only (friendlies; SPEC_03 §3.12).
     /// SC-03: owns a <see cref="SoftCollisionService"/> — Register/Unregister/Clear auto-sync
     /// bodies (getPos reads back the sampled position by id), <see cref="Tick"/> resolves
-    /// repulsion each frame, and <see cref="SetGoal"/> syncs the per-body repulsion scale
-    /// (engage bubble → <see cref="AttackSlotRepulsionScale"/>). Views compose
+    /// repulsion each frame, and <see cref="Register"/> injects table
+    /// <c>PushCoefficient</c> / <c>RepulsionScale</c>. Views compose
     /// delta = steer·speed·dt + TryGetCorrection at Move.
     /// </summary>
     public sealed class MassMoveScheduler
@@ -23,8 +23,6 @@ namespace Gravedigger2026.Core.Pathing
         /// <summary>Default = CaptureZone radius (SPEC_03 §3.14). Stage overrides from current zone.</summary>
         public const float DefaultObjectiveArriveRadius = 2f;
         public const float AttackSlotSeparationScale = 0.35f;
-        /// <summary>SC-03 per-body soft-collision factor in the engage bubble (SPEC_04 §9.7: 0.35–0.5).</summary>
-        public const float AttackSlotRepulsionScale = 0.35f;
         public const int DetourGroupLoyal = 0;
         public const int DetourGroupMonster = 1;
 
@@ -82,7 +80,12 @@ namespace Gravedigger2026.Core.Pathing
             _objectiveArriveRadius = DefaultObjectiveArriveRadius;
         }
 
-        public void Register(int id, float radius = DefaultAgentRadius, int detourGroup = DetourGroupLoyal)
+        public void Register(
+            int id,
+            float radius = DefaultAgentRadius,
+            int detourGroup = DetourGroupLoyal,
+            float pushCoefficient = SoftCollisionService.DefaultPushCoefficient,
+            float repulsionScale = SoftCollisionService.DefaultRepulsionScale)
         {
             if (_indexById.ContainsKey(id))
             {
@@ -92,7 +95,14 @@ namespace Gravedigger2026.Core.Pathing
             _indexById[id] = _agents.Count;
             _agents.Add(new MassMoveAgentState(id, Mathf.Max(0.01f, radius), detourGroup));
             // SC-03: soft body mirrors this registration; getPos reads the live sampled position.
-            _softCollision.Register(id, Mathf.Max(0.01f, radius), () => GetAgentPositionXZ(id));
+            // Overlap radius = BodyRadius; PushCoefficient scales shove impulse only (Approach B).
+            // Per-body RepulsionScale from BodyAppearanceConfig / MonsterConfig (not GoalKind).
+            _softCollision.Register(
+                id,
+                Mathf.Max(0.01f, radius),
+                () => GetAgentPositionXZ(id),
+                pushCoefficient);
+            _softCollision.SetRepulsionScale(id, repulsionScale);
         }
 
         public void Unregister(int id)
@@ -133,12 +143,6 @@ namespace Gravedigger2026.Core.Pathing
             agent.GoalKind = kind;
             agent.DesiredDestination = desiredDestinationXZ;
             _agents[index] = agent;
-            // SC-03: engage bubble (AttackSlot/ChaseAnchor) softens repulsion per SPEC_04 §9.7.
-            _softCollision.SetRepulsionScale(
-                id,
-                kind == GoalKind.AttackSlot || kind == GoalKind.ChaseAnchor
-                    ? AttackSlotRepulsionScale
-                    : 1f);
         }
 
         public bool TryGetGoal(int id, out GoalKind kind, out Vector2 desiredDestinationXZ)

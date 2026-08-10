@@ -218,9 +218,20 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
         "LossOfControlChance": ("失控概率", "[0,1]；作为 TierChance"),
     },
     "Combat_SkillConfig": {
-        "SkillId": ("技能ID", "主键；被灵魂/宝石/装备/怪物 Skills 引用"),
+        "SkillId": ("技能ID", "复合主键之一；被灵魂/宝石/装备 Skills 引用"),
+        "SkillLevel": ("技能等级", "复合主键之一；≥1；与 Skills 段内 Level 对齐"),
+        "CooldownMode": ("技能CD模式", "Mode1=开战起算CD；Mode2=开战CD=0，释放后再进CD"),
+        "CastTarget": ("技能释放目标", "Self|AllySingle|AllyAll|EnemySingle|EnemyAll|GroundPoint|CurrentNormalAttackTarget"),
+        "ExtraActivationCondition": ("额外激活条件", "默认空；编码后续专题"),
+        "DisplayName": ("技能名称", "展示文字或本地化 Key"),
+        "Description": ("技能展示描述", "展示文字或本地化 Key"),
+        "SkillEffectId": ("技能效果ID", "FK → SkillEffectConfig.SkillEffectId"),
         "BaseCooldownSeconds": ("基础冷却", "≥0 秒；实际 CD 见 §3.12 公式"),
-        "LossOfControlChanceBonus": ("失控概率加成", "可正可负；缺省 0"),
+        "LossOfControlChanceBonus": ("失控概率加成", "可正可负；缺省 0；按等级查行后求和"),
+    },
+    "Combat_SkillEffectConfig": {
+        "SkillEffectId": ("技能效果ID", "主键；被 SkillConfig.SkillEffectId 引用"),
+        "Notes": ("备注", "可选；可空；策划备注不驱动规则"),
     },
 }
 

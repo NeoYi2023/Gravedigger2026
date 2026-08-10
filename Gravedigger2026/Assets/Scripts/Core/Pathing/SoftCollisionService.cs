@@ -11,14 +11,18 @@ namespace Gravedigger2026.Core.Pathing
     /// round-robin retain: bodies outside this frame's budget keep their last
     /// <c>CorrectionXz</c>. MassMoveScheduler owns an instance and applies it after
     /// LocalDetour (SC-03); static blockers stay on NavMesh/AirWall — this never
-    /// replaces them. Per-body strength: effective scale = global
-    /// <see cref="RepulsionScale"/> × <see cref="SetRepulsionScale"/> factor.
+    /// replaces them. Overlap uses BodyRadius only. Neighbor half-pen × other's
+    /// <see cref="SetPushCoefficient"/>, then × global <see cref="RepulsionScale"/> ×
+    /// self <see cref="SetRepulsionScale"/> factor.
     /// Hot path: pooled SpatialHash2D + reused buffers, no per-frame managed alloc.
     /// </summary>
     public sealed class SoftCollisionService
     {
-        /// <summary>SPEC_04 §9.7: repulsionScale default 1.0 (engage may lower to 0.35–0.5).</summary>
+        /// <summary>SPEC_04 §9.7: repulsionScale default 1.0 (table-driven per body).</summary>
         public const float DefaultRepulsionScale = 1.0f;
+
+        /// <summary>SPEC_04 §9.13/§9.19: PushCoefficient default 1.0.</summary>
+        public const float DefaultPushCoefficient = 1.0f;
 
         /// <summary>Impulse speed cap (units/sec) so correction stays a soft push, not a teleport.</summary>
         public const float MaxCorrectionSpeed = 2.0f;
@@ -34,6 +38,7 @@ namespace Gravedigger2026.Core.Pathing
             public Vector2 CachedPos;
             public Vector2 Correction;
             public float RepulsionScale;
+            public float PushCoefficient;
         }
 
         private readonly List<BodyState> _bodies = new List<BodyState>(64);
@@ -63,7 +68,7 @@ namespace Gravedigger2026.Core.Pathing
         /// <summary>Buckets examined by the most recent neighbor query (no-O(n²) acceptance probe).</summary>
         public int LastQueryBucketsVisited => _hash.LastQueryBucketsVisited;
 
-        public void Register(int id, float radius, Func<Vector2> getPos)
+        public void Register(int id, float radius, Func<Vector2> getPos, float pushCoefficient = DefaultPushCoefficient)
         {
             if (getPos == null || _indexById.ContainsKey(id))
             {
@@ -79,6 +84,7 @@ namespace Gravedigger2026.Core.Pathing
                 CachedPos = Vector2.zero,
                 Correction = Vector2.zero,
                 RepulsionScale = 1f,
+                PushCoefficient = Mathf.Max(0f, pushCoefficient),
             });
         }
 
@@ -118,8 +124,8 @@ namespace Gravedigger2026.Core.Pathing
         /// <summary>
         /// Call once per frame (Stage wiring is SC-03): snapshot positions into the hash,
         /// then re-resolve ≤ <paramref name="maxBodiesPerFrame"/> bodies round-robin.
-        /// Correction = Σ pushDir · penetration · 0.5 · <see cref="RepulsionScale"/>,
-        /// magnitude capped at <see cref="MaxCorrectionSpeed"/> · dt.
+        /// Neighbor half-pen × other's PushCoefficient, then × <see cref="RepulsionScale"/> ×
+        /// self factor; magnitude capped at <see cref="MaxCorrectionSpeed"/> · dt.
         /// </summary>
         public void Tick(float dt, int maxBodiesPerFrame = DefaultMaxBodiesPerFrame)
         {
@@ -180,6 +186,12 @@ namespace Gravedigger2026.Core.Pathing
                         continue;
                     }
 
+                    if (!_indexById.TryGetValue(other.Id, out var otherIndex))
+                    {
+                        continue;
+                    }
+
+                    var otherPush = Mathf.Max(0f, _bodies[otherIndex].PushCoefficient);
                     var minDist = self.Radius + other.Radius;
                     if (minDist < 1e-4f)
                     {
@@ -194,8 +206,9 @@ namespace Gravedigger2026.Core.Pathing
                     {
                         // Fully coincident: deterministic anti-parallel side push by stable RuntimeId.
                         var dir = CoincidentPushDir(self.Id, other.Id);
-                        push.x += dir.x * minDist * 0.5f;
-                        push.y += dir.y * minDist * 0.5f;
+                        var coincident = minDist * 0.5f * otherPush;
+                        push.x += dir.x * coincident;
+                        push.y += dir.y * coincident;
                         continue;
                     }
 
@@ -205,7 +218,7 @@ namespace Gravedigger2026.Core.Pathing
                     }
 
                     var dist = Mathf.Sqrt(distSq);
-                    var halfPen = (minDist - dist) * (0.5f / dist);
+                    var halfPen = (minDist - dist) * (0.5f / dist) * otherPush;
                     push.x += dx * halfPen;
                     push.y += dy * halfPen;
                 }
@@ -237,8 +250,8 @@ namespace Gravedigger2026.Core.Pathing
 
         /// <summary>
         /// SC-03 per-body strength (SPEC_04 §9.7): effective scale = global
-        /// <see cref="RepulsionScale"/> × this factor (default 1.0; engage bubble
-        /// GoalKind=AttackSlot/ChaseAnchor lowers it to ~0.35). False when not registered.
+        /// <see cref="RepulsionScale"/> × this factor (default 1.0; from config tables).
+        /// False when not registered.
         /// </summary>
         public bool SetRepulsionScale(int id, float scale)
         {
@@ -263,6 +276,36 @@ namespace Gravedigger2026.Core.Pathing
             }
 
             scale = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// SoftCollision shove strength (SPEC_04 §9.7 Approach B): how hard this body
+        /// pushes overlapping neighbors. Does not change overlap radius. False when not registered.
+        /// </summary>
+        public bool SetPushCoefficient(int id, float coefficient)
+        {
+            if (!_indexById.TryGetValue(id, out var index))
+            {
+                return false;
+            }
+
+            var b = _bodies[index];
+            b.PushCoefficient = Mathf.Max(0f, coefficient);
+            _bodies[index] = b;
+            return true;
+        }
+
+        /// <summary>Per-body PushCoefficient probe. False when not registered.</summary>
+        public bool TryGetPushCoefficient(int id, out float coefficient)
+        {
+            if (_indexById.TryGetValue(id, out var index))
+            {
+                coefficient = _bodies[index].PushCoefficient;
+                return true;
+            }
+
+            coefficient = 0f;
             return false;
         }
 

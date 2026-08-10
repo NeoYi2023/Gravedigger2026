@@ -10,7 +10,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// PushMap Combat camera follow (PM-09 Approach A / SPEC_03 §3.14).
     /// Auto: sticky-follow closest loyal AdvanceView to CurrentObjective; freeze when none.
     /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto / repick.
-    /// Manual: LMB drag pans XZ; ResumeFollow returns to Auto.
+    /// Manual: LMB drag pans XZ mirrored to screen delta (grab-map); ResumeFollow returns to Auto.
     /// Scroll wheel zooms orthographicSize in [0.5, 20] (forward zoom-in).
     /// </summary>
     public sealed class PushMapCameraFollowController : MonoBehaviour
@@ -271,7 +271,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var unitsPerPixelY = (2f * _camera.orthographicSize) / Mathf.Max(1f, Screen.height);
             var unitsPerPixelX = (2f * _camera.orthographicSize * _camera.aspect) / Mathf.Max(1f, Screen.width);
-            var worldDelta = new Vector3(screenDelta.x * unitsPerPixelX, 0f, screenDelta.y * unitsPerPixelY);
+            var worldDelta = new Vector3(-screenDelta.x * unitsPerPixelX, 0f, -screenDelta.y * unitsPerPixelY);
             _camera.transform.position += worldDelta;
         }
 

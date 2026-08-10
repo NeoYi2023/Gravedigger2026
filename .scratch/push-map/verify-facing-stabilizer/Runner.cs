@@ -8,7 +8,7 @@ internal static class Runner
         var error = FacingStabilizerCorrectnessChecks.RunAll();
         if (error == null)
         {
-            Console.WriteLine("ALL CHECKS PASSED (PushMap monster facing stabilizer, v0.75.10).");
+            Console.WriteLine("ALL CHECKS PASSED (WarriorAnimView facing stabilizer, v0.75.21).");
             return 0;
         }
 

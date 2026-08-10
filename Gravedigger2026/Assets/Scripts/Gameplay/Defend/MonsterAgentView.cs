@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Gameplay.Combat;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -12,6 +13,7 @@ namespace Gravedigger2026.Gameplay.Defend
     /// Monster movement + normal-attack View (D-040 / MP-06).
     /// Chase destination = AttackSlot via MassMoveScheduler — no center SetDestination / CalculatePath.
     /// Presentation: WarriorAnimView DirIndex / IsRun / Attack1 (SPEC_04 §15.5 Approach A).
+    /// StuckHoldTracker (v0.75.30) forces Idle for 1s when blocked — presentation only.
     /// </summary>
     public sealed class MonsterAgentView : MonoBehaviour
     {
@@ -29,8 +31,13 @@ namespace Gravedigger2026.Gameplay.Defend
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private Vector3 _lastSteerDirXZ;
+        private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private bool _alive = true;
         private bool _probeOnly;
+        private bool _deathKnockActive;
+        private Vector3 _deathKnockOrigin;
+        private Vector3 _deathKnockTarget;
+        private float _deathKnockStartedAt;
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
@@ -101,6 +108,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _retargetTimer = 0f;
             _attackCooldown = 0f;
             _alive = true;
+            _deathKnockActive = false;
             _scheduler = scheduler;
             _attackSlots = attackSlots;
             _moveId = moveId;
@@ -112,14 +120,14 @@ namespace Gravedigger2026.Gameplay.Defend
                 _agent = gameObject.AddComponent<NavMeshAgent>();
             }
 
+            _agent.enabled = true;
+
             _agent.speed = Mathf.Max(0.1f, config.MoveSpeed);
             _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            var maxCombatRadius = Mathf.Max(
-                0.05f,
-                config.AttackRange - BodyAppearanceConfigRow.DefaultBodyRadius - 0.05f);
-            _agent.radius = Mathf.Min(BodyRadius, maxCombatRadius);
+            // Edge-gap AttackRange (v0.75.25): soft-collision contact is already in reach.
+            _agent.radius = BodyRadius;
             _agent.height = 1.8f;
             _agent.autoBraking = false;
             _agent.updateRotation = false;
@@ -133,13 +141,19 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_scheduler != null && _moveId != 0)
             {
-                _scheduler.Register(_moveId, _agent.radius, MassMoveScheduler.DetourGroupMonster);
+                _scheduler.Register(
+                    _moveId,
+                    _agent.radius,
+                    MassMoveScheduler.DetourGroupMonster,
+                    Mathf.Max(0f, _config.PushCoefficient),
+                    Mathf.Max(0f, _config.RepulsionScale));
                 _scheduler.SetGoal(_moveId, GoalKind.AttackSlot);
                 _scheduler.SetPaused(_moveId, true);
             }
 
             EnsureAnim();
             _lastSteerDirXZ = Vector3.zero;
+            _stuckHold.Reset();
             _anim.SetFacingYawFlip(_config != null && _config.FacingYawFlip == 1);
             _anim.ResetToIdle();
         }
@@ -153,7 +167,12 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        public void NotifyKilled()
+        /// <summary>
+        /// Combat death presentation (SPEC_04 §15.5): PlayDie + corpse latch; optional mirror knockback.
+        /// </summary>
+        public void NotifyKilled(
+            Vector3? killerWorldPos = null,
+            float deathKnockbackMult = ClassConfigRow.DefaultDeathKnockbackMult)
         {
             if (!_alive)
             {
@@ -161,6 +180,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _alive = false;
+            _stuckHold.Reset();
             ReleaseSlotClaim();
             _attackSlots?.ReleaseAllForTarget(_attackerId);
             if (_scheduler != null && _moveId != 0)
@@ -169,7 +189,46 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             StopMovement();
-            gameObject.SetActive(false);
+            if (_agent != null)
+            {
+                _agent.enabled = false;
+            }
+
+            EnsureAnim();
+            _anim.PlayDie();
+
+            _deathKnockActive = false;
+            if (killerWorldPos.HasValue)
+            {
+                _deathKnockOrigin = transform.position;
+                _deathKnockTarget = MonsterDeathPresentation.MirrorKnockbackTarget(
+                    _deathKnockOrigin,
+                    killerWorldPos.Value,
+                    deathKnockbackMult);
+                _deathKnockStartedAt = Time.time;
+                _deathKnockActive = true;
+            }
+        }
+
+        private void TickDeathKnockback()
+        {
+            if (!_deathKnockActive)
+            {
+                return;
+            }
+
+            var animating = MonsterDeathPresentation.TrySampleKnockback(
+                _deathKnockOrigin,
+                _deathKnockTarget,
+                _deathKnockStartedAt,
+                MonsterDeathPresentation.DeathKnockbackSeconds,
+                Time.time,
+                out var pos);
+            transform.position = pos;
+            if (!animating)
+            {
+                _deathKnockActive = false;
+            }
         }
 
         /// <summary>XZ sample for MassMoveScheduler.</summary>
@@ -209,9 +268,13 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var targetId = warriorView != null ? warriorView.AttackerId : "Protagonist";
+            var targetBody = warriorView != null
+                ? warriorView.AgentRadius
+                : AttackSlotService.DefaultTargetBodyRadius;
             var dist = Vector3.Distance(transform.position, targetTf.position);
 
-            if (dist <= _config.AttackRange)
+            // In AttackRange (edge-gap): hold and attack (no chase steer).
+            if (CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
             {
                 ReleaseSlotClaim(slots);
                 scheduler.SetPaused(_moveId, true);
@@ -229,10 +292,14 @@ namespace Gravedigger2026.Gameplay.Defend
                     out var slotPos,
                     AttackMode,
                     transform.position,
-                    warriorView != null ? warriorView.AgentRadius : 0.35f,
+                    targetBody,
+                    BodyRadius,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode)))
             {
-                var ring = AttackSlotService.ComputeRingRadius(_config.AttackRange);
+                var ring = AttackSlotService.ComputeRingRadius(
+                    _config.AttackRange,
+                    BodyRadius,
+                    targetBody);
                 var away = transform.position - targetTf.position;
                 away.y = 0f;
                 if (away.sqrMagnitude < 1e-6f)
@@ -257,6 +324,8 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 return;
             }
+
+            TickDeathKnockback();
 
             if (!_alive || _session == null || !_session.IsActive || _session.Phase != DefendPhase.Combat
                 || _config == null)
@@ -292,7 +361,10 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var dist = Vector3.Distance(transform.position, targetTf.position);
-            if (dist > _config.AttackRange)
+            var targetBody = warriorView != null
+                ? warriorView.AgentRadius
+                : AttackSlotService.DefaultTargetBodyRadius;
+            if (!CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
             {
                 return;
             }
@@ -380,25 +452,60 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!_probeOnly)
             {
-                TickAnimPresentation();
+                TickStuckHoldAndAnim();
             }
         }
 
         /// <summary>
-        /// In AttackRange → face target + idle; else chase → IsRun + DirIndex from steer (SPEC_04 §15.5).
+        /// StuckHoldTracker (SPEC_04 §15.5 v0.75.30): wantsMove for 0.5s with XZ disp &lt;0.2
+        /// → force Idle 1s. Attack-range Idle takes priority over hold.
         /// </summary>
-        private void TickAnimPresentation()
+        private void TickStuckHoldAndAnim()
+        {
+            var inAttackRange = false;
+            Vector3 attackTargetPos = default;
+            if (TryGetCombatTargetPosition(out attackTargetPos, out var body) && _config != null)
+            {
+                inAttackRange = CombatReach.IsInAttackRange(
+                    Vector3.Distance(transform.position, attackTargetPos),
+                    _config.AttackRange,
+                    BodyRadius,
+                    body);
+            }
+
+            var wantsMove = _alive &&
+                            !inAttackRange &&
+                            _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
+            TickAnimPresentation(inAttackRange, attackTargetPos);
+        }
+
+        /// <summary>
+        /// In AttackRange → face target + idle; stuck hold → idle + face chase target;
+        /// else chase → IsRun + DirIndex from steer (SPEC_04 §15.5).
+        /// </summary>
+        private void TickAnimPresentation(bool inAttackRange, Vector3 attackTargetPos)
         {
             if (_anim == null || !_alive || _config == null)
             {
                 return;
             }
 
-            if (TryGetCombatTargetPosition(out var targetPos) &&
-                Vector3.Distance(transform.position, targetPos) <= _config.AttackRange)
+            if (inAttackRange)
             {
                 _anim.SetMoving(false);
-                FaceToward(targetPos);
+                FaceToward(attackTargetPos);
+                return;
+            }
+
+            if (_stuckHold.IsHolding)
+            {
+                _anim.SetMoving(false);
+                if (TryGetCombatTargetPosition(out var stuckTargetPos, out _))
+                {
+                    FaceToward(stuckTargetPos);
+                }
+
                 return;
             }
 
@@ -410,9 +517,10 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        private bool TryGetCombatTargetPosition(out Vector3 targetPos)
+        private bool TryGetCombatTargetPosition(out Vector3 targetPos, out float targetBodyRadius)
         {
             targetPos = default;
+            targetBodyRadius = AttackSlotService.DefaultTargetBodyRadius;
             var kind = ResolveTarget(out var warriorView, out var protagonistTf);
             if (kind == TargetKind.None)
             {
@@ -428,6 +536,9 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             targetPos = targetTf.position;
+            targetBodyRadius = warriorView != null
+                ? warriorView.AgentRadius
+                : AttackSlotService.DefaultTargetBodyRadius;
             return true;
         }
 

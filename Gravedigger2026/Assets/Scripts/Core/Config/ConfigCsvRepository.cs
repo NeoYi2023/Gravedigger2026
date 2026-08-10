@@ -560,7 +560,38 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal BodyRadius '{bodyText}'.");
                 }
 
+                var pushText = OptionalText(raw, "PushCoefficient");
+                float pushCoefficient;
+                if (pushText.Length == 0)
+                {
+                    pushCoefficient = MonsterConfigRow.DefaultPushCoefficient;
+                }
+                else if (!float.TryParse(pushText, NumberStyles.Float, CultureInfo.InvariantCulture, out pushCoefficient)
+                         || pushCoefficient < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal PushCoefficient '{pushText}'.");
+                }
+
+                var repulsionText = OptionalText(raw, "RepulsionScale");
+                float repulsionScale;
+                if (repulsionText.Length == 0)
+                {
+                    repulsionScale = MonsterConfigRow.DefaultRepulsionScale;
+                }
+                else if (!float.TryParse(repulsionText, NumberStyles.Float, CultureInfo.InvariantCulture, out repulsionScale)
+                         || repulsionScale < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RepulsionScale '{repulsionText}'.");
+                }
+
                 var facingYawFlip = ParseFacingYawFlip(raw, table, rowIndex);
+
+                var activeMoveMult = ParseOptionalNonNegFloat(
+                    raw, "ActiveMoveMult", MonsterConfigRow.DefaultActiveMoveMult, table, rowIndex);
+                var passiveMoveMult = ParseOptionalNonNegFloat(
+                    raw, "PassiveMoveMult", MonsterConfigRow.DefaultPassiveMoveMult, table, rowIndex);
 
                 _monsterById[id] = new MonsterConfigRow
                 {
@@ -572,9 +603,13 @@ namespace Gravedigger2026.Core.Config
                     AggroMode = aggroMode,
                     AlertRadius = alertRadius,
                     BodyRadius = bodyRadius,
+                    PushCoefficient = pushCoefficient,
+                    RepulsionScale = repulsionScale,
                     FacingYawFlip = facingYawFlip,
                     MaxHP = RequireFloat(raw, "MaxHP", table, rowIndex),
                     MoveSpeed = RequireFloat(raw, "MoveSpeed", table, rowIndex),
+                    ActiveMoveMult = activeMoveMult,
+                    PassiveMoveMult = passiveMoveMult,
                     AttackPower = RequireFloat(raw, "AttackPower", table, rowIndex),
                     AttackSpeed = RequireFloat(raw, "AttackSpeed", table, rowIndex),
                     AttackRange = attackRange,
@@ -936,7 +971,19 @@ namespace Gravedigger2026.Core.Config
                     AttackRange = OptionalFloat(raw, "AttackRange"),
                     MeleeWindupSeconds = OptionalFloat(raw, "MeleeWindupSeconds"),
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
-                    RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds")
+                    RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
+                    ChaseMoveSpeedMult = ParseOptionalNonNegFloat(
+                        raw,
+                        "ChaseMoveSpeedMult",
+                        ClassConfigRow.DefaultChaseMoveSpeedMult,
+                        table,
+                        rowIndex),
+                    DeathKnockbackMult = ParseOptionalNonNegFloat(
+                        raw,
+                        "DeathKnockbackMult",
+                        ClassConfigRow.DefaultDeathKnockbackMult,
+                        table,
+                        rowIndex)
                 };
             }
         }
@@ -1077,6 +1124,32 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal BodyRadius '{bodyText}'.");
                 }
 
+                var pushText = OptionalText(raw, "PushCoefficient");
+                float pushCoefficient;
+                if (pushText.Length == 0)
+                {
+                    pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient;
+                }
+                else if (!float.TryParse(pushText, NumberStyles.Float, CultureInfo.InvariantCulture, out pushCoefficient)
+                         || pushCoefficient < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal PushCoefficient '{pushText}'.");
+                }
+
+                var repulsionText = OptionalText(raw, "RepulsionScale");
+                float repulsionScale;
+                if (repulsionText.Length == 0)
+                {
+                    repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale;
+                }
+                else if (!float.TryParse(repulsionText, NumberStyles.Float, CultureInfo.InvariantCulture, out repulsionScale)
+                         || repulsionScale < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RepulsionScale '{repulsionText}'.");
+                }
+
                 var facingYawFlip = ParseFacingYawFlip(raw, table, rowIndex);
 
                 var id = SimpleCsv.Require(raw, "AppearanceId", table, rowIndex);
@@ -1089,6 +1162,8 @@ namespace Gravedigger2026.Core.Config
                     Description = OptionalText(raw, "Description"),
                     IsFallback = string.Equals(OptionalText(raw, "IsFallback"), "1", StringComparison.Ordinal),
                     BodyRadius = bodyRadius,
+                    PushCoefficient = pushCoefficient,
+                    RepulsionScale = repulsionScale,
                     FacingYawFlip = facingYawFlip
                 };
                 _appearances.Add(row);
@@ -1281,6 +1356,32 @@ namespace Gravedigger2026.Core.Config
             }
 
             return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0f;
+        }
+
+        /// <summary>
+        /// Missing/empty → <paramref name="defaultValue"/>; parse fail or &lt; 0 → throw (SPEC load fail).
+        /// </summary>
+        private static float ParseOptionalNonNegFloat(
+            Dictionary<string, string> raw,
+            string column,
+            float defaultValue,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, column);
+            if (text.Length == 0)
+            {
+                return defaultValue;
+            }
+
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                || value < 0f)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return value;
         }
 
         private static float RequireFloat(Dictionary<string, string> raw, string column, string table, int rowIndex)

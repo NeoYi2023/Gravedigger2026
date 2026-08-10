@@ -1,17 +1,20 @@
 // Offline verification copies — method bodies verbatim from:
 //   Gravedigger2026/Assets/Scripts/Gameplay/Defend/WarriorAnimView.cs
-//     (static DirIndexFromXZ; wrapped in a static class here, MonoBehaviour dropped)
-//   Gravedigger2026/Assets/Scripts/Gameplay/PushMap/PushMapMonsterAgentView.cs
-//     (DirIndexToSector / StabilizeDirIndex / DirIndexToUnitXZ, v0.75.10;
-//      accessibility widened private → public so the Runner can call them)
-// Keep in sync with the source files; not part of the Unity build (.scratch).
-using Gravedigger2026.Gameplay.Defend;
+//     (DirIndexFromXZ / StabilizeDirIndex / DirIndexToUnitXZ / DirIndexToSector, v0.75.21;
+//      MonoBehaviour dropped; accessibility widened so the Runner can call them)
+// Keep in sync with the source file; not part of the Unity build (.scratch).
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Defend
 {
     public static class WarriorAnimView
     {
+        public const float FacingHysteresisDegrees = 12f;
+        public const float FacingSwitchMinDwellSeconds = 0.12f;
+
+        // DirIndex (0E 1W 2S 3N 4NE 5NW 6SE 7SW) → quantization sector of DirIndexFromXZ.
+        private static readonly int[] DirIndexToSector = { 2, 6, 4, 0, 1, 7, 3, 5 };
+
         /// <summary>
         /// SPEC_04 §15.5 DirIndex: 0E 1W 2S 3N 4NE 5NW 6SE 7SW. +X=E, +Z=N.
         /// </summary>
@@ -46,15 +49,6 @@ namespace Gravedigger2026.Gameplay.Defend
                 default: return 2;
             }
         }
-    }
-}
-
-namespace Gravedigger2026.Gameplay.PushMap
-{
-    public static class PushMapMonsterFacingStabilizer
-    {
-        // DirIndex (0E 1W 2S 3N 4NE 5NW 6SE 7SW) → quantization sector of WarriorAnimView.DirIndexFromXZ.
-        public static readonly int[] DirIndexToSector = { 2, 6, 4, 0, 1, 7, 3, 5 };
 
         /// <summary>
         /// Keeps the current DirIndex unless the raw direction passes the current sector
@@ -62,7 +56,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// </summary>
         public static int StabilizeDirIndex(int currentDirIndex, Vector3 rawDirXZ, float hysteresisDeg)
         {
-            var candidate = WarriorAnimView.DirIndexFromXZ(rawDirXZ);
+            var candidate = DirIndexFromXZ(rawDirXZ);
             if (currentDirIndex < 0 || currentDirIndex > 7 || candidate == currentDirIndex)
             {
                 return candidate;

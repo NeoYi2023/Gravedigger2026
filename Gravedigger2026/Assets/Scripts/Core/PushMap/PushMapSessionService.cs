@@ -13,7 +13,7 @@ namespace Gravedigger2026.Core.PushMap
     /// Boss clear → VictorySettled(StageExpReward), CaptureLoot/DungeonUnlock hooks.
     /// PM-12/13: independently mirrors Defend StartBattle registry + HitConfirm
     /// (WarriorCombatMath + ClassConfig; no DefendSessionService lifetime binding).
-    /// Soldier→monster RemainingHp≤0 → MonsterKilled; monster→soldier → CombatDead.
+    /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId); monster→soldier → CombatDead.
     /// Position resolution and instantiation are View concerns.
     /// </summary>
     public sealed class PushMapSessionService : IProjectileCombatSession
@@ -38,8 +38,8 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>PM-12: soldier HitConfirm settled damage on a monster (runtimeId, damage).</summary>
         public event Action<string, float> MonsterDamageSettled;
 
-        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
-        public event Action<string> MonsterKilled;
+        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId, killerWarriorId). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
+        public event Action<string, string> MonsterKilled;
 
         /// <summary>PM-13: monster AttackPower settled on a warrior (warriorId, damage).</summary>
         public event Action<string, float> WarriorDamageSettled;
@@ -747,7 +747,7 @@ namespace Gravedigger2026.Core.PushMap
             {
                 monster.IsAlive = false;
                 Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
-                MonsterKilled?.Invoke(monsterRuntimeId);
+                MonsterKilled?.Invoke(monsterRuntimeId, warrior.WarriorId);
             }
 
             return true;

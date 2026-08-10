@@ -74,3 +74,5 @@ MonoBehaviour:
   _monsterModels:
   - ModelId: MonsterModel_05
     Prefab: {fileID: 4104538918496031396, guid: b2edd44343f44fb6a4a022ed1beddf16, type: 3}
+  - ModelId: MonsterModel_06
+    Prefab: {fileID: 4104538918496031396, guid: 3d8a3378a0b14206bad5bd83eeb71391, type: 3}

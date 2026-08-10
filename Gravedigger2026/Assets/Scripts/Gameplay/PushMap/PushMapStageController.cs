@@ -23,7 +23,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// PM-12 (Approach B): StartBattle registers warriors (TryRegisterWarrior) and spawns
     /// register monsters (RegisterMonster) on PushMapSessionService; soldier→monster damage
     /// settles via scheme-D HitConfirm → MonsterDamageSettled (red popup/flash + provoke) /
-    /// MonsterKilled. PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
+    /// MonsterKilled(runtimeId, killerWarriorId). PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
     /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
     /// VictorySettled → AddExperience → advance;
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
@@ -463,8 +463,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             DamagePopupView.Spawn(prefab, _worldRoot, worldPos, damage, style);
         }
 
-        /// <summary>PM-12: monster RemainingHp≤0 → presentation kill; Boss also advances clear.</summary>
-        private void HandleMonsterKilled(string runtimeId)
+        /// <summary>PM-12: monster RemainingHp≤0 → presentation kill + optional knockback; Boss also advances clear.</summary>
+        private void HandleMonsterKilled(string runtimeId, string killerWarriorId)
         {
             var monster = FindMonsterView(runtimeId);
             if (monster == null)
@@ -473,11 +473,40 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var isBoss = monster.IsBoss;
-            monster.NotifyKilled();
+            Vector3? killerPos = null;
+            var knockMult = ClassConfigRow.DefaultDeathKnockbackMult;
+            if (!string.IsNullOrEmpty(killerWarriorId))
+            {
+                var killer = FindAdvanceView(killerWarriorId);
+                if (killer != null)
+                {
+                    killerPos = killer.transform.position;
+                }
+
+                knockMult = ResolveDeathKnockbackMult(killerWarriorId);
+            }
+
+            monster.NotifyKilled(killerPos, knockMult);
             if (isBoss)
             {
                 _session?.TryNotifyBossKilled();
             }
+        }
+
+        private float ResolveDeathKnockbackMult(string killerWarriorId)
+        {
+            if (_configs == null ||
+                _warriorPool == null ||
+                !_warriorPool.TryGet(killerWarriorId, out var warrior) ||
+                warrior == null ||
+                string.IsNullOrEmpty(warrior.ClassId) ||
+                !_configs.TryGetClass(warrior.ClassId, out var classRow) ||
+                classRow == null)
+            {
+                return ClassConfigRow.DefaultDeathKnockbackMult;
+            }
+
+            return classRow.DeathKnockbackMult;
         }
 
         private PushMapMonsterAgentView FindMonsterView(string runtimeId)
@@ -531,7 +560,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                         continue;
                     }
 
-                    if (Vector3.Distance(monster.transform.position, soldier.transform.position) <= range)
+                    if (CombatReach.IsInAttackRange(
+                            Vector3.Distance(monster.transform.position, soldier.transform.position),
+                            range,
+                            monster.BodyRadius,
+                            soldier.AgentRadius))
                     {
                         monster.NotifyProvoked();
                         break;
@@ -976,20 +1009,36 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 var bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+                var pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient;
+                var repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale;
                 var facingYawFlip = false;
                 if (_configs != null &&
                     _configs.TryGetAppearance(warrior.AppearanceId, out var appearanceRow) &&
                     appearanceRow != null)
                 {
                     bodyRadius = appearanceRow.BodyRadius;
+                    pushCoefficient = appearanceRow.PushCoefficient;
+                    repulsionScale = appearanceRow.RepulsionScale;
                     facingYawFlip = appearanceRow.FacingYawFlip == 1;
                 }
+
+                var moveSpeed = 1.5f;
+                if (_session != null &&
+                    _session.TryGetWarrior(warrior.Id, out var combatState) &&
+                    combatState != null)
+                {
+                    moveSpeed = Mathf.Max(0.1f, combatState.MoveSpeed);
+                }
+
+                var chaseMult = classRow != null
+                    ? classRow.ChaseMoveSpeedMult
+                    : ClassConfigRow.DefaultChaseMoveSpeedMult;
 
                 _nextAdvanceMoveId++;
                 advance.Bind(
                     _moveScheduler,
                     _nextAdvanceMoveId,
-                    1.5f,
+                    moveSpeed,
                     ProvidePushMapMonsters,
                     attackRange,
                     warrior.AttackMode,
@@ -999,7 +1048,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                     _catalog != null ? _catalog.ProjectilePrefab : null,
                     _worldRoot,
                     bodyRadius,
-                    facingYawFlip);
+                    facingYawFlip,
+                    pushCoefficient,
+                    repulsionScale,
+                    chaseMult);
                 if (go.GetComponent<HitFlashView>() == null)
                 {
                     go.AddComponent<HitFlashView>();
@@ -1252,6 +1304,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     soldier.AttackMode,
                     soldier.transform.position,
                     targetBody,
+                    soldier.AgentRadius,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, soldier.AttackMode)))
             {
                 // No free slot: keep Objective FlowField (do not hard-freeze). Overflow soldiers

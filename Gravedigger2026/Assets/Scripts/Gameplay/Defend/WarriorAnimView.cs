@@ -8,6 +8,8 @@ namespace Gravedigger2026.Gameplay.Defend
     /// Used by soldiers and monsters (Defend / PushMap).
     /// IdleBT/RunBT BlendTrees blend on float Direction; DirIndex drives discrete Attack transitions.
     /// After asset normalize, Direction thresholds match DirIndex order — always write the same value.
+    /// SetMoving(true) immediately interrupts Attack1 into RunBT (v0.75.27).
+    /// SetFacing applies 8-dir hysteresis + min dwell (v0.75.21).
     /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
     /// Death: latch last non-null Die sprite + darken + CorpseSortingOrder=100 + disable Animator.
     /// </summary>
@@ -16,6 +18,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private const string DirIndexParam = "DirIndex";
         private const string DirectionParam = "Direction";
         private const string IdleStateName = "IdleBT";
+        private const string RunStateName = "RunBT";
         private const string IsRunParam = "IsRun";
         private const string DieClipPrefix = "Die";
         private const int SpriteSortingOrder = 200;
@@ -33,6 +36,15 @@ namespace Gravedigger2026.Gameplay.Defend
 
         /// <summary>Fallback if Die clip never enters after PlayDie.</summary>
         private const float DieLatchFallbackSeconds = 2f;
+
+        /// <summary>SPEC_04 §15.5: keep DirIndex until raw angle leaves sector center by more than 22.5°+this.</summary>
+        public const float FacingHysteresisDegrees = 12f;
+
+        /// <summary>SPEC_04 §15.5: minimum seconds between two DirIndex switches.</summary>
+        public const float FacingSwitchMinDwellSeconds = 0.12f;
+
+        // DirIndex (0E 1W 2S 3N 4NE 5NW 6SE 7SW) → quantization sector of DirIndexFromXZ.
+        private static readonly int[] DirIndexToSector = { 2, 6, 4, 0, 1, 7, 3, 5 };
 
         private static readonly string[] LocomotionBools =
         {
@@ -58,6 +70,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _hasDieTrigger;
         private bool _hasIsRun;
         private bool _facingYawFlip;
+        private int _facingDirIndex = -1;
+        private float _facingSwitchTimer;
         private bool _dead;
         private bool _dieLatched;
         private bool _enteredDieClip;
@@ -74,6 +88,7 @@ namespace Gravedigger2026.Gameplay.Defend
             CacheParamHashes();
             ApplySortingOrder();
             CacheSpriteOriginals();
+            ResetFacingStabilizerState();
         }
 
         private void Update()
@@ -108,6 +123,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _lastGoodDieNormalizedTime = 0f;
             _dieStateFullPathHash = 0;
             _lastNonNullDieSprites = null;
+            ResetFacingStabilizerState();
             if (_animator == null)
             {
                 return;
@@ -117,11 +133,16 @@ namespace Gravedigger2026.Gameplay.Defend
             _animator.speed = 1f;
             RestoreSpriteColors();
             ClearLocomotionBools();
+            _facingDirIndex = _defaultDirIndex;
             SetDirIndexValue(_defaultDirIndex);
             _animator.Play(IdleStateName, 0, 0f);
             _animator.Update(0f);
         }
 
+        /// <summary>
+        /// SPEC_04 §15.5: write DirIndex with hysteresis + min dwell so sector-boundary steer/aim
+        /// jitter does not flicker 8-dir clips (e.g. N↔NE within 0.3s).
+        /// </summary>
         public void SetFacing(Vector3 worldDirXZ)
         {
             if (_dead || _animator == null || (!_hasDirIndex && !_hasDirection))
@@ -135,7 +156,21 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            SetDirIndexValue(DirIndexFromXZ(worldDirXZ));
+            _facingSwitchTimer += Time.deltaTime;
+            var next = StabilizeDirIndex(_facingDirIndex, worldDirXZ, FacingHysteresisDegrees);
+            if (next == _facingDirIndex)
+            {
+                return;
+            }
+
+            if (_facingDirIndex >= 0 && _facingSwitchTimer < FacingSwitchMinDwellSeconds)
+            {
+                return;
+            }
+
+            _facingDirIndex = next;
+            _facingSwitchTimer = 0f;
+            SetDirIndexValue(next);
         }
 
         public void SetMoving(bool moving)
@@ -153,6 +188,14 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = moving;
             if (moving)
             {
+                // SPEC_04 §15.5 v0.75.27: Creator Attack1_* only exits via ExitTime;
+                // IsRun alone cannot cut mid-attack — force RunBT when move is requested.
+                if (_hasAttackTrigger)
+                {
+                    _animator.ResetTrigger(_attackTriggerHash);
+                }
+
+                _animator.CrossFade(RunStateName, 0f, 0, 0f);
                 ClearLocomotionBoolsExceptRun();
                 if (_hasIsRun)
                 {
@@ -247,12 +290,55 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         /// <summary>
+        /// Keeps the current DirIndex unless the raw direction passes the current sector
+        /// boundary by more than <paramref name="hysteresisDeg"/> (sector half-width 22.5°).
+        /// </summary>
+        public static int StabilizeDirIndex(int currentDirIndex, Vector3 rawDirXZ, float hysteresisDeg)
+        {
+            var candidate = DirIndexFromXZ(rawDirXZ);
+            if (currentDirIndex < 0 || currentDirIndex > 7 || candidate == currentDirIndex)
+            {
+                return candidate;
+            }
+
+            rawDirXZ.y = 0f;
+            if (rawDirXZ.sqrMagnitude < 0.0001f)
+            {
+                return currentDirIndex;
+            }
+
+            var n = rawDirXZ.normalized;
+            var deg = Mathf.Atan2(n.x, n.z) * Mathf.Rad2Deg;
+            if (deg < 0f)
+            {
+                deg += 360f;
+            }
+
+            var currentCenterDeg = DirIndexToSector[currentDirIndex] * 45f;
+            var delta = Mathf.Abs(Mathf.DeltaAngle(deg, currentCenterDeg));
+            return delta > 22.5f + hysteresisDeg ? candidate : currentDirIndex;
+        }
+
+        /// <summary>Unit XZ vector at the sector center of <paramref name="dirIndex"/> (round-trips through DirIndexFromXZ).</summary>
+        public static Vector3 DirIndexToUnitXZ(int dirIndex)
+        {
+            var rad = DirIndexToSector[dirIndex] * 45f * Mathf.Deg2Rad;
+            return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
+        }
+
+        /// <summary>
         /// Applies FacingYawFlip: 1 → (dirIndex+4)%8.
         /// </summary>
         public static int ApplyFacingYawFlip(int dirIndex, bool facingYawFlip)
         {
             var clamped = dirIndex < 0 ? 0 : dirIndex % 8;
             return facingYawFlip ? (clamped + 4) % 8 : clamped;
+        }
+
+        private void ResetFacingStabilizerState()
+        {
+            _facingDirIndex = -1;
+            _facingSwitchTimer = 0f;
         }
 
         private void TickDieLatch()
@@ -468,10 +554,12 @@ namespace Gravedigger2026.Gameplay.Defend
             for (var i = 0; i < sprites.Length; i++)
             {
                 var sprite = sprites[i];
-                if (sprite != null)
+                if (sprite == null || IsAllyFootCircleRenderer(sprite))
                 {
-                    _spriteOriginals[sprite] = sprite.color;
+                    continue;
                 }
+
+                _spriteOriginals[sprite] = sprite.color;
             }
         }
 
@@ -498,11 +586,22 @@ namespace Gravedigger2026.Gameplay.Defend
             var renderers = GetComponentsInChildren<SpriteRenderer>(true);
             for (var i = 0; i < renderers.Length; i++)
             {
-                if (renderers[i] != null)
+                var renderer = renderers[i];
+                if (renderer == null || IsAllyFootCircleRenderer(renderer))
                 {
-                    renderers[i].sortingOrder = order;
+                    continue;
                 }
+
+                renderer.sortingOrder = order;
             }
+        }
+
+        /// <summary>
+        /// AllyFootCircle keeps its own Order In Layer (SPEC_04 §9.7); do not overwrite to 200/100.
+        /// </summary>
+        private static bool IsAllyFootCircleRenderer(SpriteRenderer renderer)
+        {
+            return renderer != null && renderer.gameObject.name == "AllyFootCircle";
         }
 
         private void CacheParamHashes()

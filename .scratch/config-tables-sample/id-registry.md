@@ -87,9 +87,10 @@
 `Monster_01` … `Monster_10`  
 ModelId 占位：`MonsterModel_01` … `MonsterModel_10`
 
-## 技能骨架（SkillConfig）
+## 技能（SkillConfig / SkillEffectConfig）
 
-`Skill_01` … `Skill_10`
+`Skill_01` … `Skill_10`（样例默认 `SkillLevel=1`）  
+`SkillEffect_01` … `SkillEffect_10`
 
 ## 失控档（LossOfControlConfig）
 

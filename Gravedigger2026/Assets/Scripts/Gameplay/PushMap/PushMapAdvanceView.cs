@@ -4,6 +4,7 @@ using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
 using Gravedigger2026.Core.PushMap;
+using Gravedigger2026.Gameplay.Combat;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Pathing;
 using UnityEngine;
@@ -33,7 +34,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private const float NavMeshSampleRadius = 12f;
         private const float DefaultAttackRange = 1f;
-        private const float MoveAnimSpeedSqr = 0.04f;
+        private const float MoveAnimSpeedSqr = 0.01f;
         /// <summary>
         /// SPEC_03 §3.14 v0.74.10: a rival must be closer than the claimed target by more
         /// than this margin to steal the claim — dense packs + soft-collision jostle
@@ -45,7 +46,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private MassMoveScheduler _scheduler;
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
-        private float _moveSpeed = 3.5f;
+        private float _baseMoveSpeed = 3.5f;
+        private float _chaseMoveSpeedMult = ClassConfigRow.DefaultChaseMoveSpeedMult;
         private float _attackRange = DefaultAttackRange;
         private AttackMode _attackMode = AttackMode.Melee;
         private string _attackerId;
@@ -54,6 +56,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private bool _diePlayed;
         private bool _stoppedActing;
         private float _bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+        private float _pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient;
+        private float _repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale;
         private bool _facingYawFlip;
 
         private PushMapSessionService _session;
@@ -65,6 +69,10 @@ namespace Gravedigger2026.Gameplay.PushMap
         private AttackPhase _attackPhase = AttackPhase.IdleOrMove;
 
         private AttackSlotService _attackSlots;
+        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun — not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
+        private Vector3 _lastSteerDirXZ;
+        private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
+        private AllyFootCircleView _footCircle;
 
         public bool IsRebel => _isRebel;
         public int MoveId => _moveId;
@@ -124,12 +132,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             GameObject projectilePrefab = null,
             Transform projectileParent = null,
             float bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius,
-            bool facingYawFlip = false)
+            bool facingYawFlip = false,
+            float pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient,
+            float repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale,
+            float chaseMoveSpeedMult = ClassConfigRow.DefaultChaseMoveSpeedMult)
         {
             _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
             _moveId = moveId;
             _monstersProvider = monstersProvider;
-            _moveSpeed = Mathf.Max(0.1f, moveSpeed);
+            _baseMoveSpeed = Mathf.Max(0.1f, moveSpeed);
+            _chaseMoveSpeedMult = Mathf.Max(0f, chaseMoveSpeedMult);
             _attackRange = Mathf.Max(0.05f, attackRange);
             _attackMode = attackMode;
             _attackerId = string.IsNullOrEmpty(attackerId) ? gameObject.name : attackerId;
@@ -138,6 +150,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             _projectilePrefab = projectilePrefab;
             _projectileParent = projectileParent;
             _bodyRadius = Mathf.Max(0.05f, bodyRadius);
+            _pushCoefficient = Mathf.Max(0f, pushCoefficient);
+            _repulsionScale = Mathf.Max(0f, repulsionScale);
             _facingYawFlip = facingYawFlip;
             _attackStartCooldown = 0f;
             _windupRemaining = 0f;
@@ -145,6 +159,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             _attackPhase = AttackPhase.IdleOrMove;
             _diePlayed = false;
             _stoppedActing = false;
+            _stuckHold.Reset();
+            _lastSteerDirXZ = Vector3.zero;
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -152,7 +168,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _agent = gameObject.AddComponent<NavMeshAgent>();
             }
 
-            _agent.speed = _moveSpeed;
+            ApplyEffectiveMoveSpeed();
             _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
@@ -164,7 +180,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             // Field/slot follow: LocalDetour owns friendlies (no RVO scale scheme).
             _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
-            _scheduler.Register(_moveId, _bodyRadius, MassMoveScheduler.DetourGroupLoyal);
+            _scheduler.Register(
+                _moveId,
+                _bodyRadius,
+                MassMoveScheduler.DetourGroupLoyal,
+                _pushCoefficient,
+                _repulsionScale);
             _scheduler.SetGoal(_moveId, GoalKind.Objective);
             TryWarpOntoNavMesh();
             ClearPathingState();
@@ -185,6 +206,58 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _anim.SetFacingYawFlip(_facingYawFlip);
             _anim.ResetToIdle();
+
+            EnsureFootCircle();
+            _footCircle.Bind(_bodyRadius);
+            _footCircle.SetVisible(!_isRebel);
+        }
+
+        private void EnsureFootCircle()
+        {
+            if (_footCircle != null)
+            {
+                return;
+            }
+
+            _footCircle = GetComponent<AllyFootCircleView>();
+            if (_footCircle == null)
+            {
+                _footCircle = gameObject.AddComponent<AllyFootCircleView>();
+            }
+        }
+
+        private void HideFootCircle()
+        {
+            if (_footCircle != null)
+            {
+                _footCircle.SetVisible(false);
+            }
+        }
+
+        /// <summary>
+        /// Effective speed: base × ChaseMoveSpeedMult only when GoalKind=AttackSlot (SPEC_03 §3.12).
+        /// </summary>
+        private float ResolveEffectiveMoveSpeed()
+        {
+            var mult = 1f;
+            if (_scheduler != null &&
+                _scheduler.TryGetGoal(_moveId, out var kind, out _) &&
+                kind == GoalKind.AttackSlot)
+            {
+                mult = _chaseMoveSpeedMult;
+            }
+
+            return Mathf.Max(0.1f, _baseMoveSpeed * mult);
+        }
+
+        private void ApplyEffectiveMoveSpeed()
+        {
+            if (_agent == null)
+            {
+                return;
+            }
+
+            _agent.speed = ResolveEffectiveMoveSpeed();
         }
 
         public void SetRebel(bool isRebel)
@@ -192,6 +265,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _isRebel = isRebel;
             if (isRebel)
             {
+                HideFootCircle();
                 _attackPhase = AttackPhase.IdleOrMove;
                 _windupTargetId = null;
                 _attackStartCooldown = 0f;
@@ -231,10 +305,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                     continue;
                 }
 
-                // Detect reach covers soldier AttackRange so the slot ring converts into
-                // scheme-D attacks instead of a bare pass-by (SPEC_03 §3.12 / §3.14).
-                var detect = Mathf.Max(m.AttackRange, AttackRange, m.BodyRadius + _bodyRadius) +
-                             MassMoveScheduler.ArriveEpsilon;
+                // Detect reach = edge-gap AttackRange + both BodyRadii (SPEC_03 §3.12 v0.75.24).
+                var detect = CombatReach.EngageDetectRadius(
+                    m.AttackRange,
+                    AttackRange,
+                    m.BodyRadius,
+                    _bodyRadius,
+                    MassMoveScheduler.ArriveEpsilon);
                 if (detect <= 0f)
                 {
                     continue;
@@ -330,6 +407,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _diePlayed = true;
+            HideFootCircle();
+            _stuckHold.Reset();
             _anim.SetMoving(false);
             _anim.PlayDie();
         }
@@ -387,7 +466,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            if (Vector3.Distance(transform.position, target.transform.position) > state.AttackRange)
+            if (!CombatReach.IsInAttackRange(
+                    Vector3.Distance(transform.position, target.transform.position),
+                    state.AttackRange,
+                    _bodyRadius,
+                    target.BodyRadius))
             {
                 return;
             }
@@ -432,7 +515,12 @@ namespace Gravedigger2026.Gameplay.PushMap
                 : AttackRange;
             var inRange = target != null
                           && target.IsAlive
-                          && Vector3.Distance(transform.position, target.transform.position) <= range + 0.05f;
+                          && CombatReach.IsInAttackRange(
+                              Vector3.Distance(transform.position, target.transform.position),
+                              range,
+                              _bodyRadius,
+                              target.BodyRadius,
+                              CombatReach.HitConfirmSlack);
 
             _session.TryConfirmMeleeHit(_attackerId, _windupTargetId, inRange);
             ClearWindup();
@@ -536,7 +624,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         /// <summary>
         /// Engaged → face the claimed target; attack anim is driven by scheme D (windup /
-        /// fire), movement anim by velocity (same driver as Defend, SPEC_04 §15.5).
+        /// fire), movement anim by MassMove steer (same as Defend / monsters, SPEC_04 §15.5).
         /// </summary>
         private void TickAnimPresentation()
         {
@@ -552,11 +640,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var inWindup = _attackPhase == AttackPhase.Windup;
-            var moving = !inWindup &&
-                         _agent != null &&
-                         _agent.isOnNavMesh &&
-                         !_agent.isStopped &&
-                         _agent.velocity.sqrMagnitude > MoveAnimSpeedSqr;
+            // MassMove uses Move()+ResetPath — velocity≈0; use steer like monsters (SPEC_04 §15.5).
+            var wantsMove = !inWindup && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            var moving = wantsMove && !_stuckHold.IsHolding;
             _anim.SetMoving(moving);
 
             if (TryResolveEngagedTarget(out var target))
@@ -567,12 +653,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             if (moving)
             {
-                var vel = _agent.velocity;
-                vel.y = 0f;
-                if (vel.sqrMagnitude > 0.0001f)
-                {
-                    _anim.SetFacing(vel);
-                }
+                _anim.SetFacing(_lastSteerDirXZ);
             }
         }
 
@@ -618,11 +699,15 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             if (_isRebel || _agent == null || _scheduler == null || !IsCombatActive)
             {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 return;
             }
 
             if (_attackPhase == AttackPhase.Windup)
             {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 return;
             }
 
@@ -631,6 +716,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 TryWarpOntoNavMesh();
                 if (!_agent.isOnNavMesh)
                 {
+                    _lastSteerDirXZ = Vector3.zero;
+                    _stuckHold.Tick(false, transform.position, Time.deltaTime);
                     return;
                 }
             }
@@ -642,6 +729,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 correction.sqrMagnitude > 1e-8f;
             if (!hasSteer && !hasCorrection)
             {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 ClearPathingState();
                 return;
             }
@@ -653,8 +742,10 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _agent.isStopped = false;
+            ApplyEffectiveMoveSpeed();
+            var speed = ResolveEffectiveMoveSpeed();
             var delta = hasSteer
-                ? new Vector3(steer.x, 0f, steer.y) * (_moveSpeed * Time.deltaTime)
+                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
                 : Vector3.zero;
             if (hasCorrection)
             {
@@ -662,7 +753,17 @@ namespace Gravedigger2026.Gameplay.PushMap
                 delta.z += correction.y;
             }
 
+            _lastSteerDirXZ = hasSteer
+                ? new Vector3(steer.x, 0f, steer.y)
+                : Vector3.zero;
             _agent.Move(delta);
+
+            var wantsMove = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
+            if (_stuckHold.IsHolding && _anim != null)
+            {
+                _anim.SetMoving(false);
+            }
         }
 
         private void OnDisable()

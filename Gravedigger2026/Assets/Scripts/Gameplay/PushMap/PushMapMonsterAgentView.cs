@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Gameplay.Combat;
 using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
 using UnityEngine.AI;
@@ -15,20 +16,13 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// Hits keep AttackMode scheme D; protagonist → onHitProtagonist (ApplyShieldHit);
     /// loyal soldier → onHitWarrior → Session.TryApplyMonsterDamageToWarrior (PM-13).
     /// Presentation: WarriorAnimView DirIndex / IsRun / Attack1 (SPEC_04 §15.5 Approach A).
-    /// v0.75.10: chase facing stabilized (hysteresis + min dwell) + stuck-hold → Idle facing
-    /// the chase target (SPEC_04 §15.5); presentation only — attack/slot rules unchanged.
+    /// Facing hysteresis+dwell lives in WarriorAnimView.SetFacing (v0.75.21); StuckHoldTracker
+    /// (v0.75.30) forces Idle for 1s when blocked — presentation only.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PushMapMonsterAgentView : MonoBehaviour
     {
         private const float MoveAnimSpeedSqr = 0.01f;
-        private const float FacingHysteresisDegrees = 12f;
-        private const float FacingSwitchMinDwellSeconds = 0.12f;
-        private const float StuckWindowSeconds = 0.25f;
-        private const float StuckDisplacementEpsilon = 0.05f;
-
-        // DirIndex (0E 1W 2S 3N 4NE 5NW 6SE 7SW) → quantization sector of WarriorAnimView.DirIndexFromXZ.
-        private static readonly int[] DirIndexToSector = { 2, 6, 4, 0, 1, 7, 3, 5 };
 
         private MonsterConfigRow _config;
         private Transform _protagonist;
@@ -43,16 +37,16 @@ namespace Gravedigger2026.Gameplay.PushMap
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private Vector3 _lastSteerDirXZ;
-        private int _facingDirIndex = -1;
-        private float _facingSwitchTimer;
-        private Vector3 _stuckWindowStartPos;
-        private float _stuckWindowTimer;
-        private bool _stuck;
+        private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private bool _alive = true;
         private bool _provoked;
         private bool _isBoss;
         private int _moveId;
         private string _attackerId;
+        private bool _deathKnockActive;
+        private Vector3 _deathKnockOrigin;
+        private Vector3 _deathKnockTarget;
+        private float _deathKnockStartedAt;
 
         public string MonsterId => _config != null ? _config.MonsterId : string.Empty;
         public string RuntimeTargetId => _attackerId;
@@ -99,6 +93,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _alive = true;
             _provoked = false;
             _isBoss = false;
+            _deathKnockActive = false;
             _attackerId = gameObject.name;
 
             _agent = GetComponent<NavMeshAgent>();
@@ -107,15 +102,14 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _agent = gameObject.AddComponent<NavMeshAgent>();
             }
 
-            _agent.speed = Mathf.Max(0.1f, config.MoveSpeed);
+            _agent.enabled = true;
+
+            _agent.speed = ResolveEffectiveMoveSpeed();
             _agent.stoppingDistance = 0f;
             _agent.angularSpeed = 720f;
             _agent.acceleration = 24f;
-            // Combat radius must leave AttackRange reachable vs loyal Demo soldier radius 0.1.
-            var maxCombatRadius = Mathf.Max(
-                0.05f,
-                config.AttackRange - BodyAppearanceConfigRow.DefaultBodyRadius - 0.05f);
-            _agent.radius = Mathf.Min(BodyRadius, maxCombatRadius);
+            // Edge-gap AttackRange (v0.75.24): soft-collision contact is already in reach.
+            _agent.radius = BodyRadius;
             _agent.height = 0.1f;
             _agent.autoBraking = false;
             _agent.updateRotation = false;
@@ -130,7 +124,12 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             if (!IsStationary && _scheduler != null && _moveId != 0)
             {
-                _scheduler.Register(_moveId, _agent.radius, MassMoveScheduler.DetourGroupMonster);
+                _scheduler.Register(
+                    _moveId,
+                    _agent.radius,
+                    MassMoveScheduler.DetourGroupMonster,
+                    Mathf.Max(0f, _config.PushCoefficient),
+                    Mathf.Max(0f, _config.RepulsionScale));
                 _scheduler.SetGoal(_moveId, GoalKind.AttackSlot);
                 _scheduler.SetPaused(_moveId, true);
             }
@@ -142,11 +141,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             EnsureAnim();
             _lastSteerDirXZ = Vector3.zero;
-            _facingDirIndex = -1;
-            _facingSwitchTimer = 0f;
-            _stuck = false;
-            _stuckWindowTimer = 0f;
-            _stuckWindowStartPos = transform.position;
+            _stuckHold.Reset();
             _anim.SetFacingYawFlip(_config != null && _config.FacingYawFlip == 1);
             _anim.ResetToIdle();
         }
@@ -175,10 +170,43 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _provoked = true;
+            if (_agent != null && !IsStationary)
+            {
+                _agent.speed = ResolveEffectiveMoveSpeed();
+            }
         }
 
-        /// <summary>Presentation-side kill (PM-07 Boss Demo kill / future warrior damage); deactivates the view.</summary>
-        public void NotifyKilled()
+        /// <summary>
+        /// ActiveChase → MoveSpeed×ActiveMoveMult; PassiveChase → MoveSpeed×PassiveMoveMult;
+        /// Stationary* unused (no move). SPEC_03 §3.14 / SPEC_04 §9.19.
+        /// </summary>
+        private float ResolveEffectiveMoveSpeed()
+        {
+            if (_config == null)
+            {
+                return 3f;
+            }
+
+            var mult = 1f;
+            switch (_config.AggroMode)
+            {
+                case AggroMode.ActiveChase:
+                    mult = _config.ActiveMoveMult;
+                    break;
+                case AggroMode.PassiveChase:
+                    mult = _config.PassiveMoveMult;
+                    break;
+            }
+
+            return Mathf.Max(0.1f, _config.MoveSpeed * mult);
+        }
+
+        /// <summary>
+        /// Combat death presentation (SPEC_04 §15.5): PlayDie + corpse latch; optional mirror knockback.
+        /// </summary>
+        public void NotifyKilled(
+            Vector3? killerWorldPos = null,
+            float deathKnockbackMult = ClassConfigRow.DefaultDeathKnockbackMult)
         {
             if (!_alive)
             {
@@ -186,6 +214,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _alive = false;
+            _stuckHold.Reset();
             ReleaseSlotClaim();
             // Soldiers claiming this monster as target — Stage also ReleaseAllForTarget.
             _attackSlots?.ReleaseAllForTarget(_attackerId);
@@ -195,7 +224,46 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             StopMovement();
-            gameObject.SetActive(false);
+            if (_agent != null)
+            {
+                _agent.enabled = false;
+            }
+
+            EnsureAnim();
+            _anim.PlayDie();
+
+            _deathKnockActive = false;
+            if (killerWorldPos.HasValue)
+            {
+                _deathKnockOrigin = transform.position;
+                _deathKnockTarget = MonsterDeathPresentation.MirrorKnockbackTarget(
+                    _deathKnockOrigin,
+                    killerWorldPos.Value,
+                    deathKnockbackMult);
+                _deathKnockStartedAt = Time.time;
+                _deathKnockActive = true;
+            }
+        }
+
+        private void TickDeathKnockback()
+        {
+            if (!_deathKnockActive)
+            {
+                return;
+            }
+
+            var animating = MonsterDeathPresentation.TrySampleKnockback(
+                _deathKnockOrigin,
+                _deathKnockTarget,
+                _deathKnockStartedAt,
+                MonsterDeathPresentation.DeathKnockbackSeconds,
+                Time.time,
+                out var pos);
+            transform.position = pos;
+            if (!animating)
+            {
+                _deathKnockActive = false;
+            }
         }
 
         /// <summary>XZ sample for MassMoveScheduler (inactive when dead/stationary/idle-passive).</summary>
@@ -246,10 +314,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             var targetId = warriorView != null
                 ? warriorView.AttackerId
                 : "Protagonist";
+            var targetBody = warriorView != null
+                ? warriorView.AgentRadius
+                : AttackSlotService.DefaultTargetBodyRadius;
             var dist = Vector3.Distance(transform.position, targetTf.position);
 
-            // In AttackRange: hold and attack (no chase steer).
-            if (dist <= _config.AttackRange)
+            // In AttackRange (edge-gap): hold and attack (no chase steer).
+            if (CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
             {
                 ReleaseSlotClaim(slots);
                 scheduler.SetPaused(_moveId, true);
@@ -267,11 +338,15 @@ namespace Gravedigger2026.Gameplay.PushMap
                     out var slotPos,
                     AttackMode,
                     transform.position,
-                    warriorView != null ? warriorView.AgentRadius : 0.35f,
+                    targetBody,
+                    BodyRadius,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode)))
             {
                 // No free walkable slot: still seek a ring-ish offset (not raw center stack).
-                var ring = AttackSlotService.ComputeRingRadius(_config.AttackRange);
+                var ring = AttackSlotService.ComputeRingRadius(
+                    _config.AttackRange,
+                    BodyRadius,
+                    targetBody);
                 var away = transform.position - targetTf.position;
                 away.y = 0f;
                 if (away.sqrMagnitude < 1e-6f)
@@ -292,6 +367,8 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void Update()
         {
+            TickDeathKnockback();
+
             if (!_alive || _config == null)
             {
                 return;
@@ -319,7 +396,10 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var dist = Vector3.Distance(transform.position, targetTf.position);
-            if (dist > _config.AttackRange)
+            var targetBody = warriorView != null
+                ? warriorView.AgentRadius
+                : AttackSlotService.DefaultTargetBodyRadius;
+            if (!CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
             {
                 return;
             }
@@ -388,7 +468,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                         }
 
                         _agent.isStopped = false;
-                        var speed = Mathf.Max(0.1f, _config != null ? _config.MoveSpeed : 3f);
+                        var speed = ResolveEffectiveMoveSpeed();
+                        _agent.speed = speed;
                         var delta = hasSteer
                             ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
                             : Vector3.zero;
@@ -408,63 +489,56 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
             }
 
-            TickStuckDetection(_lastSteerDirXZ.sqrMagnitude > 1e-8f);
-            TickAnimPresentation();
+            TickStuckHoldAndAnim();
         }
 
         /// <summary>
-        /// v0.75.10 stuck-hold (SPEC_04 §15.5): steer non-zero but the XZ displacement over a
-        /// StuckWindowSeconds window stays under StuckDisplacementEpsilon → stuck (blocked by
-        /// soldiers/pack). Exit threshold is 2×epsilon so borderline jostle does not flap.
+        /// StuckHoldTracker (SPEC_04 §15.5 v0.75.30): wantsMove for 0.5s with XZ disp &lt;0.2
+        /// → force Idle 1s. Attack-range Idle takes priority over hold.
         /// </summary>
-        private void TickStuckDetection(bool wantsMove)
+        private void TickStuckHoldAndAnim()
         {
-            if (!wantsMove)
+            var inAttackRange = false;
+            Vector3 attackTargetPos = default;
+            if (TryGetCombatTargetPosition(out attackTargetPos, out var body) && _config != null)
             {
-                _stuck = false;
-                _stuckWindowTimer = 0f;
-                _stuckWindowStartPos = transform.position;
-                return;
+                inAttackRange = CombatReach.IsInAttackRange(
+                    Vector3.Distance(transform.position, attackTargetPos),
+                    _config.AttackRange,
+                    BodyRadius,
+                    body);
             }
 
-            _stuckWindowTimer += Time.deltaTime;
-            if (_stuckWindowTimer < StuckWindowSeconds)
-            {
-                return;
-            }
-
-            var dx = transform.position.x - _stuckWindowStartPos.x;
-            var dz = transform.position.z - _stuckWindowStartPos.z;
-            var displacementSqr = dx * dx + dz * dz;
-            var threshold = _stuck ? 2f * StuckDisplacementEpsilon : StuckDisplacementEpsilon;
-            _stuck = displacementSqr < threshold * threshold;
-            _stuckWindowTimer = 0f;
-            _stuckWindowStartPos = transform.position;
+            var wantsMove = _alive &&
+                            !IsStationary &&
+                            !inAttackRange &&
+                            _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+            _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
+            TickAnimPresentation(inAttackRange, attackTargetPos);
         }
 
         /// <summary>
-        /// In AttackRange → face target + idle; stuck (v0.75.10) → idle + face chase target;
-        /// else chase → IsRun + stabilized DirIndex from steer (SPEC_04 §15.5).
+        /// In AttackRange → face target + idle; stuck hold → idle + face chase target;
+        /// else chase → IsRun + DirIndex from steer via WarriorAnimView.SetFacing (SPEC_04 §15.5).
         /// </summary>
-        private void TickAnimPresentation()
+        private void TickAnimPresentation(bool inAttackRange, Vector3 attackTargetPos)
         {
             if (_anim == null || !_alive)
             {
                 return;
             }
 
-            if (TryGetCombatTargetPosition(out var targetPos) &&
-                Vector3.Distance(transform.position, targetPos) <= _config.AttackRange)
+            if (inAttackRange)
             {
                 _anim.SetMoving(false);
-                FaceToward(targetPos);
+                FaceToward(attackTargetPos);
                 return;
             }
 
-            if (_stuck)
+            if (_stuckHold.IsHolding)
             {
                 _anim.SetMoving(false);
-                if (TryGetCombatTargetPosition(out var stuckTargetPos))
+                if (TryGetCombatTargetPosition(out var stuckTargetPos, out _))
                 {
                     FaceToward(stuckTargetPos);
                 }
@@ -476,74 +550,14 @@ namespace Gravedigger2026.Gameplay.PushMap
             _anim.SetMoving(moving);
             if (moving)
             {
-                SetFacingStabilized(_lastSteerDirXZ);
+                _anim.SetFacing(_lastSteerDirXZ);
             }
         }
 
-        /// <summary>
-        /// v0.75.10 facing stabilization (SPEC_04 §15.5): switch DirIndex only when the raw
-        /// steer leaves the current sector by more than FacingHysteresisDegrees and the last
-        /// switch was at least FacingSwitchMinDwellSeconds ago.
-        /// </summary>
-        private void SetFacingStabilized(Vector3 rawDirXZ)
-        {
-            _facingSwitchTimer += Time.deltaTime;
-            var next = StabilizeDirIndex(_facingDirIndex, rawDirXZ, FacingHysteresisDegrees);
-            if (next == _facingDirIndex)
-            {
-                return;
-            }
-
-            if (_facingDirIndex >= 0 && _facingSwitchTimer < FacingSwitchMinDwellSeconds)
-            {
-                return;
-            }
-
-            _facingDirIndex = next;
-            _facingSwitchTimer = 0f;
-            _anim.SetFacing(DirIndexToUnitXZ(next));
-        }
-
-        /// <summary>
-        /// Keeps the current DirIndex unless the raw direction passes the current sector
-        /// boundary by more than <paramref name="hysteresisDeg"/> (sector half-width 22.5°).
-        /// </summary>
-        private static int StabilizeDirIndex(int currentDirIndex, Vector3 rawDirXZ, float hysteresisDeg)
-        {
-            var candidate = WarriorAnimView.DirIndexFromXZ(rawDirXZ);
-            if (currentDirIndex < 0 || currentDirIndex > 7 || candidate == currentDirIndex)
-            {
-                return candidate;
-            }
-
-            rawDirXZ.y = 0f;
-            if (rawDirXZ.sqrMagnitude < 0.0001f)
-            {
-                return currentDirIndex;
-            }
-
-            var n = rawDirXZ.normalized;
-            var deg = Mathf.Atan2(n.x, n.z) * Mathf.Rad2Deg;
-            if (deg < 0f)
-            {
-                deg += 360f;
-            }
-
-            var currentCenterDeg = DirIndexToSector[currentDirIndex] * 45f;
-            var delta = Mathf.Abs(Mathf.DeltaAngle(deg, currentCenterDeg));
-            return delta > 22.5f + hysteresisDeg ? candidate : currentDirIndex;
-        }
-
-        /// <summary>Unit XZ vector at the sector center of <paramref name="dirIndex"/> (round-trips through DirIndexFromXZ).</summary>
-        private static Vector3 DirIndexToUnitXZ(int dirIndex)
-        {
-            var rad = DirIndexToSector[dirIndex] * 45f * Mathf.Deg2Rad;
-            return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
-        }
-
-        private bool TryGetCombatTargetPosition(out Vector3 targetPos)
+        private bool TryGetCombatTargetPosition(out Vector3 targetPos, out float targetBodyRadius)
         {
             targetPos = default;
+            targetBodyRadius = AttackSlotService.DefaultTargetBodyRadius;
             if (_config == null)
             {
                 return false;
@@ -564,6 +578,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             targetPos = targetTf.position;
+            if (warriorView != null)
+            {
+                targetBodyRadius = warriorView.AgentRadius;
+            }
+
             return true;
         }
 
@@ -579,8 +598,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (to.sqrMagnitude > 0.0001f)
             {
                 _anim.SetFacing(to);
-                // Keep the stabilized chase-facing state in sync with face-target writes.
-                _facingDirIndex = WarriorAnimView.DirIndexFromXZ(to);
             }
         }
 
@@ -641,7 +658,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             switch (_config.TargetSelect)
             {
                 case TargetSelect.PreferProtagonist:
-                    if (protagonist != null && WithinDetect(protagonist.position, alertRadius))
+                    if (protagonist != null &&
+                        WithinDetect(
+                            protagonist.position,
+                            alertRadius,
+                            AttackSlotService.DefaultTargetBodyRadius))
                     {
                         return TargetKind.Protagonist;
                     }
@@ -656,7 +677,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                         return TargetKind.Warrior;
                     }
 
-                    return protagonist != null && WithinDetect(protagonist.position, alertRadius)
+                    return protagonist != null &&
+                           WithinDetect(
+                               protagonist.position,
+                               alertRadius,
+                               AttackSlotService.DefaultTargetBodyRadius)
                         ? TargetKind.Protagonist
                         : TargetKind.None;
 
@@ -665,9 +690,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
         }
 
-        private bool WithinDetect(Vector3 targetPos, float alertRadius)
+        private bool WithinDetect(Vector3 targetPos, float alertRadius, float targetBodyRadius)
         {
-            var detect = IsStationary ? _config.AttackRange : alertRadius;
+            var detect = IsStationary
+                ? CombatReach.MaxCenterDistance(_config.AttackRange, BodyRadius, targetBodyRadius)
+                : alertRadius;
             if (IsPassive && _provoked && !IsStationary)
             {
                 // Provoked chase persists until death (SPEC_03 §3.14).
@@ -684,7 +711,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             var bestDist = float.MaxValue;
             var kind = TargetKind.None;
 
-            if (protagonist != null && WithinDetect(protagonist.position, alertRadius))
+            if (protagonist != null &&
+                WithinDetect(protagonist.position, alertRadius, AttackSlotService.DefaultTargetBodyRadius))
             {
                 bestDist = Vector3.Distance(transform.position, protagonist.position);
                 kind = TargetKind.Protagonist;
@@ -712,7 +740,6 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return null;
             }
 
-            var detect = IsStationary ? _config.AttackRange : alertRadius;
             var chasePersistent = IsPassive && _provoked && !IsStationary;
 
             PushMapAdvanceView best = null;
@@ -726,6 +753,9 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 var d = Vector3.Distance(transform.position, w.transform.position);
+                var detect = IsStationary
+                    ? CombatReach.MaxCenterDistance(_config.AttackRange, BodyRadius, w.AgentRadius)
+                    : alertRadius;
                 if (!chasePersistent && d > Mathf.Max(0.01f, detect))
                 {
                     continue;

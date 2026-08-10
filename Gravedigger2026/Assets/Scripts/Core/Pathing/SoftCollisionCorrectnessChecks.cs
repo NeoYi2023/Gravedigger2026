@@ -20,7 +20,61 @@ namespace Gravedigger2026.Core.Pathing
             CheckCoincidentDeterministicPush(sb);
             CheckFrameBudgetRoundRobinRetains(sb);
             CheckNeighborQueryBounded(sb);
+            CheckPushCoefficientAsymmetricShove(sb);
             return sb.Length == 0 ? null : sb.ToString();
+        }
+
+        /// <summary>
+        /// Approach B: same BodyRadius; higher PushCoefficient on A should shove B farther
+        /// (B's correction magnitude grows with A's coeff) without enlarging overlap radius.
+        /// </summary>
+        private static void CheckPushCoefficientAsymmetricShove(StringBuilder sb)
+        {
+            // Keep half-pen × 3 under MaxCorrectionSpeed×dt so the cap does not hide the ratio.
+            var posA = Vector2.zero;
+            var posB = new Vector2(0.196f, 0f);
+            const float radius = 0.1f;
+            const float checkDt = 1f / 60f;
+
+            var baseline = new SoftCollisionService();
+            baseline.Register(1, radius, () => posA, pushCoefficient: 1f);
+            baseline.Register(2, radius, () => posB, pushCoefficient: 1f);
+            baseline.Tick(checkDt);
+            baseline.TryGetCorrection(2, out var corrBBaseline);
+
+            var heavy = new SoftCollisionService();
+            heavy.Register(1, radius, () => posA, pushCoefficient: 3f);
+            heavy.Register(2, radius, () => posB, pushCoefficient: 1f);
+            heavy.Tick(checkDt);
+            if (!heavy.TryGetCorrection(2, out var corrBHeavy) ||
+                !heavy.TryGetCorrection(1, out var corrAHeavy))
+            {
+                sb.AppendLine("PushCoefficient: missing correction after Tick.");
+                return;
+            }
+
+            if (!heavy.TryGetPushCoefficient(1, out var coeffA) || Mathf.Abs(coeffA - 3f) > 1e-4f)
+            {
+                sb.AppendLine($"PushCoefficient: body1 coeff {coeffA:F3} != 3.");
+            }
+
+            // B is shoved by A's coefficient → |corrB| should grow ~3× (uncapped).
+            if (corrBBaseline.magnitude < 1e-6f ||
+                corrBHeavy.magnitude < corrBBaseline.magnitude * 2.5f)
+            {
+                sb.AppendLine(
+                    $"PushCoefficient: high-A did not shove B harder " +
+                    $"({corrBHeavy.magnitude:F4} vs baseline {corrBBaseline.magnitude:F4}).");
+            }
+
+            // A is shoved by B's coefficient (=1) → same order as baseline A's push.
+            baseline.TryGetCorrection(1, out var corrABaseline);
+            if (Mathf.Abs(corrAHeavy.magnitude - corrABaseline.magnitude) > 1e-3f)
+            {
+                sb.AppendLine(
+                    $"PushCoefficient: A's own correction should follow B's coeff=1 " +
+                    $"({corrAHeavy.magnitude:F4} vs {corrABaseline.magnitude:F4}).");
+            }
         }
 
         private static void CheckOverlapSeparates(StringBuilder sb)

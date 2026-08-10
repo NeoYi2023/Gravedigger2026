@@ -8,14 +8,16 @@ namespace Gravedigger2026.Core.Pathing
     /// <summary>
     /// Scene-free correctness checks for SC-03 wiring (SPEC_03 §3.12 / SPEC_04 §9.7 B+):
     /// MassMoveScheduler composes SoftCollisionService — registration mirrors, per-body
-    /// repulsion scale follows GoalKind, corrections surface through TryGetCorrection even
-    /// on zero-steer hold frames, and CombatMoveModePolicy derives Surround for melee only.
+    /// repulsion scale is injected at Register (table-driven), corrections surface through
+    /// TryGetCorrection even on zero-steer hold frames, and CombatMoveModePolicy derives
+    /// Surround for melee only.
     /// Call <see cref="RunAll"/> from Editor/console or a future EditMode test.
     /// </summary>
     public static class SoftCollisionWireCorrectnessChecks
     {
         private const float Dt = 1f / 60f;
         private const float Radius = 0.1f;
+        private const float SoftRepulsionScale = 0.35f;
 
         /// <summary>Returns null on success; otherwise a multi-line failure report.</summary>
         public static string RunAll()
@@ -23,7 +25,7 @@ namespace Gravedigger2026.Core.Pathing
             var sb = new StringBuilder();
             CheckRegisterUnregisterSync(sb);
             CheckOverlapYieldsCorrection(sb);
-            CheckEngageGoalLowersRepulsion(sb);
+            CheckRegisterInjectsRepulsionScale(sb);
             CheckResolveOffZeroesCorrection(sb);
             CheckZeroSteerHoldStillSeparates(sb);
             CheckCombatMoveModePolicy(sb);
@@ -85,51 +87,54 @@ namespace Gravedigger2026.Core.Pathing
             }
         }
 
-        private static void CheckEngageGoalLowersRepulsion(StringBuilder sb)
+        private static void CheckRegisterInjectsRepulsionScale(StringBuilder sb)
         {
             var scheduler = new MassMoveScheduler();
-            // Two identical overlapping pairs, far apart: one engage (AttackSlot), one not.
-            scheduler.Register(1, Radius);
-            scheduler.Register(2, Radius);
-            scheduler.Register(3, Radius);
-            scheduler.Register(4, Radius);
+            scheduler.Register(1, Radius, MassMoveScheduler.DetourGroupLoyal, 1f, SoftRepulsionScale);
+            scheduler.Register(2, Radius, MassMoveScheduler.DetourGroupLoyal, 1f, SoftRepulsionScale);
+            scheduler.Register(3, Radius, MassMoveScheduler.DetourGroupLoyal, 1f, 1f);
+            scheduler.Register(4, Radius, MassMoveScheduler.DetourGroupLoyal, 1f, 1f);
             scheduler.SetGoal(1, GoalKind.AttackSlot, new Vector2(0.05f, 0f));
-            scheduler.SetGoal(2, GoalKind.AttackSlot, new Vector2(0.05f, 0f));
+            scheduler.SetGoal(2, GoalKind.ChaseAnchor, new Vector2(0.05f, 0f));
             scheduler.SetGoal(3, GoalKind.FormationHome, new Vector2(10f, 0f));
             scheduler.SetGoal(4, GoalKind.FormationHome, new Vector2(10f, 0f));
 
-            if (!scheduler.SoftCollision.TryGetRepulsionScale(1, out var scaleEngage) ||
-                Mathf.Abs(scaleEngage - MassMoveScheduler.AttackSlotRepulsionScale) > 1e-4f)
+            if (!scheduler.SoftCollision.TryGetRepulsionScale(1, out var scaleSoft) ||
+                Mathf.Abs(scaleSoft - SoftRepulsionScale) > 1e-4f)
             {
-                sb.AppendLine($"EngageScale: AttackSlot body scale {scaleEngage:F3} != {MassMoveScheduler.AttackSlotRepulsionScale:F2}.");
+                sb.AppendLine($"RegisterScale: soft body scale {scaleSoft:F3} != {SoftRepulsionScale:F2}.");
             }
 
-            if (!scheduler.SoftCollision.TryGetRepulsionScale(3, out var scaleCalm) ||
-                Mathf.Abs(scaleCalm - 1f) > 1e-4f)
+            if (!scheduler.SoftCollision.TryGetRepulsionScale(2, out var scaleChase) ||
+                Mathf.Abs(scaleChase - SoftRepulsionScale) > 1e-4f)
             {
-                sb.AppendLine($"EngageScale: FormationHome body scale {scaleCalm:F3} != 1.00.");
+                sb.AppendLine($"RegisterScale: ChaseAnchor SetGoal overwrote scale to {scaleChase:F3}.");
             }
 
-            // Large dt keeps both pushes below the impulse cap so the ratio reflects scale.
+            if (!scheduler.SoftCollision.TryGetRepulsionScale(3, out var scaleDefault) ||
+                Mathf.Abs(scaleDefault - 1f) > 1e-4f)
+            {
+                sb.AppendLine($"RegisterScale: default body scale {scaleDefault:F3} != 1.00.");
+            }
+
             TickWithPositions(
                 scheduler,
                 new Vector2(0f, 0f), new Vector2(0.1f, 0f),
                 new Vector2(10f, 0f), new Vector2(10.1f, 0f),
                 dt: 1f);
 
-            scheduler.TryGetCorrection(1, out var engage);
+            scheduler.TryGetCorrection(1, out var soft);
             scheduler.TryGetCorrection(3, out var calm);
-            if (calm.sqrMagnitude < 1e-8f || engage.sqrMagnitude < 1e-8f)
+            if (calm.sqrMagnitude < 1e-8f || soft.sqrMagnitude < 1e-8f)
             {
-                sb.AppendLine("EngageScale: correction missing on one of the pairs.");
+                sb.AppendLine("RegisterScale: correction missing on one of the pairs.");
                 return;
             }
 
-            var ratio = engage.magnitude / calm.magnitude;
-            var expected = MassMoveScheduler.AttackSlotRepulsionScale;
-            if (Mathf.Abs(ratio - expected) > 0.05f)
+            var ratio = soft.magnitude / calm.magnitude;
+            if (Mathf.Abs(ratio - SoftRepulsionScale) > 0.05f)
             {
-                sb.AppendLine($"EngageScale: correction ratio {ratio:F3} != expected {expected:F2} (±0.05).");
+                sb.AppendLine($"RegisterScale: correction ratio {ratio:F3} != expected {SoftRepulsionScale:F2} (±0.05).");
             }
         }
 

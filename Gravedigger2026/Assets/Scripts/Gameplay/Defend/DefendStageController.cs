@@ -173,6 +173,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _session.ClearVictoryConditionDetected += HandleClearVictoryConditionDetected;
             _session.VictorySettled += HandleVictorySettled;
             _session.MonsterCombatStateChanged += HandleMonsterCombatStateChanged;
+            _session.MonsterKilled += HandleMonsterKilled;
             _session.WarriorCombatStateChanged += HandleWarriorCombatStateChanged;
             _clearVictoryHintShown = false;
             _session.BeginPrepare(context.DefendConfig);
@@ -255,6 +256,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 _session.ClearVictoryConditionDetected -= HandleClearVictoryConditionDetected;
                 _session.VictorySettled -= HandleVictorySettled;
                 _session.MonsterCombatStateChanged -= HandleMonsterCombatStateChanged;
+                _session.MonsterKilled -= HandleMonsterKilled;
                 _session.WarriorCombatStateChanged -= HandleWarriorCombatStateChanged;
                 _session.Stop();
                 _session = null;
@@ -646,19 +648,73 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!_session.IsMonsterAlive(runtimeId))
             {
+                // Fatal presentation is owned by HandleMonsterKilled (killer pos for knockback).
                 _attackSlots?.ReleaseAllForTarget(runtimeId);
-                for (var i = 0; i < _monsters.Count; i++)
-                {
-                    var m = _monsters[i];
-                    if (m != null && string.Equals(m.RuntimeId, runtimeId, StringComparison.Ordinal))
-                    {
-                        m.NotifyKilled();
-                        break;
-                    }
-                }
             }
 
             RefreshHud();
+        }
+
+        private void HandleMonsterKilled(string runtimeId, string killerWarriorId)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return;
+            }
+
+            _attackSlots?.ReleaseAllForTarget(runtimeId);
+
+            MonsterAgentView monster = null;
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var m = _monsters[i];
+                if (m != null && string.Equals(m.RuntimeId, runtimeId, StringComparison.Ordinal))
+                {
+                    monster = m;
+                    break;
+                }
+            }
+
+            if (monster == null)
+            {
+                return;
+            }
+
+            Vector3? killerPos = null;
+            var knockMult = ClassConfigRow.DefaultDeathKnockbackMult;
+            if (!string.IsNullOrEmpty(killerWarriorId))
+            {
+                for (var i = 0; i < _warriorAgents.Count; i++)
+                {
+                    var w = _warriorAgents[i];
+                    if (w != null &&
+                        string.Equals(w.WarriorId, killerWarriorId, StringComparison.Ordinal))
+                    {
+                        killerPos = w.transform.position;
+                        break;
+                    }
+                }
+
+                knockMult = ResolveDeathKnockbackMult(killerWarriorId);
+            }
+
+            monster.NotifyKilled(killerPos, knockMult);
+        }
+
+        private float ResolveDeathKnockbackMult(string killerWarriorId)
+        {
+            if (_configs == null ||
+                _warriorPool == null ||
+                !_warriorPool.TryGet(killerWarriorId, out var warrior) ||
+                warrior == null ||
+                string.IsNullOrEmpty(warrior.ClassId) ||
+                !_configs.TryGetClass(warrior.ClassId, out var classRow) ||
+                classRow == null)
+            {
+                return ClassConfigRow.DefaultDeathKnockbackMult;
+            }
+
+            return classRow.DeathKnockbackMult;
         }
 
         private void HandleWarriorCombatStateChanged(string warriorId)
@@ -740,11 +796,15 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
 
                 var bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius;
+                var pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient;
+                var repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale;
                 var facingYawFlip = false;
                 if (_configs.TryGetAppearance(warrior.AppearanceId, out var appearanceRow) &&
                     appearanceRow != null)
                 {
                     bodyRadius = appearanceRow.BodyRadius;
+                    pushCoefficient = appearanceRow.PushCoefficient;
+                    repulsionScale = appearanceRow.RepulsionScale;
                     facingYawFlip = appearanceRow.FacingYawFlip == 1;
                 }
 
@@ -764,6 +824,9 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
 
                 var moveId = ++_nextMoveId;
+                var chaseMult = classRow != null
+                    ? classRow.ChaseMoveSpeedMult
+                    : ClassConfigRow.DefaultChaseMoveSpeedMult;
                 agent.Bind(
                     _session,
                     warrior.Id,
@@ -779,7 +842,10 @@ namespace Gravedigger2026.Gameplay.Defend
                     _attackSlots,
                     moveId,
                     bodyRadius,
-                    facingYawFlip);
+                    facingYawFlip,
+                    pushCoefficient,
+                    repulsionScale,
+                    chaseMult);
                 _warriorAgents.Add(agent);
             }
 
@@ -951,6 +1017,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     warrior.AttackMode,
                     warrior.transform.position,
                     monster.BodyRadius,
+                    warrior.AgentRadius,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode)))
             {
                 _moveScheduler.SetPaused(warrior.MoveId, true);
@@ -974,7 +1041,11 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var dist = Vector3.Distance(warrior.transform.position, targetPos);
-            if (dist <= warrior.AttackRange)
+            if (CombatReach.IsInAttackRange(
+                    dist,
+                    warrior.AttackRange,
+                    warrior.AgentRadius,
+                    bodyRadius))
             {
                 _attackSlots.Release(warrior.AttackerId);
                 _moveScheduler.SetPaused(warrior.MoveId, true);
@@ -990,9 +1061,13 @@ namespace Gravedigger2026.Gameplay.Defend
                     warrior.AttackMode,
                     warrior.transform.position,
                     bodyRadius,
+                    warrior.AgentRadius,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode)))
             {
-                var ring = AttackSlotService.ComputeRingRadius(warrior.AttackRange);
+                var ring = AttackSlotService.ComputeRingRadius(
+                    warrior.AttackRange,
+                    warrior.AgentRadius,
+                    bodyRadius);
                 var away = warrior.transform.position - targetPos;
                 away.y = 0f;
                 if (away.sqrMagnitude < 1e-6f)
