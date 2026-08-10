@@ -19,6 +19,12 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public const string ErrorSpiritInsufficient = "精魂不足";
         public const string ErrorNoRecipe = "无再造配方";
 
+        /// <summary>System default SoulConfig when manufacture Soul slot is empty (SPEC_03 §3.11).</summary>
+        public const string DefaultSoulId = "Soul_00";
+
+        /// <summary>Forced ClassId when manufacture Soul slot is empty (SPEC_03 §3.11).</summary>
+        public const string NoSoulClassId = "Class_Servants";
+
         private static readonly ManufactureSlotKind[] SlotLayout =
         {
             ManufactureSlotKind.Head,
@@ -68,15 +74,16 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public event Action Changed;
 
         /// <summary>
-        /// Visual BodyAppearance gate (SPEC_03 §3.11): all non-gem slots filled.
-        /// Does not change manufacture commit requirements.
+        /// Visual BodyAppearance gate (SPEC_03 §3.11): Head+Torso+Arm×2+Leg×2+Mount+Wing filled.
+        /// Soul and gems do not gate. Does not change manufacture commit requirements.
         /// </summary>
         public bool AreNonGemSlotsFilled()
         {
             for (var i = 0; i < _slots.Count; i++)
             {
                 var slot = _slots[i];
-                if (slot.Kind == ManufactureSlotKind.Gem)
+                if (slot.Kind == ManufactureSlotKind.Gem
+                    || slot.Kind == ManufactureSlotKind.Soul)
                 {
                     continue;
                 }
@@ -356,6 +363,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         private bool TryApplyRecipeStatSnapshot(WarriorInstance warrior)
         {
             var aggregate = AggregateFromItemIds(warrior.SourceItemIds);
+            if (!TryApplyDefaultSoulIfMissing(aggregate, out _))
+            {
+                // Still repair body/equip even if default soul config is missing.
+            }
+
             if (aggregate.Base.IsAllZero && aggregate.Equip.IsAllZero)
             {
                 return false;
@@ -392,7 +404,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
                 if (string.IsNullOrEmpty(warrior.ClassId))
                 {
-                    warrior.ClassId = aggregate.Soul.ClassId;
+                    warrior.ClassId = aggregate.UsedDefaultSoul
+                        ? NoSoulClassId
+                        : aggregate.Soul.ClassId;
                 }
 
                 warrior.AttackMode = aggregate.Soul.AttackMode;
@@ -412,13 +426,16 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             GrantFirstBodyPart(BodySlot.Arm, 2);
             GrantFirstBodyPart(BodySlot.Leg, 2);
 
-            // Demo Debug kit: grant every SoulConfig row ×1 (sample Soul_01…Soul_10).
+            // Demo Debug kit: grant placeable SoulConfig rows ×1 (skip system default Soul_00).
             foreach (var soul in _configs.Souls)
             {
-                if (!string.IsNullOrEmpty(soul.SoulId))
+                if (string.IsNullOrEmpty(soul.SoulId)
+                    || string.Equals(soul.SoulId, DefaultSoulId, StringComparison.Ordinal))
                 {
-                    _warehouse.AddItem(soul.SoulId, 1);
+                    continue;
                 }
+
+                _warehouse.AddItem(soul.SoulId, 1);
             }
 
             var gemsByType = new Dictionary<GemType, string>();
@@ -494,6 +511,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         private ManufacturePreview BuildPreview()
         {
             var aggregate = Aggregate();
+            string defaultSoulError = null;
+            var defaultSoulOk = TryApplyDefaultSoulIfMissing(aggregate, out defaultSoulError);
+
             var raceId = PickRace(aggregate.RaceCandidates);
             _configs.TryGetRace(raceId, out var raceRow);
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
@@ -505,14 +525,17 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
             var minMet = aggregate.TorsoCount >= 1
                          && aggregate.ArmCount >= 2
-                         && aggregate.LegCount >= 2
-                         && aggregate.Soul != null;
+                         && aggregate.LegCount >= 2;
             var spiritEnough = _warehouse.SpiritEssence >= aggregate.SpiritCost;
 
             string blockReason = null;
             if (!minMet)
             {
-                blockReason = "最低要求未满足：躯干 1 + 手臂 2 + 腿 2 + 灵魂 1";
+                blockReason = "最低要求未满足：躯干 1 + 手臂 2 + 腿 2";
+            }
+            else if (!defaultSoulOk)
+            {
+                blockReason = defaultSoulError;
             }
             else if (!spiritEnough)
             {
@@ -534,11 +557,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 TrialRaceId = raceId,
                 TrialRaceDisplayName = ResolveRaceDisplayName(raceRow, raceId),
                 TrialAppearanceId = PickAppearance(ComputeAvgLevelInt(aggregate.BodyLevels), raceId, className),
-                ClassId = aggregate.Soul != null ? aggregate.Soul.ClassId : null,
+                ClassId = ResolveInstanceClassId(aggregate),
                 ClassName = className,
                 MinRequirementMet = minMet,
                 SpiritEnough = spiritEnough,
-                CanManufacture = minMet && spiritEnough,
+                CanManufacture = minMet && defaultSoulOk && spiritEnough,
                 BlockReason = blockReason
             };
             preview.TrialWarriorName = BuildWarriorName(aggregate, raceRow, raceId, className);
@@ -571,12 +594,16 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             out string error)
         {
             aggregate = AggregateFromItemIds(sourceItemIds);
-            if (aggregate.Soul == null
-                || aggregate.TorsoCount < 1
+            if (aggregate.TorsoCount < 1
                 || aggregate.ArmCount < 2
                 || aggregate.LegCount < 2)
             {
                 error = ErrorMaterialInsufficient;
+                return false;
+            }
+
+            if (!TryApplyDefaultSoulIfMissing(aggregate, out error))
+            {
                 return false;
             }
 
@@ -625,6 +652,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var raceId = PickRace(aggregate.RaceCandidates);
             _configs.TryGetRace(raceId, out var raceRow);
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
+            var classId = ResolveInstanceClassId(aggregate);
             var className = aggregate.Class != null ? aggregate.Class.ClassName : string.Empty;
             var appearanceId = PickAppearance(ComputeAvgLevelInt(aggregate.BodyLevels), raceId, className);
 
@@ -643,7 +671,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 BaseStats = aggregate.Base,
                 AppearanceId = appearanceId,
                 SoulId = aggregate.Soul.SoulId,
-                ClassId = aggregate.Soul.ClassId,
+                ClassId = classId,
                 AttackMode = aggregate.Soul.AttackMode,
                 GemMult = aggregate.GemMult,
                 ControlPowerCost = aggregate.ControlPowerCost,
@@ -684,6 +712,53 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             }
 
             return aggregate;
+        }
+
+        /// <summary>
+        /// When no Soul was slotted: apply Soul_00 costs/fields and force Class_Servants.
+        /// Does not consume warehouse Soul_00.
+        /// </summary>
+        private bool TryApplyDefaultSoulIfMissing(SlotAggregate aggregate, out string error)
+        {
+            error = null;
+            if (aggregate.Soul != null)
+            {
+                return true;
+            }
+
+            if (!_configs.TryGetSoul(DefaultSoulId, out var defaultSoul) || defaultSoul == null)
+            {
+                error = $"缺少默认灵魂配置 {DefaultSoulId}";
+                return false;
+            }
+
+            if (!_configs.TryGetClass(NoSoulClassId, out var classRow) || classRow == null)
+            {
+                error = $"缺少职业配置 {NoSoulClassId}";
+                return false;
+            }
+
+            aggregate.Soul = defaultSoul;
+            aggregate.SpiritCost += defaultSoul.SpiritCost;
+            aggregate.ControlPowerCost += defaultSoul.ControlPowerCost;
+            aggregate.Class = classRow;
+            aggregate.UsedDefaultSoul = true;
+            return true;
+        }
+
+        private static string ResolveInstanceClassId(SlotAggregate aggregate)
+        {
+            if (aggregate == null)
+            {
+                return null;
+            }
+
+            if (aggregate.UsedDefaultSoul)
+            {
+                return NoSoulClassId;
+            }
+
+            return aggregate.Soul != null ? aggregate.Soul.ClassId : null;
         }
 
         private void ApplyItemToAggregate(SlotAggregate aggregate, string itemId, ManufactureSlotKind kind)
@@ -1082,6 +1157,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             public float ControlPowerCost;
             public SoulConfigRow Soul;
             public ClassConfigRow Class;
+            public bool UsedDefaultSoul;
             public int TorsoCount;
             public int ArmCount;
             public int LegCount;

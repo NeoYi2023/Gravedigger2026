@@ -191,7 +191,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM 升级区（方案 A，D-030）：** `UpgradeManufactureStageModule` Enter 时 Instantiate `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab`（**默认全屏制造区**；升级为 Modal，顶部「GM升级」打开、右上「X」关闭；布阵经「布阵」打开共享编辑器）。`ConfigCsvRepository` 加载 `Manufacture_ProtagonistLevelConfig.csv`。规则层纯 C# `ProtagonistProgressService` 持有内存态 `Level` / `LifetimeExperience` / `TechPoints` / 生效 `ControlPowerCap` / `ProtagonistMaxHP`；累计阈值连升并应用表行奖励与上限。Debug 注入仍可用；正式 Defend 胜利入账见 D-043。底部「完成」→ `TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
 
-**UM 制造区（方案 A，D-031 → UI 重做 / Pool 再造）：** `ConfigCsvRepository` 追加加载 `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`。规则层纯 C# `ManufactureService` 持有 15 个严格槽位（头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1），按 Id 解析所属表自动路由到合法空槽，类型不符 / 同类型宝石重复 / 库存不足即拒绝；每次槽位变化重算预览（`Base(S)=Σ StatBonus`、`Equip`、`GemMult`、`RaceAdjust`、`StaticStat`、静态 `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`、`TotalSpiritCost`、`ControlPowerCost`、试算种族与外观）。「制造」闸门 = 最低要求（躯干+臂2+腿2+灵魂）且 `SpiritEssence ≥ TotalSpiritCost`（头/宝石/坐骑/翅膀对**提交**仍可选）。制造成功写入 `WarriorInstance.SourceItemIds` + `SourceSpiritCost`；`TryRemanufacture(sourceWarriorId)` 按配方后台校验/扣料/再跑聚合与掷种族外观流水线并 `_pool.Add` **新实例**（不改 `_slots`）；材料不足 / 精魂不足错误码供 Tips。**躯体外观可视预览闸门**（表现层）：除宝石外全部槽位已填（含头/坐骑/翅膀）→ Instantiate 试算 `AppearanceId` Prefab 并 `WarriorAnimView` 播攻击再待机；否则静态占位图。`WarehouseService` 扩展同前；Debug「注入制造套件」同前。表现：`ManufacturePanelView` — PreviewPanel 左、中心环绕槽位方格（左：头/臂1/腿1/翅膀；右：躯干/臂2/腿2/坐骑；预览内底灵魂；下排半尺寸宝石×6）、PoolPanel 右为 **ScrollRect 士兵框列表**（`PoolSoldierFrameView`；选中显「再造1个」）、UmCanvas 中上部 Tips（1s：「材料不足」/「精魂不足」）、底栏库存方格横滑 + Input 拖拽入槽、三操作钮在库存下。布局权威：`UmAssetBuilder` 重建 StageRoot Prefab。外观资源：`UpgradeManufacturePrefabCatalog` 绑定 `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`。禁止运行时引用 `SmallScaleInt/`。
+**UM 制造区（方案 A，D-031 → UI 重做 / Pool 再造）：** `ConfigCsvRepository` 追加加载 `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`。规则层纯 C# `ManufactureService` 持有 15 个严格槽位（头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1），按 Id 解析所属表自动路由到合法空槽，类型不符 / 同类型宝石重复 / 库存不足即拒绝；每次槽位变化重算预览（`Base(S)=Σ StatBonus`、`Equip`、`GemMult`、`RaceAdjust`、`StaticStat`、静态 `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`、`TotalSpiritCost`、`ControlPowerCost`、试算种族与外观）。「制造」闸门 = 最低要求（躯干+臂2+腿2；**灵魂可选**）且 `SpiritEssence ≥ TotalSpiritCost`（头/灵魂/宝石/坐骑/翅膀对**提交**均可选）。无灵魂槽：实例 `SoulId=Soul_00`，灵魂侧费用/AttackMode 等读 `Soul_00`，**强制** `ClassId=Class_Servants`（不扣仓库灵魂）。制造成功写入 `WarriorInstance.SourceItemIds` + `SourceSpiritCost`；`TryRemanufacture(sourceWarriorId)` 按配方后台校验/扣料/再跑聚合与掷种族外观流水线并 `_pool.Add` **新实例**（不改 `_slots`）；材料不足 / 精魂不足错误码供 Tips。**躯体外观可视预览闸门**（表现层）：头+躯干+臂×2+腿×2+坐骑+翅膀已填（**灵魂与宝石不参与**）→ Instantiate 试算 `AppearanceId` Prefab 并 `WarriorAnimView` 播攻击再待机；否则静态占位图。`WarehouseService` 扩展同前；Debug「注入制造套件」同前。表现：`ManufacturePanelView` — PreviewPanel 左、中心环绕槽位方格（左：头/臂1/腿1/翅膀；右：躯干/臂2/腿2/坐骑；预览内底灵魂；下排半尺寸宝石×6）、PoolPanel 右为 **ScrollRect 士兵框列表**（`PoolSoldierFrameView`；选中显「再造1个」）、UmCanvas 中上部 Tips（1s：「材料不足」/「精魂不足」）、底栏库存方格横滑 + Input 拖拽入槽、三操作钮在库存下。布局权威：`UmAssetBuilder` 重建 StageRoot Prefab。外观资源：`UpgradeManufacturePrefabCatalog` 绑定 `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`。禁止运行时引用 `SmallScaleInt/`。
 
 **UM 布阵区（方案 A→拖拽编辑器，D-032）：** 纯 C# `BattleFormationService`（存档级，`BindSlot` + PlayerPrefs JSON）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）。UM 主屏全屏制造 + Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend Prepare **共用**。禁止运行时引用 `SmallScaleInt/`。
 
@@ -251,7 +251,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM upgrade panel (Approach A, D-030):** `UpgradeManufactureStageModule` on Enter instantiates `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab` (**full-screen manufacture by default**; upgrade as Modal via top "GM Upgrade", close with top-right "X"; formation via Formation button → shared editor). `ConfigCsvRepository` loads `Manufacture_ProtagonistLevelConfig.csv`. Rules: pure-C# `ProtagonistProgressService` holds in-memory `Level` / `LifetimeExperience` / `TechPoints` / effective `ControlPowerCap` / `ProtagonistMaxHP`; cumulative-threshold chain level-ups apply row rewards/caps. Debug inject remains; formal Defend victory credit in D-043. Bottom Complete → `TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
 
-**UM manufacture panel (Approach A, D-031 → UI redo / pool remake):** `ConfigCsvRepository` additionally loads `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`. Rules: pure-C# `ManufactureService` owns the 15 strict slots (Head1/Torso1/Arm2/Leg2/Soul1/Gem6/Mount1/Wing1), routes an Id to a legal empty slot by resolving its source table, and rejects on type mismatch / duplicate `GemType` / insufficient stock; every slot change recomputes the preview (`Base(S)=Σ StatBonus`, `Equip`, `GemMult`, `RaceAdjust`, `StaticStat`, static `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`, `TotalSpiritCost`, `ControlPowerCost`, trial Race + Appearance). Manufacture gate = min parts (Torso+2Arm+2Leg+Soul) and `SpiritEssence ≥ TotalSpiritCost` (Head/gems/Mount/Wing still optional for **commit**). On success write `WarriorInstance.SourceItemIds` + `SourceSpiritCost`; `TryRemanufacture(sourceWarriorId)` validates/consumes from recipe in background, re-runs aggregate + Race/Appearance roll, `_pool.Add` **new** instance (does not mutate `_slots`); material/Spirit shortage error codes feed Tips. **Visual BodyAppearance gate** (presentation): all non-gem slots filled (incl. Head/Mount/Wing) → Instantiate trial `AppearanceId` Prefab and drive `WarriorAnimView` attack-then-idle; else static placeholder. `WarehouseService` / Debug kit unchanged. Presentation: `ManufacturePanelView` — PreviewPanel left, center slot ring (left: Head/Arm1/Leg1/Wing; right: Torso/Arm2/Leg2/Mount; Soul inside preview bottom; half-size gems×6 below), PoolPanel right as **ScrollRect soldier-frame list** (`PoolSoldierFrameView`; selected shows「Remake×1」), upper-center Tips on UmCanvas (1s:「材料不足」/「精魂不足」), bottom inventory square bar + Input drag into slots, three action buttons under inventory. Layout authority: `UmAssetBuilder` rebuilds StageRoot Prefab. Appearance: `UpgradeManufacturePrefabCatalog` binds `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`. Do not runtime-reference `SmallScaleInt/`.
+**UM manufacture panel (Approach A, D-031 → UI redo / pool remake):** `ConfigCsvRepository` additionally loads `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`. Rules: pure-C# `ManufactureService` owns the 15 strict slots (Head1/Torso1/Arm2/Leg2/Soul1/Gem6/Mount1/Wing1), routes an Id to a legal empty slot by resolving its source table, and rejects on type mismatch / duplicate `GemType` / insufficient stock; every slot change recomputes the preview (`Base(S)=Σ StatBonus`, `Equip`, `GemMult`, `RaceAdjust`, `StaticStat`, static `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`, `TotalSpiritCost`, `ControlPowerCost`, trial Race + Appearance). Manufacture gate = min parts (Torso+2Arm+2Leg; **Soul optional**) and `SpiritEssence ≥ TotalSpiritCost` (Head/Soul/gems/Mount/Wing optional for **commit**). Empty Soul slot: instance `SoulId=Soul_00`, soul-side costs/AttackMode from `Soul_00`, **force** `ClassId=Class_Servants` (no warehouse Soul consume). On success write `WarriorInstance.SourceItemIds` + `SourceSpiritCost`; `TryRemanufacture(sourceWarriorId)` validates/consumes from recipe in background, re-runs aggregate + Race/Appearance roll, `_pool.Add` **new** instance (does not mutate `_slots`); material/Spirit shortage error codes feed Tips. **Visual BodyAppearance gate** (presentation): Head+Torso+Arm×2+Leg×2+Mount+Wing filled (**Soul and gems do not gate**) → Instantiate trial `AppearanceId` Prefab and drive `WarriorAnimView` attack-then-idle; else static placeholder. `WarehouseService` / Debug kit unchanged. Presentation: `ManufacturePanelView` — PreviewPanel left, center slot ring (left: Head/Arm1/Leg1/Wing; right: Torso/Arm2/Leg2/Mount; Soul inside preview bottom; half-size gems×6 below), PoolPanel right as **ScrollRect soldier-frame list** (`PoolSoldierFrameView`; selected shows「Remake×1」), upper-center Tips on UmCanvas (1s:「材料不足」/「精魂不足」), bottom inventory square bar + Input drag into slots, three action buttons under inventory. Layout authority: `UmAssetBuilder` rebuilds StageRoot Prefab. Appearance: `UpgradeManufacturePrefabCatalog` binds `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`. Do not runtime-reference `SmallScaleInt/`.
 
 **UM formation panel (Approach A→drag editor, D-032):** Pure-C# `BattleFormationService` (save-scoped, `BindSlot` + PlayerPrefs JSON) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap`. Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle). UM main = full-screen manufacture + Formation right of Complete; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared with Defend Prepare. Do not runtime-reference `SmallScaleInt/`.
 
@@ -656,7 +656,7 @@ ProtagonistLevelConfig {
 | 字段 (EN) | 中文 | 类型（伪） | 说明 |
 |-----------|------|------------|------|
 | SoulId | 灵魂ID | `string` 或 `int` | 主键 |
-| ClassId | 职业ID | `string` 或 `int` | 必填；FK → `ClassConfig`；制造时写入士兵实例 |
+| ClassId | 职业ID | `string` 或 `int` | 必填；FK → `ClassConfig`；有灵魂槽时写入士兵实例；无灵魂槽时实例强制 `Class_Servants`（本行 `ClassId` 仍须合法 FK） |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged`；士兵普攻命中方案 D 分支（§3.12）；与怪物 `AttackMode` 同枚举。示例：战士类→Melee、射手/法师类→Ranged（法师与射手同远程通道，仅 `ClassConfig.PrimaryStat` 不同） |
 | Skills | 可使用技能 | 见编码 | 技能 Id + 等级列表；编码见下；失控加成与 CD 见 [§9.21 `SkillConfig`](#921-技能配置表骨架-skillconfig)；**第一版 Demo 不施放**（字段可留空） |
 | AttackPriority | 攻击优先级 | `enum` / `string` | 与怪物 `TargetSelect` **同枚举**：`Nearest` \| `PreferWarrior` \| `PreferProtagonist`；**本批不驱动**选目标（默认 EngageZone 内最近敌人，见 §3.12） |
@@ -684,7 +684,7 @@ SoulConfig {
 }
 ```
 
-**说明：** 原 `InfoTags` **不再**参与 WarriorInfo 主标签生成（主标签 = 定稿种族）。灵魂 **不**改写力量/敏捷/智力本身；通过 `ClassId` 注入职业；通过 `AttackMode` 选择近战/远程命中分支。`ClassName` / `PrimaryStat` / 换算系数见 [§9.9b `ClassConfig`](#99b-职业配置表-classconfig)。
+**说明：** 原 `InfoTags` **不再**参与 WarriorInfo 主标签生成（主标签 = 定稿种族）。灵魂 **不**改写力量/敏捷/智力本身；有灵魂槽时通过 `ClassId` 注入职业；无灵魂槽时实例 `SoulId=Soul_00`（系统默认行）并强制 `ClassId=Class_Servants`，其余灵魂侧字段读 `Soul_00`。通过 `AttackMode` 选择近战/远程命中分支。`ClassName` / `PrimaryStat` / 换算系数见 [§9.9b `ClassConfig`](#99b-职业配置表-classconfig)。
 
 **士兵实例静态快照（制造完成时写入；非独立配置表）：**
 
@@ -709,9 +709,9 @@ WarriorInstance {
     Intelligence: number
   }                               // Base(S) = Σ StatBonus(S) of filled BodyParts
   AppearanceId: Id                // FK → BodyAppearanceConfig; pick rules §3.11 / §9.13
-  SoulId: Id                      // FK → SoulConfig
-  ClassId: Id                     // copied from SoulConfig at manufacture; FK → ClassConfig
-  AttackMode: Melee | Ranged      // copied from SoulConfig at manufacture
+  SoulId: Id                      // FK → SoulConfig; empty slot → Soul_00
+  ClassId: Id                     // placed soul ClassId, else forced Class_Servants; FK → ClassConfig
+  AttackMode: Melee | Ranged      // from effective SoulConfig (placed or Soul_00)
   LockedEquipIds: Id[]            // ExtraEquipment chosen & locked at manufacture
   GemIds: Id[]                    // 0..6; FK → GemConfig; type-exclusive
   GemMult: {                      // five dims; Σ of socketed gems; all 0 if none
@@ -788,7 +788,7 @@ ClassConfig {
 
 **解析：**
 
-- 制造时：`SoulConfig.ClassId` → 写入 `WarriorInstance.ClassId`；命名与外观取本行 `ClassName`。
+- 制造时：有灵魂槽 → `SoulConfig.ClassId` → `WarriorInstance.ClassId`；无灵魂槽 → 强制 `Class_Servants`。命名与外观取实例 `ClassId` 对应行的 `ClassName`。
 - 战斗派生：先查本表取 `PrimaryStat` 与 `CombatConvertCoeffs`；命中参数取本行 `AttackRange` 等列。
 - 职业列表与具体数值后续填表。
 
@@ -927,7 +927,7 @@ BodyPartConfig {
 | AppearanceId | 外观ID | `string` 或 `int` | 主键；写入 `WarriorInstance.AppearanceId`；**Prefab 逻辑名**（无路径、无扩展名）；运行时解析 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；美术源 `Assets/Art/Characters/Appearances/{AppearanceId}/`（见 [§15](#15-角色美术管线character-creator-烘焙整角)） |
 | AppearanceLevel | 外观等级 | `int` | 与制造时平均躯体等级（保留 1 位小数后再四舍五入为整数）匹配 |
 | RaceId | 隶属种族 | `string` 或 `int` | FK → `RaceConfig` |
-| ClassAffinity | 职业倾向 | 见编码 | 精确匹配 `ClassConfig.ClassName`（经士兵灵魂 `ClassId`） |
+| ClassAffinity | 职业倾向 | 见编码 | 精确匹配 `ClassConfig.ClassName`（经士兵实例 `ClassId`） |
 | Description | 文字介绍 | `string` | 展示文案；若启用 i18n 可为本地化 Key |
 | IsFallback | 保底外形 | `int` 或空 | 空 / `0` = 常规；**`1` = 该种族保底**；**每种族至多 1 行** 为 `1` |
 
@@ -948,8 +948,8 @@ BodyAppearanceConfig {
 
 1. 对已放入全部躯体槽（含可选头部；空槽不计）取 `BodyLevel` 算术平均 → **保留 1 位小数** → 再 **四舍五入为整数** `AvgLevelInt`。
 2. 候选集 A = `AppearanceLevel == AvgLevelInt` **且** `RaceId ==` 定稿种族。
-3. 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经灵魂 `ClassId`）的行；若 B 非空 → 在 B 中 **均匀随机**；否则在 A 中 **均匀随机**。
-4. 若 A 为空：取同种族 `IsFallback == 1` 的行；有则用之。
+3. 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经实例 `ClassId`）的行；若 B 非空 → 在 B 中 **均匀随机**；**若 B 为空（职业不匹配）→ 不采用 A，改走步骤 4 同种族保底**。
+4. 若 A 为空，**或** A 非空但 B 为空：取同种族 `IsFallback == 1` 的行；有则用之。
 5. 若仍无：在 **全表** 中 **均匀随机** 一行。
 
 #### 9.14 额外装备配置表 `ExtraEquipmentConfig`
@@ -1699,7 +1699,7 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) soldier attribute composition / na
 | Field (EN) | ZH | Type (pseudo) | Notes |
 |------------|-----|---------------|-------|
 | SoulId | 灵魂ID | `string` or `int` | PK |
-| ClassId | 职业ID | `string` or `int` | Required; FK → `ClassConfig`; written to soldier instance at manufacture |
+| ClassId | 职业ID | `string` or `int` | Required; FK → `ClassConfig`; written to soldier when Soul slotted; empty Soul → instance forced `Class_Servants` (row ClassId still needs valid FK) |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged`; soldier normal-attack hit scheme D branch (§3.12); same enum as monster `AttackMode`. Examples: Warrior-like→Melee; Archer/Mage-like→Ranged (Mage and Archer share Ranged channel; only `ClassConfig.PrimaryStat` differs) |
 | Skills | 可使用技能 | encoding | Skill Id + level list; encoding below; LossOfControl bonus and CD in [§9.21 `SkillConfig`](#921-skillconfig-skeleton); **unused cast in Demo v1** (may leave empty) |
 | AttackPriority | 攻击优先级 | `enum` / `string` | Same enum as monster `TargetSelect`: `Nearest` \| `PreferWarrior` \| `PreferProtagonist`; **does not drive** targeting this batch (default nearest in EngageZone, §3.12) |
@@ -1727,7 +1727,7 @@ SoulConfig {
 }
 ```
 
-**Note:** Former `InfoTags` no longer builds primary WarriorInfo (primary label = finalized Race). Soul does **not** rewrite Strength/Agility/Intelligence; it injects Class via `ClassId` and selects `AttackMode` for Melee/Ranged hit branch. `ClassName` / `PrimaryStat` / convert coeffs live in [§9.9b `ClassConfig`](#99b-classconfig).
+**Note:** Former `InfoTags` no longer builds primary WarriorInfo (primary label = finalized Race). Soul does **not** rewrite Strength/Agility/Intelligence; when Soul slotted it injects Class via `ClassId`; when empty, instance `SoulId=Soul_00` (system default) and force `ClassId=Class_Servants`, other soul-side fields from `Soul_00`. `AttackMode` selects Melee/Ranged hit branch. `ClassName` / `PrimaryStat` / convert coeffs live in [§9.9b `ClassConfig`](#99b-classconfig).
 
 **Soldier instance static snapshot (written at manufacture; not a config table):**
 
@@ -1740,9 +1740,9 @@ WarriorInstance {
   RaceAdjustCoeff: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }
   BaseStats: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }  // Base(S)=Σ StatBonus(S)
   AppearanceId: Id                // FK → BodyAppearanceConfig
-  SoulId: Id
-  ClassId: Id                     // copied from SoulConfig; FK → ClassConfig
-  AttackMode: Melee | Ranged      // copied from SoulConfig at manufacture
+  SoulId: Id                      // FK → SoulConfig; empty slot → Soul_00
+  ClassId: Id                     // placed soul ClassId, else forced Class_Servants; FK → ClassConfig
+  AttackMode: Melee | Ranged      // from effective SoulConfig (placed or Soul_00)
   LockedEquipIds: Id[]
   GemIds: Id[]
   GemMult: { MaxHP, MoveSpeed, Strength, Agility, Intelligence }  // Σ of socketed; 0 if none
@@ -1813,7 +1813,7 @@ ClassConfig {
 
 **Parse:**
 
-- At manufacture: `SoulConfig.ClassId` → write `WarriorInstance.ClassId`; naming / appearance use this row's `ClassName`.
+- At manufacture: Soul slotted → `SoulConfig.ClassId` → `WarriorInstance.ClassId`; empty Soul → force `Class_Servants`. Naming / appearance use the instance `ClassId` row's `ClassName`.
 - Combat derives: look up `PrimaryStat` and `CombatConvertCoeffs`; hit params from `AttackRange` etc. columns.
 - Class list / concrete numbers filled later.
 
@@ -1936,7 +1936,7 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) whole-body visual pick. One row = 
 | AppearanceId | 外观ID | `string` or `int` | PK; written to `WarriorInstance.AppearanceId`; **Prefab logical name** (no path/ext); resolve → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; art source `Assets/Art/Characters/Appearances/{AppearanceId}/` (see [§15](#15-角色美术管线character-creator-烘焙整角)) |
 | AppearanceLevel | 外观等级 | `int` | Matches rounded average BodyLevel |
 | RaceId | 隶属种族 | `string` or `int` | FK → `RaceConfig` |
-| ClassAffinity | 职业倾向 | encoding | Exact match to `ClassConfig.ClassName` (via soldier soul `ClassId`) |
+| ClassAffinity | 职业倾向 | encoding | Exact match to `ClassConfig.ClassName` (via soldier instance `ClassId`) |
 | Description | 文字介绍 | `string` | Display copy; localization Key if i18n |
 | IsFallback | 保底外形 | `int` or empty | Empty/`0` = normal; **`1` = race fallback**; **at most one `1` per RaceId** |
 
@@ -1957,8 +1957,8 @@ BodyAppearanceConfig {
 
 1. Mean `BodyLevel` over all filled body slots (incl. optional Head; empty slots excluded) → keep **1 decimal** → **round half-up to int** `AvgLevelInt`.
 2. Set A = rows with `AppearanceLevel == AvgLevelInt` **and** `RaceId ==` finalized race.
-3. If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via soul `ClassId`); if B non-empty → uniform random in B; else uniform random in A.
-4. If A empty: use same-race row with `IsFallback == 1` if present.
+3. If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via instance `ClassId`); if B non-empty → uniform random in B; **if B empty (class mismatch) → do not use A; go to step 4 same-race fallback**.
+4. If A empty, **or** A non-empty but B empty: use same-race row with `IsFallback == 1` if present.
 5. If still none: uniform random over **entire table**.
 
 #### 9.14 ExtraEquipmentConfig
@@ -2762,10 +2762,12 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 
 | 语义 | Creator 参数（默认；View 序列化可改） | 说明 |
 |------|--------------------------------------|------|
-| 移动 | Bool `IsRun` | `NavMeshAgent` 速度超阈值 → true；停步清 locomotion Bool → Idle |
+| 移动 | Bool `IsRun` | MassMove **steer** 超阈值 → true；停步清 locomotion Bool → Idle |
 | 普攻 | Trigger `Attack1` | 近战前摇开始 / 远程开火时触发；规则层不写动画名 |
 | 死亡 | Trigger `Die` | CombatDead / PermanentDeath 后触发一次并锁存；尸体留场 |
 | 朝向 | Int `DirIndex` | 按移动或瞄准 XZ 向量换算（见下表）；零向量不改 |
+
+**移动打断攻击（表现层，Demo 锁定）：** Creator `Attack1_*` 仅经 ExitTime 回 Idle，`IsRun` alone 无法中途切出。`WarriorAnimView.SetMoving(true)` 在需要时 `ResetTrigger(Attack1)` 并 `CrossFade(RunBT)`。**距离门控：** 仅当「当前 XZ → 移动目标点」平面距离 `moveTargetDistanceXZ > 0.4`（常量 `AttackInterruptMinMoveTargetDistance`）时才强制打断；≤0.4 的近距微调只写 `IsRun`、不 CrossFade（AttackSlot 旁微移不砍普攻）。`GoalKind.Objective`（FlowField）或拿不到目标点时按「足够远」处理（仍可打断）。规则前摇 / HitConfirm **不变**。
 
 **`DirIndex`（Creator 烘焙 Controller，Demo 锁定）：**
 
@@ -2846,10 +2848,12 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 
 | Semantics | Creator param (default; View serialized) | Notes |
 |-----------|------------------------------------------|-------|
-| Move | Bool `IsRun` | true when `NavMeshAgent` speed above threshold; clear locomotion bools → Idle when stopped |
+| Move | Bool `IsRun` | true when MassMove **steer** above threshold; clear locomotion bools → Idle when stopped |
 | Attack | Trigger `Attack1` | on melee windup start / ranged fire; rules never hardcode anim names |
 | Death | Trigger `Die` | once on CombatDead / PermanentDeath, then latched; corpse stays |
 | Facing | Int `DirIndex` | from move or aim XZ (table below); zero vector leaves unchanged |
+
+**Move interrupts attack (presentation, Demo lock):** Creator `Attack1_*` exits only via ExitTime; `IsRun` alone cannot cut mid-attack. `WarriorAnimView.SetMoving(true)` may `ResetTrigger(Attack1)` and `CrossFade(RunBT)`. **Distance gate:** force-interrupt only when planar distance current XZ → move target `moveTargetDistanceXZ > 0.4` (`AttackInterruptMinMoveTargetDistance`); ≤0.4 near-target nudges set `IsRun` without CrossFade (AttackSlot micro-moves do not chop attack). `GoalKind.Objective` (FlowField) or missing target → treat as far enough (interrupt still allowed). Windup / HitConfirm rules **unchanged**.
 
 **`DirIndex` (Creator bake Controller, Demo lock):**
 

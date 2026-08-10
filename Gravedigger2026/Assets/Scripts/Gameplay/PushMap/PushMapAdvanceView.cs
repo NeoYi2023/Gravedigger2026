@@ -643,7 +643,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             // MassMove uses Move()+ResetPath — velocity≈0; use steer like monsters (SPEC_04 §15.5).
             var wantsMove = !inWindup && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;
-            _anim.SetMoving(moving);
+            _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
 
             if (TryResolveEngagedTarget(out var target))
             {
@@ -655,6 +655,18 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _anim.SetFacing(_lastSteerDirXZ);
             }
+        }
+
+        /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing → +∞).</summary>
+        private float ResolveMoveTargetDistanceXZ()
+        {
+            if (_scheduler == null || _moveId == 0)
+            {
+                return float.PositiveInfinity;
+            }
+
+            var p = transform.position;
+            return _scheduler.GetAnimMoveTargetDistanceXZ(_moveId, new Vector2(p.x, p.z));
         }
 
         /// <summary>Engaged = GoalKind.AttackSlot + claimed target still alive (presentation mirror of Stage gates).</summary>

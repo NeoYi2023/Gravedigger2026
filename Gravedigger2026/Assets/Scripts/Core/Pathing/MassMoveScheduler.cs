@@ -161,6 +161,21 @@ namespace Gravedigger2026.Core.Pathing
         }
 
         /// <summary>
+        /// SPEC_04 §15.5: planar distance for attack→run interrupt gate.
+        /// AttackSlot / FormationHome / ChaseAnchor → |DesiredDestination − positionXZ|;
+        /// Objective (FlowField) or missing id → +∞ (treat as far enough to interrupt).
+        /// </summary>
+        public float GetAnimMoveTargetDistanceXZ(int id, Vector2 positionXZ)
+        {
+            if (!TryGetGoal(id, out var kind, out var dest) || kind == GoalKind.Objective)
+            {
+                return float.PositiveInfinity;
+            }
+
+            return (dest - positionXZ).magnitude;
+        }
+
+        /// <summary>
         /// Call once per frame from Stage: refresh positions, rebuild hash, resolve soft
         /// collision (SC-03), recalc ≤50 steers. Presentation Views then read
         /// <see cref="TryGetSteer"/> + <see cref="TryGetCorrection"/> and apply motion.

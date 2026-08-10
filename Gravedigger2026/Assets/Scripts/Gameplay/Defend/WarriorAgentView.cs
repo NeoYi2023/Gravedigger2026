@@ -522,7 +522,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_attackPhase != AttackPhase.Windup)
             {
-                _anim.SetMoving(moving);
+                _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
             }
 
             if (TryGetAimPoint(state, out var aimPoint))
@@ -540,6 +540,18 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _anim.SetFacing(_lastSteerDirXZ);
             }
+        }
+
+        /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing → +∞).</summary>
+        private float ResolveMoveTargetDistanceXZ()
+        {
+            if (_scheduler == null || _moveId == 0)
+            {
+                return float.PositiveInfinity;
+            }
+
+            var p = transform.position;
+            return _scheduler.GetAnimMoveTargetDistanceXZ(_moveId, new Vector2(p.x, p.z));
         }
 
         private bool TryGetAimPoint(DefendCombatWarriorState state, out Vector3 aimPoint)

@@ -8,7 +8,7 @@ namespace Gravedigger2026.Gameplay.Defend
     /// Used by soldiers and monsters (Defend / PushMap).
     /// IdleBT/RunBT BlendTrees blend on float Direction; DirIndex drives discrete Attack transitions.
     /// After asset normalize, Direction thresholds match DirIndex order — always write the same value.
-    /// SetMoving(true) immediately interrupts Attack1 into RunBT (v0.75.27).
+    /// SetMoving(true) may interrupt Attack1 into RunBT when move-target XZ distance &gt; 0.4 (v0.75.35).
     /// SetFacing applies 8-dir hysteresis + min dwell (v0.75.21).
     /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
     /// Death: latch last non-null Die sprite + darken + CorpseSortingOrder=100 + disable Animator.
@@ -43,6 +43,12 @@ namespace Gravedigger2026.Gameplay.Defend
         /// <summary>SPEC_04 §15.5: minimum seconds between two DirIndex switches.</summary>
         public const float FacingSwitchMinDwellSeconds = 0.12f;
 
+        /// <summary>
+        /// SPEC_04 §15.5 v0.75.35: force Attack→Run only when planar distance to move target
+        /// exceeds this (near-target nudges must not chop Attack1).
+        /// </summary>
+        public const float AttackInterruptMinMoveTargetDistance = 0.4f;
+
         // DirIndex (0E 1W 2S 3N 4NE 5NW 6SE 7SW) → quantization sector of DirIndexFromXZ.
         private static readonly int[] DirIndexToSector = { 2, 6, 4, 0, 1, 7, 3, 5 };
 
@@ -76,6 +82,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _dieLatched;
         private bool _enteredDieClip;
         private bool _moving;
+        /// <summary>True after a force Attack→Run this move bout; cleared when near or stop.</summary>
+        private bool _forceInterruptedWhileMoving;
         private float _dieStartedAt;
         private float _lastGoodDieNormalizedTime;
         private int _dieStateFullPathHash;
@@ -119,6 +127,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _dieLatched = false;
             _enteredDieClip = false;
             _moving = false;
+            _forceInterruptedWhileMoving = false;
             _dieStartedAt = 0f;
             _lastGoodDieNormalizedTime = 0f;
             _dieStateFullPathHash = 0;
@@ -173,39 +182,84 @@ namespace Gravedigger2026.Gameplay.Defend
             SetDirIndexValue(next);
         }
 
-        public void SetMoving(bool moving)
+        /// <param name="moveTargetDistanceXZ">
+        /// Planar distance to move target. Force Attack→Run only when &gt;
+        /// <see cref="AttackInterruptMinMoveTargetDistance"/>. Default +∞ (treat as far).
+        /// </param>
+        public void SetMoving(bool moving, float moveTargetDistanceXZ = float.PositiveInfinity)
         {
             if (_dead || _animator == null)
             {
                 return;
             }
 
-            if (_moving == moving)
-            {
-                return;
-            }
-
-            _moving = moving;
             if (moving)
             {
-                // SPEC_04 §15.5 v0.75.27: Creator Attack1_* only exits via ExitTime;
-                // IsRun alone cannot cut mid-attack — force RunBT when move is requested.
-                if (_hasAttackTrigger)
+                var forceInterrupt = moveTargetDistanceXZ > AttackInterruptMinMoveTargetDistance;
+                if (_moving)
                 {
-                    _animator.ResetTrigger(_attackTriggerHash);
+                    // Already moving: if distance just crossed the gate, still force-interrupt once.
+                    if (forceInterrupt)
+                    {
+                        if (!_forceInterruptedWhileMoving)
+                        {
+                            ForceEnterRunFromAttack();
+                            _forceInterruptedWhileMoving = true;
+                        }
+                    }
+                    else
+                    {
+                        _forceInterruptedWhileMoving = false;
+                    }
+
+                    return;
                 }
 
-                _animator.CrossFade(RunStateName, 0f, 0, 0f);
-                ClearLocomotionBoolsExceptRun();
-                if (_hasIsRun)
+                _moving = true;
+                if (forceInterrupt)
                 {
-                    _animator.SetBool(_isRunHash, true);
+                    // SPEC_04 §15.5: Creator Attack1_* only exits via ExitTime;
+                    // IsRun alone cannot cut mid-attack — force RunBT when far enough.
+                    ForceEnterRunFromAttack();
+                    _forceInterruptedWhileMoving = true;
+                }
+                else
+                {
+                    // Near target: write IsRun without CrossFade (does not chop Attack).
+                    _forceInterruptedWhileMoving = false;
+                    ClearLocomotionBoolsExceptRun();
+                    if (_hasIsRun)
+                    {
+                        _animator.SetBool(_isRunHash, true);
+                    }
                 }
 
                 return;
             }
 
+            if (!_moving)
+            {
+                return;
+            }
+
+            _moving = false;
+            _forceInterruptedWhileMoving = false;
             ClearLocomotionBools();
+        }
+
+        private void ForceEnterRunFromAttack()
+        {
+            if (_hasAttackTrigger)
+            {
+                _animator.ResetTrigger(_attackTriggerHash);
+            }
+
+            _animator.CrossFade(RunStateName, 0f, 0, 0f);
+            ClearLocomotionBoolsExceptRun();
+            if (_hasIsRun)
+            {
+                _animator.SetBool(_isRunHash, true);
+            }
         }
 
         public void PlayAttack()
@@ -216,6 +270,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _moving = false;
+            _forceInterruptedWhileMoving = false;
             ClearLocomotionBools();
             _animator.ResetTrigger(_attackTriggerHash);
             _animator.SetTrigger(_attackTriggerHash);
@@ -232,6 +287,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _dieLatched = false;
             _enteredDieClip = false;
             _moving = false;
+            _forceInterruptedWhileMoving = false;
             _dieStartedAt = Time.time;
             _lastGoodDieNormalizedTime = 0f;
             _dieStateFullPathHash = 0;

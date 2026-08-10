@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.75.33
+**文档版本 / Document Version:** v0.75.35
 **最后更新 / Last Updated:** 2026-08-10  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数）  
 
@@ -65,6 +65,8 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-10 | v0.75.35 | 攻击移动打断距离门控（难度 1）：`SetMoving(true)` 仅当 `moveTargetDistanceXZ > 0.4` 才 `ResetTrigger`+`CrossFade(RunBT)`；近距微调不砍普攻；Objective/无目标点按足够远；规则结算不变；同步 SPEC_04 §15.5、CONTEXT |
+| 2026-08-10 | v0.75.34 | 士兵制造灵魂可选：最低要求改为躯干+臂2+腿2；无灵魂→`SoulId=Soul_00`、强制 `ClassId=Class_Servants`，其余灵魂侧字段读 `Soul_00`；可视预览闸门不再要求灵魂；同步 SPEC_03 §3.11、SPEC_04 §6/§9.9/§9.9b、CONTEXT、spec-map、样例表 |
 | 2026-08-10 | v0.75.33 | AllyFootCircle：localRotation X=-30；Order In Layer 保持 1；`WarriorAnimView` 批量改 sortingOrder/尸体变暗时跳过脚下圈（避免被刷成 200） |
 | 2026-08-10 | v0.75.32 | AllyFootCircle 调参：内填 α=160/255；localPos Y=-0.05 Z=-0.2；rotation X/Y=0；`sortingOrder=1`；同步 SPEC_03/04、CONTEXT |
 | 2026-08-10 | v0.75.31 | 友军脚下绿圈 AllyFootCircle（难度 1）：Defend/PushMap Combat 忠诚存活士兵脚下绿描边圆 + 内黑 α0.35；半径=`BodyRadius`；子物体跟随；叛变/死亡隐藏；`sortingOrder=50`；同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.7/§15.5、CONTEXT |
@@ -231,6 +233,8 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-10 | v0.75.35 | Attack-move interrupt distance gate (diff 1): `SetMoving(true)` force `ResetTrigger`+`CrossFade(RunBT)` only when `moveTargetDistanceXZ > 0.4`; near nudges do not chop attack; Objective/missing target = far enough; rules settle unchanged; synced SPEC_04 §15.5, CONTEXT |
+| 2026-08-10 | v0.75.34 | Soldier manufacture Soul optional: min = Torso+2Arm+2Leg; empty Soul → `SoulId=Soul_00`, force `ClassId=Class_Servants`, other soul-side fields from `Soul_00`; visual preview gate no longer requires Soul; synced SPEC_03 §3.11, SPEC_04 §6/§9.9/§9.9b, CONTEXT, spec-map, sample tables |
 | 2026-08-10 | v0.75.33 | AllyFootCircle: localRotation X=-30; Order In Layer stays 1; `WarriorAnimView` skips foot circle when batching sortingOrder/corpse darken (was overwritten to 200) |
 | 2026-08-10 | v0.75.32 | AllyFootCircle tune: fill α=160/255; localPos Y=-0.05 Z=-0.2; rotation X/Y=0; `sortingOrder=1`; synced SPEC_03/04, CONTEXT |
 | 2026-08-10 | v0.75.31 | AllyFootCircle (diff 1): Defend/PushMap Combat loyal living soldiers get green-stroke foot circle + black fill α0.35; radius=`BodyRadius`; child follows; hide on Rebel/death; `sortingOrder=50`; synced SPEC_03 §3.12/§3.14, SPEC_04 §9.7/§15.5, CONTEXT |

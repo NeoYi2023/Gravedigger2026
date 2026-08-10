@@ -32,6 +32,7 @@
 
 | ClassId | ClassName（示例） |
 |---------|-------------------|
+| `Class_Servants` | 仆从 |
 | `Class_Warrior` | 战士 |
 | `Class_Archer` | 射手 |
 | `Class_Mage` | 法师 |
@@ -49,7 +50,7 @@
 
 ## 灵魂（SoulConfig）
 
-`Soul_01` … `Soul_10`（建议依次绑定上表 Class 顺序）
+`Soul_00`（系统默认：无灵魂制造；`ClassId=Class_Servants`）、`Soul_01` … `Soul_10`（建议依次绑定上表 Class 顺序）
 
 ## 躯体材料（BodyPartConfig）— 与 Material 同命名空间
 

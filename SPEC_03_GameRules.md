@@ -61,8 +61,8 @@
 | BaseStats | 基础属性 | 由已放躯体部位 `StatBonus` 按维求和：生命值、移动速度、力量、敏捷、智力；经 StaticStat/FinalStat 后派生攻/速/CD/血（§3.11、§3.12）。 |
 | StaticStat | 静态属性 | 制造/布阵展示用：`max(0, Base+Equip+Base×GemMult+Base×RaceAdjust)`；不含 `SkillBuff`（§3.11）。 |
 | PrimaryStat | 主属性 | 职业配置字段：`Strength` / `Agility` / `Intelligence`；决定普攻攻击值所用属性维（§3.11、§3.12，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
-| Class | 职业 | 由灵魂 `ClassId` 提供；决定 `ClassName`、`PrimaryStat`，以及对五维→战斗参数的换算系数调整（§3.11、§3.12，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
-| ClassId | 职业ID | 职业主键；灵魂必填引用；制造时写入士兵实例（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.9b](SPEC_04_Technical.md)）。 |
+| Class | 职业 | 由实例 `ClassId` 提供（有灵魂取自该灵魂；无灵魂强制 `Class_Servants`）；决定 `ClassName`、`PrimaryStat`，以及对五维→战斗参数的换算系数调整（§3.11、§3.12，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
+| ClassId | 职业ID | 职业主键；有灵魂时取自灵魂 `ClassId`；无灵魂时强制 `Class_Servants`；制造时写入士兵实例（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.9b](SPEC_04_Technical.md)）。 |
 | ClassConfig | 职业配置表 | ClassId → ClassName、PrimaryStat、CombatConvertCoeffs（`键_数值|…`）、AttackRange / 前摇 / 弹速 / 超时（§3.11，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | BodyLife | 躯体生命 | `Base(MaxHP)+Equip(MaxHP)`；制造锁定；不含宝石/种族/Buff 对生命维放大；代入士兵 `MaxHP` 公式（§3.11）。 |
 | NormalAttackPower | 普通攻击值 | `Primary × 15`；命中后对怪物直接扣血（本批无护甲）（§3.12）。 |
@@ -73,7 +73,7 @@
 | Race | 种族 | 由已放入躯体部位（头/躯干/臂/腿）各权重 1 **加权随机**定稿；一士兵一族；提供五维 `RaceAdjustCoeff`；配置见 `RaceConfig`（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维种族属性调整系数（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
 | RaceAdjustCoeff | 种族属性调整系数 | 五维（对应五项基础属性）；缺省维为 0；可正可负；代入 `BaseStat × RaceAdjustCoeff`；**不**单独计入控制力占用（§3.11）。 |
-| Soul | 灵魂 | 制造时必须注入；无灵魂不可成士兵；提供 **职业（ClassId）**、技能（含等级）、**攻击模式（AttackMode）**、攻击优先级、移动风格；**不**改写力量/敏捷/智力本身；配置见 `SoulConfig`（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
+| Soul | 灵魂 | 制造槽位 **可选**；有灵魂则消耗该行；无灵魂则实例 `SoulId=Soul_00`（系统默认行），`AttackMode`/技能/优先级/移动风格/灵魂侧 Spirit·控制力费用读 `Soul_00`，且 **强制** `ClassId=Class_Servants`；**不**改写力量/敏捷/智力本身；配置见 `SoulConfig`（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
 | SoulConfig | 灵魂配置表 | 灵魂行：ClassId、AttackMode、技能列表与等级、攻击优先级、移动风格、SpiritCost、控制力占用等（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
 | AttackMode | 攻击模式 | `Melee` / `Ranged`；士兵取自 `SoulConfig`，怪物取自 `MonsterConfig`；决定普攻走命中方案 D 的近战或远程分支（§3.12）。 |
 | ClassName | 职业名 | 职业配置字段（`ClassConfig`）；参与 `WarriorName` 拼接与外观 `ClassAffinity` 匹配；配置值可为「战士」等职业名，**不是**单位称谓「士兵」（§3.11）。 |
@@ -207,8 +207,8 @@
 | BaseStats | 基础属性 | Sum of filled BodyPart `StatBonus` per dim: HP, MoveSpeed, Strength, Agility, Intelligence; after StaticStat/FinalStat, derives attack / ASPD / CD / MaxHP (§3.11, §3.12). |
 | StaticStat | 静态属性 | Manufacture / formation UI: `max(0, Base+Equip+Base×GemMult+Base×RaceAdjust)`; excludes `SkillBuff` (§3.11). |
 | PrimaryStat | 主属性 | Class field: `Strength` / `Agility` / `Intelligence`; selects which dim feeds NormalAttackPower (§3.11, §3.12, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
-| Class | 职业 | From soul `ClassId`; supplies `ClassName`, `PrimaryStat`, and five-dim→combat-param convert coeffs (§3.11, §3.12, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
-| ClassId | 职业ID | Class primary key; required on Soul; written to soldier instance at manufacture (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.9b](SPEC_04_Technical.md)). |
+| Class | 职业 | From instance `ClassId` (placed soul's ClassId when present; else forced `Class_Servants`); supplies `ClassName`, `PrimaryStat`, and five-dim→combat-param convert coeffs (§3.11, §3.12, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
+| ClassId | 职业ID | Class primary key; from placed soul when present; else forced `Class_Servants`; written to soldier instance at manufacture (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.9b](SPEC_04_Technical.md)). |
 | ClassConfig | 职业配置表 | ClassId → ClassName, PrimaryStat, CombatConvertCoeffs (`Key_Value|…`), AttackRange / windup / projectile / timeout (§3.11, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | BodyLife | 躯体生命 | `Base(MaxHP)+Equip(MaxHP)`; locked at manufacture; no Gem/Race/Buff amplify on HP dim; feeds soldier MaxHP formula (§3.11). |
 | NormalAttackPower | 普通攻击值 | `Primary × 15`; on hit, subtract from monster HP directly (no armor this batch) (§3.12). |
@@ -219,7 +219,7 @@
 | Race | 种族 | Finalized by **weighted random** over filled BodyParts (Head/Torso/Arm/Leg), weight **1** each; one race per soldier; five-dim `RaceAdjustCoeff`; config via `RaceConfig` (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
 | RaceConfig | 种族配置表 | RaceId → display name, five-dimensional race adjust coeffs (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
 | RaceAdjustCoeff | 种族属性调整系数 | Five dims (one per BaseStat); missing dim = 0; may be +/-; used as `BaseStat × RaceAdjustCoeff`; does **not** add to ControlPowerCost alone (§3.11). |
-| Soul | 灵魂 | Must be injected at manufacture; no soul → cannot create soldier; provides **Class (ClassId)**, skills (+levels), **AttackMode**, AttackPriority, MoveStyle; does **not** rewrite Strength/Agility/Intelligence; config via `SoulConfig` (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md)). |
+| Soul | 灵魂 | Manufacture slot **optional**; if filled, consume that row; if empty, instance `SoulId=Soul_00` (system default), AttackMode/skills/priority/MoveStyle/soul Spirit·Control costs from `Soul_00`, and **force** `ClassId=Class_Servants`; does **not** rewrite Strength/Agility/Intelligence; config via `SoulConfig` (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md)). |
 | SoulConfig | 灵魂配置表 | Soul rows: ClassId, AttackMode, skills+levels, AttackPriority, MoveStyle, SpiritCost, ControlPowerCost, etc. (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md)). |
 | AttackMode | 攻击模式 | `Melee` / `Ranged`; soldiers from `SoulConfig`, monsters from `MonsterConfig`; selects Melee vs Ranged branch of hit scheme D for normal attacks (§3.12). |
 | ClassName | 职业名 | Class config field (`ClassConfig`); used in `WarriorName` and appearance `ClassAffinity` match; may be profession「战士」, **not** the unit name「士兵」(§3.11). |
@@ -1061,7 +1061,7 @@ EffectiveDigDuration countdown → 0
 
 ```
 材料按槽拖入 → 每次成功拖入/移除后刷新文本预览（角色信息、属性变更、精魂消耗）
-→（可选）非宝石槽全满时展示躯体外观可视预览
+→（可选）头+躯干+臂×2+腿×2+坐骑+翅膀已填时展示躯体外观可视预览（灵魂/宝石不参与闸门）
 → 玩家点「制造」（最低材料齐 + 精魂足够）→ 播放制造动画 → 生成士兵实例
 ```
 
@@ -1069,7 +1069,7 @@ EffectiveDigDuration countdown → 0
 |------|------|
 | 拖入 | 仅接受对应槽位类型的材料；类型不符 → 拒绝 |
 | 文本预览 | 每次槽位变化后在 PreviewPanel 展示：角色信息、相对当前方案的属性变更、**当前总精魂消耗**、试算种族/外观 Id / 命名 |
-| 躯体外观可视预览 | **闸门**：除宝石外全部槽位已填（头+躯干+臂×2+腿×2+灵魂+坐骑+翅膀）。未满足 → 显示静态占位图（资源可后换）；满足 → 按试算 `AppearanceId` 展示士兵外观，先播一遍攻击再循环待机（无 Animator 则静态降级） |
+| 躯体外观可视预览 | **闸门**：头+躯干+臂×2+腿×2+坐骑+翅膀已填（**灵魂与宝石不参与闸门**）。未满足 → 显示静态占位图（资源可后换）；满足 → 按试算 `AppearanceId` 展示士兵外观，先播一遍攻击再循环待机（无 Animator 则静态降级） |
 | 制造按钮 | 最低材料要求满足 **且** `SpiritEssence ≥` 总精魂消耗 → 可点；否则 **不可制造**（按钮禁用或点击无效，二选一即可）。**制造闸门不变**（头/宝石/坐骑/翅膀对提交仍可选） |
 | 动画 | 制造动画为表现层；规则层在确认消耗后提交生成 |
 | 完成时 | 扣除材料与精魂；定稿种族与 **躯体外观**；写入属性快照、`AppearanceId` 与 `WarriorName`；写入 **消耗材料配方**（各非空槽 `ItemId` 列表）与当时 **精魂总消耗**；实例进入可上阵池；**池与布阵均按存档槽立即持久化**（进档加载、删档清空；见 [SPEC_04 §6](SPEC_04_Technical.md)） |
@@ -1091,13 +1091,13 @@ EffectiveDigDuration countdown → 0
 
 **最低制造要求**
 
-必填：**1 躯干 + 2 手臂 + 2 腿 + 1 灵魂**。头部、宝石、坐骑、翅膀均为 **可选**。
+必填：**1 躯干 + 2 手臂 + 2 腿**。头部、灵魂、宝石、坐骑、翅膀均为 **可选**。无灵魂时：实例 `SoulId = Soul_00`；`AttackMode` / 技能 / 攻击优先级 / 移动风格 / 灵魂侧 `SpiritCost`·`ControlPowerCost` 读 `Soul_00`；**强制** `ClassId = Class_Servants`（不扣仓库灵魂）。有灵魂时：消耗该灵魂；`ClassId` 取自该灵魂。
 
 **精魂消耗闸门**
 
 | 规则 | 说明 |
 |------|------|
-| 总消耗 | `TotalSpiritCost = Σ SpiritCost`（已放入的躯体部位、灵魂、外置装备、宝石；缺省项为 0） |
+| 总消耗 | `TotalSpiritCost = Σ SpiritCost`（已放入的躯体部位、灵魂、外置装备、宝石；缺省项为 0；**无灵魂槽时仍计入 `Soul_00.SpiritCost`**） |
 | 字段来源 | 各材料/灵魂/外置/宝石配置表的 `SpiritCost`（[SPEC_04 §9](SPEC_04_Technical.md)）；具体数值 **TBD** |
 | 不足 | 材料齐但精魂不够 → **不能制造** |
 
@@ -1128,7 +1128,7 @@ EffectiveDigDuration countdown → 0
 |------|------|
 | 1. 平均等级 | 对已放入全部躯体槽的 `BodyLevel` 取算术平均 → **保留 1 位小数** → 再 **四舍五入为整数** `AvgLevelInt`（空槽不计） |
 | 2. 等级+种族 | 候选集 A = `BodyAppearanceConfig` 中 `AppearanceLevel == AvgLevelInt` **且** `RaceId ==` 定稿种族 |
-| 3. 职业倾向 | 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经灵魂 `ClassId`）的行；B 非空 → 在 B 中均匀随机；**B 为空（职业不匹配）→ 不采用 A，改走步骤 4 同种族保底** |
+| 3. 职业倾向 | 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经实例 `ClassId`：有灵魂取自该灵魂，无灵魂为 `Class_Servants`）的行；B 非空 → 在 B 中均匀随机；**B 为空（职业不匹配）→ 不采用 A，改走步骤 4 同种族保底** |
 | 4. 保底外形 | 若 A 为空，**或** A 非空但 B 为空：取同种族 `IsFallback == 1` 的行（每种族至多配置 1 个；常规行为空/`0`） |
 | 5. 全表随机 | 若仍无匹配 → 在 **全表** 中均匀随机一行 |
 | 写入 | 定稿 `AppearanceId` 写入士兵实例 |
@@ -1143,20 +1143,20 @@ WarriorName = Prefix(es) + RaceDisplayName + ClassName + Suffix
 |----|------|
 | 前缀 Prefix(es) | 每件已装备外置装备的 `NamePrefix`；两件都有则 **依次拼接**；皆无则可空 |
 | 种族名 | 定稿 `RaceId` → `RaceConfig.DisplayNameKey`（或展示名） |
-| 职业名 | 所用灵魂 `ClassId` → `ClassConfig.ClassName` |
+| 职业名 | 实例 `ClassId` → `ClassConfig.ClassName`（有灵魂取自该灵魂；无灵魂为 `Class_Servants`） |
 | 后缀 Suffix | 无宝石可空；有宝石时由 **`GemSuffixNameConfig`** 按已镶嵌 `GemType` 排序拼接 `ComboKey` 解析 |
 
 **士兵属性构成**
 
-士兵属性由下列部件构成：**士兵信息**、**基础属性**、**种族**、**灵魂**、**职业**、**额外装备属性**、**宝石**、**控制力占用值**。进入战场时的最终单项数值另叠加 **技能 Buff 系数**（仅运行时）、**宝石放大**与 **种族调整**。灵魂注入 **职业（ClassId）**；职业定 **ClassName**、**主属性（PrimaryStat）**，以及对五维→战斗参数的 **换算系数调整**（`ClassConfig.CombatConvertCoeffs`；编码与公式见 [SPEC_04 §9.9b](SPEC_04_Technical.md) / §3.12）。三维经 StaticStat / FinalStat 后派生战斗数值（见下与 §3.12）。
+士兵属性由下列部件构成：**士兵信息**、**基础属性**、**种族**、**灵魂**、**职业**、**额外装备属性**、**宝石**、**控制力占用值**。进入战场时的最终单项数值另叠加 **技能 Buff 系数**（仅运行时）、**宝石放大**与 **种族调整**。实例 **职业（ClassId）**：有灵魂取自该灵魂；无灵魂强制 `Class_Servants`。职业定 **ClassName**、**主属性（PrimaryStat）**，以及对五维→战斗参数的 **换算系数调整**（`ClassConfig.CombatConvertCoeffs`；编码与公式见 [SPEC_04 §9.9b](SPEC_04_Technical.md) / §3.12）。三维经 StaticStat / FinalStat 后派生战斗数值（见下与 §3.12）。
 
 | 部件 | 规则 |
 |------|------|
 | 士兵信息（WarriorInfo） | 主标签 = 定稿 **种族**；仅标签 / 展示 / 分类，**不**直接改变数值。数值调整 **仅** 走「种族」与 `RaceAdjustCoeff` |
 | 基础属性（BaseStats） | 由制造所用 **躯体部位** `StatBonus` 按维求和：`Base(S)=Σ StatBonus(S)`（见上）。固定五项：**生命值、移动速度、力量、敏捷、智力**。选敌/攻击距离/命中/死亡见 §3.12；普攻/攻速/技能CD/最终血量派生见下与 §3.12 |
 | 种族（Race） | 由躯体部位加权随机定稿（见上）；数据来自 **`RaceConfig`**（[SPEC_04 §9.11](SPEC_04_Technical.md)）。提供 **五维** `RaceAdjustCoeff`（缺省维 **0**；可正可负）。**不**单独计入 `ControlPowerCost` |
-| 灵魂（Soul） | 制造时注入；数据来自 **`SoulConfig`**（[SPEC_04 §9.9](SPEC_04_Technical.md)）。功能：必填 **ClassId**（→ 职业）、可使用技能（含技能等级）、**攻击模式 AttackMode**、**攻击优先级**、**移动风格（MoveStyle）**、SpiritCost、ControlPowerCost。`AttackMode ∈ { Melee, Ranged }`（示例语义与职业搭配：战士类→Melee、射手/法师类→Ranged；以配置字段为准）。**不**改写三维属性本身；**第一版 Demo 不施放技能**（见 §3.12） |
-| 职业（Class） | 由灵魂 `ClassId` 解析 **`ClassConfig`**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。提供：`ClassName`（命名与外观 `ClassAffinity`）、`PrimaryStat ∈ { Strength, Agility, Intelligence }`、`CombatConvertCoeffs`（`键_数值|…`；缺键回退全局默认）、以及 `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`。示例语义：战士→Strength、射手→Agility、法师→Intelligence（以 `PrimaryStat` 为准，非 ClassName 硬编码） |
+| 灵魂（Soul） | 槽位 **可选**；数据来自 **`SoulConfig`**（[SPEC_04 §9.9](SPEC_04_Technical.md)）。有灵魂：消耗该行，写入其 `SoulId`/`ClassId`/`AttackMode`/技能/优先级/`MoveStyle`/SpiritCost/ControlPowerCost。无灵魂：不扣仓库；`SoulId=Soul_00`；其余灵魂侧字段读 `Soul_00`；**强制** `ClassId=Class_Servants`。`AttackMode ∈ { Melee, Ranged }`。**不**改写三维属性本身；**第一版 Demo 不施放技能**（见 §3.12） |
+| 职业（Class） | 由实例 `ClassId` 解析 **`ClassConfig`**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。提供：`ClassName`（命名与外观 `ClassAffinity`）、`PrimaryStat ∈ { Strength, Agility, Intelligence }`、`CombatConvertCoeffs`（`键_数值|…`；缺键回退全局默认）、以及 `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`。示例语义：战士→Strength、射手→Agility、法师→Intelligence、仆从（`Class_Servants`）→与战士同主属性样例（以 `PrimaryStat` 为准，非 ClassName 硬编码） |
 | 额外装备属性 | 外置装备提供的同名平坦属性加成与/或额外技能；制造时写入实例并锁定；并提供 `NamePrefix` |
 | 宝石（Gem） | 可选；最多 6 颗（类型互斥）；数据来自 **`GemConfig`**（[SPEC_04 §9.10](SPEC_04_Technical.md)）。提供：**五维** `GemMult` + **额外技能**（各宝石技能集合并与灵魂技能 **并存**；冲突/覆盖 **TBD**）。无宝石时五维皆 **0**；多颗时实例各维 `GemMult(S) = Σ` 已镶嵌宝石的 `GemMult(S)` |
 | 控制力占用值（ControlPowerCost） | 制造完成时定稿：`ControlPowerCost = BodyCost + SoulCost + EquipCost + GemCost`（无装备/无宝石则对应项为 0；多宝石 `GemCost` 为各宝石占用之和；种族与职业不另加项） |
@@ -1287,7 +1287,7 @@ UpgradeManufacture stage
   → Upgrade: LifetimeExperience (from Defend victory credit) ≥ next RequiredTotalExperience
        → LevelUp (Exp pool not reset) → TechPointsReward + apply ControlPowerCap / ProtagonistMaxHP
        → UnlockedFeatureIds reserved only; TechTree learn/spend → §3.13
-  → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg+Soul
+  → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg (Soul optional; empty → Soul_00 + Class_Servants)
        → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
        → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
        → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity match else race IsFallback; else table-random)
@@ -1298,7 +1298,7 @@ UpgradeManufacture stage
   → Formation: shared editor; BattleMap continuous coords; persist {WarriorId, Position, RemainingHP}
   → Deploy control: Cap = level-row ControlPowerCap (+ tech later); cost = instance ControlPowerCost; Degree = ΣCost/Cap − 1; tiers 1–4 + Rebel rolls (§3.11 / §3.12 / SPEC_04 §9.20); does not block StartBattle
   → Combat: StaticStat(S)=max(0, Base+Equip+Base×GemMult+Base×RaceAdjust); FinalStat adds Base×SkillBuff
-       → MaxHP=ceil(BodyLife+Str×3); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId from Soul → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
+       → MaxHP=ceil(BodyLife+Str×3); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId (soul or Class_Servants) → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
        → RemainingHP clamp to MaxHP on StartBattle
   → On PermanentDeath: all GemIds → Warehouse; BodyParts/Soul/ExtraEquipment/other bound materials destroyed; clear formation slot
   → CombatDead (no gems): no material fate until PermanentDeath (§3.12)
@@ -1372,7 +1372,7 @@ Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel cap
 
 ```
 Drag materials into slots → on each successful add/remove, refresh text preview (info, stat delta, Spirit cost)
-→ (optional) when all non-gem slots filled, show BodyAppearance visual preview
+→ (optional) when Head+Torso+Arm×2+Leg×2+Mount+Wing filled (Soul/gems optional), show BodyAppearance visual preview
 → player taps Manufacture (min parts filled + enough Spirit) → manufacture VFX → create soldier instance
 ```
 
@@ -1380,7 +1380,7 @@ Drag materials into slots → on each successful add/remove, refresh text previe
 |------|-------|
 | Drag | Accept only matching slot type; reject mismatches |
 | Text preview | After each slot change, PreviewPanel shows character info, attribute deltas, **total Spirit cost**, trial Race / Appearance Id / name |
-| Visual BodyAppearance preview | **Gate**: all non-gem slots filled (Head+Torso+Arm×2+Leg×2+Soul+Mount+Wing). Else → static placeholder image (art swappable later); when met → show trial `AppearanceId` warrior, play attack once then loop idle (static fallback if no Animator) |
+| Visual BodyAppearance preview | **Gate**: Head+Torso+Arm×2+Leg×2+Mount+Wing filled (**Soul and gems do not gate**). Else → static placeholder image (art swappable later); when met → show trial `AppearanceId` warrior, play attack once then loop idle (static fallback if no Animator) |
 | Manufacture button | Enabled only if min requirements met **and** `SpiritEssence ≥` total Spirit cost; else **cannot manufacture**. **Manufacture commit gate unchanged** (Head/gems/Mount/Wing still optional for submit) |
 | VFX | Presentation only; rules commit after cost confirmation |
 | On complete | Deduct materials + Spirit; finalize Race and **BodyAppearance**; write snapshot, `AppearanceId`, `WarriorName`; write **consumed material recipe** (non-empty slot `ItemId` list) and **Spirit cost at manufacture**; add to deployable pool; **pool + formation persist per SaveSlot immediately** (load on enter, clear on delete; [SPEC_04 §6](SPEC_04_Technical.md)) |
@@ -1402,13 +1402,13 @@ Drag materials into slots → on each successful add/remove, refresh text previe
 
 **Minimum requirements**
 
-Required: **1 Torso + 2 Arms + 2 Legs + 1 Soul**. Head, gems, mount, wings are **optional**.
+Required: **1 Torso + 2 Arms + 2 Legs**. Head, Soul, gems, mount, wings are **optional**. No Soul slotted: instance `SoulId = Soul_00`; AttackMode / skills / AttackPriority / MoveStyle / soul-side SpiritCost·ControlPowerCost from `Soul_00`; **force** `ClassId = Class_Servants` (do not consume warehouse Soul). Soul slotted: consume that Soul; `ClassId` from that Soul.
 
 **Spirit cost gate**
 
 | Rule | Notes |
 |------|-------|
-| Total | `TotalSpiritCost = Σ SpiritCost` of filled BodyParts, Soul, ExtraEquipment, Gems (missing = 0) |
+| Total | `TotalSpiritCost = Σ SpiritCost` of filled BodyParts, Soul, ExtraEquipment, Gems (missing = 0; **empty Soul slot still adds `Soul_00.SpiritCost`**) |
 | Field source | `SpiritCost` on each config row ([SPEC_04 §9](SPEC_04_Technical.md)); concrete numbers **TBD** |
 | Insufficient | Parts OK but Spirit short → **cannot manufacture** |
 
@@ -1439,7 +1439,7 @@ BodyAppearance is a preset **overall look**. Finalized at manufacture (same batc
 |------|-------|
 | 1. Average level | Mean `BodyLevel` over filled body slots → keep **1 decimal** → **round half-up to int** `AvgLevelInt` (empty slots excluded) |
 | 2. Level + race | Set A = `BodyAppearanceConfig` rows with `AppearanceLevel == AvgLevelInt` **and** `RaceId ==` finalized race |
-| 3. Class affinity | If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via soul `ClassId`); if B non-empty → uniform random in B; **if B empty (class mismatch) → do not use A; go to step 4 same-race fallback** |
+| 3. Class affinity | If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via instance `ClassId`: placed soul when present, else `Class_Servants`); if B non-empty → uniform random in B; **if B empty (class mismatch) → do not use A; go to step 4 same-race fallback** |
 | 4. Fallback | If A empty, **or** A non-empty but B empty: same-race row with `IsFallback == 1` (at most one per race; normal rows empty/`0`) |
 | 5. Table random | If still none → uniform random over **entire table** |
 | Write | Final `AppearanceId` onto soldier instance |
@@ -1454,20 +1454,20 @@ WarriorName = Prefix(es) + RaceDisplayName + ClassName + Suffix
 |---------|--------|
 | Prefix(es) | Each equipped ExtraEquipment `NamePrefix`; concatenate in order if both; empty if none |
 | Race name | Finalized `RaceId` → `RaceConfig.DisplayNameKey` (or display name) |
-| Class name | Soul `ClassId` → `ClassConfig.ClassName` |
+| Class name | Instance `ClassId` → `ClassConfig.ClassName` (placed soul when present; else `Class_Servants`) |
 | Suffix | Empty if no gems; else **`GemSuffixNameConfig`** by sorted socketed `GemType` `ComboKey` |
 
 **Soldier attribute composition**
 
-A soldier is composed of: **WarriorInfo**, **BaseStats**, **Race**, **Soul**, **Class**, **ExtraEquipment stats**, **Gem**, and **ControlPowerCost**. Battlefield final per-stat values additionally apply **SkillBuffCoeff** (runtime only), **GemMult**, and **RaceAdjustCoeff**. Soul injects **Class (ClassId)**; Class supplies **ClassName**, **PrimaryStat**, and five-dim→combat-param **convert coeffs** (`ClassConfig.CombatConvertCoeffs`; encoding and formulas in [SPEC_04 §9.9b](SPEC_04_Technical.md) / §3.12). Those dims feed combat derives via StaticStat / FinalStat (below and §3.12).
+A soldier is composed of: **WarriorInfo**, **BaseStats**, **Race**, **Soul**, **Class**, **ExtraEquipment stats**, **Gem**, and **ControlPowerCost**. Battlefield final per-stat values additionally apply **SkillBuffCoeff** (runtime only), **GemMult**, and **RaceAdjustCoeff**. Instance **Class (ClassId)**: from placed soul when present; else forced `Class_Servants`. Class supplies **ClassName**, **PrimaryStat**, and five-dim→combat-param **convert coeffs** (`ClassConfig.CombatConvertCoeffs`; encoding and formulas in [SPEC_04 §9.9b](SPEC_04_Technical.md) / §3.12). Those dims feed combat derives via StaticStat / FinalStat (below and §3.12).
 
 | Part | Rules |
 |------|-------|
 | WarriorInfo | Primary label = finalized **Race**; display/taxonomy only (no numeric effect). Numeric adjust uses **Race** / `RaceAdjustCoeff` only |
 | BaseStats | Sum of filled BodyPart `StatBonus` per dim: `Base(S)=Σ StatBonus(S)` (above). Fixed five: **HP, MoveSpeed, Strength, Agility, Intelligence**. Targeting / AttackRange / hit / death in §3.12; NormalAttack / ASPD / SkillCD / final MaxHP derives below and in §3.12 |
 | Race | Weighted pick from BodyParts (above); data from **`RaceConfig`** ([SPEC_04 §9.11](SPEC_04_Technical.md)). Five-dim `RaceAdjustCoeff` (missing dim = **0**; may be +/-). No separate ControlPowerCost term |
-| Soul | Injected at manufacture; **`SoulConfig`** ([SPEC_04 §9.9](SPEC_04_Technical.md)): required **ClassId** (→ Class), skills (+levels), **AttackMode**, **AttackPriority**, **MoveStyle**, SpiritCost, ControlPowerCost. `AttackMode ∈ { Melee, Ranged }` (example pairing with Class: Warrior-like→Melee; Archer/Mage-like→Ranged; config field wins). Does **not** rewrite the three dims; **Demo v1 does not cast skills** (see §3.12) |
-| Class | Resolved from soul `ClassId` via **`ClassConfig`** ([SPEC_04 §9.9b](SPEC_04_Technical.md)): `ClassName` (naming + appearance `ClassAffinity`), `PrimaryStat ∈ { Strength, Agility, Intelligence }`, `CombatConvertCoeffs` (`Key_Value|…`; missing key → global defaults), plus `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`. Example semantics: Warrior→Strength, Archer→Agility, Mage→Intelligence (`PrimaryStat` wins; not ClassName hardcoding) |
+| Soul | Slot **optional**; **`SoulConfig`** ([SPEC_04 §9.9](SPEC_04_Technical.md)). If filled: consume that row; write its SoulId/ClassId/AttackMode/skills/priority/MoveStyle/SpiritCost/ControlPowerCost. If empty: no warehouse consume; `SoulId=Soul_00`; other soul-side fields from `Soul_00`; **force** `ClassId=Class_Servants`. `AttackMode ∈ { Melee, Ranged }`. Does **not** rewrite the three dims; **Demo v1 does not cast skills** (see §3.12) |
+| Class | Resolved from instance `ClassId` via **`ClassConfig`** ([SPEC_04 §9.9b](SPEC_04_Technical.md)): `ClassName` (naming + appearance `ClassAffinity`), `PrimaryStat ∈ { Strength, Agility, Intelligence }`, `CombatConvertCoeffs` (`Key_Value|…`; missing key → global defaults), plus `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`. Example semantics: Warrior→Strength, Archer→Agility, Mage→Intelligence, Servants (`Class_Servants`)→same PrimaryStat sample as Warrior (`PrimaryStat` wins; not ClassName hardcoding) |
 | ExtraEquipment stats | Flat same-named bonuses and/or extra skills; locked at manufacture; also supplies `NamePrefix` |
 | Gem | Optional; up to 6 (type-exclusive); **`GemConfig`** ([SPEC_04 §9.10](SPEC_04_Technical.md)): **five-dim** `GemMult` + extra skills (union with Soul skills; conflict **TBD**). No gems → all dims **0**; multi-gem → instance `GemMult(S) = Σ` socketed `GemMult(S)` |
 | ControlPowerCost | Finalized at manufacture: `BodyCost + SoulCost + EquipCost + GemCost` (0 for missing; multi-gem GemCost = sum; Race and Class add no term) |
@@ -1598,7 +1598,7 @@ UpgradeManufacture stage
   → Upgrade: LifetimeExperience (from Defend victory credit) ≥ next RequiredTotalExperience
        → LevelUp (Exp pool not reset) → TechPointsReward + apply ControlPowerCap / ProtagonistMaxHP
        → UnlockedFeatureIds reserved only; TechTree learn/spend → §3.13
-  → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg+Soul
+  → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg (Soul optional; empty → Soul_00 + Class_Servants)
        → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
        → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
        → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity match else race IsFallback; else table-random)
@@ -1609,7 +1609,7 @@ UpgradeManufacture stage
   → Formation: shared editor; BattleMap continuous coords; persist {WarriorId, Position, RemainingHP}
   → Deploy control: Cap = level-row ControlPowerCap (+ tech later); cost = instance ControlPowerCost; Degree = ΣCost/Cap − 1; tiers 1–4 + Rebel rolls (§3.11 / §3.12 / SPEC_04 §9.20); does not block StartBattle
   → Combat: StaticStat(S)=max(0, Base+Equip+Base×GemMult+Base×RaceAdjust); FinalStat adds Base×SkillBuff
-       → MaxHP=ceil(BodyLife+Str×3); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId from Soul → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
+       → MaxHP=ceil(BodyLife+Str×3); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId (soul or Class_Servants) → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
        → RemainingHP clamp to MaxHP on StartBattle
   → On PermanentDeath: all GemIds → Warehouse; BodyParts/Soul/ExtraEquipment/other bound materials destroyed; clear formation slot
   → CombatDead (no gems): no material fate until PermanentDeath (§3.12)
