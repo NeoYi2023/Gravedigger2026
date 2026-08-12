@@ -269,6 +269,12 @@ namespace Gravedigger2026.Core.Level
                     context.MapResolveNote = "UM: GameplayConfigId ignored (SPEC_03 §3.9 / SPEC_04 §9.1).";
                     return true;
 
+                case GameplayState.AutoManufacture:
+                    context.GameplayConfigIgnored = true;
+                    context.MapResolveNote =
+                        "AutoManufacture: GameplayConfigId ignored (SPEC_03 §3.9 / §3.15 / SPEC_04 §9.1).";
+                    return true;
+
                 case GameplayState.Dig:
                     if (!_configs.TryGetDig(row.GameplayConfigId, out var dig))
                     {

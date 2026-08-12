@@ -16,8 +16,9 @@ namespace Gravedigger2026.Editor.Formation
         private const string SettingsDir = "Assets/Settings/Formation";
         private const string CatalogPath = SettingsDir + "/FormationPrefabCatalog.asset";
         private const string EditorRootPath = PrefabDir + "/FormationEditorRoot.prefab";
+        private const string EditorRootMode2Path = PrefabDir + "/FormationEditorRoot_Mode2.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0483";
+        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0775";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -30,7 +31,8 @@ namespace Gravedigger2026.Editor.Formation
                 }
 
                 var missing = AssetDatabase.LoadAssetAtPath<FormationPrefabCatalog>(CatalogPath) == null
-                              || AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null;
+                              || AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null
+                              || AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) == null;
                 var needsRegen = !EditorPrefs.GetBool(RegenPrefsKey, false);
                 if (missing || needsRegen)
                 {
@@ -49,6 +51,7 @@ namespace Gravedigger2026.Editor.Formation
             PrefabUtility.SaveAsPrefabAsset(rootGo, EditorRootPath);
             Object.DestroyImmediate(rootGo);
             var rootPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath);
+            var rootMode2Prefab = BuildAndSaveMode2EditorRoot();
 
             var catalog = AssetDatabase.LoadAssetAtPath<FormationPrefabCatalog>(CatalogPath);
             if (catalog == null)
@@ -58,13 +61,58 @@ namespace Gravedigger2026.Editor.Formation
             }
 
             catalog.EditorSet(rootPrefab);
+            catalog.EditorSetMode2(rootMode2Prefab);
             EditorUtility.SetDirty(catalog);
 
             WireMetaShell(catalog);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[FormationAssetBuilder] Generated FormationEditorRoot + Catalog and wired MetaShellRoot.");
+            Debug.Log(
+                "[FormationAssetBuilder] Generated FormationEditorRoot (Mode1+Mode2) + Catalog and wired MetaShellRoot.");
+        }
+
+        private static GameObject BuildAndSaveMode2EditorRoot()
+        {
+            var contents = PrefabUtility.LoadPrefabContents(EditorRootPath);
+            contents.name = "FormationEditorRoot_Mode2";
+            var hud = FindDeep(contents.transform, "ControlPowerText");
+            if (hud != null)
+            {
+                hud.gameObject.SetActive(false);
+            }
+            else
+            {
+                Debug.LogWarning("[FormationAssetBuilder] ControlPowerText not found when building Mode2 EditorRoot.");
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
+            PrefabUtility.UnloadPrefabContents(contents);
+            return AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path);
+        }
+
+        private static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            if (root.name == name)
+            {
+                return root;
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var found = FindDeep(root.GetChild(i), name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
         }
 
         private static void WireMetaShell(FormationPrefabCatalog catalog)

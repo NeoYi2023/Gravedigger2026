@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8700000700000000002}
   - component: {fileID: 8700000700000000003}
-  - component: {fileID: 8700000700000000004}
   - component: {fileID: 5246172817453610438}
+  - component: {fileID: 8700000700000000004}
   m_Layer: 0
   m_Name: Grave_Q7
   m_TagString: Untagged
@@ -48,19 +48,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _radius: 0.55
---- !u!114 &8700000700000000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8700000700000000001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 087c375487ae4e842ac5c1061e0e58d3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _bodyRenderer: {fileID: 8700000700000000007}
 --- !u!114 &5246172817453610438
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -74,16 +61,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _localXZ:
-  - {x: -0.5000001, y: -0.21999998}
-  - {x: -0.46000013, y: -0.39000002}
-  - {x: -0.1900001, y: -0.46}
-  - {x: 0.03999996, y: -0.50000006}
-  - {x: 0.4700001, y: -0.43000007}
-  - {x: 0.46000007, y: -0.19000007}
-  - {x: -0.029999988, y: 0.21000002}
-  - {x: -0.25000003, y: 0.23000003}
-  - {x: -0.29000002, y: 0.18000004}
-  _boundingRadius: 0.63702446
+  - {x: -0.5000001, y: -0.12999997}
+  - {x: -0.38000014, y: -0.34}
+  - {x: -0.08000006, y: -0.48000005}
+  - {x: 0.049999967, y: -0.50000006}
+  - {x: 0.29000002, y: -0.50000006}
+  - {x: 0.5000001, y: -0.32000005}
+  - {x: 0.4600001, y: -0.14000006}
+  - {x: 0.13000005, y: 0.37000003}
+  - {x: 0.040000048, y: 0.46000004}
+  - {x: -0.27, y: 0.36000004}
+  _boundingRadius: 0.593633
+--- !u!114 &8700000700000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8700000700000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 087c375487ae4e842ac5c1061e0e58d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _bodyRenderer: {fileID: 8700000700000000007}
 --- !u!1 &8700000700000000005
 GameObject:
   m_ObjectHideFlags: 0
@@ -157,7 +158,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 200
-  m_Sprite: {fileID: 21300000, guid: f8956667088391c42b565e51da03590c, type: 3}
+  m_Sprite: {fileID: 21300000, guid: b4754c680c1a03d428a57036a712bea5, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

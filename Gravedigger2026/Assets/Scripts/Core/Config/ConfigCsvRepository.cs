@@ -32,6 +32,8 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, SoulConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, ClassConfigRow> _classById =
             new Dictionary<string, ClassConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, MagicBookConfigRow> _magicBookById =
+            new Dictionary<string, MagicBookConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, RaceConfigRow> _raceById =
             new Dictionary<string, RaceConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, GemConfigRow> _gemById =
@@ -56,11 +58,31 @@ namespace Gravedigger2026.Core.Config
 
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
+        public CampaignMode? LoadedCampaignMode { get; private set; }
 
+        private CampaignMode _loadMode = CampaignMode.Mode1;
+
+        /// <summary>Reload using last loaded mode, or Mode1 if never loaded.</summary>
         public bool TryLoadAll()
         {
+            return TryLoadAll(LoadedCampaignMode ?? CampaignMode.Mode1);
+        }
+
+        /// <summary>
+        /// Load (or reload) all tables for the given CampaignMode CSV root.
+        /// If already loaded for the same mode, returns true without re-reading.
+        /// </summary>
+        public bool TryLoadAll(CampaignMode mode)
+        {
+            if (IsLoaded && LoadedCampaignMode == mode)
+            {
+                return true;
+            }
+
             IsLoaded = false;
+            LoadedCampaignMode = null;
             LastError = null;
+            _loadMode = mode;
             _levelOperations.Clear();
             _digById.Clear();
             _defendById.Clear();
@@ -73,6 +95,7 @@ namespace Gravedigger2026.Core.Config
             _bodyPartById.Clear();
             _soulById.Clear();
             _classById.Clear();
+            _magicBookById.Clear();
             _raceById.Clear();
             _gemById.Clear();
             _equipById.Clear();
@@ -102,6 +125,7 @@ namespace Gravedigger2026.Core.Config
                 LoadBodyParts();
                 LoadSouls();
                 LoadClasses();
+                LoadMagicBooks();
                 LoadRaces();
                 LoadGems();
                 LoadExtraEquipment();
@@ -111,8 +135,9 @@ namespace Gravedigger2026.Core.Config
                 LoadTechTree();
                 LoadTechEffects();
                 IsLoaded = true;
+                LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, MagicBook={_magicBookById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -283,6 +308,13 @@ namespace Gravedigger2026.Core.Config
         {
             return _classById.TryGetValue(classId ?? string.Empty, out row);
         }
+
+        public bool TryGetMagicBook(string magicBookId, out MagicBookConfigRow row)
+        {
+            return _magicBookById.TryGetValue(magicBookId ?? string.Empty, out row);
+        }
+
+        public IEnumerable<MagicBookConfigRow> MagicBooks => _magicBookById.Values;
 
         public bool TryGetRace(string raceId, out RaceConfigRow row)
         {
@@ -897,6 +929,17 @@ namespace Gravedigger2026.Core.Config
                     throw new InvalidOperationException($"{table} row {rowIndex}: illegal BodySlot '{slotText}'.");
                 }
 
+                var isPrimaryHand = ParseOptional01(raw, "IsPrimaryHand", table, rowIndex);
+                if (slot != BodySlot.Arm && isPrimaryHand != 0)
+                {
+                    Debug.LogWarning(
+                        $"[Config] {table} row {rowIndex}: IsPrimaryHand={isPrimaryHand} only valid for Arm; forced 0.");
+                    isPrimaryHand = 0;
+                }
+
+                var hasBodyPrimary = TryParseOptionalPrimaryStat(
+                    raw, "BodyPrimaryStat", table, rowIndex, out var bodyPrimary);
+
                 _bodyPartById[id] = new BodyPartConfigRow
                 {
                     BodyPartId = id,
@@ -910,7 +953,11 @@ namespace Gravedigger2026.Core.Config
                         m => Debug.LogWarning($"[Config] {table} row {rowIndex}: {m}")),
                     AutoConvert = OptionalFloat(raw, "AutoConvert"),
                     Description = OptionalText(raw, "Description"),
-                    ArtAssetId = OptionalText(raw, "ArtAssetId")
+                    ArtAssetId = OptionalText(raw, "ArtAssetId"),
+                    IsPrimaryHand = isPrimaryHand,
+                    ClassRestrict = OptionalText(raw, "ClassRestrict"),
+                    HasBodyPrimaryStat = hasBodyPrimary,
+                    BodyPrimaryStat = bodyPrimary
                 };
             }
         }
@@ -962,6 +1009,15 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal PrimaryStat '{primaryText}'.");
                 }
 
+                var attackModeText = OptionalText(raw, "AttackMode");
+                var attackMode = AttackMode.Melee;
+                if (attackModeText.Length > 0
+                    && !Enum.TryParse(attackModeText, false, out attackMode))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal AttackMode '{attackModeText}'.");
+                }
+
                 _classById[id] = new ClassConfigRow
                 {
                     ClassId = id,
@@ -983,7 +1039,32 @@ namespace Gravedigger2026.Core.Config
                         "DeathKnockbackMult",
                         ClassConfigRow.DefaultDeathKnockbackMult,
                         table,
-                        rowIndex)
+                        rowIndex),
+                    AttackMode = attackMode,
+                    PlacementOrder = ParseOptionalPlacementOrder(raw, "PlacementOrder", table, rowIndex),
+                    DefaultAppearanceId = OptionalText(raw, "DefaultAppearanceId")
+                };
+            }
+        }
+
+        private void LoadMagicBooks()
+        {
+            const string table = "Manufacture_MagicBookConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "MagicBookId", table, rowIndex);
+                _magicBookById[id] = new MagicBookConfigRow
+                {
+                    MagicBookId = id,
+                    IsUnique = ParseOptional01(raw, "IsUnique", table, rowIndex),
+                    EffectPhase = OptionalText(raw, "EffectPhase"),
+                    EffectPayload = OptionalText(raw, "EffectPayload"),
+                    IconAssetId = OptionalText(raw, "IconAssetId"),
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    Description = OptionalText(raw, "Description")
                 };
             }
         }
@@ -1358,6 +1439,77 @@ namespace Gravedigger2026.Core.Config
             return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0f;
         }
 
+        /// <summary>Missing/empty → 0; else must be 0 or 1.</summary>
+        private static int ParseOptional01(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, column);
+            if (text.Length == 0)
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                || (value != 0 && value != 1))
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return value;
+        }
+
+        /// <summary>
+        /// Missing/empty → false (BodyPrimaryStat default unused). Non-empty must be Strength|Agility|Intelligence.
+        /// </summary>
+        private static bool TryParseOptionalPrimaryStat(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex,
+            out StatKind primary)
+        {
+            primary = StatKind.Strength;
+            var text = OptionalText(raw, column);
+            if (text.Length == 0)
+            {
+                return false;
+            }
+
+            if (!Enum.TryParse(text, false, out primary)
+                || (primary != StatKind.Strength && primary != StatKind.Agility
+                                                 && primary != StatKind.Intelligence))
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return true;
+        }
+
+        /// <summary>Missing/empty → DefaultPlacementOrderMissing; else int ≥ 1.</summary>
+        private static int ParseOptionalPlacementOrder(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, column);
+            if (text.Length == 0)
+            {
+                return ClassConfigRow.DefaultPlacementOrderMissing;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                || value < 1)
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return value;
+        }
+
         /// <summary>
         /// Missing/empty → <paramref name="defaultValue"/>; parse fail or &lt; 0 → throw (SPEC load fail).
         /// </summary>
@@ -1395,13 +1547,14 @@ namespace Gravedigger2026.Core.Config
             return value;
         }
 
-        private static string RequirePath(string csvFileName)
+        private string RequirePath(string csvFileName)
         {
-            var path = CsvPathResolver.ResolveExistingFile(csvFileName);
+            var path = CsvPathResolver.ResolveExistingFile(csvFileName, _loadMode);
             if (path == null)
             {
-                var roots = string.Join(" | ", CsvPathResolver.EnumerateCandidateRoots());
-                throw new InvalidOperationException($"Missing CSV '{csvFileName}'. Looked in: {roots}");
+                var roots = string.Join(" | ", CsvPathResolver.EnumerateCandidateRoots(_loadMode));
+                throw new InvalidOperationException(
+                    $"Missing CSV '{csvFileName}' (CampaignMode={_loadMode}). Looked in: {roots}");
             }
 
             return path;
@@ -1430,6 +1583,12 @@ namespace Gravedigger2026.Core.Config
             if (string.Equals(text, "PushMap", StringComparison.Ordinal))
             {
                 state = GameplayState.PushMap;
+                return true;
+            }
+
+            if (string.Equals(text, "AutoManufacture", StringComparison.Ordinal))
+            {
+                state = GameplayState.AutoManufacture;
                 return true;
             }
 

@@ -171,6 +171,47 @@ namespace Gravedigger2026.Core.Dig
             }
         }
 
+        /// <summary>Demo GM: attempt up to <paramref name="count"/> weighted grave spawns (same rules as process spawn).</summary>
+        public int DebugSpawnGraves(int count)
+        {
+            if (!_active || _timeUp || count < 1)
+            {
+                return 0;
+            }
+
+            var spawned = 0;
+            for (var i = 0; i < count; i++)
+            {
+                if (TrySpawnOneGrave())
+                {
+                    spawned++;
+                }
+            }
+
+            return spawned;
+        }
+
+        /// <summary>Demo GM: grant <paramref name="countEach"/> of every BodyPartConfig row (no AutoConvert).</summary>
+        public void DebugGrantAllBodyParts(int countEach)
+        {
+            if (!_active || _timeUp || countEach < 1)
+            {
+                return;
+            }
+
+            foreach (var part in _configs.BodyParts)
+            {
+                if (part == null || string.IsNullOrEmpty(part.BodyPartId))
+                {
+                    continue;
+                }
+
+                _warehouse.AddItem(part.BodyPartId, countEach);
+            }
+
+            WarehouseChanged?.Invoke();
+        }
+
         /// <summary>Called by View when DigReward flyer arrives at digger.</summary>
         public void CreditPendingLoot(string lootDropEncoded)
         {
@@ -437,23 +478,23 @@ namespace Gravedigger2026.Core.Dig
             _gravesById.Remove(grave.InstanceId);
         }
 
-        private void TrySpawnOneGrave()
+        private bool TrySpawnOneGrave()
         {
             var qualityId = WeightedFieldParser.PickWeighted(_spawnWeights, _rng);
             if (string.IsNullOrEmpty(qualityId))
             {
-                return;
+                return false;
             }
 
             if (!_configs.TryGetGraveQuality(qualityId, out var quality))
             {
                 Debug.LogWarning($"[DigSession] QualityId '{qualityId}' missing from GraveQualityConfig — skip spawn.");
-                return;
+                return false;
             }
 
             if (!TrySamplePlaceablePosition(out var pos, out var radius))
             {
-                return;
+                return false;
             }
 
             var grave = new DigGraveRuntime
@@ -470,6 +511,7 @@ namespace Gravedigger2026.Core.Dig
             _graves.Add(grave);
             _gravesById[grave.InstanceId] = grave;
             GraveSpawned?.Invoke(grave);
+            return true;
         }
 
         private bool TrySamplePlaceablePosition(out Vector3 position, out float graveRadius)

@@ -6,19 +6,17 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 {
     /// <summary>
     /// Save-scoped BattleFormation shared by UM / Defend / PushMap Prepare (SPEC_03 §3.11 / SPEC_04 §6).
-    /// PlayerPrefs JSON per slot; mutate → immediate write when bound.
+    /// PlayerPrefs JSON per slot + CampaignMode; mutate → immediate write when bound.
     /// </summary>
     public sealed class BattleFormationService
     {
         public const float DefaultDeployStepX = 2f;
         public const float DefaultNudgeStep = 1f;
 
-        private const string KeyPrefix = "Gravedigger2026.SaveSlot.";
-        private const string FormationSuffix = ".BattleFormation";
-
         private readonly List<BattleFormationEntry> _entries = new List<BattleFormationEntry>();
         private readonly WarriorPoolService _pool;
         private int _slotIndex = -1;
+        private CampaignMode _campaignMode = CampaignMode.Mode1;
         private bool _suppressPersist;
 
         public BattleFormationService(WarriorPoolService pool)
@@ -27,14 +25,15 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         }
 
         public int BoundSlotIndex => _slotIndex;
+        public CampaignMode BoundCampaignMode => _campaignMode;
         public IReadOnlyList<BattleFormationEntry> Entries => _entries;
 
         public event Action Changed;
 
         /// <summary>
-        /// Load formation for slot. Call after <see cref="WarriorPoolService.BindSlot"/> so orphan rows can be dropped.
+        /// Load formation for slot+mode. Call after <see cref="WarriorPoolService.BindSlot"/> so orphan rows can be dropped.
         /// </summary>
-        public void BindSlot(int slotIndex)
+        public void BindSlot(int slotIndex, CampaignMode campaignMode)
         {
             if (slotIndex < 0 || slotIndex > 2)
             {
@@ -46,9 +45,24 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             try
             {
                 _slotIndex = slotIndex;
+                _campaignMode = campaignMode;
                 _entries.Clear();
 
-                var raw = PlayerPrefs.GetString(FormationKey(slotIndex), string.Empty);
+                var key = FormationKey(slotIndex, campaignMode);
+                var raw = PlayerPrefs.GetString(key, string.Empty);
+                var migratedFromLegacy = false;
+
+                if (string.IsNullOrEmpty(raw) && campaignMode == CampaignMode.Mode1)
+                {
+                    var legacyKey = SaveSlotPrefsKeys.LegacyDataKey(
+                        slotIndex, SaveSlotPrefsKeys.BattleFormationSuffix);
+                    raw = PlayerPrefs.GetString(legacyKey, string.Empty);
+                    if (!string.IsNullOrEmpty(raw))
+                    {
+                        migratedFromLegacy = true;
+                    }
+                }
+
                 if (!string.IsNullOrEmpty(raw))
                 {
                     var data = JsonUtility.FromJson<BattleFormationSaveData>(raw);
@@ -78,6 +92,17 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                         }
                     }
                 }
+
+                if (migratedFromLegacy)
+                {
+                    _suppressPersist = false;
+                    PersistIfBound();
+                    _suppressPersist = true;
+                    PlayerPrefs.DeleteKey(
+                        SaveSlotPrefsKeys.LegacyDataKey(
+                            slotIndex, SaveSlotPrefsKeys.BattleFormationSuffix));
+                    PlayerPrefs.Save();
+                }
             }
             finally
             {
@@ -95,6 +120,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public void ClearBound()
         {
             _slotIndex = -1;
+            _campaignMode = CampaignMode.Mode1;
             _suppressPersist = true;
             try
             {
@@ -122,7 +148,10 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 return;
             }
 
-            PlayerPrefs.DeleteKey(FormationKey(slotIndex));
+            PlayerPrefs.DeleteKey(FormationKey(slotIndex, CampaignMode.Mode1));
+            PlayerPrefs.DeleteKey(FormationKey(slotIndex, CampaignMode.Mode2));
+            PlayerPrefs.DeleteKey(
+                SaveSlotPrefsKeys.LegacyDataKey(slotIndex, SaveSlotPrefsKeys.BattleFormationSuffix));
             PlayerPrefs.Save();
         }
 
@@ -312,7 +341,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 };
             }
 
-            PlayerPrefs.SetString(FormationKey(_slotIndex), JsonUtility.ToJson(data));
+            PlayerPrefs.SetString(FormationKey(_slotIndex, _campaignMode), JsonUtility.ToJson(data));
             PlayerPrefs.Save();
         }
 
@@ -339,9 +368,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             return _pool.TryGet(warriorId, out warrior);
         }
 
-        private static string FormationKey(int slotIndex)
+        private static string FormationKey(int slotIndex, CampaignMode mode)
         {
-            return KeyPrefix + slotIndex + FormationSuffix;
+            return SaveSlotPrefsKeys.DataKey(slotIndex, mode, SaveSlotPrefsKeys.BattleFormationSuffix);
         }
     }
 }

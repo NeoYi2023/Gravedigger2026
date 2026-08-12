@@ -1,0 +1,21 @@
+BodyPartId,BodyLevel,BodySlot,RaceId,ControlPowerCost,SpiritCost,StatBonus,AutoConvert,Description,ArtAssetId,IsPrimaryHand,ClassRestrict,BodyPrimaryStat
+BP_Head_Human,1,Head,Race_Human,1,1,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,案例躯体材料 BP_Head_Human,Art_BP_Head_Human,0,,Intelligence
+BP_Torso_Human,1,Torso,Race_Human,1,1,MaxHP_25|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.2,1,案例躯体材料 BP_Torso_Human,Art_BP_Torso_Human,0,,Strength
+BP_Arm_Human,1,Arm,Race_Human,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,案例主要手 BP_Arm_Elf,Art_BP_Arm_Elf,1,Class_Warrior,Strength
+BP_Arm_Elf,1,Arm,Race_Elf,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Archer,Agility
+BP_Arm_Orc,1,Arm,Race_Orc,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Mage,Intelligence
+BP_Arm_Undead,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Knight,Strength
+BP_Arm_Dwarf,1,Arm,Race_Dwarf,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Rogue,Agility
+BP_Arm_Goblin,1,Arm,Race_Goblin,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Priest,Intelligence
+BP_Arm_Demon,1,Arm,Race_Demon,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Berserker,Strength
+BP_Arm_Angel,1,Arm,Race_Angel,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Ranger,Agility
+BP_Arm_Beast,1,Arm,Race_Beast,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Warlock,Intelligence
+BP_Arm_Construct,1,Arm,Race_Construct,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Paladin,Strength
+BP_Arm_Human,1,Arm,Race_Human,1,1,MaxHP_28|Strength_12|Agility_12|Intelligence_8|MoveSpeed_0.2,1,案例次要手 BP_Arm_Human,Art_BP_Arm_Human,0,Class_Archer|Class_Ranger|Class_Warrior,Strength
+BP_Arm_Orc,1,Arm,Race_Orc,1,1,MaxHP_48|Strength_20|Agility_8|Intelligence_8|MoveSpeed_0.2,1,案例次要手 BP_Arm_Orc,Art_BP_Arm_Orc,0,Class_Mage|Class_Warlock|Class_Berserker,Strength
+BP_Leg_Elf,1,Leg,Race_Elf,1,1,MaxHP_35|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.1,1,案例躯体材料 BP_Leg_Elf,Art_BP_Leg_Elf,0,,Agility
+BP_Head_Orc,1,Head,Race_Orc,1,1,MaxHP_40|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.2,1,案例躯体材料 BP_Head_Orc,Art_BP_Head_Orc,0,,Strength
+BP_Torso_Orc,1,Torso,Race_Orc,1,1,MaxHP_45|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.3,1,案例躯体材料 BP_Torso_Orc,Art_BP_Torso_Orc,0,,Strength
+BP_Leg_Dwarf,1,Leg,Race_Dwarf,1,1,MaxHP_55|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.2,1,案例躯体材料 BP_Leg_Dwarf,Art_BP_Leg_Dwarf,0,,Strength
+BP_Head_Demon,1,Head,Race_Demon,1,1,MaxHP_60|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.3,1,案例躯体材料 BP_Head_Demon,Art_BP_Head_Demon,0,,Intelligence
+BP_Torso_Angel,1,Torso,Race_Angel,1,1,MaxHP_65|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.1,1,案例躯体材料 BP_Torso_Angel,Art_BP_Torso_Angel,0,,Agility

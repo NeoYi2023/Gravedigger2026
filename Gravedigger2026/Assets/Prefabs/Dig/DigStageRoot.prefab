@@ -94,6 +94,8 @@ MonoBehaviour:
   _root: {fileID: 1070342143672666990}
   _timerText: {fileID: 799940504988040632}
   _warehouseText: {fileID: 4037953011456883074}
+  _addGravesButton: {fileID: 0}
+  _addBodyPartsButton: {fileID: 0}
 --- !u!1 &1670737937698188530
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,11 @@
+RaceId,DisplayNameKey,RaceAdjustCoeff.MaxHP,RaceAdjustCoeff.MoveSpeed,RaceAdjustCoeff.Strength,RaceAdjustCoeff.Agility,RaceAdjustCoeff.Intelligence,LossOfControlChanceBonus
+Race_Human,人类,-0.1,-0.01,-0.05,0.07,0.01,0
+Race_Elf,精灵,-0.05,0.03,0.01,-0.05,0.07,0
+Race_Orc,兽人,0,0.07,0.07,0.01,-0.05,0
+Race_Undead,亡灵,0.05,-0.05,-0.05,0.07,0.01,0
+Race_Dwarf,矮人,0.1,-0.01,0.01,-0.05,0.07,0
+Race_Goblin,地精,-0.1,0.03,0.07,0.01,-0.05,0
+Race_Demon,恶魔,-0.05,0.07,-0.05,0.07,0.01,0.05
+Race_Angel,天使,0,-0.05,0.01,-0.05,0.01,-0.03
+Race_Beast,野兽,0.05,-0.01,0.07,0.01,-0.05,0
+Race_Construct,构装体,0.1,0.03,-0.05,0.07,0.01,0

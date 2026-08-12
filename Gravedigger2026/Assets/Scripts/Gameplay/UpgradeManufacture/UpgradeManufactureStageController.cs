@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Gravedigger2026.Core;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.UpgradeManufacture;
@@ -36,6 +38,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private ManufactureService _manufacture;
         private WarriorPoolService _warriorPool;
         private BattleFormationService _formation;
+        private AutoManufactureBatchRecordService _batchRecord;
         private LevelStageContext _stageContext;
         private Action _onComplete;
         private FormationEditorController _editor;
@@ -58,7 +61,9 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             WarriorPoolService warriorPool,
             BattleFormationService formation,
             LevelStageContext stageContext,
-            Action onComplete)
+            Action onComplete,
+            AutoManufactureBatchRecordService batchRecord = null,
+            bool autoOpenFormation = false)
         {
             End();
             EnsureTipsView();
@@ -69,6 +74,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             _manufacture = manufacture;
             _warriorPool = warriorPool;
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
+            _batchRecord = batchRecord;
             _stageContext = stageContext;
             _onComplete = onComplete;
             _active = true;
@@ -76,16 +82,24 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             _progress.Changed += HandleProgressChanged;
             if (_upgradePanel != null)
             {
+                var mode = _formation != null ? _formation.BoundCampaignMode : CampaignMode.Mode1;
+                if (mode == CampaignMode.Mode2)
+                {
+                    _upgradePanel.EnsureManufactureRecordUi();
+                }
+
                 _upgradePanel.Inject100Requested += HandleInject100;
                 _upgradePanel.Inject500Requested += HandleInject500;
                 _upgradePanel.CompleteRequested += HandleComplete;
                 _upgradePanel.FormationRequested += HandleOpenFormation;
                 _upgradePanel.OpenUpgradeModalRequested += HandleOpenUpgradeModal;
                 _upgradePanel.CloseUpgradeModalRequested += HandleCloseUpgradeModal;
+                _upgradePanel.OpenManufactureRecordRequested += HandleOpenManufactureRecord;
+                _upgradePanel.CloseManufactureRecordRequested += HandleCloseManufactureRecord;
                 _upgradePanel.Show();
             }
 
-            if (_manufacturePanel != null && _manufacture != null)
+            if (_manufacturePanel != null && _manufacture != null && _manufacturePanel.gameObject.activeSelf)
             {
                 _manufacture.Changed += HandleManufactureChanged;
                 _manufacturePanel.ItemPlaceRequested += HandleItemPlaceRequested;
@@ -112,6 +126,11 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             SetMainUiVisible(true);
             RefreshStatus();
             RefreshManufacture();
+
+            if (autoOpenFormation)
+            {
+                HandleOpenFormation();
+            }
         }
 
         public void End()
@@ -136,6 +155,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _upgradePanel.FormationRequested -= HandleOpenFormation;
                 _upgradePanel.OpenUpgradeModalRequested -= HandleOpenUpgradeModal;
                 _upgradePanel.CloseUpgradeModalRequested -= HandleCloseUpgradeModal;
+                _upgradePanel.OpenManufactureRecordRequested -= HandleOpenManufactureRecord;
+                _upgradePanel.CloseManufactureRecordRequested -= HandleCloseManufactureRecord;
                 _upgradePanel.Hide();
             }
 
@@ -168,6 +189,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             _manufacture = null;
             _warriorPool = null;
             _formation = null;
+            _batchRecord = null;
             _stageContext = null;
             _onComplete = null;
             _active = false;
@@ -181,7 +203,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 return;
             }
 
-            var rootPrefab = _formationCatalog.FormationEditorRootPrefab;
+            var mode = _formation != null ? _formation.BoundCampaignMode : CampaignMode.Mode1;
+            var rootPrefab = _formationCatalog.ResolveEditorRoot(mode);
             if (rootPrefab == null)
             {
                 Debug.LogError("[UM] FormationEditorRoot prefab missing.");
@@ -201,7 +224,9 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
 
             SetMainUiVisible(false);
             var instance = Instantiate(rootPrefab, transform);
-            instance.name = "FormationEditorRoot(Clone)";
+            instance.name = mode == CampaignMode.Mode2
+                ? "FormationEditorRoot_Mode2(Clone)"
+                : "FormationEditorRoot(Clone)";
             _editor = instance.GetComponent<FormationEditorController>();
             if (_editor == null)
             {
@@ -270,6 +295,65 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private void HandleCloseUpgradeModal()
         {
             _upgradePanel?.HideUpgradeModal();
+        }
+
+        private void HandleOpenManufactureRecord()
+        {
+            var lines = BuildManufactureRecordLines();
+            _upgradePanel?.ManufactureRecordModal?.Bind(lines);
+            _upgradePanel?.ShowManufactureRecordModal();
+        }
+
+        private void HandleCloseManufactureRecord()
+        {
+            _upgradePanel?.HideManufactureRecordModal();
+        }
+
+        private List<string> BuildManufactureRecordLines()
+        {
+            var lines = new List<string>();
+            var ids = _batchRecord != null ? _batchRecord.WarriorIds : null;
+            if (ids == null || ids.Count == 0 || _warriorPool == null)
+            {
+                return lines;
+            }
+
+            for (var i = 0; i < ids.Count; i++)
+            {
+                var id = ids[i];
+                if (string.IsNullOrEmpty(id) || !_warriorPool.TryGet(id, out var warrior) || warrior == null)
+                {
+                    continue;
+                }
+
+                var raceName = ResolveRaceDisplayName(warrior.RaceId);
+                var className = ResolveClassName(warrior.ClassId);
+                var warriorName = string.IsNullOrEmpty(warrior.WarriorName) ? id : warrior.WarriorName;
+                lines.Add(warriorName + "｜" + raceName + "｜" + className);
+            }
+
+            return lines;
+        }
+
+        private string ResolveRaceDisplayName(string raceId)
+        {
+            if (_configs != null && _configs.TryGetRace(raceId, out var raceRow) && raceRow != null)
+            {
+                return string.IsNullOrEmpty(raceRow.DisplayNameKey) ? raceRow.RaceId : raceRow.DisplayNameKey;
+            }
+
+            return raceId ?? "-";
+        }
+
+        private string ResolveClassName(string classId)
+        {
+            if (_configs != null && _configs.TryGetClass(classId, out var classRow) && classRow != null
+                && !string.IsNullOrEmpty(classRow.ClassName))
+            {
+                return classRow.ClassName;
+            }
+
+            return classId ?? "-";
         }
 
         private void HandleInject100()
@@ -513,7 +597,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
 
         private void RefreshManufacture()
         {
-            if (_manufacturePanel == null || _manufacture == null)
+            if (_manufacturePanel == null || _manufacture == null || !_manufacturePanel.gameObject.activeSelf)
             {
                 return;
             }

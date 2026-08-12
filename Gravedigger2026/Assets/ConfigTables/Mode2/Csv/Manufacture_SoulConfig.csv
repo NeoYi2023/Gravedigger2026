@@ -1,0 +1,12 @@
+SoulId,ClassId,AttackMode,Skills,AttackPriority,MoveStyle,SpiritCost,ControlPowerCost
+Soul_00,Class_Servants,Melee,,Nearest,Normal,5,5
+Soul_01,Class_Warrior,Melee,,Nearest,Normal,10,5
+Soul_02,Class_Archer,Ranged,Skill_02;1,PreferWarrior,Aggressive,15,7
+Soul_03,Class_Mage,Ranged,Skill_03;1,PreferProtagonist,Cautious,20,9
+Soul_04,Class_Knight,Melee,,Nearest,Normal,25,11
+Soul_05,Class_Rogue,Melee,Skill_05;1,PreferWarrior,Aggressive,30,13
+Soul_06,Class_Priest,Ranged,Skill_06;1,PreferProtagonist,Cautious,35,15
+Soul_07,Class_Berserker,Melee,,Nearest,Normal,40,17
+Soul_08,Class_Ranger,Ranged,Skill_08;1,PreferWarrior,Aggressive,45,19
+Soul_09,Class_Warlock,Ranged,Skill_09;1,PreferProtagonist,Cautious,50,21
+Soul_10,Class_Paladin,Melee,,Nearest,Normal,55,23

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: UpgradeManufacturePrefabCatalog
   m_EditorClassIdentifier: 
   _stageRootPrefab: {fileID: 838739006577814548, guid: db281feddd3eb854e8006eeb011b271e, type: 3}
+  _stageRootPrefabMode2: {fileID: 838739006577814548, guid: c8f4a2e19d3b4e6f8a7c5d1e0b9f3a26, type: 3}
   _warriorAppearances:
   - AppearanceId: App_01
     Prefab: {fileID: 3927253789114556784, guid: bba7ac13b3abf76478718a93d04db97e, type: 3}

@@ -42,10 +42,11 @@
 |------|----------------|----------------|
 | Meta 存档（固定 3 槽） | [§3.4](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 持久化意图 |
 | 工具面板 / 进档壳层 | [§3.5](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 壳层 UI |
-| GameplayState（Dig / UpgradeManufacture / Defend / PushMap） | [§3.1](../../SPEC_03_GameRules.md)、[§3.7](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
+| GameplayState（Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap） | [§3.1](../../SPEC_03_GameRules.md)、[§3.7](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
 | 关卡阶段流水线 / LevelOperation | [§3.9](../../SPEC_03_GameRules.md) | [§9](../../SPEC_04_Technical.md) |
 | 挖坟 Dig / DigMap / Grave | [§3.10](../../SPEC_03_GameRules.md) | [§9.2](../../SPEC_04_Technical.md) DigMapId→`Prefabs/Maps/Ground_*`；[§13](../../SPEC_04_Technical.md)；[§15](../../SPEC_04_Technical.md) Digger 烘焙整角 |
 | 升级与制造 UpgradeManufacture | [§3.11](../../SPEC_03_GameRules.md) | [§9.8](../../SPEC_04_Technical.md) ProtagonistLevelConfig；[§9.9](../../SPEC_04_Technical.md) SoulConfig / WarriorInstance；[§9.9b](../../SPEC_04_Technical.md) ClassConfig；[§9.10](../../SPEC_04_Technical.md) GemConfig；[§9.11](../../SPEC_04_Technical.md) RaceConfig；[§9.12](../../SPEC_04_Technical.md) BodyPartConfig；[§9.13](../../SPEC_04_Technical.md) BodyAppearanceConfig；[§9.14](../../SPEC_04_Technical.md) ExtraEquipmentConfig；[§9.15](../../SPEC_04_Technical.md) GemSuffixNameConfig；[§9.20](../../SPEC_04_Technical.md) LossOfControlConfig；[§9.21](../../SPEC_04_Technical.md) SkillConfig；[§9.21b](../../SPEC_04_Technical.md) SkillEffectConfig |
+| Mode2 自动制造 AutoManufacture | [§3.15](../../SPEC_03_GameRules.md) | [§9.9b](../../SPEC_04_Technical.md) ClassConfig（AttackMode/PlacementOrder/DefaultAppearanceId）；[§9.12](../../SPEC_04_Technical.md) BodyPart 扩列；[§9.24](../../SPEC_04_Technical.md) MagicBookConfig；[§13](../../SPEC_04_Technical.md) FormationClassZone；[§6](../../SPEC_04_Technical.md) AutoManufactureBatch；UI-015 / D-054 制造记录；UI-016 / D-055 演出；issues `.scratch/mode2-auto-manufacture/` |
 | 士兵属性构成 | [§3.11](../../SPEC_03_GameRules.md) 士兵属性构成 | [§9.9](../../SPEC_04_Technical.md)–[§9.15](../../SPEC_04_Technical.md)；Base(S)=Σ StatBonus；StaticStat / FinalStat；ClassId→ClassConfig（PrimaryStat；CombatConvertCoeffs；AttackRange 等）；MaxHP=ceil(BodyLife+Str×3)；多宝石 Σ GemMult |
 | 士兵制造流程 / 槽位 / 命名 | [§3.11](../../SPEC_03_GameRules.md) 制造士兵 | 槽位与最低要求（躯干+臂2+腿2；灵魂可选→Soul_00+Class_Servants）；SpiritCost 闸门；部位加权定种族；外观选取（含保底；ClassAffinity→ClassConfig.ClassName）；WarriorName；`AppearanceId`→`Prefabs/Defend/Warriors/`（[§15](../../SPEC_04_Technical.md)） |
 | 控制力 / 失控 / 叛变 | [§3.11](../../SPEC_03_GameRules.md) 控制力与失控、[§3.12](../../SPEC_03_GameRules.md) 失控判定与叛变 | Degree=ΣCost/Cap−1；四档；开战锁定 roll；FinalChance；Rebel 就近；[§9.20](../../SPEC_04_Technical.md) / [§9.21](../../SPEC_04_Technical.md) |
@@ -54,7 +55,7 @@
 | 大规模战斗寻路 MassCombatPathing（方案 B） | [§3.12](../../SPEC_03_GameRules.md) MassCombatPathing、[§3.14](../../SPEC_03_GameRules.md) 士兵推进 | [§9.7](../../SPEC_04_Technical.md) FlowField / AttackSlot / LocalDetour；issues `.scratch/mass-pathing/` |
 | 科技树 TechTree / TechItem / TechEffect | [§3.13](../../SPEC_03_GameRules.md) | [§9.16](../../SPEC_04_Technical.md) TechTreeConfig；[§9.17](../../SPEC_04_Technical.md) TechEffectConfig |
 | 推图战 PushMap / ObjectivePoint / CaptureZone / AggroMode | [§3.14](../../SPEC_03_GameRules.md) | [§9.22](../../SPEC_04_Technical.md) PushMapGameplayConfig；[§9.23](../../SPEC_04_Technical.md) PushMapSpawnConfig；[§9.19](../../SPEC_04_Technical.md) MonsterConfig.AggroMode/AlertRadius；地图标记 [§13](../../SPEC_04_Technical.md) |
-| Demo 验收 D-001～D-043 | [§3.8](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) |
+| Demo 验收 D-001～D-045 / D-050～D-055 | [§3.8](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) |
 
 ## Changelog
 

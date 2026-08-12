@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.75.35
-**最后更新 / Last Updated:** 2026-08-10  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数）  
+**文档版本 / Document Version:** v0.79.0
+**最后更新 / Last Updated:** 2026-08-12  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,20 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-12 | v0.79.0 | Mode2 AutoManufacture 演出 UI（难度 2，方案 A / D-055 / UI-016）：Step1 士兵行+6 魔法书槽；Step2 逐兵「加强」动画/Idle 揭示/每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过演出；issues AM-10～13；同步 SPEC_03 §3.6/§3.8/§3.9/§3.15、SPEC_04 §6/§13、CONTEXT、spec-map |
+| 2026-08-12 | v0.78.0 | Mode2 制造记录弹窗（难度 2，方案 A / D-054 / UI-015）：最近一批 AutoManufacture Id 持久化；UM「布阵」右只读 Modal（名字/种族/职业）；0 兵「本批无士兵」；Mode1 无入口；同步 SPEC_03 §3.11/§3.15/§3.6/§3.8、SPEC_04 §6、CONTEXT |
+| 2026-08-12 | v0.77.10 | Dig 坟墓外观：`Grave_{QualityId}` Prefab Sprite 固定绑 `Art/Dig/Graves/Grave_{QualityId}/`；`DigPrefabCatalog` 覆盖当前模式品质表（Mode2 Demo Q1–Q20）；Builder/HitShape baker 品质列表对齐；同步 SPEC_04 §2/§6/§9.2 |
+| 2026-08-11 | v0.77.9 | FormationClassZone：XZ AABB → XZ OBB（Snapshot `RotationYDegrees`；螺旋/Contains 本地框）；样例 `Ground_*` Ensure/Prefab **Y=25°**；同步 SPEC_03 §3.15、SPEC_04 §6/§13、CONTEXT |
+| 2026-08-11 | v0.77.8 | Dig Demo GM：HUD「增加坟墓」（加权试生成×10）/「增加躯体材料」（BodyPartConfig 全表各+10）；`DigSessionService.DebugSpawnGraves` / `DebugGrantAllBodyParts`；不计入 DigStageSummary；同步 SPEC_03 §3.10、SPEC_04 §6 |
+| 2026-08-11 | v0.77.7 | Mode2 AutoManufacture：本批造兵数 = 0 时壳层 Tips「无士兵可制造」（约 1s，不阻塞推进）；同步 SPEC_03 §3.15 / D-050 备注 |
+| 2026-08-11 | v0.77.6 | Mode2 AutoManufacture AM-08：Mode2 `Level_LevelOperationConfig` Excel↔CSV 对齐（Level_01 Dig→AutoManufacture→UM→PushMap）；Mode1 无 AutoManufacture；D-050～D-053 手验清单文档化；D-050/D-051→已实现；AM-03～08 闭环 |
+| 2026-08-11 | v0.77.5 | Mode2 AutoManufacture AM-07（方案 C）：UM Prefab 分叉 `UpgradeManufactureStageRoot_Mode2`（ManufactureZone 默认关）+ `FormationEditorRoot_Mode2`（控制力 HUD 关）；Catalog 按 CampaignMode Resolve；Mode1 Prefab 行为不变；D-053 已实现 |
+| 2026-08-11 | v0.77.4 | Mode2 AutoManufacture AM-06（方案 A）：`FormationClassZone`（XZ AABB）+ `AutoFormationDeployService` 区内螺旋/`BodyRadius`；批末 Clear→flush 本批 Id→`PlacementOrder` 上阵；样例 `Ground_*` Ensure 常用职业区；D-052 已实现；Mode2 UM 差分仍 AM-07 |
+| 2026-08-11 | v0.77.3 | Mode2 AutoManufacture AM-05（方案 A）：`AutoManufactureService` 钩子后定稿 StaticStat/MaxHP、Mode2 外观链（含 `DefaultAppearanceId`）、`WarriorName=RaceDisplayName+ClassName`；批末 flush→`WarriorPool`；SoulId 空、Control=0；不改 Mode1 `ManufactureService`；D-051 备注更新；上阵仍 AM-06 |
+| 2026-08-11 | v0.77.2 | Mode2 AutoManufacture AM-04（方案 A）：`SpecialEquipSlotsService` PlayerPrefs 6 槽按 CampaignMode；`IsUnique` 装配闸门；`SoldierManufactureMagicBookHook` 空 apply+日志；MetaShell 进档/回档/删档接线；D-051 备注更新；具体效果行/装备 UI 仍另专题 |
+| 2026-08-11 | v0.77.1 | Mode2 AutoManufacture AM-03（方案 A）：`GameplayState.AutoManufacture` + `AutoManufactureStageModule`/`AutoManufactureService`/`TempWarriorWarehouse`；选料→职业→基础属性→扣料入临时仓；不计 Spirit/Control；不写 SoulId；空魔法书钩子；阶段自动交还；Mode2 `Level_01` 插入 AutoManufacture；D-050/D-051 部分实现；外观/入池/上阵/UM 差分仍 AM-05～07 |
+| 2026-08-11 | v0.77.0 | Mode2 自动制造规则关闭（§3.15）：Dig→AutoManufacture→UM；最低配方头+躯干+双臂（含主要手）+双腿；近似品质\|Δ\|≤1；职业由双手 ClassRestrict；不计 Spirit/Control；不写 SoulId；AttackMode/PlacementOrder/DefaultAppearanceId 入 ClassConfig；BodyPart 扩 IsPrimaryHand/ClassRestrict/BodyPrimaryStat；MagicBookConfig+6 槽+制造钩子骨架；清空布阵后按职业区上阵；D-050～D-053；issues `.scratch/mode2-auto-manufacture/`；同步 SPEC_03/04、CONTEXT、spec-map |
+| 2026-08-11 | v0.76.0 | 玩法模式 CampaignMode 框架（难度 2，方案 A）：进出档弹窗选 Mode1/Mode2；同槽进度按模式分键隔离；Mode2 独立 `ConfigTables/Mode2/{Excel,Csv}`（先复制 Mode1）；合成差异 TBD；勿与 BattleMode 混淆；同步 SPEC_03 §3.2–§3.4/§3.6/§3.8、SPEC_04 §6/§14、CONTEXT |
 | 2026-08-10 | v0.75.35 | 攻击移动打断距离门控（难度 1）：`SetMoving(true)` 仅当 `moveTargetDistanceXZ > 0.4` 才 `ResetTrigger`+`CrossFade(RunBT)`；近距微调不砍普攻；Objective/无目标点按足够远；规则结算不变；同步 SPEC_04 §15.5、CONTEXT |
 | 2026-08-10 | v0.75.34 | 士兵制造灵魂可选：最低要求改为躯干+臂2+腿2；无灵魂→`SoulId=Soul_00`、强制 `ClassId=Class_Servants`，其余灵魂侧字段读 `Soul_00`；可视预览闸门不再要求灵魂；同步 SPEC_03 §3.11、SPEC_04 §6/§9.9/§9.9b、CONTEXT、spec-map、样例表 |
 | 2026-08-10 | v0.75.33 | AllyFootCircle：localRotation X=-30；Order In Layer 保持 1；`WarriorAnimView` 批量改 sortingOrder/尸体变暗时跳过脚下圈（避免被刷成 200） |
@@ -233,6 +247,19 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-12 | v0.78.0 | Mode2 ManufactureRecord popup (diff 2, Approach A / D-054 / UI-015): persist last AutoManufacture batch Ids; UM read-only Modal to the right of Formation (name/race/class); empty 「本批无士兵」; Mode1 has no entry; synced SPEC_03 §3.11/§3.15/§3.6/§3.8, SPEC_04 §6, CONTEXT |
+| 2026-08-12 | v0.77.10 | Dig grave visuals: `Grave_{QualityId}` Prefab Sprite binds `Art/Dig/Graves/Grave_{QualityId}/`; `DigPrefabCatalog` covers all current-mode GraveQualityConfig ids (Mode2 Demo Q1–Q20); Builder/HitShape baker lists aligned; synced SPEC_04 §2/§6/§9.2 |
+| 2026-08-11 | v0.77.9 | FormationClassZone: XZ AABB → XZ OBB (Snapshot `RotationYDegrees`; spiral/Contains in local box); sample `Ground_*` Ensure/Prefab **Y=25°**; synced SPEC_03 §3.15, SPEC_04 §6/§13, CONTEXT |
+| 2026-08-11 | v0.77.8 | Dig Demo GM: HUD Add Graves (weighted try×10) / Add Body Parts (all BodyPartConfig rows +10 each); `DigSessionService.DebugSpawnGraves` / `DebugGrantAllBodyParts`; excluded from DigStageSummary; synced SPEC_03 §3.10, SPEC_04 §6 |
+| 2026-08-11 | v0.77.7 | Mode2 AutoManufacture: when batch crafts 0 soldiers, shell Tips「无士兵可制造」(~1s, non-blocking); synced SPEC_03 §3.15 / D-050 note |
+| 2026-08-11 | v0.77.6 | Mode2 AutoManufacture AM-08: Mode2 `Level_LevelOperationConfig` Excel↔CSV aligned (`Level_01` Dig→AutoManufacture→UM→PushMap); Mode1 has no AutoManufacture; D-050–D-053 handcheck checklist documented; D-050/D-051 → Done; AM-03–08 closed |
+| 2026-08-11 | v0.77.5 | Mode2 AutoManufacture AM-07 (Approach C): UM Prefab fork `UpgradeManufactureStageRoot_Mode2` (ManufactureZone off) + `FormationEditorRoot_Mode2` (ControlPower HUD off); Catalog Resolve by CampaignMode; Mode1 Prefabs unchanged; D-053 done |
+| 2026-08-11 | v0.77.4 | Mode2 AutoManufacture AM-06 (Approach A): `FormationClassZone` (XZ AABB) + `AutoFormationDeployService` in-zone spiral/`BodyRadius`; batch Clear→flush batch Ids→`PlacementOrder` deploy; sample `Ground_*` Ensure common class zones; D-052 done; Mode2 UM diffs remain AM-07 |
+| 2026-08-11 | v0.77.3 | Mode2 AutoManufacture AM-05 (Approach A): `AutoManufactureService` finalizes StaticStat/MaxHP after hook, Mode2 appearance chain (incl. `DefaultAppearanceId`), `WarriorName=RaceDisplayName+ClassName`; batch-end flush→`WarriorPool`; empty SoulId, Control=0; Mode1 `ManufactureService` untouched; D-051 note updated; deploy remains AM-06 |
+| 2026-08-11 | v0.77.2 | Mode2 AutoManufacture AM-04 (Approach A): `SpecialEquipSlotsService` PlayerPrefs 6 slots per CampaignMode; `IsUnique` equip gate; `SoldierManufactureMagicBookHook` empty apply+log; MetaShell bind/clear/delete wiring; D-051 note updated; concrete effects/equip UI still later |
+| 2026-08-11 | v0.77.1 | Mode2 AutoManufacture AM-03 (Approach A): `GameplayState.AutoManufacture` + `AutoManufactureStageModule`/`AutoManufactureService`/`TempWarriorWarehouse`; pick→class→base→consume→temp warehouse; no Spirit/Control; no SoulId; empty MagicBook hook; auto stage advance; Mode2 `Level_01` inserts AutoManufacture; D-050/D-051 partial; appearance/pool/deploy/UM diffs remain AM-05–07 |
+| 2026-08-11 | v0.77.0 | Mode2 AutoManufacture rules closed (§3.15): Dig→AutoManufacture→UM; min recipe Head+Torso+2Arm(incl PrimaryHand)+2Leg; approx \|Δ\|≤1; class from hand ClassRestrict; no Spirit/Control; no SoulId; ClassConfig AttackMode/PlacementOrder/DefaultAppearanceId; BodyPart IsPrimaryHand/ClassRestrict/BodyPrimaryStat; MagicBookConfig+6 slots+hook stub; clear formation then class-zone deploy; D-050–D-053; issues `.scratch/mode2-auto-manufacture/`; synced SPEC_03/04, CONTEXT, spec-map |
+| 2026-08-11 | v0.76.0 | CampaignMode framework (diff 2, Approach A): enter/create save shows Mode1/Mode2 popup; per-slot progress keys isolated by mode; Mode2 parallel `ConfigTables/Mode2/{Excel,Csv}` (copy of Mode1 first); manufacture diffs TBD; not BattleMode; synced SPEC_03 §3.2–§3.4/§3.6/§3.8, SPEC_04 §6/§14, CONTEXT |
 | 2026-08-10 | v0.75.35 | Attack-move interrupt distance gate (diff 1): `SetMoving(true)` force `ResetTrigger`+`CrossFade(RunBT)` only when `moveTargetDistanceXZ > 0.4`; near nudges do not chop attack; Objective/missing target = far enough; rules settle unchanged; synced SPEC_04 §15.5, CONTEXT |
 | 2026-08-10 | v0.75.34 | Soldier manufacture Soul optional: min = Torso+2Arm+2Leg; empty Soul → `SoulId=Soul_00`, force `ClassId=Class_Servants`, other soul-side fields from `Soul_00`; visual preview gate no longer requires Soul; synced SPEC_03 §3.11, SPEC_04 §6/§9.9/§9.9b, CONTEXT, spec-map, sample tables |
 | 2026-08-10 | v0.75.33 | AllyFootCircle: localRotation X=-30; Order In Layer stays 1; `WarriorAnimView` skips foot circle when batching sortingOrder/corpse darken (was overwritten to 200) |

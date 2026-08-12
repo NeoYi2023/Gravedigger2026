@@ -19,7 +19,7 @@ namespace Gravedigger2026.Editor.Meta
         private const string PrefabUiDir = "Assets/Prefabs/UI";
         private const string RootPrefabPath = PrefabMetaDir + "/MetaShellRoot.prefab";
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
-        private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0330a";
+        private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0760a";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -105,9 +105,10 @@ namespace Gravedigger2026.Editor.Meta
             var saveSelect = BuildSaveSelect(canvasGo.transform);
             var inSaveShell = BuildInSaveShell(canvasGo.transform);
             var confirm = BuildConfirmDialog(canvasGo.transform);
+            var campaignModeSelect = BuildCampaignModeSelect(canvasGo.transform);
             var toast = BuildToast(canvasGo.transform);
 
-            AssignControllerRefs(controller, saveSelect, inSaveShell, confirm, toast);
+            AssignControllerRefs(controller, saveSelect, inSaveShell, confirm, campaignModeSelect, toast);
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             eventSystem.transform.SetParent(root.transform, false);
@@ -120,12 +121,14 @@ namespace Gravedigger2026.Editor.Meta
             SaveSelectView saveSelect,
             InSaveShellView inSaveShell,
             ConfirmDialogView confirm,
+            CampaignModeSelectView campaignModeSelect,
             ToastView toast)
         {
             var so = new SerializedObject(controller);
             so.FindProperty("_saveSelectView").objectReferenceValue = saveSelect;
             so.FindProperty("_inSaveShellView").objectReferenceValue = inSaveShell;
             so.FindProperty("_confirmDialog").objectReferenceValue = confirm;
+            so.FindProperty("_campaignModeSelect").objectReferenceValue = campaignModeSelect;
             so.FindProperty("_toastView").objectReferenceValue = toast;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -338,6 +341,38 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_root").objectReferenceValue = root;
             so.FindProperty("_messageText").objectReferenceValue = message;
             so.FindProperty("_confirmButton").objectReferenceValue = confirm.GetComponent<Button>();
+            so.FindProperty("_cancelButton").objectReferenceValue = cancel.GetComponent<Button>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+            root.SetActive(false);
+            return view;
+        }
+
+        private static CampaignModeSelectView BuildCampaignModeSelect(Transform parent)
+        {
+            var root = CreatePanel(parent, "CampaignModeSelect", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(root.GetComponent<RectTransform>());
+
+            var box = CreatePanel(root.transform, "Box", new Color(0.18f, 0.20f, 0.24f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560f, 280f));
+
+            var message = CreateText(box.transform, "Message", "选择玩法模式", 24, TextAnchor.MiddleCenter);
+            Place(message.GetComponent<RectTransform>(), new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(500f, 60f));
+
+            var mode1 = CreateButton(box.transform, "Mode1Button", "模式1", new Color(0.28f, 0.45f, 0.65f, 1f));
+            Place(mode1.GetComponent<RectTransform>(), new Vector2(0.28f, 0.42f), new Vector2(0.28f, 0.42f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(150f, 48f));
+
+            var mode2 = CreateButton(box.transform, "Mode2Button", "模式2", new Color(0.35f, 0.55f, 0.38f, 1f));
+            Place(mode2.GetComponent<RectTransform>(), new Vector2(0.72f, 0.42f), new Vector2(0.72f, 0.42f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(150f, 48f));
+
+            var cancel = CreateButton(box.transform, "CancelButton", "取消", new Color(0.35f, 0.38f, 0.42f, 1f));
+            Place(cancel.GetComponent<RectTransform>(), new Vector2(0.5f, 0.18f), new Vector2(0.5f, 0.18f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(140f, 44f));
+
+            var view = root.AddComponent<CampaignModeSelectView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_messageText").objectReferenceValue = message;
+            so.FindProperty("_mode1Button").objectReferenceValue = mode1.GetComponent<Button>();
+            so.FindProperty("_mode2Button").objectReferenceValue = mode2.GetComponent<Button>();
             so.FindProperty("_cancelButton").objectReferenceValue = cancel.GetComponent<Button>();
             so.ApplyModifiedPropertiesWithoutUndo();
             root.SetActive(false);

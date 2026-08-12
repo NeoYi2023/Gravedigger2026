@@ -22,9 +22,10 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
         private const string SettingsUmDir = "Assets/Settings/UpgradeManufacture";
         private const string CatalogPath = SettingsUmDir + "/UpgradeManufacturePrefabCatalog.asset";
         private const string StageRootPath = PrefabUmDir + "/UpgradeManufactureStageRoot.prefab";
+        private const string StageRootMode2Path = PrefabUmDir + "/UpgradeManufactureStageRoot_Mode2.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0640";
+        private const string RegenPrefsKey = "Gravedigger2026.UmAssets.Regen.v0780";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -38,6 +39,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
 
                 var missing = AssetDatabase.LoadAssetAtPath<UpgradeManufacturePrefabCatalog>(CatalogPath) == null
                               || AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath) == null
+                              || AssetDatabase.LoadAssetAtPath<GameObject>(StageRootMode2Path) == null
                               || !AssetDatabase.IsValidFolder(PrefabWarriorsDir);
                 var needsRegen = !EditorPrefs.GetBool(RegenPrefsKey, false);
                 if (missing || needsRegen)
@@ -59,6 +61,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             PrefabUtility.SaveAsPrefabAsset(stageGo, StageRootPath);
             Object.DestroyImmediate(stageGo);
             var stagePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath);
+            var stageMode2Prefab = BuildAndSaveMode2StageRoot(stagePrefab);
 
             var catalog = AssetDatabase.LoadAssetAtPath<UpgradeManufacturePrefabCatalog>(CatalogPath);
             if (catalog == null)
@@ -68,10 +71,65 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             }
 
             catalog.EditorSet(stagePrefab);
+            catalog.EditorSetMode2(stageMode2Prefab);
             catalog.EditorSetWarriorAppearances(appearanceEntries);
             EditorUtility.SetDirty(catalog);
 
-            var stageContents = PrefabUtility.LoadPrefabContents(StageRootPath);
+            WireCatalogOnStageRoot(StageRootPath, catalog);
+            WireCatalogOnStageRoot(StageRootMode2Path, catalog);
+
+            WireMetaShell(catalog);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"[UmAssetBuilder] Generated UM Prefabs (Mode1+Mode2), Catalog ({appearanceEntries.Length} warrior appearances), and wired MetaShellRoot.");
+        }
+
+        private static GameObject BuildAndSaveMode2StageRoot(GameObject mode1Prefab)
+        {
+            if (mode1Prefab == null)
+            {
+                return null;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(StageRootPath);
+            contents.name = "UpgradeManufactureStageRoot_Mode2";
+            var zone = FindDeep(contents.transform, "ManufactureZone");
+            if (zone != null)
+            {
+                zone.gameObject.SetActive(false);
+            }
+            else
+            {
+                Debug.LogWarning("[UmAssetBuilder] ManufactureZone not found when building Mode2 StageRoot.");
+            }
+
+            var umRoot = FindDeep(contents.transform, "UmRoot");
+            var upgradeView = umRoot != null
+                ? umRoot.GetComponent<UpgradePanelView>()
+                : contents.GetComponentInChildren<UpgradePanelView>(true);
+            if (upgradeView != null && umRoot != null)
+            {
+                var recordView = ManufactureRecordModalView.Build(umRoot, out var recordButton);
+                var vso = new SerializedObject(upgradeView);
+                vso.FindProperty("_manufactureRecordButton").objectReferenceValue = recordButton;
+                vso.FindProperty("_manufactureRecordModal").objectReferenceValue = recordView;
+                vso.ApplyModifiedPropertiesWithoutUndo();
+            }
+            else
+            {
+                Debug.LogWarning("[UmAssetBuilder] UmRoot/UpgradePanelView missing when adding Mode2 ManufactureRecord.");
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(contents, StageRootMode2Path);
+            PrefabUtility.UnloadPrefabContents(contents);
+            return AssetDatabase.LoadAssetAtPath<GameObject>(StageRootMode2Path);
+        }
+
+        private static void WireCatalogOnStageRoot(string prefabPath, UpgradeManufacturePrefabCatalog catalog)
+        {
+            var stageContents = PrefabUtility.LoadPrefabContents(prefabPath);
             var controller = stageContents.GetComponent<UpgradeManufactureStageController>();
             if (controller != null)
             {
@@ -80,15 +138,32 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
 
-            PrefabUtility.SaveAsPrefabAsset(stageContents, StageRootPath);
+            PrefabUtility.SaveAsPrefabAsset(stageContents, prefabPath);
             PrefabUtility.UnloadPrefabContents(stageContents);
+        }
 
-            WireMetaShell(catalog);
+        private static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null)
+            {
+                return null;
+            }
 
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            Debug.Log(
-                $"[UmAssetBuilder] Generated UM Prefabs, Catalog ({appearanceEntries.Length} warrior appearances), and wired MetaShellRoot.");
+            if (root.name == name)
+            {
+                return root;
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var found = FindDeep(root.GetChild(i), name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

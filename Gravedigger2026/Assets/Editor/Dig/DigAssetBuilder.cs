@@ -37,7 +37,8 @@ namespace Gravedigger2026.Editor.Dig
 
         private static readonly string[] QualityIds =
         {
-            "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10"
+            "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
+            "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20"
         };
 
         [InitializeOnLoadMethod]
@@ -94,14 +95,18 @@ namespace Gravedigger2026.Editor.Dig
             {
                 var q = QualityIds[i];
                 var path = $"{PrefabDigDir}/Grave_{q}.prefab";
-                Sprite keepSprite = null;
-                var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (existing != null)
+                Sprite keepSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    $"Assets/Art/Dig/Graves/Grave_{q}/Grave_{q}.png");
+                if (keepSprite == null)
                 {
-                    var existingSr = existing.GetComponentInChildren<SpriteRenderer>(true);
-                    if (existingSr != null)
+                    var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    if (existing != null)
                     {
-                        keepSprite = existingSr.sprite;
+                        var existingSr = existing.GetComponentInChildren<SpriteRenderer>(true);
+                        if (existingSr != null)
+                        {
+                            keepSprite = existingSr.sprite;
+                        }
                     }
                 }
 
@@ -410,6 +415,16 @@ namespace Gravedigger2026.Editor.Dig
             Place(warehouse.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(24f, -70f), new Vector2(900f, 36f));
 
+            var addGravesBtn = CreateUiButton(hudRoot.transform, "GmAddGravesButton", "增加坟墓",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(addGravesBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -86f), new Vector2(180f, 40f));
+
+            var addBodyPartsBtn = CreateUiButton(hudRoot.transform, "GmAddBodyPartsButton", "增加躯体材料",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(addBodyPartsBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -138f), new Vector2(180f, 40f));
+
             // Transparent HUD panel must not eat mouse for Dig cursor / Meta buttons.
             var hudImage = hudRoot.GetComponent<Image>();
             if (hudImage != null)
@@ -422,6 +437,8 @@ namespace Gravedigger2026.Editor.Dig
             hso.FindProperty("_root").objectReferenceValue = hudRoot;
             hso.FindProperty("_timerText").objectReferenceValue = timer;
             hso.FindProperty("_warehouseText").objectReferenceValue = warehouse;
+            hso.FindProperty("_addGravesButton").objectReferenceValue = addGravesBtn.GetComponent<Button>();
+            hso.FindProperty("_addBodyPartsButton").objectReferenceValue = addBodyPartsBtn.GetComponent<Button>();
             hso.ApplyModifiedPropertiesWithoutUndo();
             hudRoot.SetActive(false);
 

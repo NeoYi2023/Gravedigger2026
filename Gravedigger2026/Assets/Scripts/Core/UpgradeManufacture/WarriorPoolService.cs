@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using UnityEngine;
 
@@ -7,24 +8,23 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 {
     /// <summary>
     /// Save-scoped deployable soldier pool (SPEC_03 §3.11 / SPEC_04 §6).
-    /// PlayerPrefs JSON per slot; mutate → immediate write when bound.
+    /// PlayerPrefs JSON per slot + CampaignMode; mutate → immediate write when bound.
     /// </summary>
     public sealed class WarriorPoolService
     {
-        private const string KeyPrefix = "Gravedigger2026.SaveSlot.";
-        private const string PoolSuffix = ".WarriorPool";
-
         private readonly List<WarriorInstance> _warriors = new List<WarriorInstance>();
         private int _nextSerial = 1;
         private int _slotIndex = -1;
+        private CampaignMode _campaignMode = CampaignMode.Mode1;
         private bool _suppressPersist;
 
         public int BoundSlotIndex => _slotIndex;
+        public CampaignMode BoundCampaignMode => _campaignMode;
         public IReadOnlyList<WarriorInstance> Warriors => _warriors;
 
         public event Action Changed;
 
-        public void BindSlot(int slotIndex)
+        public void BindSlot(int slotIndex, CampaignMode campaignMode)
         {
             if (slotIndex < 0 || slotIndex > 2)
             {
@@ -35,10 +35,25 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             try
             {
                 _slotIndex = slotIndex;
+                _campaignMode = campaignMode;
                 _warriors.Clear();
                 _nextSerial = 1;
 
-                var raw = PlayerPrefs.GetString(PoolKey(slotIndex), string.Empty);
+                var key = PoolKey(slotIndex, campaignMode);
+                var raw = PlayerPrefs.GetString(key, string.Empty);
+                var migratedFromLegacy = false;
+
+                if (string.IsNullOrEmpty(raw) && campaignMode == CampaignMode.Mode1)
+                {
+                    var legacyKey = SaveSlotPrefsKeys.LegacyDataKey(
+                        slotIndex, SaveSlotPrefsKeys.WarriorPoolSuffix);
+                    raw = PlayerPrefs.GetString(legacyKey, string.Empty);
+                    if (!string.IsNullOrEmpty(raw))
+                    {
+                        migratedFromLegacy = true;
+                    }
+                }
+
                 if (!string.IsNullOrEmpty(raw))
                 {
                     var data = JsonUtility.FromJson<WarriorPoolSaveData>(raw);
@@ -66,6 +81,16 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                         EnsureNextSerialAboveExisting();
                     }
                 }
+
+                if (migratedFromLegacy)
+                {
+                    _suppressPersist = false;
+                    PersistIfBound();
+                    _suppressPersist = true;
+                    PlayerPrefs.DeleteKey(
+                        SaveSlotPrefsKeys.LegacyDataKey(slotIndex, SaveSlotPrefsKeys.WarriorPoolSuffix));
+                    PlayerPrefs.Save();
+                }
             }
             finally
             {
@@ -78,6 +103,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public void ClearBound()
         {
             _slotIndex = -1;
+            _campaignMode = CampaignMode.Mode1;
             _suppressPersist = true;
             try
             {
@@ -108,7 +134,10 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 return;
             }
 
-            PlayerPrefs.DeleteKey(PoolKey(slotIndex));
+            PlayerPrefs.DeleteKey(PoolKey(slotIndex, CampaignMode.Mode1));
+            PlayerPrefs.DeleteKey(PoolKey(slotIndex, CampaignMode.Mode2));
+            PlayerPrefs.DeleteKey(
+                SaveSlotPrefsKeys.LegacyDataKey(slotIndex, SaveSlotPrefsKeys.WarriorPoolSuffix));
             PlayerPrefs.Save();
         }
 
@@ -196,7 +225,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 data.Warriors[i] = ToDto(_warriors[i]);
             }
 
-            PlayerPrefs.SetString(PoolKey(_slotIndex), JsonUtility.ToJson(data));
+            PlayerPrefs.SetString(PoolKey(_slotIndex, _campaignMode), JsonUtility.ToJson(data));
             PlayerPrefs.Save();
         }
 
@@ -223,9 +252,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             }
         }
 
-        private static string PoolKey(int slotIndex)
+        private static string PoolKey(int slotIndex, CampaignMode mode)
         {
-            return KeyPrefix + slotIndex + PoolSuffix;
+            return SaveSlotPrefsKeys.DataKey(slotIndex, mode, SaveSlotPrefsKeys.WarriorPoolSuffix);
         }
 
         private static WarriorSaveDto ToDto(WarriorInstance w)

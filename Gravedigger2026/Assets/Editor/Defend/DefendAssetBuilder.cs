@@ -7,6 +7,7 @@ using Gravedigger2026.Editor.Art;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Maps;
+using Gravedigger2026.Gameplay.Formation;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using Gravedigger2026.Meta;
 using UnityEditor;
@@ -34,7 +35,7 @@ namespace Gravedigger2026.Editor.Defend
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
         private const string MonsterCsv = "Defend_MonsterConfig.csv";
-        private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0473";
+        private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0774";
 
         private static readonly string[] MapIds =
         {
@@ -217,10 +218,75 @@ namespace Gravedigger2026.Editor.Defend
                 zso.ApplyModifiedPropertiesWithoutUndo();
 
                 EnsureSpawnPointSet(contents.transform, center, half);
+                EnsureFormationClassZones(contents.transform, center);
 
                 PrefabUtility.SaveAsPrefabAsset(contents, path);
                 PrefabUtility.UnloadPrefabContents(contents);
             }
+        }
+
+        /// <summary>
+        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / AM-06). Idempotent by ClassId child name.
+        /// Layout: front melee / mid servants / back ranged (map-center-relative XZ).
+        /// Each zone localEuler Y=25° (XZ OBB authoring).
+        /// </summary>
+        private static void EnsureFormationClassZones(Transform mapRoot, Vector3 mapCenter)
+        {
+            var root = mapRoot.Find("FormationClassZones");
+            if (root == null)
+            {
+                var go = new GameObject("FormationClassZones");
+                go.transform.SetParent(mapRoot, false);
+                go.transform.position = mapCenter;
+                root = go.transform;
+            }
+            else
+            {
+                root.position = mapCenter;
+            }
+
+            var half = new Vector2(0.45f, 0.35f);
+            // relX, relZ — front = −Z, back = +Z
+            EnsureOneClassZone(root, mapCenter, "Class_Warrior", -2.0f, -1.2f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Knight", -1.0f, -1.2f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Paladin", 0.0f, -1.2f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Berserker", 1.0f, -1.2f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Rogue", 2.0f, -1.2f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Servants", 0.0f, -0.2f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Archer", -2.0f, 1.0f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Ranger", -1.0f, 1.0f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Mage", 0.0f, 1.0f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Warlock", 1.0f, 1.0f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Priest", 2.0f, 1.0f, half);
+        }
+
+        private static void EnsureOneClassZone(
+            Transform zonesRoot,
+            Vector3 mapCenter,
+            string classId,
+            float relX,
+            float relZ,
+            Vector2 halfExtents)
+        {
+            var child = zonesRoot.Find(classId);
+            if (child == null)
+            {
+                var go = new GameObject(classId);
+                go.transform.SetParent(zonesRoot, false);
+                child = go.transform;
+            }
+
+            child.position = new Vector3(mapCenter.x + relX, mapCenter.y + 0.05f, mapCenter.z + relZ);
+            // Demo sample OBB orientation (SPEC_03 §3.15 / SPEC_04 §13).
+            child.localEulerAngles = new Vector3(0f, 25f, 0f);
+            var zone = child.GetComponent<FormationClassZone>();
+            if (zone == null)
+            {
+                zone = child.gameObject.AddComponent<FormationClassZone>();
+            }
+
+            zone.EditorSet(classId, halfExtents);
+            EditorUtility.SetDirty(zone);
         }
 
         private static void EnsureSpawnPointSet(Transform mapRoot, Vector3 center, Vector2 halfExtents)

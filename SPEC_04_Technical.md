@@ -65,7 +65,7 @@ Gravedigger2026/Assets/
 │   │   ├── Appearances/   # Appearances/{AppearanceId}/
 │   │   └── Monsters/      # Monsters/{ModelId}/
 │   ├── Dig/               # 坟墓、挖坟反馈等非角色源
-│   │   ├── Graves/        # Graves/{Grave_Q*}/
+│   │   ├── Graves/        # Graves/{Grave_Q*}/（Demo Q1…Q20；子文件夹名 = Prefab 逻辑名）
 │   │   └── Feedback/
 │   ├── Maps/              # Maps/Tiles/（Isometric Tile+Sprite）+ Maps/{Ground_0N}/
 │   ├── Defend/            # 弹道、护盾等非角色表现源
@@ -173,27 +173,34 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **范围外：** 完整技能施放与效果表；正式美术 polish；精确 OutsideMap 几何；**完整**存档 schema（仓库/经验/科技等仍 TBD；士兵池+布阵本片已锁定）；科技树节点具体数值/图标 polish 与功能系统名完整枚举；工具后续功能；打表全量 §9 列/类型校验（Demo 仅文件名+表头）；未列入 §3.8 的需求。
 
-**持久化意图（轻量）：** 本地、按槽索引 `0..2`。**Demo Meta 选型已锁定：`PlayerPrefs`**。键：
-- `Gravedigger2026.SaveSlot.{0|1|2}.Occupied`（`0`/`1`）
-- `Gravedigger2026.SaveSlot.{i}.WarriorPool` — JSON：`NextSerial` + `WarriorInstance` 制造静态快照数组（含 `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife` 等；见 §9.9）
-- `Gravedigger2026.SaveSlot.{i}.BattleFormation` — JSON：`{WarriorId, PositionX, PositionZ, RemainingHP}[]`
-- `Gravedigger2026.SaveSlot.{i}.DungeonUnlocks` — 管道分隔副本解锁 ID（既有）
+**持久化意图（轻量）：** 本地、按槽索引 `0..2` + **`CampaignMode`**。**Demo Meta 选型已锁定：`PlayerPrefs`**。键：
+- `Gravedigger2026.SaveSlot.{0|1|2}.Occupied`（`0`/`1`；**按槽共享**，与模式无关）
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.WarriorPool` — JSON：`NextSerial` + `WarriorInstance` 制造静态快照数组（含 `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife` 等；见 §9.9）
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.BattleFormation` — JSON：`{WarriorId, PositionX, PositionZ, RemainingHP}[]`
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.DungeonUnlocks` — 管道分隔副本解锁 ID
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SpecialEquipSlots` — JSON：主角魔法书 6 槽（§9.24；**AM-04 已实现**读写 + `IsUnique` 装配闸门）
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.AutoManufactureBatch` — JSON：最近一批 AutoManufacture `WarriorIds[]`（**D-054 方案 A**；空批写空数组；下一批覆盖）
+- **兼容：** Mode1 绑定时若新键空且旧键 `Gravedigger2026.SaveSlot.{i}.WarriorPool`（及 Formation/DungeonUnlocks）有数据 → 读旧键并可一次性迁移到新键
 
-**士兵池 / 布阵持久化（方案 A）：** `WarriorPoolService` / `BattleFormationService` 各自 `BindSlot(slot)` 进档加载、`ClearBound` 回档选；池/布阵变更立即 `PlayerPrefs` 写回；删档 `DeleteSlotData` 清键。进档顺序：先绑池再绑布阵；布阵加载时丢弃池中不存在的 `WarriorId`。仓库 / 经验 / 科技等完整 schema 仍 **TBD**。
+**士兵池 / 布阵持久化（方案 A + CampaignMode）：** `WarriorPoolService` / `BattleFormationService` / `DungeonUnlockService` / `AutoManufactureBatchRecordService` 各自 `BindSlot(slot, campaignMode)` 进档加载、`ClearBound` 回档选；池/布阵/批次记录变更立即 `PlayerPrefs` 写回；删档 `DeleteSlotData` 清 **两模式**键。进档顺序：先绑池再绑布阵；布阵加载时丢弃池中不存在的 `WarriorId`。仓库 / 经验 / 科技等完整 schema 仍 **TBD**。
 
-**Meta 壳实现（方案 A，D-001～D-004）：** 单场景 `Assets/Scenes/Boot.unity`；`SaveSelect` / `InSaveShell` 以 Canvas Prefab 显隐切换（`Assets/Prefabs/Meta/`、`Assets/Prefabs/UI/`）。规则层：`SaveSlotService` + `GameplayStateService`；View 只订阅。工具「设置」→ **打开科技树画布**（见下 UI-012）；工具「关卡」→ **启动样例 `Level_01`**（见下「关卡驱动」）。壳层正式手动切三态仍 **TBD**；Demo 暂提供进档壳 **Debug「切下一态」** 仅用于手验 D-004（不得等同工具「关卡」）；另提供 **Debug「推进阶段」** 手验 D-010（占位结束当前阶段 → 下一阶段 / VictorySettlement）。
+**玩法模式门闩（方案 A，D-045）：** 新建/进入 → `CampaignModeSelectView`（UI-014）选 Mode1/Mode2 或取消；确认后 `CampaignModeService` 持有当前模式 → 按模式绑槽 → `ConfigCsvRepository` 按模式 CSV 根重载 → `EnterShell`。回存档选 Clear 模式。Mode2 士兵制造 = **AutoManufacture**（规则 [SPEC_03 §3.15](SPEC_03_GameRules.md)；实现 D-050～D-054 / `.scratch/mode2-auto-manufacture/issues/`）。
+
+**自动制造 Stage（规则已锁；AM-03～13 闭环 + D-054/D-055）：** `GameplayType=AutoManufacture` → `AutoManufactureStageModule` + `AutoManufactureService` + `AutoFormationDeployService`；`GameplayConfigId` 忽略；循环选料/职业/基础属性 → 钩子 → StaticStat/外观（含 `DefaultAppearanceId`）/命名 → `TempWarriorWarehouse` → **先 Clear `BattleFormation`** → flush→`WarriorPool`（收集本批 Id）→ 按 `PlacementOrder` 升序落入 `FormationClassZone`（XZ OBB：`HalfExtents` + `RotationYDegrees`；区内螺旋 + `BodyRadius`；失败留池）；不计 Spirit/Control；不写 SoulId；`SpecialEquipSlotsService` + `SoldierManufactureMagicBookHook`（空 apply / 日志）；**D-054 方案 A：** `AutoManufactureBatchRecordService` 批末 `Replace(flushedIds)`（含空批）→ PlayerPrefs `…AutoManufactureBatch`；Mode2 UM「布阵」右「制造记录」只读 Modal；**D-055 / UI-016 方案 A：** 批末若 crafted>0 Instantiates `Assets/Prefabs/AutoManufacture/AutoManufacturePresentationRoot.prefab`（或运行时 Build）→ `AutoManufacturePresentationController` 播 Step1–2 → 完成回调再 `TryAdvanceStage`；`AutoManufacturePresentationFlags.AutoOpenFormationOnce` 供 Mode2 UM Enter 自动 `HandleOpenFormation`；0 兵 Tips + 跳过演出且不置旗。MetaShell 进档 Bind / 回档 Clear / 删档 Delete。批结束后自动 `TryAdvanceStage` → Mode2 UM（**方案 C Prefab 分叉**：`UpgradeManufactureStageRoot_Mode2` 关 ManufactureZone；`FormationEditorRoot_Mode2` 关控制力 HUD；Catalog `Resolve*` 按 `CampaignMode`）。Mode2 样例运作表 `Level_01`：Dig→AutoManufacture→UM→PushMap（Excel/CSV 对齐；手验清单 AM-08）。
+
+**Meta 壳实现（方案 A，D-001～D-004 + D-045）：** 单场景 `Assets/Scenes/Boot.unity`；`SaveSelect` / `InSaveShell` 以 Canvas Prefab 显隐切换（`Assets/Prefabs/Meta/`、`Assets/Prefabs/UI/`）。规则层：`SaveSlotService` + `GameplayStateService` + `CampaignModeService`；View 只订阅。工具「设置」→ **打开科技树画布**（见下 UI-012）；工具「关卡」→ **启动样例 `Level_01`**（见下「关卡驱动」）。壳层正式手动切三态仍 **TBD**；Demo 暂提供进档壳 **Debug「切下一态」** 仅用于手验 D-004（不得等同工具「关卡」）；另提供 **Debug「推进阶段」** 手验 D-010（占位结束当前阶段 → 下一阶段 / VictorySettlement）。
 
 **关卡驱动（方案 A，D-010）：** `ConfigCsvRepository` 只读 CSV（路径见 [§14.5](#145-运行时-csv-加载路径demo)）；`LevelOperationDriver` 按 `LevelId` 取行、`StageNumber` 升序运行；进入阶段时设置 `GameplayState`，经 `IStageModule` 进入/离开钩子挂各玩法（Dig / UM / Defend 见下；士兵战斗与胜负仍待后续片）。`GameplayType=UpgradeManufacture` 时 **忽略** `GameplayConfigId`（不查 Dig/Defend 表）。Dig/Defend 解析对应表行后校验 `DigMapId` / `BattleMapId` ∈ `Ground_01`…`Ground_05`，逻辑路径 `Assets/Prefabs/Maps/{Id}.prefab`。UI/日志须可见 LevelId、StageNumber、GameplayType。
 
-**Dig 垂直切片（方案 A，D-020）：** `DigStageModule`（`IStageModule`）Enter 时按 `DigMapId` Instantiate `Assets/Prefabs/Maps/{Id}.prefab`，并挂 `DigStageRoot`（`Assets/Prefabs/Dig/`）。规则层 `DigSessionService`（纯 C#）负责有效时长倒计时、开局/过程生成、DigAction 停留触发与忙碌锁、扣血、仓库/精魂入账、阶段奖励汇总；`DigProtagonistCapabilities` 由 **科技树** 重算后注入（见 UI-012）。DigAction 候选：光标圆 ∩ 坟 `DigHitShape` 本地 XZ 凸包（世界变换后；粗筛用 `BoundingRadius`）；无凸包则回退障碍圆。表现：`DigPrefabCatalog` 绑定 Digger / `Grave_{QualityId}` / 地图变体 / `UiDigCursorRing`；圆圈光标（Prefab 双层、描边像素恒定）、坟墓 HP 样式、DigReward 飞向、DigStageSummary 由 View 订阅。时长归零 → 取消进行中 DigAction（不结算扣血）→ DigStageSummary 确认 → `LevelOperationDriver.TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`；规则层禁止读 Sprite/像素。
+**Dig 垂直切片（方案 A，D-020）：** `DigStageModule`（`IStageModule`）Enter 时按 `DigMapId` Instantiate `Assets/Prefabs/Maps/{Id}.prefab`，并挂 `DigStageRoot`（`Assets/Prefabs/Dig/`）。规则层 `DigSessionService`（纯 C#）负责有效时长倒计时、开局/过程生成、DigAction 停留触发与忙碌锁、扣血、仓库/精魂入账、阶段奖励汇总；`DigProtagonistCapabilities` 由 **科技树** 重算后注入（见 UI-012）。DigAction 候选：光标圆 ∩ 坟 `DigHitShape` 本地 XZ 凸包（世界变换后；粗筛用 `BoundingRadius`）；无凸包则回退障碍圆。表现：`DigPrefabCatalog` 绑定 Digger / `Grave_{QualityId}`（须覆盖当前模式品质表全部 Id；Sprite 来自 `Art/Dig/Graves/Grave_{QualityId}/`）/ 地图变体 / `UiDigCursorRing`；圆圈光标（Prefab 双层、描边像素恒定）、坟墓 HP 样式、DigReward 飞向、DigStageSummary 由 View 订阅。时长归零 → 取消进行中 DigAction（不结算扣血）→ DigStageSummary 确认 → `LevelOperationDriver.TryAdvanceStage`。**Demo GM（Dig HUD）：** `DigHudView` 右上「增加坟墓」「增加躯体材料」→ `DigStageController` → `DigSessionService.DebugSpawnGraves(10)`（复用加权/`TrySpawnOneGrave`）与 `DebugGrantAllBodyParts(10)`（遍历 `configs.BodyParts` → `Warehouse.AddItem`，无 AutoConvert，触发 `WarehouseChanged`）；不计入 DigStageSummary。Prefab / `DigAssetBuilder` 绑按钮。禁止运行时引用 `SmallScaleInt/`；规则层禁止读 Sprite/像素。
 
 **科技树画布（方案 A，UI-012 可选）：** `ConfigCsvRepository` 追加加载 `Tech_TechTreeConfig.csv` / `Tech_TechEffectConfig.csv`。规则层纯 C# `TechTreeService`（存档级，挂 Meta 壳）持有已学会集合与 `UnlockedFeatureSystems`；进档/`Reset` 时对 `InitiallyUnlocked` 自动学会并应用效果；学习闸门 = 未学会 ∧ TechPoint≥LearnCost ∧ ≥1 已学会前置（由 `UnlockNextTechIds` 求逆）；学会扣点 → 标记 → 解析 `AttributeModifiers` 加法求和 → 写入 `DigProtagonistCapabilities`（Demo `DiggableQualityIds` 仍取全品质表，便于挖坟手验）。表现：临时 `Assets/Prefabs/Meta/TechTreeCanvasRoot.prefab`（节点坐标 Prefab 摆放；uGUI 空白处 LMB 拖移；悬停名+效果描述；连线按正向边；三态框色）；工具「设置」打开画布；Debug 可注入 TechPoints。禁止运行时引用 `SmallScaleInt/`。
 
-**UM 升级区（方案 A，D-030）：** `UpgradeManufactureStageModule` Enter 时 Instantiate `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab`（**默认全屏制造区**；升级为 Modal，顶部「GM升级」打开、右上「X」关闭；布阵经「布阵」打开共享编辑器）。`ConfigCsvRepository` 加载 `Manufacture_ProtagonistLevelConfig.csv`。规则层纯 C# `ProtagonistProgressService` 持有内存态 `Level` / `LifetimeExperience` / `TechPoints` / 生效 `ControlPowerCap` / `ProtagonistMaxHP`；累计阈值连升并应用表行奖励与上限。Debug 注入仍可用；正式 Defend 胜利入账见 D-043。底部「完成」→ `TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
+**UM 升级区（方案 A，D-030；Mode2 差分方案 C / D-053 + D-054）：** `UpgradeManufactureStageModule` Enter 时按 `CampaignMode` Instantiate `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab`（Mode1：**默认全屏制造区**）或 `UpgradeManufactureStageRoot_Mode2.prefab`（Mode2：`ManufactureZone` 默认关，保留 GM 升级 Modal / 完成 / 布阵 / **制造记录**）。升级为 Modal，顶部「GM升级」打开、右上「X」关闭；布阵经「布阵」打开共享编辑器；Mode2「布阵」右「制造记录」打开只读批次 Modal（`UmAssetBuilder.BuildAndSaveMode2StageRoot` 追加；Mode1 字段可空）。`ConfigCsvRepository` 加载 `Manufacture_ProtagonistLevelConfig.csv`。规则层纯 C# `ProtagonistProgressService` 持有内存态 `Level` / `LifetimeExperience` / `TechPoints` / 生效 `ControlPowerCap` / `ProtagonistMaxHP`；累计阈值连升并应用表行奖励与上限。Debug 注入仍可用；正式 Defend 胜利入账见 D-043。底部「完成」→ `TryAdvanceStage`。禁止运行时引用 `SmallScaleInt/`。
 
 **UM 制造区（方案 A，D-031 → UI 重做 / Pool 再造）：** `ConfigCsvRepository` 追加加载 `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`。规则层纯 C# `ManufactureService` 持有 15 个严格槽位（头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1），按 Id 解析所属表自动路由到合法空槽，类型不符 / 同类型宝石重复 / 库存不足即拒绝；每次槽位变化重算预览（`Base(S)=Σ StatBonus`、`Equip`、`GemMult`、`RaceAdjust`、`StaticStat`、静态 `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`、`TotalSpiritCost`、`ControlPowerCost`、试算种族与外观）。「制造」闸门 = 最低要求（躯干+臂2+腿2；**灵魂可选**）且 `SpiritEssence ≥ TotalSpiritCost`（头/灵魂/宝石/坐骑/翅膀对**提交**均可选）。无灵魂槽：实例 `SoulId=Soul_00`，灵魂侧费用/AttackMode 等读 `Soul_00`，**强制** `ClassId=Class_Servants`（不扣仓库灵魂）。制造成功写入 `WarriorInstance.SourceItemIds` + `SourceSpiritCost`；`TryRemanufacture(sourceWarriorId)` 按配方后台校验/扣料/再跑聚合与掷种族外观流水线并 `_pool.Add` **新实例**（不改 `_slots`）；材料不足 / 精魂不足错误码供 Tips。**躯体外观可视预览闸门**（表现层）：头+躯干+臂×2+腿×2+坐骑+翅膀已填（**灵魂与宝石不参与**）→ Instantiate 试算 `AppearanceId` Prefab 并 `WarriorAnimView` 播攻击再待机；否则静态占位图。`WarehouseService` 扩展同前；Debug「注入制造套件」同前。表现：`ManufacturePanelView` — PreviewPanel 左、中心环绕槽位方格（左：头/臂1/腿1/翅膀；右：躯干/臂2/腿2/坐骑；预览内底灵魂；下排半尺寸宝石×6）、PoolPanel 右为 **ScrollRect 士兵框列表**（`PoolSoldierFrameView`；选中显「再造1个」）、UmCanvas 中上部 Tips（1s：「材料不足」/「精魂不足」）、底栏库存方格横滑 + Input 拖拽入槽、三操作钮在库存下。布局权威：`UmAssetBuilder` 重建 StageRoot Prefab。外观资源：`UpgradeManufacturePrefabCatalog` 绑定 `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`。禁止运行时引用 `SmallScaleInt/`。
 
-**UM 布阵区（方案 A→拖拽编辑器，D-032）：** 纯 C# `BattleFormationService`（存档级，`BindSlot` + PlayerPrefs JSON）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）。UM 主屏全屏制造 + Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend Prepare **共用**。禁止运行时引用 `SmallScaleInt/`。
+**UM 布阵区（方案 A→拖拽编辑器，D-032；Mode2 差分方案 C / D-053）：** 纯 C# `BattleFormationService`（存档级，`BindSlot` + PlayerPrefs JSON）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`（Mode2 士兵 Cost 恒 0，且**不**按控制力拒上阵）。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（Mode1：士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）；Mode2 用 `FormationEditorRoot_Mode2.prefab`（控制力 HUD 默认关；Catalog `ResolveEditorRoot`）。UM 主屏 Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend / PushMap Prepare **共用**选型。禁止运行时引用 `SmallScaleInt/`。
 
 **战斗模式选关（方案 A，D-044）：** `DefendStageModule` Enter 先 Instantiate `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab`（或运行时等价 UI）；`DefendPhase=ModeSelect`；模式1「保卫战」列出全部 `DefendGameplayConfig`；运作表 `GameplayConfigId` 作 Recommended 默认高亮；确认后用所选行覆盖 `LevelStageContext.DefendConfig` 再进入现有 Prepare。模式2「推图战」列出全部 `PushMapGameplayConfig`；确认后调用 `LevelOperationDriver.TryHandoffModeSelectToPushMap(configId)`：`Exit` 当前 Defend 模块 → 保留 `LevelId`/`StageNumber` 改写 `GameplayType=PushMap` + `PushMapConfig` + 地图路径 → `SetState(PushMap)` → `PushMapStageModule.Enter` → `StageChanged`。禁止运行时引用 `SmallScaleInt/`。
 
@@ -233,27 +240,34 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Out of scope:** Full skill casts / effect tables; formal art polish; exact OutsideMap geometry; **full** save schema (Warehouse/Exp/Tech still TBD; warrior pool + formation locked this slice); concrete TechTree node values/icon polish & full feature-system enum; future Tools entries; bake full §9 column/type validation (Demo: filename + header only); anything not in §3.8.
 
-**Persistence intent:** Local by slot index `0..2`. **Demo Meta locked: `PlayerPrefs`**. Keys:
-- `Gravedigger2026.SaveSlot.{0|1|2}.Occupied` (`0`/`1`)
-- `Gravedigger2026.SaveSlot.{i}.WarriorPool` — JSON: `NextSerial` + `WarriorInstance` manufacture snapshot array (incl. `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife`; see §9.9)
-- `Gravedigger2026.SaveSlot.{i}.BattleFormation` — JSON: `{WarriorId, PositionX, PositionZ, RemainingHP}[]`
-- `Gravedigger2026.SaveSlot.{i}.DungeonUnlocks` — pipe-separated dungeon unlock IDs (existing)
+**Persistence intent:** Local by slot index `0..2` + **`CampaignMode`**. **Demo Meta locked: `PlayerPrefs`**. Keys:
+- `Gravedigger2026.SaveSlot.{0|1|2}.Occupied` (`0`/`1`; **shared per slot**, mode-agnostic)
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.WarriorPool` — JSON: `NextSerial` + `WarriorInstance` manufacture snapshot array (incl. `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife`; see §9.9)
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.BattleFormation` — JSON: `{WarriorId, PositionX, PositionZ, RemainingHP}[]`
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.DungeonUnlocks` — pipe-separated dungeon unlock IDs
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SpecialEquipSlots` — JSON: protagonist MagicBook 6 slots (§9.24; **AM-04 implemented** read/write + `IsUnique` equip gate)
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.AutoManufactureBatch` — JSON: last AutoManufacture `WarriorIds[]` (**D-054 Approach A**; empty batch writes `[]`; next batch overwrites)
+- **Compat:** On Mode1 bind, if new key empty and legacy `Gravedigger2026.SaveSlot.{i}.WarriorPool` (and Formation/DungeonUnlocks) has data → read legacy and optionally one-shot migrate to new key
 
-**Warrior pool / formation persistence (Approach A):** `WarriorPoolService` / `BattleFormationService` each `BindSlot(slot)` on enter-save, `ClearBound` on return to SaveSelect; mutate → immediate `PlayerPrefs` write; delete slot → `DeleteSlotData` clears keys. Enter order: bind pool then formation; drop formation rows whose `WarriorId` is missing from pool. Warehouse / Exp / Tech full schema still **TBD**.
+**Warrior pool / formation persistence (Approach A + CampaignMode):** `WarriorPoolService` / `BattleFormationService` / `DungeonUnlockService` / `AutoManufactureBatchRecordService` each `BindSlot(slot, campaignMode)` on enter-save, `ClearBound` on return to SaveSelect; mutate → immediate `PlayerPrefs` write; delete slot → `DeleteSlotData` clears **both** mode keys. Enter order: bind pool then formation; drop formation rows whose `WarriorId` is missing from pool. Warehouse / Exp / Tech full schema still **TBD**.
 
-**Meta shell (Approach A, D-001–D-004):** Single scene `Assets/Scenes/Boot.unity`; SaveSelect / InSaveShell via Canvas Prefab show/hide (`Assets/Prefabs/Meta/`, `Assets/Prefabs/UI/`). Rules: `SaveSlotService` + `GameplayStateService`; Views subscribe only. Tools Settings → **opens TechTree canvas** (UI-012 below); Tools Level → **starts sample `Level_01`** (see Level driver below). Formal shell three-state switch still **TBD**; Demo temp **Debug cycle** on InSaveShell for hand-checking D-004 (must not equal Tools Level); **Debug advance stage** for D-010 (placeholder end → next / VictorySettlement).
+**CampaignMode gate (Approach A, D-045):** Create/Enter → `CampaignModeSelectView` (UI-014) pick Mode1/Mode2 or cancel; on confirm `CampaignModeService` holds mode → bind slot by mode → `ConfigCsvRepository` reload from mode CSV root → `EnterShell`. Clear mode on return to SaveSelect. Mode2 soldier manufacture = **AutoManufacture** (rules [SPEC_03 §3.15](SPEC_03_GameRules.md); impl D-050–D-054 / `.scratch/mode2-auto-manufacture/issues/`).
+
+**AutoManufacture stage (rules locked; AM-03–13 closed + D-054/D-055):** `GameplayType=AutoManufacture` → `AutoManufactureStageModule` + `AutoManufactureService` + `AutoFormationDeployService`; ignore `GameplayConfigId`; pick/class/base → hook → StaticStat/appearance (incl. `DefaultAppearanceId`)/name → `TempWarriorWarehouse` → **Clear `BattleFormation` first** → flush→`WarriorPool` (collect batch Ids) → deploy by ascending `PlacementOrder` into `FormationClassZone` (XZ OBB: `HalfExtents` + `RotationYDegrees`; in-zone spiral + `BodyRadius`; fail → stay in pool); ignore Spirit/Control; no SoulId; `SpecialEquipSlotsService` + `SoldierManufactureMagicBookHook` (empty apply / log); **D-054 Approach A:** `AutoManufactureBatchRecordService` `Replace(flushedIds)` after batch (incl. empty) → PlayerPrefs `…AutoManufactureBatch`; Mode2 UM Manufacture Record Modal; **D-055 / UI-016 Approach A:** if crafted>0 Instantiate `Assets/Prefabs/AutoManufacture/AutoManufacturePresentationRoot.prefab` (or runtime Build) → `AutoManufacturePresentationController` plays Step1–2 → complete callback then `TryAdvanceStage`; `AutoManufacturePresentationFlags.AutoOpenFormationOnce` for Mode2 UM Enter auto `HandleOpenFormation`; 0 craft Tips + skip presentation and no flag. MetaShell Bind/Clear/Delete. After batch auto `TryAdvanceStage` → Mode2 UM (**Approach C Prefab fork**: `UpgradeManufactureStageRoot_Mode2` ManufactureZone off; `FormationEditorRoot_Mode2` ControlPower HUD off; Catalog `Resolve*` by `CampaignMode`). Mode2 sample `Level_01`: Dig→AutoManufacture→UM→PushMap (Excel/CSV aligned; handcheck AM-08).
+
+**Meta shell (Approach A, D-001–D-004 + D-045):** Single scene `Assets/Scenes/Boot.unity`; SaveSelect / InSaveShell via Canvas Prefab show/hide (`Assets/Prefabs/Meta/`, `Assets/Prefabs/UI/`). Rules: `SaveSlotService` + `GameplayStateService` + `CampaignModeService`; Views subscribe only. Tools Settings → **opens TechTree canvas** (UI-012 below); Tools Level → **starts sample `Level_01`** (see Level driver below). Formal shell three-state switch still **TBD**; Demo temp **Debug cycle** on InSaveShell for hand-checking D-004 (must not equal Tools Level); **Debug advance stage** for D-010 (placeholder end → next / VictorySettlement).
 
 **Level driver (Approach A, D-010):** `ConfigCsvRepository` reads CSV only (paths: [§14.5](#145-runtime-csv-load-paths-demo)); `LevelOperationDriver` loads rows by `LevelId`, runs ascending `StageNumber`; sets `GameplayState` and calls `IStageModule` enter/leave hooks (Dig / UM / Defend below; warrior combat and win/lose still later). When `GameplayType=UpgradeManufacture`, **ignore** `GameplayConfigId` (no Dig/Defend lookup). Dig/Defend rows validate `DigMapId` / `BattleMapId` ∈ `Ground_01`…`Ground_05` and resolve `Assets/Prefabs/Maps/{Id}.prefab`. UI/log must show LevelId, StageNumber, GameplayType.
 
-**Dig vertical (Approach A, D-020):** `DigStageModule` (`IStageModule`) on Enter instantiates `Assets/Prefabs/Maps/{DigMapId}.prefab` and mounts `DigStageRoot` (`Assets/Prefabs/Dig/`). Rules: pure-C# `DigSessionService` owns effective-duration countdown, initial/process spawn, DigAction dwell + busy lock, damage, Warehouse/Spirit credit, stage reward aggregate; `DigProtagonistCapabilities` injected from **TechTree** recalc (see UI-012). DigAction candidates: cursor circle ∩ grave `DigHitShape` local-XZ convex hull (world-transformed; broadphase `BoundingRadius`); no hull → fall back to obstacle circle. Presentation: `DigPrefabCatalog` binds Digger / `Grave_{QualityId}` / map variants / `UiDigCursorRing`; circle cursor (Prefab dual-layer, fixed-pixel stroke), grave HP styles, DigReward fly-to, DigStageSummary via Views. Duration 0 → cancel in-progress DigAction (no damage) → DigStageSummary confirm → `LevelOperationDriver.TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`; rules must not read Sprite/pixels.
+**Dig vertical (Approach A, D-020):** `DigStageModule` (`IStageModule`) on Enter instantiates `Assets/Prefabs/Maps/{DigMapId}.prefab` and mounts `DigStageRoot` (`Assets/Prefabs/Dig/`). Rules: pure-C# `DigSessionService` owns effective-duration countdown, initial/process spawn, DigAction dwell + busy lock, damage, Warehouse/Spirit credit, stage reward aggregate; `DigProtagonistCapabilities` injected from **TechTree** recalc (see UI-012). DigAction candidates: cursor circle ∩ grave `DigHitShape` local-XZ convex hull (world-transformed; broadphase `BoundingRadius`); no hull → fall back to obstacle circle. Presentation: `DigPrefabCatalog` binds Digger / `Grave_{QualityId}` (must cover all current-mode quality ids; Sprite from `Art/Dig/Graves/Grave_{QualityId}/`) / map variants / `UiDigCursorRing`; circle cursor (Prefab dual-layer, fixed-pixel stroke), grave HP styles, DigReward fly-to, DigStageSummary via Views. Duration 0 → cancel in-progress DigAction (no damage) → DigStageSummary confirm → `LevelOperationDriver.TryAdvanceStage`. **Demo GM (Dig HUD):** `DigHudView` top-right "Add Graves" / "Add Body Parts" → `DigStageController` → `DigSessionService.DebugSpawnGraves(10)` (reuse weighted/`TrySpawnOneGrave`) and `DebugGrantAllBodyParts(10)` (iterate `configs.BodyParts` → `Warehouse.AddItem`, no AutoConvert, fire `WarehouseChanged`); not counted in DigStageSummary. Prefab / `DigAssetBuilder` wires buttons. Do not runtime-reference `SmallScaleInt/`; rules must not read Sprite/pixels.
 
 **TechTree canvas (Approach A, UI-012 optional):** `ConfigCsvRepository` additionally loads `Tech_TechTreeConfig.csv` / `Tech_TechEffectConfig.csv`. Rules: pure-C# `TechTreeService` (save-scoped on Meta shell) holds learned set + `UnlockedFeatureSystems`; on enter-save/`Reset`, auto-learns `InitiallyUnlocked` and applies effects; learn gate = not learned ∧ TechPoint≥LearnCost ∧ ≥1 learned prerequisite (inverse of `UnlockNextTechIds`); on learn spend → mark → parse additive `AttributeModifiers` → write `DigProtagonistCapabilities` (Demo keeps `DiggableQualityIds` = all grave qualities for Dig hand-check). Presentation: temp `Assets/Prefabs/Meta/TechTreeCanvasRoot.prefab` (node positions on Prefab; uGUI LMB-drag pan; hover name+effect desc; edges from forward ids; three-state frame colors); Tools Settings opens canvas; Debug can inject TechPoints. Do not runtime-reference `SmallScaleInt/`.
 
-**UM upgrade panel (Approach A, D-030):** `UpgradeManufactureStageModule` on Enter instantiates `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab` (**full-screen manufacture by default**; upgrade as Modal via top "GM Upgrade", close with top-right "X"; formation via Formation button → shared editor). `ConfigCsvRepository` loads `Manufacture_ProtagonistLevelConfig.csv`. Rules: pure-C# `ProtagonistProgressService` holds in-memory `Level` / `LifetimeExperience` / `TechPoints` / effective `ControlPowerCap` / `ProtagonistMaxHP`; cumulative-threshold chain level-ups apply row rewards/caps. Debug inject remains; formal Defend victory credit in D-043. Bottom Complete → `TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
+**UM upgrade panel (Approach A, D-030; Mode2 diff Approach C / D-053 + D-054):** `UpgradeManufactureStageModule` on Enter instantiates by `CampaignMode` either `Assets/Prefabs/UpgradeManufacture/UpgradeManufactureStageRoot.prefab` (Mode1: **full-screen manufacture by default**) or `UpgradeManufactureStageRoot_Mode2.prefab` (Mode2: ManufactureZone off; keep GM Upgrade Modal / Complete / Formation / **Manufacture Record**). Upgrade as Modal via top "GM Upgrade", close with top-right "X"; formation via Formation button → shared editor; Mode2 "Manufacture Record" to the right of Formation opens read-only batch Modal (`UmAssetBuilder.BuildAndSaveMode2StageRoot` adds it; Mode1 fields may be null). `ConfigCsvRepository` loads `Manufacture_ProtagonistLevelConfig.csv`. Rules: pure-C# `ProtagonistProgressService` holds in-memory `Level` / `LifetimeExperience` / `TechPoints` / effective `ControlPowerCap` / `ProtagonistMaxHP`; cumulative-threshold chain level-ups apply row rewards/caps. Debug inject remains; formal Defend victory credit in D-043. Bottom Complete → `TryAdvanceStage`. Do not runtime-reference `SmallScaleInt/`.
 
 **UM manufacture panel (Approach A, D-031 → UI redo / pool remake):** `ConfigCsvRepository` additionally loads `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`. Rules: pure-C# `ManufactureService` owns the 15 strict slots (Head1/Torso1/Arm2/Leg2/Soul1/Gem6/Mount1/Wing1), routes an Id to a legal empty slot by resolving its source table, and rejects on type mismatch / duplicate `GemType` / insufficient stock; every slot change recomputes the preview (`Base(S)=Σ StatBonus`, `Equip`, `GemMult`, `RaceAdjust`, `StaticStat`, static `MaxHP=ceil(BodyLife+StaticStat(Str)×3)`, `TotalSpiritCost`, `ControlPowerCost`, trial Race + Appearance). Manufacture gate = min parts (Torso+2Arm+2Leg; **Soul optional**) and `SpiritEssence ≥ TotalSpiritCost` (Head/Soul/gems/Mount/Wing optional for **commit**). Empty Soul slot: instance `SoulId=Soul_00`, soul-side costs/AttackMode from `Soul_00`, **force** `ClassId=Class_Servants` (no warehouse Soul consume). On success write `WarriorInstance.SourceItemIds` + `SourceSpiritCost`; `TryRemanufacture(sourceWarriorId)` validates/consumes from recipe in background, re-runs aggregate + Race/Appearance roll, `_pool.Add` **new** instance (does not mutate `_slots`); material/Spirit shortage error codes feed Tips. **Visual BodyAppearance gate** (presentation): Head+Torso+Arm×2+Leg×2+Mount+Wing filled (**Soul and gems do not gate**) → Instantiate trial `AppearanceId` Prefab and drive `WarriorAnimView` attack-then-idle; else static placeholder. `WarehouseService` / Debug kit unchanged. Presentation: `ManufacturePanelView` — PreviewPanel left, center slot ring (left: Head/Arm1/Leg1/Wing; right: Torso/Arm2/Leg2/Mount; Soul inside preview bottom; half-size gems×6 below), PoolPanel right as **ScrollRect soldier-frame list** (`PoolSoldierFrameView`; selected shows「Remake×1」), upper-center Tips on UmCanvas (1s:「材料不足」/「精魂不足」), bottom inventory square bar + Input drag into slots, three action buttons under inventory. Layout authority: `UmAssetBuilder` rebuilds StageRoot Prefab. Appearance: `UpgradeManufacturePrefabCatalog` binds `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`. Do not runtime-reference `SmallScaleInt/`.
 
-**UM formation panel (Approach A→drag editor, D-032):** Pure-C# `BattleFormationService` (save-scoped, `BindSlot` + PlayerPrefs JSON) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap`. Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle). UM main = full-screen manufacture + Formation right of Complete; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared with Defend Prepare. Do not runtime-reference `SmallScaleInt/`.
+**UM formation panel (Approach A→drag editor, D-032; Mode2 diff Approach C / D-053):** Pure-C# `BattleFormationService` (save-scoped, `BindSlot` + PlayerPrefs JSON) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap` (Mode2 soldier Cost always 0; **no** ControlPower deploy gate). Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (Mode1: 80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle); Mode2 uses `FormationEditorRoot_Mode2.prefab` (ControlPower HUD off; Catalog `ResolveEditorRoot`). UM main Complete + Formation opens editor; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared resolve with Defend / PushMap Prepare. Do not runtime-reference `SmallScaleInt/`.
 
 **Battle ModeSelect (Approach A, D-044):** `DefendStageModule` Enter first instantiates `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab` (or runtime-equivalent UI); `DefendPhase=ModeSelect`; Mode1「保卫战」lists all `DefendGameplayConfig`; LevelOperation `GameplayConfigId` = Recommended default highlight; on confirm overwrite `LevelStageContext.DefendConfig` then enter existing Prepare. Mode2「推图战」lists all `PushMapGameplayConfig`; on confirm call `LevelOperationDriver.TryHandoffModeSelectToPushMap(configId)`: `Exit` current Defend module → keep `LevelId`/`StageNumber`, rewrite `GameplayType=PushMap` + `PushMapConfig` + map path → `SetState(PushMap)` → `PushMapStageModule.Enter` → `StageChanged`. Do not runtime-reference `SmallScaleInt/`.
 
@@ -399,7 +413,7 @@ DigGameplayConfig {
 
 **落点：** 在 DigMap 整体可放置区域内采样；须避开 `DigObstacle`（Digger + 未消除 Grave）的圆形障碍半径（半径在对应 Prefab 上配置）。单次生成采样失败最多重试 **32** 次，仍失败则放弃该次生成。
 
-**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下 Digger 与各品质 Grave 预制体暴露圆形障碍半径（`DigObstacleRadius`）；每种 `QualityId` 对应专属 Grave Prefab。Grave 根另挂 `DigHitShape`：本地 XZ 凸包顶点（≤12）+ `BoundingRadius`，由 Editor 菜单 `Gravedigger2026/Dig/Bake All Grave Hit Shapes` 离线烘焙（优先 `Sprite.GetPhysicsShape`，否则 alpha 扫边 → 凸包 → 简化）；换图后须重烘焙。规则层只读烘焙顶点，禁止运行时读 Sprite/像素。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
+**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下 Digger 与各品质 Grave 预制体暴露圆形障碍半径（`DigObstacleRadius`）；每种 `QualityId` 对应专属 Grave Prefab。`SpriteRenderer` 源图固定为 `Assets/Art/Dig/Graves/Grave_{QualityId}/Grave_{QualityId}.png`；`DigPrefabCatalog` 须覆盖当前模式 `GraveQualityConfig` 全部 QualityId（Mode2 Demo 为 Q1–Q20）；`DigAssetBuilder` / HitShape baker 品质列表与表一致。Grave 根另挂 `DigHitShape`：本地 XZ 凸包顶点（≤12）+ `BoundingRadius`，由 Editor 菜单 `Gravedigger2026/Dig/Bake All Grave Hit Shapes` 离线烘焙（优先 `Sprite.GetPhysicsShape`，否则 alpha 扫边 → 凸包 → 简化）；换图后须重烘焙。规则层只读烘焙顶点，禁止运行时读 Sprite/像素。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
 
 #### 9.3 坟墓品质定义表 `GraveQualityConfig`
 
@@ -758,6 +772,9 @@ WarriorInstance {
 | MeleeWindupSeconds | 近战前摇 | `float` | ≥ 0；秒；`AttackMode=Melee` 时用 |
 | RangedProjectileSpeed | 远程弹速 | `float` | ≥ 0；`AttackMode=Ranged` 时用 |
 | RangedTimeoutSeconds | 远程超时 | `float` | ≥ 0；秒；超时未命中 → 未命中 |
+| AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged`；**Mode2 自动制造**无灵魂时士兵普攻分支取本列（[SPEC_03 §3.15](SPEC_03_GameRules.md)）；Mode1 仍以 `SoulConfig.AttackMode` 为准 |
+| PlacementOrder | 放置排序 | `int` | ≥ 1；Mode2 AutoManufacture 自动上阵时按此 **升序** 先后放置该职业；缺省视为很大（后置） |
+| DefaultAppearanceId | 职业默认外观 | `string` 或空 | Mode2 外观无等级+种族+职业匹配时优先用本 Id（FK → `BodyAppearanceConfig`）；空则继续种族 `IsFallback` |
 
 **`CombatConvertCoeffs` 编码（固定）：** `键_数值|键_数值|…`
 
@@ -783,12 +800,16 @@ ClassConfig {
   MeleeWindupSeconds: number
   RangedProjectileSpeed: number
   RangedTimeoutSeconds: number
+  AttackMode: Melee | Ranged      // Mode2 no-soul path
+  PlacementOrder: int             // >=1; Mode2 auto-deploy order
+  DefaultAppearanceId: Id | ""    // Mode2 appearance fallback
 }
 ```
 
 **解析：**
 
-- 制造时：有灵魂槽 → `SoulConfig.ClassId` → `WarriorInstance.ClassId`；无灵魂槽 → 强制 `Class_Servants`。命名与外观取实例 `ClassId` 对应行的 `ClassName`。
+- 制造时（Mode1）：有灵魂槽 → `SoulConfig.ClassId` → `WarriorInstance.ClassId`；无灵魂槽 → 强制 `Class_Servants`。命名与外观取实例 `ClassId` 对应行的 `ClassName`。
+- 制造时（Mode2 AutoManufacture）：`ClassId` 由双手 `ClassRestrict` 定稿（§3.15）；`AttackMode` 取本表；**不写** `SoulId`。
 - 战斗派生：先查本表取 `PrimaryStat` 与 `CombatConvertCoeffs`；命中参数取本行 `AttackRange` 等列。
 - 职业列表与具体数值后续填表。
 
@@ -890,6 +911,11 @@ RaceConfig {
 | AutoConvert | 超上限兑精魂 | `int` 或 `float` | 语义同 `MaterialConfig.AutoConvert`：每 1 个超出材料兑精魂数（≥ 0；0 = 超出丢弃且不兑） |
 | Description | 文字介绍 | `string` | 展示文案；若启用 i18n 可为本地化 Key |
 | ArtAssetId | 外形美术素材ID | `string` 或 `int` | 部位单件外观 / 仓库 UI 可用资源 Id |
+| IsPrimaryHand | 主要手 | `int` / `0\|1` | **仅** `BodySlot=Arm` 有意义；`1`=主要手（Mode2 选料锚点）；缺省 `0`；非 Arm 须为 `0` |
+| ClassRestrict | 职业限定 | 见编码 | 可产出的 `ClassId` 多值；Mode2 双手交集定职业；空=配置错误（主要手空则停造，见 §3.15） |
+| BodyPrimaryStat | 躯体主属性 | `enum` / `string` | `Strength` \| `Agility` \| `Intelligence` 恰一；Mode2 选其余部位匹配键；**勿与** `ClassConfig.PrimaryStat` 混淆 |
+
+**`ClassRestrict` 编码（固定）：** `ClassId` 或 `ClassId|ClassId|…`（管道分隔；精确匹配 `ClassConfig.ClassId`）。
 
 **`StatBonus` 编码（固定）：** `属性项_数值|属性项_数值|…`（与 [§9.17](#917-科技项效果配置表-techeffectconfig) `AttributeModifiers` 同风格；加法；空 = 无加成）。属性项键与五项 BaseStats 对齐（如 `MaxHP` / `MoveSpeed` / `Strength` / `Agility` / `Intelligence`）。
 
@@ -900,18 +926,23 @@ BodyPartConfig {
   BodySlot: Head | Torso | Arm | Leg
   RaceId: Id                      // FK → RaceConfig
   ControlPowerCost: number
-  SpiritCost: number              // >= 0; default 0
+  SpiritCost: number              // >= 0; default 0; Mode2 AutoManufacture ignores
   StatBonus: "Attr_Value|..."     // additive; empty = none
   AutoConvert: number             // SpiritEssence per 1 excess unit
   Description: string
   ArtAssetId: Id
+  IsPrimaryHand: 0 | 1            // Arm only; Mode2
+  ClassRestrict: "ClassId|..."    // Mode2 class pool
+  BodyPrimaryStat: Strength | Agility | Intelligence
 }
 ```
 
 **解析：**
 
 - `Base(S) = Σ` 已放入躯体部位的 `StatBonus(S)`（缺省维 **0**）；见 [SPEC_03 §3.11](SPEC_03_GameRules.md)。
+- Mode2 AutoManufacture 选料 / 职业规则见 [SPEC_03 §3.15](SPEC_03_GameRules.md)。
 - 仓库入账：`BodyPartId` 按材料堆叠；超限按本行 `AutoConvert` 兑精魂。
+- Mode1 表可缺新列（加载缺省：`IsPrimaryHand=0`、`ClassRestrict` 空、`BodyPrimaryStat` 可空但 Mode2 行应填）。
 - 具体数值行 **TBD**。
 
 #### 9.13 躯体外观配置表 `BodyAppearanceConfig`
@@ -1414,11 +1445,50 @@ PushMapSpawnRequest { SpawnPointId, MonsterId, SpawnCount,
 PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitProtagonist) }
 ```
 
+#### 9.24 魔法书配置表 `MagicBookConfig`
+
+规则语义：[SPEC_03 §3.15](SPEC_03_GameRules.md) 魔法书 / 特殊装备槽 / EffectPhase。一行 = 一种魔法书。本轮仅锁表结构与钩子；**无**具体效果行与装备 UI。
+
+**磁盘名：**
+- **Excel：** `制造_魔法书配置表_Manufacture_MagicBookConfig.xlsx`
+- **CSV：** `Manufacture_MagicBookConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| MagicBookId | 魔法书ID | `string` 或 `int` | 主键 |
+| IsUnique | 是否唯一 | `int` / `0\|1` | `1`=同 Id 不可叠装第二本；`0`=默认可叠（各占一槽） |
+| EffectPhase | 生效环节 | 见编码 | 触发时机；可多值 |
+| EffectPayload | 魔法书效果 | `string` | 本轮占位串（效果 Id / 编码后续专题）；空=无效果 |
+| IconAssetId | 魔法书Icon | `string` 或 `int` | UI 图标资源 Id |
+| DisplayName | 魔法书名称 | `string` | 展示名；若启用 i18n 可为 Key |
+| Description | 魔法书介绍 | `string` | 展示文案 |
+
+**`EffectPhase` 编码（固定）：** `Phase` 或 `Phase|Phase|…`。本轮枚举至少：`SoldierManufacture` \| `Combat`（Combat 本轮不实现）。
+
+```
+MagicBookConfig {
+  MagicBookId: Id
+  IsUnique: 0 | 1
+  EffectPhase: "SoldierManufacture|Combat|..."
+  EffectPayload: string           // stub this round
+  IconAssetId: Id
+  DisplayName: string
+  Description: string
+}
+```
+
+**主角特殊装备槽（存档意图）：**
+
+- 默认 **6** 槽：`Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SpecialEquipSlots` — JSON：`MagicBookId[6]`（空槽用空串）
+- 装配闸门（规则）：槽未满；若目标书 `IsUnique=1` 且已装备同 Id → 拒绝；**Demo**：表行缺失时仍允许写入以便空表手验持久化（打 Warning；按可叠处理）
+- AutoManufacture 造兵时：对已装备且 `EffectPhase` 含 `SoldierManufacture` 的书调用空钩子（本轮无数值变更；无匹配书则跳过）
+- **实现（AM-04 方案 A）：** `SpecialEquipSlotsService`（Bind/Clear/Delete + TryEquip/Unequip）+ `SoldierManufactureMagicBookHook`；`MetaShellController` 进档绑定 / 回档 Clear / 删档清两模式键
+
 ### English
 
 **Status: Fields and encodings defined; config carrier closed** — table-driven data uses **Excel source + CSV output** (paths / naming / bake: [§14](#14-配置表工程约定与打表工具)). Non-table singleton tunables may still use ScriptableObject under `Assets/Settings/<Module>/` ([§13](#13-资源编排与可扩展性)).
 
-Rules authority: [SPEC_03 §3.9](SPEC_03_GameRules.md), [§3.10](SPEC_03_GameRules.md), [§3.11](SPEC_03_GameRules.md), [§3.12](SPEC_03_GameRules.md), [§3.13](SPEC_03_GameRules.md), [§3.14](SPEC_03_GameRules.md).
+Rules authority: [SPEC_03 §3.9](SPEC_03_GameRules.md), [§3.10](SPEC_03_GameRules.md), [§3.11](SPEC_03_GameRules.md), [§3.12](SPEC_03_GameRules.md), [§3.13](SPEC_03_GameRules.md), [§3.14](SPEC_03_GameRules.md), [§3.15](SPEC_03_GameRules.md).
 
 Logical short names (e.g. `DigGameplayConfig`) are for SPEC / pseudocode / type ids; **on-disk filenames** — see each subsection’s **Disk name** lines and [§14](#14-配置表工程约定与打表工具) (Excel: `{SystemZH}_{TableZH}_{SystemEN}_{TableEN}`; CSV: `{SystemEN}_{TableEN}`).
 
@@ -1469,7 +1539,7 @@ All config **Weight** values follow:
 
 **Placement:** sample DigMap continuous placeable space; avoid `DigObstacle` circles (Digger + uncleared Graves; radii on Prefabs). Retry up to **32** times per spawn; then abandon that spawn.
 
-**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, Digger and per-quality Grave Prefabs expose circle obstacle radius (`DigObstacleRadius`); one Grave Prefab per `QualityId`. Grave roots also carry `DigHitShape`: local XZ convex hull (≤12 verts) + `BoundingRadius`, offline-baked via Editor menu `Gravedigger2026/Dig/Bake All Grave Hit Shapes` (prefer `Sprite.GetPhysicsShape`, else alpha outline → hull → simplify); re-bake after art changes. Rules read baked verts only — no runtime Sprite/pixel reads. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
+**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, Digger and per-quality Grave Prefabs expose circle obstacle radius (`DigObstacleRadius`); one Grave Prefab per `QualityId`. `SpriteRenderer` source is `Assets/Art/Dig/Graves/Grave_{QualityId}/Grave_{QualityId}.png`; `DigPrefabCatalog` must cover every QualityId in the current-mode `GraveQualityConfig` (Mode2 Demo: Q1–Q20); `DigAssetBuilder` / HitShape baker quality lists match the table. Grave roots also carry `DigHitShape`: local XZ convex hull (≤12 verts) + `BoundingRadius`, offline-baked via Editor menu `Gravedigger2026/Dig/Bake All Grave Hit Shapes` (prefer `Sprite.GetPhysicsShape`, else alpha outline → hull → simplify); re-bake after art changes. Rules read baked verts only — no runtime Sprite/pixel reads. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
 
 #### 9.3 GraveQualityConfig
 
@@ -1783,6 +1853,9 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) soldier Class / naming / PrimarySt
 | MeleeWindupSeconds | 近战前摇 | `float` | ≥ 0; seconds; used when `AttackMode=Melee` |
 | RangedProjectileSpeed | 远程弹速 | `float` | ≥ 0; used when `AttackMode=Ranged` |
 | RangedTimeoutSeconds | 远程超时 | `float` | ≥ 0; seconds; timeout → miss |
+| AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged`; Mode2 AutoManufacture no-soul AttackMode source ([SPEC_03 §3.15](SPEC_03_GameRules.md)); Mode1 still uses `SoulConfig.AttackMode` |
+| PlacementOrder | 放置排序 | `int` | ≥ 1; Mode2 auto-deploy ascending order; missing → large (last) |
+| DefaultAppearanceId | 职业默认外观 | `string` or empty | Mode2 appearance fallback when level+race+class miss; FK → `BodyAppearanceConfig` |
 
 **`CombatConvertCoeffs` encoding (fixed):** `Key_Value|Key_Value|…`
 
@@ -1808,13 +1881,18 @@ ClassConfig {
   MeleeWindupSeconds: number
   RangedProjectileSpeed: number
   RangedTimeoutSeconds: number
+  AttackMode: Melee | Ranged
+  PlacementOrder: int
+  DefaultAppearanceId: Id | ""
 }
 ```
 
 **Parse:**
 
-- At manufacture: Soul slotted → `SoulConfig.ClassId` → `WarriorInstance.ClassId`; empty Soul → force `Class_Servants`. Naming / appearance use the instance `ClassId` row's `ClassName`.
+- At manufacture (Mode1): Soul slotted → `SoulConfig.ClassId` → `WarriorInstance.ClassId`; empty Soul → force `Class_Servants`. Naming / appearance use the instance `ClassId` row's `ClassName`.
+- At manufacture (Mode2 AutoManufacture): `ClassId` from hand `ClassRestrict` (§3.15); `AttackMode` from this table; **no** `SoulId`.
 - Combat derives: look up `PrimaryStat` and `CombatConvertCoeffs`; hit params from `AttackRange` etc. columns.
+- Concrete class rows filled later.
 - Class list / concrete numbers filled later.
 
 #### 9.10 GemConfig
@@ -1903,6 +1981,11 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) manufacture slots / race pick / Ba
 | AutoConvert | 超上限兑精魂 | `int` or `float` | Same semantics as `MaterialConfig.AutoConvert` |
 | Description | 文字介绍 | `string` | Display copy; localization Key if i18n |
 | ArtAssetId | 外形美术素材ID | `string` or `int` | Part visual / Warehouse UI asset Id |
+| IsPrimaryHand | 主要手 | `int` / `0\|1` | **Arm only**; `1` = PrimaryHand (Mode2 anchor); default `0` |
+| ClassRestrict | 职业限定 | encoding | Multi-`ClassId` for Mode2 class pool; empty PrimaryHand = stop craft (§3.15) |
+| BodyPrimaryStat | 躯体主属性 | `enum` / `string` | Exactly one of `Strength` \| `Agility` \| `Intelligence`; Mode2 remaining-part matcher (**not** Class `PrimaryStat`) |
+
+**`ClassRestrict` encoding (fixed):** `ClassId` or `ClassId|ClassId|…` (pipe; exact `ClassConfig.ClassId`).
 
 **`StatBonus` encoding (fixed):** `Attr_Value|Attr_Value|…` (same style as [§9.17](#917-科技项效果配置表-techeffectconfig) `AttributeModifiers`; additive; empty = none). Keys align with five BaseStats (`MaxHP` / `MoveSpeed` / `Strength` / `Agility` / `Intelligence`).
 
@@ -1913,15 +1996,18 @@ BodyPartConfig {
   BodySlot: Head | Torso | Arm | Leg
   RaceId: Id
   ControlPowerCost: number
-  SpiritCost: number
+  SpiritCost: number              // Mode2 AutoManufacture ignores
   StatBonus: "Attr_Value|..."
   AutoConvert: number
   Description: string
   ArtAssetId: Id
+  IsPrimaryHand: 0 | 1
+  ClassRestrict: "ClassId|..."
+  BodyPrimaryStat: Strength | Agility | Intelligence
 }
 ```
 
-**Resolve:** `Base(S) = Σ` filled parts' `StatBonus(S)` (missing dim **0**). Warehouse stacks by `BodyPartId`; overflow uses row `AutoConvert`. Concrete values **TBD**.
+**Resolve:** `Base(S) = Σ` filled parts' `StatBonus(S)` (missing dim **0**). Mode2 pick/class rules: [SPEC_03 §3.15](SPEC_03_GameRules.md). Warehouse stacks by `BodyPartId`; overflow uses row `AutoConvert`. Mode1 may omit new columns (defaults: `IsPrimaryHand=0`, empty `ClassRestrict`). Concrete values **TBD**.
 
 #### 9.13 BodyAppearanceConfig
 
@@ -2414,13 +2500,52 @@ PushMapSpawnConfig {
 - **AggroMode runtime contract (PM-06):** `PushMapMonsterAgentView` branches on `config.AggroMode`; `ActiveChase`: loyal soldier enters `AlertRadius` → chase that soldier until death; `PassiveChase`: `_provoked=false` idle, `NotifyProvoked()` → chase; `StationaryActive`: never moves, attacks loyal soldier inside `AttackRange`, stops on leave; `StationaryPassive`: never moves, attacks only after `NotifyProvoked()` and target still in `AttackRange`. Active detection and provocation are **loyal-only** (`!IsRebel`). Provocation source (Demo): `PushMapStageController` fires a loyal `PushMapAdvanceView`'s first entry into a passive monster's `AttackRange` → `NotifyProvoked()` (stands in for "soldier attacks first"; soldier HP deferred). Hits still use `AttackMode` scheme D; active stances do **not** proactively detect the protagonist via `AlertRadius` (loyal soldiers only), but a pursued/nearest-rule protagonist hit still applies `ApplyShieldHit`. Real soldier damage on normal monsters **not** done
 - **Boundary:** no `WaveSpawnConfig` countdown; Boss-clear / Exp / capture loot / dungeon unlock hooks → §9.22 PM-07 contract
 
+#### 9.24 MagicBookConfig
+
+Rules: [SPEC_03 §3.15](SPEC_03_GameRules.md) MagicBook / SpecialEquipSlot / EffectPhase. One row = one MagicBook. This round locks schema + hook only; **no** concrete effect rows or equip UI.
+
+**Disk name:**
+- **Excel:** `制造_魔法书配置表_Manufacture_MagicBookConfig.xlsx`
+- **CSV:** `Manufacture_MagicBookConfig.csv`
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| MagicBookId | 魔法书ID | `string` or `int` | PK |
+| IsUnique | 是否唯一 | `int` / `0\|1` | `1` = cannot equip second copy; `0` = stackable (one slot each) |
+| EffectPhase | 生效环节 | encoding | Trigger phases; multi-value OK |
+| EffectPayload | 魔法书效果 | `string` | Stub this round; concrete encoding later |
+| IconAssetId | 魔法书Icon | `string` or `int` | UI icon asset Id |
+| DisplayName | 魔法书名称 | `string` | Display name / i18n Key |
+| Description | 魔法书介绍 | `string` | Display copy |
+
+**`EffectPhase` encoding (fixed):** `Phase` or `Phase|Phase|…`. Enums at least: `SoldierManufacture` \| `Combat` (Combat not implemented this round).
+
+```
+MagicBookConfig {
+  MagicBookId: Id
+  IsUnique: 0 | 1
+  EffectPhase: "SoldierManufacture|Combat|..."
+  EffectPayload: string
+  IconAssetId: Id
+  DisplayName: string
+  Description: string
+}
+```
+
+**Protagonist special equip slots (persistence intent):**
+
+- Default **6** slots: `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SpecialEquipSlots` — JSON `MagicBookId[6]` (empty = `""`)
+- Equip gate: free slot; reject if book `IsUnique=1` and same Id already equipped; **Demo**: missing config row still allows write for empty-table persistence handcheck (Warning; treat as stackable)
+- AutoManufacture: call empty hook for equipped books whose `EffectPhase` includes `SoldierManufacture` (skip when none)
+- **Impl (AM-04 Approach A):** `SpecialEquipSlotsService` (Bind/Clear/Delete + TryEquip/Unequip) + `SoldierManufactureMagicBookHook`; `MetaShellController` bind on enter / ClearBound on leave / DeleteSlotData both modes
+
 ## 13. 资源编排与可扩展性
 
 ### 简体中文
 
 **原则（强制倾向）：预制体优先（Prefab-first）。** 实际代码与场景开发中，凡会以 GameObject 层级出现的玩法实体、可复用 UI、可生成物、可摆放交互物，**默认用 Prefab + 挂载 Controller** 制作与引用，放在 `Assets/Prefabs/<模块>/`。优先在编辑器中拼装 Prefab，再由代码 `Instantiate` / 引用槽位驱动；**避免**在代码里动态 `new GameObject` 拼层级，或在多个 Scene 中手工复制同一套层级。
 
-**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。PushMap `MapId` 亦可为 `PushMap_*`，同目录解析；Demo 样例 **`PushMap_Demo_01`**（Editor Ensure，见 §9.22）；PushMap 地图 Prefab 另须支持标记：`ObjectivePoint`/`CaptureZone`/`AirWall`（可 45°；开战 Bake 注入 Not Walkable Box，见 §9.22 PM-08）/`SpawnPoint`/`TrapZone`/`BossPoint`（见 §9.22 / [SPEC_03 §3.14](SPEC_03_GameRules.md)）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
+**适用默认 Prefab 的典型对象：** 主角/圆圈光标、坟墓（含障碍半径）、奖励飞字、工具面板与可复用面板、关卡内可生成物、战斗主角/士兵/怪物、**DigMap / BattleMap（含 EngageZone；共用 `Ground_01`…`Ground_05`）** 等。Dig 模块建议路径：`Assets/Prefabs/Dig/`；UpgradeManufacture 模块建议路径：`Assets/Prefabs/UpgradeManufacture/`（`UpgradeManufactureStageRoot`；Mode2：`UpgradeManufactureStageRoot_Mode2`）；Formation：`Assets/Prefabs/Formation/`（`FormationEditorRoot`；Mode2：`FormationEditorRoot_Mode2`）；AutoManufacture 模块建议路径：`Assets/Prefabs/AutoManufacture/`（`AutoManufacturePresentationRoot`；Catalog/`AmAssetBuilder` 或运行时 Build；UI-016 / D-055）；**地图变体**统一路径：`Assets/Prefabs/Maps/{Ground_0N}.prefab`（`DigMapId` / `BattleMapId` 均解析至此）。布阵用地图 Prefab 另须支持 **`FormationClassZone`** 标记：`ClassId:string`（精确匹配 `ClassConfig.ClassId`）+ **XZ OBB** `HalfExtents` + 作者 `Transform` Y 欧拉角（Demo Ensure 覆盖常用职业；样例 `Ground_*` **Y=25°**）；坐标相对 `DigMapBounds` 中心，与 `BattleFormation` 一致；Snapshot 含 `RotationYDegrees`；Mode2 AutoManufacture（AM-06 方案 A）按 `PlacementOrder` 落入对应区并以区内螺旋 + `BodyRadius` 挤开（[SPEC_03 §3.15](SPEC_03_GameRules.md)）。PushMap `MapId` 亦可为 `PushMap_*`，同目录解析；Demo 样例 **`PushMap_Demo_01`**（Editor Ensure，见 §9.22）；PushMap 地图 Prefab 另须支持标记：`ObjectivePoint`/`CaptureZone`/`AirWall`（可 45°；开战 Bake 注入 Not Walkable Box，见 §9.22 PM-08）/`SpawnPoint`/`TrapZone`/`BossPoint`（见 §9.22 / [SPEC_03 §3.14](SPEC_03_GameRules.md)）。地图**表现**为 Unity **Isometric Tilemap**（Grid `CellLayout=Isometric`，Demo `CellSize≈(1,0.5,2)`，Grid 旋转使砖面落在 XZ，配合 Dig/Defend 正交顶视相机）；Tile/Sprite 源在 `Assets/Art/Maps/Tiles/`（自 Example Scene `Environment/Tiles`+`Sprites` 复制）；Prefab 另含不可见 `WalkSurface`（**IsoDiamond**：XZ 菱形薄网格，供 Demo NavMesh 约定）、`DigMapBounds` / EngageZone（同形菱形足迹；半尺寸=`PaintRadius*(cellSize.x,cellSize.y)`）及刷怪点。Editor 可用 Tile Palette 手刷，或 Builder 程序铺默认图案；**禁止**运行时直接引用 `SmallScaleInt/`，见 [§15](#15-角色美术管线character-creator-烘焙整角)。工程须含 `com.unity.2d.tilemap`（编辑器刷砖）。角色视觉 Prefab 约定：`Digger` → `Assets/Prefabs/Dig/Digger.prefab`；`BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`；士兵 → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`；怪物 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（美术管线见 [§15](#15-角色美术管线character-creator-烘焙整角)）。
 
 **可不做成 Prefab 的例外：** Scene 唯一常驻 Manager / 引导用一次性布局；纯逻辑无表现的 Service（非 MonoBehaviour 或仅场景单例入口）。
 
@@ -2442,7 +2567,7 @@ PushMapSpawnConfig {
 
 **Principle (strong default): Prefab-first.** For gameplay entities, reusable UI, spawnables, and placeable interactables that exist as GameObject hierarchies, **author and reference Prefabs + Controllers** under `Assets/Prefabs/<Module>/`. Prefer assembling Prefabs in the Editor and driving them via `Instantiate` / serialized slots. **Do not** build visual hierarchies with runtime `new GameObject` trees, or hand-duplicate the same hierarchy across Scenes.
 
-**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here). PushMap `MapId` may also be `PushMap_*` in the same folder; Demo sample **`PushMap_Demo_01`** (Editor Ensure; marker contract §9.22; `AirWall` StartBattle bake → Not Walkable Box, §9.22 PM-08). Map **presentation** is Unity **Isometric Tilemap** (`CellLayout=Isometric`, Demo `CellSize≈(1,0.5,2)`, Grid rotated onto XZ for Dig/Defend orthographic top-down); Tile/Sprite sources under `Assets/Art/Maps/Tiles/` (copied from Example Scene `Environment/Tiles`+`Sprites`); Prefab also has invisible `WalkSurface` (**IsoDiamond**: thin XZ diamond mesh for Demo NavMesh), `DigMapBounds` / EngageZone (same diamond footprint; half-extents=`PaintRadius*(cellSize.x,cellSize.y)`), spawn points. Editor: Tile Palette hand-paint or Builder default fill; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角). Require `com.unity.2d.tilemap` for editor painting. Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
+**Typical Prefab targets:** Digger / circle cursor, Graves (with obstacle radius), DigReward VFX/UI, ToolsPanel and reusable panels, in-level spawnables, BattleProtagonist / Soldiers (Warrior) / Monsters, **DigMap / BattleMap (incl. EngageZone; shared `Ground_01`…`Ground_05`)**. Dig module path: `Assets/Prefabs/Dig/`; UpgradeManufacture module path: `Assets/Prefabs/UpgradeManufacture/` (`UpgradeManufactureStageRoot`; Mode2: `UpgradeManufactureStageRoot_Mode2`); Formation: `Assets/Prefabs/Formation/` (`FormationEditorRoot`; Mode2: `FormationEditorRoot_Mode2`); AutoManufacture module path: `Assets/Prefabs/AutoManufacture/` (`AutoManufacturePresentationRoot`; Catalog/`AmAssetBuilder` or runtime Build; UI-016 / D-055); **map variants** unified path: `Assets/Prefabs/Maps/{Ground_0N}.prefab` (`DigMapId` / `BattleMapId` both resolve here). Formation maps also support **`FormationClassZone`** markers: `ClassId:string` (exact `ClassConfig.ClassId`) + **XZ OBB** `HalfExtents` + authoring Transform Y euler (Demo Ensure covers common classes; sample `Ground_*` **Y=25°**); coords relative to `DigMapBounds` center (same as BattleFormation); Snapshot includes `RotationYDegrees`; Mode2 AutoManufacture (AM-06 Approach A) deploys by `PlacementOrder` with in-zone spiral + `BodyRadius` separation ([SPEC_03 §3.15](SPEC_03_GameRules.md)). PushMap `MapId` may also be `PushMap_*` in the same folder; Demo sample **`PushMap_Demo_01`** (Editor Ensure; marker contract §9.22; `AirWall` StartBattle bake → Not Walkable Box, §9.22 PM-08). Map **presentation** is Unity **Isometric Tilemap** (`CellLayout=Isometric`, Demo `CellSize≈(1,0.5,2)`, Grid rotated onto XZ for Dig/Defend orthographic top-down); Tile/Sprite sources under `Assets/Art/Maps/Tiles/` (copied from Example Scene `Environment/Tiles`+`Sprites`); Prefab also has invisible `WalkSurface` (**IsoDiamond**: thin XZ diamond mesh for Demo NavMesh), `DigMapBounds` / EngageZone (same diamond footprint; half-extents=`PaintRadius*(cellSize.x,cellSize.y)`), spawn points. Editor: Tile Palette hand-paint or Builder default fill; **do not** runtime-reference `SmallScaleInt/` — [§15](#15-角色美术管线character-creator-烘焙整角). Require `com.unity.2d.tilemap` for editor painting. Character visual Prefabs: `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; `BattleProtagonist` → `Assets/Prefabs/Defend/BattleProtagonist.prefab`; soldiers → `Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`; monsters → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (art pipeline: [§15](#15-角色美术管线character-creator-烘焙整角)).
 
 **Exceptions:** Scene-unique Managers / one-off layout; pure logic Services (non-MonoBehaviour or single scene entry).
 
@@ -2474,10 +2599,14 @@ When implementing §9 tables, follow [§14](#14-配置表工程约定与打表�
 
 ```
 Gravedigger2026/Assets/ConfigTables/
-├── Excel/     # 人配源表（.xlsx）；仅作源文件，运行时不加载
-└── Csv/       # 程序读表（.csv）；打表产物；运行时唯一数据源
+├── Excel/           # Mode1 人配源表（.xlsx）；仅作源文件，运行时不加载
+├── Csv/             # Mode1 程序读表（.csv）；打表产物；Mode1 运行时数据源
+└── Mode2/
+    ├── Excel/       # Mode2 人配源表（本片先整包复制自 Mode1）
+    └── Csv/         # Mode2 程序读表；Mode2 运行时数据源
 ```
 
+- **`CampaignMode.Mode1`** 读 `ConfigTables/Csv/`；**`CampaignMode.Mode2`** 读 `ConfigTables/Mode2/Csv/`（[§14.5](#145-运行时-csv-加载路径demo)）。
 - 新配置表**禁止**散落在 `Assets/Settings/<模块>/` 或其他路径。
 - Excel 导入设置：`.xlsx` 可为 DefaultAsset；SPEC 要求：Excel **不作为运行时资源**读取。
 
@@ -2496,7 +2625,7 @@ Gravedigger2026/Assets/ConfigTables/
 | `Dig` | 挖坟 | `Dig_DigGameplayConfig`、`Dig_GraveQualityConfig`、`Dig_MaterialConfig`、`Dig_CurrencyConfig` |
 | `Defend` | 防守 | `Defend_DefendGameplayConfig`、`Defend_WaveSpawnConfig`、`Defend_MonsterConfig` |
 | `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`、`PushMap_PushMapSpawnConfig` |
-| `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`、`Manufacture_SoulConfig`、`Manufacture_ClassConfig`、`Manufacture_GemConfig`、`Manufacture_RaceConfig`、`Manufacture_BodyPartConfig`、`Manufacture_BodyAppearanceConfig`、`Manufacture_ExtraEquipmentConfig`、`Manufacture_GemSuffixNameConfig` |
+| `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`、`Manufacture_SoulConfig`、`Manufacture_ClassConfig`、`Manufacture_GemConfig`、`Manufacture_RaceConfig`、`Manufacture_BodyPartConfig`、`Manufacture_BodyAppearanceConfig`、`Manufacture_ExtraEquipmentConfig`、`Manufacture_GemSuffixNameConfig`、`Manufacture_MagicBookConfig` |
 | `Tech` | 科技 | `Tech_TechTreeConfig`、`Tech_TechEffectConfig` |
 | `Combat` | 战斗 | `Combat_LossOfControlConfig`、`Combat_SkillConfig` |
 
@@ -2512,9 +2641,9 @@ Gravedigger2026/Assets/ConfigTables/
 
 | 项 | 约定 |
 |----|------|
-| 职责 | 一键将 `ConfigTables/Excel/` 下全部 `.xlsx` 转为对应 `.csv` 写入 `ConfigTables/Csv/`（选中单表 **后置**） |
+| 职责 | 一键将对应根下 `Excel/` 全部 `.xlsx` 转为 `.csv` 写入同根 `Csv/`（选中单表 **后置**） |
 | 命名映射 | Excel 基名 `{SystemZH}_{TableZH}_{SystemEN}_{TableEN}` → CSV 基名 `{SystemEN}_{TableEN}`（取英文后缀两段） |
-| 入口 | Unity 顶部菜单：`Gravedigger2026/Config/Bake Tables`（中文可用「打表」） |
+| 入口 | Unity 顶部菜单：`Gravedigger2026/Config/Bake Tables`（Mode1 根）；`Gravedigger2026/Config/Bake Mode2 Tables`（Mode2 根） |
 | 脚本 | `Assets/Editor/Config/ConfigTableBaker.cs` + `XlsxSheetReader.cs` |
 | 失败策略 | 文件名不符四段规则 / 首 Sheet 无英文表头时**整批中止**；先全部解析入内存再写盘（避免半成品）；Console 报错须含**完整 Excel 名** |
 | Demo 校验 | 仅文件名四段 + 非空英文表头行；§9 缺列 / 类型非法校验 **后置**（运行时 `ConfigCsvRepository` 仍做加载期校验） |
@@ -2545,12 +2674,14 @@ Excel (ConfigTables/Excel/{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx)
 
 #### 14.5 运行时 CSV 加载路径（Demo）
 
-| 环境 | 根路径 | 说明 |
-|------|--------|------|
-| Editor / 开发 Play | `{Application.dataPath}/ConfigTables/Csv/` | 即工程内 `Assets/ConfigTables/Csv/` |
-| Player 构建 | `{Application.streamingAssetsPath}/ConfigTables/Csv/` | 须在构建前将同名 CSV 镜像到 `Assets/StreamingAssets/ConfigTables/Csv/`（拷贝工具可另开；本片加载器按序探测两根路径） |
+| 环境 | Mode1 根路径 | Mode2 根路径 |
+|------|--------------|--------------|
+| Editor / 开发 Play | `{Application.dataPath}/ConfigTables/Csv/` | `{Application.dataPath}/ConfigTables/Mode2/Csv/` |
+| Player 构建 | `{Application.streamingAssetsPath}/ConfigTables/Csv/` | `{Application.streamingAssetsPath}/ConfigTables/Mode2/Csv/` |
 
+- 由当前进档 `CampaignMode` 选择相对 CSV 文件夹；加载器按序探测 dataPath 与 StreamingAssets。
 - 逻辑仍只读 CSV；**禁止**运行时读 Excel。
+- 进档换模式须 **重新** `ConfigCsvRepository.TryLoadAll()`，避免串表。
 - 缺表 / 缺列 / 非法枚举 → 加载失败并打日志，不静默用空表推进关卡。
 
 #### 14.6 数值单元格 CSV 序列化（禁止浮点噪声）
@@ -2578,10 +2709,14 @@ All **§9** and future **config tables** must follow this section.
 
 ```
 Gravedigger2026/Assets/ConfigTables/
-├── Excel/     # Human-authored source (.xlsx); not loaded at runtime
-└── Csv/       # Program-readable (.csv); bake output; sole runtime data source
+├── Excel/           # Mode1 human-authored (.xlsx); not loaded at runtime
+├── Csv/             # Mode1 program-readable (.csv); bake output; Mode1 runtime source
+└── Mode2/
+    ├── Excel/       # Mode2 sources (this slice: full copy of Mode1)
+    └── Csv/         # Mode2 runtime CSV
 ```
 
+- **`CampaignMode.Mode1`** reads `ConfigTables/Csv/`; **`CampaignMode.Mode2`** reads `ConfigTables/Mode2/Csv/` ([§14.5](#145-runtime-csv-load-paths-demo)).
 - New config tables must **not** live under `Assets/Settings/<Module>/` or other paths.
 - Excel import: `.xlsx` may be DefaultAsset; Excel must **not** be a runtime load target.
 
@@ -2601,7 +2736,7 @@ Gravedigger2026/Assets/ConfigTables/
 | `Defend` | 防守 | `Defend_DefendGameplayConfig`, `Defend_WaveSpawnConfig`, `Defend_MonsterConfig` |
 | `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`, `PushMap_PushMapSpawnConfig` |
 | `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`, `PushMap_PushMapSpawnConfig` |
-| `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`, `Manufacture_SoulConfig`, `Manufacture_ClassConfig`, `Manufacture_GemConfig`, `Manufacture_RaceConfig`, `Manufacture_BodyPartConfig`, `Manufacture_BodyAppearanceConfig`, `Manufacture_ExtraEquipmentConfig`, `Manufacture_GemSuffixNameConfig` |
+| `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`, `Manufacture_SoulConfig`, `Manufacture_ClassConfig`, `Manufacture_GemConfig`, `Manufacture_RaceConfig`, `Manufacture_BodyPartConfig`, `Manufacture_BodyAppearanceConfig`, `Manufacture_ExtraEquipmentConfig`, `Manufacture_GemSuffixNameConfig`, `Manufacture_MagicBookConfig` |
 | `Tech` | 科技 | `Tech_TechTreeConfig`, `Tech_TechEffectConfig` |
 | `Combat` | 战斗 | `Combat_LossOfControlConfig`, `Combat_SkillConfig` |
 
@@ -2617,9 +2752,9 @@ Gravedigger2026/Assets/ConfigTables/
 
 | Item | Rule |
 |------|------|
-| Duty | One-click convert all `.xlsx` under `ConfigTables/Excel/` to matching `.csv` under `ConfigTables/Csv/` (per-selection bake **deferred**) |
+| Duty | One-click convert all `.xlsx` under the chosen root `Excel/` to matching `.csv` under that root's `Csv/` (per-selection bake **deferred**) |
 | Name map | Excel `{SystemZH}_{TableZH}_{SystemEN}_{TableEN}` → CSV `{SystemEN}_{TableEN}` (last two English segments) |
-| Entry | Unity menu: `Gravedigger2026/Config/Bake Tables` (ZH label may be「打表」) |
+| Entry | Unity menu: `Gravedigger2026/Config/Bake Tables` (Mode1 root); `Gravedigger2026/Config/Bake Mode2 Tables` (Mode2 root) |
 | Scripts | `Assets/Editor/Config/ConfigTableBaker.cs` + `XlsxSheetReader.cs` |
 | Failure | Abort whole batch on non-four-part Excel names / missing English header row; parse all into memory before writing (no partial writes); Console errors must include **full Excel name** |
 | Demo validation | Filename four-part + non-empty English header row only; §9 missing-column / illegal-type checks **deferred** (runtime `ConfigCsvRepository` still validates on load) |
@@ -2650,12 +2785,14 @@ Excel (ConfigTables/Excel/{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx)
 
 #### 14.5 Runtime CSV load paths (Demo)
 
-| Environment | Root path | Notes |
-|-------------|-----------|-------|
-| Editor / Play Mode | `{Application.dataPath}/ConfigTables/Csv/` | i.e. project `Assets/ConfigTables/Csv/` |
-| Player build | `{Application.streamingAssetsPath}/ConfigTables/Csv/` | Mirror same CSV files under `Assets/StreamingAssets/ConfigTables/Csv/` before build (copy tool may be separate; this slice’s loader probes both roots in order) |
+| Environment | Mode1 root | Mode2 root |
+|-------------|------------|------------|
+| Editor / Play Mode | `{Application.dataPath}/ConfigTables/Csv/` | `{Application.dataPath}/ConfigTables/Mode2/Csv/` |
+| Player build | `{Application.streamingAssetsPath}/ConfigTables/Csv/` | `{Application.streamingAssetsPath}/ConfigTables/Mode2/Csv/` |
 
+- Active enter-save `CampaignMode` selects the relative CSV folder; loader probes dataPath then StreamingAssets.
 - Still CSV-only; **never** read Excel at runtime.
+- Switching mode on enter-save must **reload** `ConfigCsvRepository.TryLoadAll()` to avoid cross-mode tables.
 - Missing table / column / illegal enum → load fails with log; do not silently advance Levels on empty tables.
 
 #### 14.6 Numeric cell CSV serialization (no float noise)

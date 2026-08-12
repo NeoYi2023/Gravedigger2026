@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: FormationPrefabCatalog
   m_EditorClassIdentifier: 
   _formationEditorRootPrefab: {fileID: 2380090618504658273, guid: 76b435fa299603f4cb933576560e968f, type: 3}
+  _formationEditorRootPrefabMode2: {fileID: 2380090618504658273, guid: e7d5c3b1a9084762f5e4d3c2b1a09f87, type: 3}

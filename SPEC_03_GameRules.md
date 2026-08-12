@@ -12,9 +12,27 @@
 
 | 术语 (EN) | 中文 | 定义 |
 |-----------|------|------|
-| GameplayState | 玩法状态 | 局内主状态枚举：`Dig`（挖坟）、`UpgradeManufacture`（升级与制造；原占位名 `SewRevive`）、`Defend`（防守）、`PushMap`（推图战）。关卡运行时由当前阶段的玩法类型决定（§3.9）；壳层默认占位仍为 Dig。 |
-| SaveSlot | 存档槽 | 固定数量的本地存档位；本版 **3 槽**（索引 0–2）。空槽可新建，占用槽可进入或删除。 |
-| InSaveShell | 进档壳层 | 选定存档进入后的常驻壳：承载当前 `GameplayState` 占位与浮动「工具」入口。 |
+| GameplayState | 玩法状态 | 局内主状态枚举：`Dig`（挖坟）、`AutoManufacture`（自动制造；Mode2 流水线）、`UpgradeManufacture`（升级与制造；原占位名 `SewRevive`）、`Defend`（防守）、`PushMap`（推图战）。关卡运行时由当前阶段的玩法类型决定（§3.9）；壳层默认占位仍为 Dig。 |
+| SaveSlot | 存档槽 | 固定数量的本地存档位；本版 **3 槽**（索引 0–2）。空槽可新建，占用槽可进入或删除。占用旗按槽共享；士兵池/布阵/副本解锁等进度按槽 **且按 `CampaignMode`** 隔离（§3.4）。 |
+| CampaignMode | 玩法模式 | 存档级玩法门闩：`Mode1` / `Mode2`。每次新建或进入均经 `CampaignModeSelect` 选择；同槽两模式进度完全隔离；Mode2 使用独立配置表根（[SPEC_04 §14](SPEC_04_Technical.md)）。Mode2 与 Mode1 共用战斗与挖坟机制；**士兵制造**：Mode1 手动（§3.11），Mode2 自动制造（§3.15）。**勿与** `BattleMode`（保卫战/推图战）混淆。 |
+| AutoManufacture | 自动制造 | Mode2 关卡玩法类型 / `GameplayState`：DigStageSummary 确认后进入；按规则自动选料→造兵→临时仓库→清空布阵后按职业区上阵；结束后进 `UpgradeManufacture`（§3.15）。 |
+| TempWarriorWarehouse | 临时仓库 | AutoManufacture 阶段批内缓冲：造好的士兵先入此仓，全部造完后再入 `WarriorPool` 并自动上阵（§3.15）。 |
+| PrimaryHand | 主要手 | `BodyPartConfig.IsPrimaryHand=1` 的手臂材料；Mode2 自动制造的选料锚点与职业限定主源（§3.15）。 |
+| SecondaryHand | 次要手 | `IsPrimaryHand=0` 的手臂材料；与主要手组成双臂；职业取双手 `ClassRestrict` 交集（无交集则仅主要手池）（§3.15）。 |
+| ClassRestrict | 职业限定 | 躯体材料可产出的 `ClassId` 多值列表（`\|` 分隔）；Mode2 职业由双手交集/回退决定（§3.15，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
+| BodyPrimaryStat | 躯体主属性 | 躯体材料字段：`Strength` / `Agility` / `Intelligence` 恰一；Mode2 选其余部位时的匹配键（**勿与** 职业 `PrimaryStat` 混淆）（§3.15）。 |
+| ApproxBodyLevel | 近似品质 | Mode2 选料：相对锚点 `|ΔBodyLevel| ≤ 1`；候选排序更高 → 相同 → 低 1 级（§3.15）。 |
+| PlacementOrder | 放置排序 | `ClassConfig` 字段（≥1）；AutoManufacture 自动上阵时按此升序先后放置各职业（§3.15，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
+| FormationClassZone | 职业布阵区 | 布阵地图 Prefab 上按职业标定的空间区域（XZ OBB：`HalfExtents` + Transform Y）；自动上阵落入对应区并做碰撞挤开（§3.15，[SPEC_04 §13](SPEC_04_Technical.md)）。 |
+| MagicBook | 魔法书 | 主角特殊装备；效果库，在制造等环节触发增强士兵；配置见 `MagicBookConfig`（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique、EffectPhase、效果占位、Icon、名称、介绍（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| SpecialEquipSlot | 特殊装备槽 | 主角默认 **6** 槽装配魔法书；同书默认可叠，`IsUnique=1` 不可（§3.15）。 |
+| EffectPhase | 生效环节 | 魔法书触发时机枚举：至少含 `SoldierManufacture` / `Combat`；本轮仅实现制造钩子骨架（§3.15）。 |
+| ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：展示**最近一批** AutoManufacture 造出的士兵摘要（名字/种族/职业）；入口在「布阵」右侧（UI-015 / §3.15）。 |
+| AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 `WarriorId` 列表；下一批覆盖；按槽 + CampaignMode 持久化（§3.15，[SPEC_04 §6](SPEC_04_Technical.md)）。 |
+| AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现层（UI-016）：规则跑批后播 Step1–2，再进 UM 并自动开布阵（§3.15）。 |
+| CampaignModeSelect | 玩法模式选择 | 点击「新建」或「进入」后弹出的选模式 UI（UI-014）；取消则留在存档界面（§3.2、§3.6）。 |
+| InSaveShell | 进档壳层 | 选定存档 **且选定 `CampaignMode`** 进入后的常驻壳：承载当前 `GameplayState` 占位与浮动「工具」入口。 |
 | ToolsPanel | 工具面板 | Demo 调试/设置壳层 UI；由浮动「工具」按钮打开。本期含「设置」「关卡」占位，其余后续补充。 |
 | Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每阶段指定玩法类型与玩法配置 ID（§3.9；UM 阶段 ConfigId **忽略**）。流水线片由工具「关卡」或等价入口启动样例关卡；场景绑定 **TBD**。 |
 | LevelOperation | 关卡运作 | 关卡运作表一行：关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID。 |
@@ -158,9 +176,27 @@
 
 | Term (EN) | ZH | Definition |
 |-----------|-----|------------|
-| GameplayState | 玩法状态 | In-session main state enum: `Dig`, `UpgradeManufacture` (was placeholder `SewRevive`), `Defend`, `PushMap`. During a Level, set by the current stage's gameplay type (§3.9); shell default placeholder remains Dig. |
-| SaveSlot | 存档槽 | Fixed local slots; this version **3 slots** (indices 0–2). Empty → create; occupied → enter or delete. |
-| InSaveShell | 进档壳层 | Persistent shell after entering a save: hosts current `GameplayState` placeholder and floating Tools entry. |
+| GameplayState | 玩法状态 | In-session main state enum: `Dig`, `AutoManufacture` (Mode2 pipeline), `UpgradeManufacture` (was placeholder `SewRevive`), `Defend`, `PushMap`. During a Level, set by the current stage's gameplay type (§3.9); shell default placeholder remains Dig. |
+| SaveSlot | 存档槽 | Fixed local slots; this version **3 slots** (indices 0–2). Empty → create; occupied → enter or delete. Occupied flag is shared per slot; WarriorPool / BattleFormation / DungeonUnlocks progress is isolated per slot **and** `CampaignMode` (§3.4). |
+| CampaignMode | 玩法模式 | Save-level play gate: `Mode1` / `Mode2`. Every create/enter goes through `CampaignModeSelect`; progress fully isolated per mode in the same slot; Mode2 uses a separate config-table root ([SPEC_04 §14](SPEC_04_Technical.md)). Mode2 shares Dig/Defend mechanics with Mode1; **soldier manufacture**: Mode1 manual (§3.11), Mode2 AutoManufacture (§3.15). **Do not confuse** with `BattleMode` (Defend/PushMap). |
+| AutoManufacture | 自动制造 | Mode2 stage type / `GameplayState`: after DigStageSummary confirm; auto pick parts → craft → temp warehouse → clear formation then deploy by class zones; then enter `UpgradeManufacture` (§3.15). |
+| TempWarriorWarehouse | 临时仓库 | AutoManufacture batch buffer: crafted soldiers enter here first; after the batch finishes, flush to `WarriorPool` and auto-deploy (§3.15). |
+| PrimaryHand | 主要手 | Arm BodyPart with `IsPrimaryHand=1`; Mode2 selection anchor and primary ClassRestrict source (§3.15). |
+| SecondaryHand | 次要手 | Arm with `IsPrimaryHand=0`; pairs with PrimaryHand; class from ClassRestrict intersection (else PrimaryHand pool only) (§3.15). |
+| ClassRestrict | 职业限定 | Multi-`ClassId` list on BodyPart (`\|`-separated); Mode2 class from hand intersection/fallback (§3.15, [SPEC_04 §9.12](SPEC_04_Technical.md)). |
+| BodyPrimaryStat | 躯体主属性 | BodyPart field: exactly one of `Strength` / `Agility` / `Intelligence`; Mode2 matcher when picking remaining parts (**not** Class `PrimaryStat`) (§3.15). |
+| ApproxBodyLevel | 近似品质 | Mode2 pick: `|ΔBodyLevel| ≤ 1` vs anchor; sort higher → same → lower-by-1 (§3.15). |
+| PlacementOrder | 放置排序 | `ClassConfig` field (≥1); AutoManufacture deploys classes in ascending order (§3.15, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
+| FormationClassZone | 职业布阵区 | Authoring zone on formation map Prefab per ClassId (XZ OBB: `HalfExtents` + Transform Y); auto-deploy lands there with separation (§3.15, [SPEC_04 §13](SPEC_04_Technical.md)). |
+| MagicBook | 魔法书 | Protagonist special equipment; effect library triggered at manufacture etc.; config `MagicBookConfig` (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique, EffectPhase, effect stub, Icon, name, description (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| SpecialEquipSlot | 特殊装备槽 | Default **6** protagonist slots for MagicBooks; same book stackable unless `IsUnique=1` (§3.15). |
+| EffectPhase | 生效环节 | MagicBook trigger enum: at least `SoldierManufacture` / `Combat`; this round manufacture hook skeleton only (§3.15). |
+| ManufactureRecord | 制造记录 | Mode2 UM read-only popup: last AutoManufacture batch soldier summaries (name/race/class); entry to the right of Formation (UI-015 / §3.15). |
+| AutoManufactureBatchRecord | 自动制造批次记录 | Save-scoped last-batch `WarriorId` list; next batch overwrites; persist per slot + CampaignMode (§3.15, [SPEC_04 §6](SPEC_04_Technical.md)). |
+| AutoManufacturePresentation | AutoManufacture presentation | Mode2 AutoManufacture stage presentation (UI-016): after rule batch play Step1–2, then UM + auto-open Formation (§3.15). |
+| CampaignModeSelect | 玩法模式选择 | Mode-pick UI after Create/Enter (UI-014); cancel stays on save select (§3.2, §3.6). |
+| InSaveShell | 进档壳层 | Persistent shell after entering a save **with a chosen `CampaignMode`**: hosts current `GameplayState` placeholder and floating Tools entry. |
 | ToolsPanel | 工具面板 | Demo settings/debug shell UI opened by floating Tools. This version: Settings + Level stubs; more later. |
 | Level | 关卡 | Multi-stage flow defined by Level Operation table; each stage has gameplay type + config ID (§3.9; UM stage ConfigId **ignored**). Pipeline slice starts sample Level from Tools Level or equiv. entry; scene binding **TBD**. |
 | LevelOperation | 关卡运作 | One Level Operation row: LevelId + StageNumber + GameplayType + GameplayConfigId. |
@@ -310,9 +346,11 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 
 | 场景 | 操作 | 说明 |
 |------|------|------|
-| 存档选择 | 点击空槽「新建」 | 占用该槽并进入进档壳层 |
-| 存档选择 | 点击占用槽「进入」 | 加载该槽并进入进档壳层 |
-| 存档选择 | 点击占用槽「删除」 | 须二次确认后清空槽位，停留在存档界面 |
+| 存档选择 | 点击空槽「新建」 | 弹出 `CampaignModeSelect`；选定模式后占用该槽并进入进档壳层；取消则不占用、留在存档界面 |
+| 存档选择 | 点击占用槽「进入」 | 弹出 `CampaignModeSelect`；选定模式后加载该槽**该模式**进度并进入进档壳层；取消则留在存档界面 |
+| 存档选择 | 点击占用槽「删除」 | 须二次确认后清空槽位（含两模式全部进度键），停留在存档界面 |
+| 玩法模式选择 | 选「模式1」或「模式2」 | 确认后按所选 `CampaignMode` 进档；两模式同槽进度隔离 |
+| 玩法模式选择 | 取消 | 关闭弹窗，不进壳 |
 | 进档壳层 | 点击浮动「工具」 | 打开 / 关闭工具面板 |
 | 工具面板 | 点击「设置」「关卡」 | 进入占位页或等价反馈（Toast / 空页） |
 | 三玩法状态 | — | **TBD**（后续专门补充） |
@@ -323,9 +361,11 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 
 | Context | Action | Notes |
 |---------|--------|-------|
-| Save select | Create on empty slot | Occupy slot and enter InSaveShell |
-| Save select | Enter occupied slot | Load slot and enter InSaveShell |
-| Save select | Delete occupied slot | Confirm, then clear; stay on save UI |
+| Save select | Create on empty slot | Open `CampaignModeSelect`; on confirm occupy slot and enter InSaveShell; cancel → stay |
+| Save select | Enter occupied slot | Open `CampaignModeSelect`; on confirm load **that mode's** slot progress and enter InSaveShell; cancel → stay |
+| Save select | Delete occupied slot | Confirm, then clear slot (both modes' keys); stay on save UI |
+| CampaignModeSelect | Pick Mode1 or Mode2 | Enter with chosen `CampaignMode`; progress isolated per mode in the same slot |
+| CampaignModeSelect | Cancel | Close popup; do not enter shell |
 | InSaveShell | Floating Tools | Open / close ToolsPanel |
 | ToolsPanel | Settings / Level | Placeholder page or equivalent feedback |
 | Three gameplay states | — | **TBD** |
@@ -339,8 +379,8 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 | 阶段 | 说明 |
 |------|------|
 | 1. 启动 | 进入存档选择界面（非直接进局） |
-| 2. Meta 存档 | 对 3 个固定槽执行新建 / 选择进入 / 删除（见 §3.4） |
-| 3. 进档壳层 | 进入后默认 `GameplayState = Dig`（挖坟占位）；显示浮动「工具」（§3.5） |
+| 2. Meta 存档 | 对 3 个固定槽执行新建 / 选择进入 / 删除；新建与进入均经 `CampaignModeSelect`（见 §3.4） |
+| 3. 进档壳层 | 选定槽与 `CampaignMode` 后默认 `GameplayState = Dig`（挖坟占位）；显示浮动「工具」（§3.5）；运行时 CSV 根随模式切换（Mode2→`ConfigTables/Mode2/Csv`） |
 | 4. 玩法状态 | 当前状态以占位表现可识别；关卡内由阶段玩法类型驱动（§3.9）；壳层内手动切换 **TBD** |
 | 5. 关卡 | 规则见 §3.9；流水线片须按 `LevelOperationConfig` 驱动真实阶段（§3.8 D-010）；Meta 片工具「关卡」可仍为占位 |
 
@@ -351,8 +391,8 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 | Stage | Description |
 |-------|-------------|
 | 1. Boot | Open save-select UI (not direct into gameplay) |
-| 2. Meta saves | Create / enter / delete on 3 fixed slots (§3.4) |
-| 3. InSaveShell | Default `GameplayState = Dig`; show floating Tools (§3.5) |
+| 2. Meta saves | Create / enter / delete on 3 fixed slots; create/enter always via `CampaignModeSelect` (§3.4) |
+| 3. InSaveShell | After slot + `CampaignMode`: default `GameplayState = Dig`; show floating Tools (§3.5); runtime CSV root follows mode (Mode2→`ConfigTables/Mode2/Csv`) |
 | 4. Gameplay states | Placeholder must identify current state; in Level, driven by stage gameplay type (§3.9); manual shell switch **TBD** |
 | 5. Level | Rules in §3.9; pipeline slice must drive real stages via `LevelOperationConfig` (§3.8 D-010); Meta-slice Tools Level may remain stub |
 
@@ -369,10 +409,13 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 规则 | 值 |
 |------|-----|
 | 槽位数量 | 固定 **3**（索引 0、1、2） |
-| 空槽 | 可「新建」→ 标记占用并进入进档壳层 |
-| 占用槽 | 可「选择进入」或「删除」 |
-| 删除 | **必须二次确认**；确认后槽变空；不可恢复（本版） |
-| 持久化 | 本地、按槽索引；至少持久化「是否占用」。**本片已锁定：** 士兵可上阵池（`WarriorPool`）+ 战斗布阵（`BattleFormation`）随槽读写（见 [SPEC_04 §6](SPEC_04_Technical.md)）；其余字段（仓库 / 经验 / 科技等）schema 仍 **TBD** |
+| 空槽 | 可「新建」→ 弹出 `CampaignModeSelect` → 选定后标记占用并进入进档壳层 |
+| 占用槽 | 可「选择进入」（同样先 `CampaignModeSelect`）或「删除」 |
+| 玩法模式 | 每次新建/进入均须选择 `CampaignMode`（Mode1/Mode2）；取消不进壳 |
+| 同槽隔离 | Mode1 与 Mode2 的士兵池 / 布阵 / 副本解锁等进度键**完全隔离**；`Occupied` 按槽共享（任一模式玩过即占用） |
+| 删除 | **必须二次确认**；确认后槽变空并清除**两模式**全部进度键；不可恢复（本版） |
+| 持久化 | 本地、按槽索引 + `CampaignMode`；至少持久化「是否占用」。**本片已锁定：** 士兵可上阵池（`WarriorPool`）+ 战斗布阵（`BattleFormation`）随槽**与模式**读写（见 [SPEC_04 §6](SPEC_04_Technical.md)）；其余字段（仓库 / 经验 / 科技等）schema 仍 **TBD** |
+| Mode2 合成 | Mode2 士兵制造 = **自动制造**（§3.15）；Mode2 UM 关闭手动制造 |
 
 **槽位展示（最小）**
 
@@ -389,10 +432,13 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | Rule | Value |
 |------|-------|
 | Slot count | Fixed **3** (indices 0, 1, 2) |
-| Empty | Create → mark occupied and enter InSaveShell |
-| Occupied | Enter or Delete |
-| Delete | **Confirm required**; slot becomes empty; no undo (this version) |
-| Persistence | Local, by slot index; at least occupied flag. **This slice locked:** deployable soldier pool (`WarriorPool`) + `BattleFormation` read/write per slot ([SPEC_04 §6](SPEC_04_Technical.md)); other fields (Warehouse / Exp / Tech, …) schema still **TBD** |
+| Empty | Create → `CampaignModeSelect` → on confirm mark occupied and enter InSaveShell |
+| Occupied | Enter (also via `CampaignModeSelect`) or Delete |
+| CampaignMode | Every create/enter must pick Mode1/Mode2; cancel stays on save UI |
+| Per-slot isolation | Mode1 vs Mode2 WarriorPool / BattleFormation / DungeonUnlocks keys are **fully isolated**; `Occupied` is shared per slot |
+| Delete | **Confirm required**; slot becomes empty and **both modes'** progress keys cleared; no undo (this version) |
+| Persistence | Local, by slot index + `CampaignMode`; at least occupied flag. **This slice locked:** deployable soldier pool (`WarriorPool`) + `BattleFormation` read/write per slot **and mode** ([SPEC_04 §6](SPEC_04_Technical.md)); other fields (Warehouse / Exp / Tech, …) schema still **TBD** |
+| Mode2 manufacture | Mode2 soldier craft = **AutoManufacture** (§3.15); Mode2 UM hides manual manufacture |
 
 **Minimal display**
 
@@ -453,6 +499,9 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 | UI-013 | 战斗模式选关 | 已定义（Demo 流水线） | 进入 Defend 阶段后：选 `BattleMode` + 关卡（该模式全部玩法配置）；模式1进保卫战 Prepare；模式2选 `PushMapGameplayConfig` 后进 §3.14 Prepare；验收见 §3.8 D-044 |
+| UI-014 | 玩法模式选择 | 已定义（Demo） | 新建/进入存档前：选 `CampaignMode` Mode1/Mode2 或取消；**勿与** UI-013 混淆；验收见 §3.8 D-045 |
+| UI-015 | 制造记录弹窗 | 已定义（Demo / Mode2） | Mode2 UM：「布阵」右侧「制造记录」打开只读 Modal；最近一批士兵摘要（名字/种族/职业）；空态「本批无士兵」；Mode1 **无**此入口；验收见 §3.8 D-054 |
+| UI-016 | 自动制造演出 | 已定义（Demo / Mode2） | AutoManufacture 阶段：Step1 中央士兵行（150×200，「?」42 + 职业名 32，横滑）+ 上方 6 魔法书槽（120×160）；Step2 逐兵加强动画/Idle 揭示/每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过；Mode1 **无**；验收见 §3.8 D-055 |
 
 ### English
 
@@ -471,6 +520,9 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 | UI-013 | Battle mode/level select | Defined (Demo pipeline) | After entering Defend: pick `BattleMode` + level (all configs for mode); Mode1 → Defend Prepare; Mode2 pick `PushMapGameplayConfig` → §3.14 Prepare; accept §3.8 D-044 |
+| UI-014 | Campaign mode select | Defined (Demo) | Before create/enter save: pick `CampaignMode` Mode1/Mode2 or cancel; **not** UI-013; accept §3.8 D-045 |
+| UI-015 | Manufacture record popup | Defined (Demo / Mode2) | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only Modal; last-batch summaries (name/race/class); empty 「本批无士兵」; Mode1 has **no** entry; accept §3.8 D-054 |
+| UI-016 | AutoManufacture presentation | Defined (Demo / Mode2) | AutoManufacture stage: Step1 center soldier row (150×200, "?" 42 + class name 32, horizontal scroll) + 6 MagicBook slots above (120×160); Step2 per-soldier amplify / Idle reveal / +25% speed every 3; Step3 enter UM then auto-open Formation; 0 craft skips; Mode1 **none**; accept §3.8 D-055 |
 
 ---
 
@@ -483,11 +535,12 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | 状态 | 中文 | Demo 要求 | 范围 / 输入 / 胜负 |
 |------|------|-----------|-------------------|
 | Dig | 挖坟 | Meta：可识别占位；流水线：§3.10 垂直切片可玩（§3.8 D-020） | 规则见 §3.10（交互 / 扣血 / 奖励 / 无胜负 / DigStageSummary） |
-| UpgradeManufacture | 升级与制造 | Meta：可识别占位；流水线：§3.11 垂直切片可玩（§3.8 D-030～D-032） | 框架见 §3.11（原占位名 SewRevive） |
+| AutoManufacture | 自动制造 | Mode2 流水线：规则见 §3.15；实现见 §3.8 D-050～D-055（AM-03～08 + 制造记录 + 演出 UI-016） | Dig 后自动造兵+上阵+演出；无玩家确认结束；UM 可开制造记录 |
+| UpgradeManufacture | 升级与制造 | Meta：可识别占位；流水线：§3.11 垂直切片可玩（§3.8 D-030～D-032）；Mode2 差分见 §3.15 / D-054 | 框架见 §3.11（原占位名 SewRevive） |
 | Defend | 防守 | Meta：可识别占位；流水线：§3.12 垂直切片可玩（§3.8 D-040～D-043） | 框架见 §3.12（准备/开战/护盾/刷怪/寻路/胜负；Demo 最小刷怪点/NavMesh 见本节配套 §3.12） |
 | PushMap | 推图战 | Meta：可识别占位即可；完整垂直切片 **非** 当前 §3.8 P0（规则见 §3.14） | 框架见 §3.14（复用 Defend 布阵/护盾/失控/士兵战斗 + 目标点占领/刷怪点/陷阱/BOSS） |
 
-壳层内手动切换玩法状态方式 **TBD**（不得将工具「关卡」入口隐式等同为四态手动切换）。关卡运行时由阶段玩法类型驱动，见 §3.9。
+壳层内手动切换玩法状态方式 **TBD**（不得将工具「关卡」入口隐式等同为五态手动切换）。关卡运行时由阶段玩法类型驱动，见 §3.9。
 
 ### English
 
@@ -496,11 +549,12 @@ After enter, current state must be identifiable; default **Dig**. Dig: §3.10; U
 | State | ZH | Demo requirement | Scope / input / win-lose |
 |-------|-----|------------------|---------------------------|
 | Dig | 挖坟 | Meta: identifiable placeholder; pipeline: playable §3.10 vertical (§3.8 D-020) | Rules in §3.10 (dig / HP / rewards / no win-lose / DigStageSummary) |
-| UpgradeManufacture | 升级与制造 | Meta: identifiable placeholder; pipeline: playable §3.11 vertical (§3.8 D-030–D-032) | Framework in §3.11 (was SewRevive) |
+| AutoManufacture | 自动制造 | Mode2 pipeline: rules §3.15; impl §3.8 D-050–D-055 (AM-03–08 + manufacture record + presentation UI-016) | After Dig: auto craft + deploy + presentation; no player confirm; UM can open ManufactureRecord |
+| UpgradeManufacture | 升级与制造 | Meta: identifiable placeholder; pipeline: playable §3.11 vertical (§3.8 D-030–D-032); Mode2 diffs §3.15 / D-054 | Framework in §3.11 (was SewRevive) |
 | Defend | 防守 | Meta: identifiable placeholder; pipeline: playable §3.12 vertical (§3.8 D-040–D-043) | Framework in §3.12 (Prepare/StartBattle/Shield/spawn/pathing/win-lose; Demo-min spawn/NavMesh in §3.12) |
 | PushMap | 推图战 | Meta: identifiable placeholder OK; full vertical **not** current §3.8 P0 (rules §3.14) | Framework in §3.14 (reuse Defend formation/Shield/LOC/WarriorCombat + objectives/spawns/traps/Boss) |
 
-Manual shell state switch is **TBD** (must not equate Tools Level entry to a four-state manual switch). During Level, stage gameplay type drives state — §3.9.
+Manual shell state switch is **TBD** (must not equate Tools Level entry to a five-state manual switch). During Level, stage gameplay type drives state — §3.9.
 
 ---
 
@@ -528,9 +582,17 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fou
 | D-042 | Defend 士兵战斗：EngageZone 内普攻可选敌并造成伤害（第一版不施放技能） | P0 | 已实现（方案 A：近战前摇 + 远程 `ProjectileView` 软碰撞命中/超时未命中；清场可检测；胜负入账见 D-043） |
 | D-043 | Defend 胜负与结算：清场胜利可入账阶段经验并交还关卡驱动；`Shield ≤ 0` → LevelFailure（可验） | P0 | 已实现（方案 A：开战 Degree/Tier 锁定 + `FinalLossChance` roll→Rebel 就近扣盾；清场 Ended 入账 Demo Exp=100→`TryAdvanceStage`；护盾归零 LevelFailure 不入账并 `AbortLevel`） |
 | D-044 | 战斗模式选关闸门：进入 Defend 须先 `ModeSelect`；可选保卫战全部 `DefendGameplayConfig`；模式2列出全部 `PushMapGameplayConfig`，确认后交接进 §3.14 Prepare；任一模式通关→`TryAdvanceStage` | P0 | 已实现（方案 A：`BattleModeSelectRoot` + Mode2→`TryHandoffModeSelectToPushMap`→`PushMapStageModule`） |
+| D-045 | 玩法模式门闩：新建/进入均弹出 `CampaignModeSelect`（Mode1/Mode2/取消）；同槽两模式进度隔离；Mode2 只读 `ConfigTables/Mode2/Csv`；删档清双模数据；**勿与** D-044 混淆 | P0 | 本片实现（方案 A） |
+| D-050 | Mode2：样例关卡运作含 Dig → **AutoManufacture** → UpgradeManufacture；DigStageSummary 确认后进入自动制造；阶段无玩家确认、自动交还驱动 | P1 | 已实现（AM-03～08：`AutoManufactureStageModule` 自动 `TryAdvanceStage`；Mode2 `Level_01` Dig→AutoManufacture→UM→PushMap；Excel/CSV 对齐；0 兵 Tips「无士兵可制造」；手验清单 `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`） |
+| D-051 | Mode2 AutoManufacture：按最低配方（头+躯干+臂×2含主要手+腿×2）循环造兵入临时仓库；不计 Spirit/Control；职业由双手 ClassRestrict；余料留仓库 | P1 | 已实现（AM-03～06：选料/职业/属性→钩子→外观+命名→临时仓 flush→`WarriorPool`→清阵上阵；SoulId 空、Control=0、AttackMode←ClassConfig；手验见 AM-08） |
+| D-052 | Mode2：批结束后清空布阵，按 `PlacementOrder` + `FormationClassZone` 自动上阵（碰撞挤开）；再进 UM | P1 | 已实现（AM-06 方案 A：区内螺旋采样 + BodyRadius；`FormationClassZone` XZ OBB + Y 旋转；样例 Ground_* Y=25°；仅本批 Id；手验见 AM-08） |
+| D-053 | Mode2 UM：隐藏手动制造；保留升级 Modal 与可编辑布阵；控制力 HUD 屏蔽 | P1 | 已实现（方案 C：`UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`；Catalog 按 CampaignMode Resolve；手验见 AM-08） |
+| D-054 | Mode2 UM：布阵右侧「制造记录」打开只读弹窗；展示最近一批 AutoManufacture 士兵摘要（名字/种族/职业）；0 兵空态「本批无士兵」；下一批覆盖；同档再进仍可见；Mode1 无此按钮 | P1 | 已实现（方案 A：`AutoManufactureBatchRecordService` + Mode2 Modal；`UmAssetBuilder` Mode2 追加 / 运行时 Ensure） |
+| D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；Step2 逐兵加强/Idle 揭示/每 3 兵加速；完成后进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | 已实现（方案 A：`AutoManufacturePresentationController` + 播完再 Advance + UM `AutoOpenFormationOnce`） |
 
 **Demo 范围外（仍排除）：**
 
+- Mode2 魔法书具体效果行与装备 UI（表结构 + 6 槽 + 制造钩子骨架已锁 §3.15；具体书另专题）
 - 推图战（PushMap）完整 polish / 副本玩法正文（规则与 ModeSelect 模式2入口已落地 §3.14 / D-044；细节见 `.scratch/push-map/issues/`）
 - 完整技能施放与技能效果表驱动（士兵/怪物第一版仅普通攻击；`SkillConfig` / CD 公式保留不驱动）
 - 正式美术与动画 polish（临时 Prefab / 占位资源允许；禁止运行时引用 `SmallScaleInt/`）
@@ -564,9 +626,17 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-042 | Defend WarriorCombat: EngageZone normal-attack targeting + damage (no skill casts in v1) | P0 | Done (Approach A: melee windup + ranged `ProjectileView` soft-hit/timeout miss; clear detectable; win/lose credit in D-043) |
 | D-043 | Defend win/lose: clear-spawn victory credits stage Exp and returns to Level driver; `Shield ≤ 0` → LevelFailure (verifiable) | P0 | Done (Approach A: StartBattle Degree/Tier lock + `FinalLossChance`→Rebel nearest Shield hit; clear Ended credits Demo Exp=100→`TryAdvanceStage`; Shield 0 LevelFailure no Exp + `AbortLevel`) |
 | D-044 | Battle ModeSelect gate: entering Defend requires `ModeSelect` first; list all DefendGameplayConfig for Mode1; Mode2 lists all PushMapGameplayConfig then handoff → §3.14 Prepare; either-mode clear→`TryAdvanceStage` | P0 | Done (Approach A: `BattleModeSelectRoot` + Mode2→`TryHandoffModeSelectToPushMap`→`PushMapStageModule`) |
+| D-045 | CampaignMode gate: create/enter always shows `CampaignModeSelect` (Mode1/Mode2/cancel); per-slot progress isolated by mode; Mode2 reads only `ConfigTables/Mode2/Csv`; delete clears both modes; **not** D-044 | P0 | This slice (Approach A) |
+| D-050 | Mode2: sample LevelOperation Dig → **AutoManufacture** → UpgradeManufacture; after DigStageSummary enter auto craft; stage ends without player confirm | P1 | Done (AM-03–08: `AutoManufactureStageModule` auto `TryAdvanceStage`; Mode2 `Level_01` Dig→AutoManufacture→UM→PushMap; Excel/CSV aligned; zero-craft Tips「无士兵可制造」; handcheck `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`) |
+| D-051 | Mode2 AutoManufacture: loop craft into temp warehouse with min recipe (Head+Torso+2Arm incl. PrimaryHand+2Leg); no Spirit/Control; class from hand ClassRestrict; leftovers stay in Warehouse | P1 | Done (AM-03–06: pick/class/base→hook→appearance+name→temp flush→`WarriorPool`→clear+deploy; empty SoulId, Control=0, AttackMode←ClassConfig; handcheck AM-08) |
+| D-052 | Mode2: after batch, clear formation; auto-deploy by `PlacementOrder` + `FormationClassZone` (separation); then enter UM | P1 | Done (AM-06 Approach A: in-zone spiral + BodyRadius; `FormationClassZone` XZ OBB + Y rotation; sample Ground_* Y=25°; batch Ids only; handcheck AM-08) |
+| D-053 | Mode2 UM: hide manual manufacture; keep upgrade Modal + editable formation; hide ControlPower HUD | P1 | Done (Approach C: `UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`; Catalog Resolve by CampaignMode; handcheck AM-08) |
+| D-054 | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only popup; last AutoManufacture batch summaries (name/race/class); empty 「本批无士兵」; next batch overwrites; survives re-enter save; Mode1 has no button | P1 | Done (Approach A: `AutoManufactureBatchRecordService` + Mode2 Modal; `UmAssetBuilder` Mode2 append / runtime Ensure) |
+| D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; Step2 per-soldier amplify / Idle reveal / +25% speed every 3; then UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | Done (Approach A: `AutoManufacturePresentationController` + advance after play + UM `AutoOpenFormationOnce`) |
 
 **Out of Demo scope (still excluded):**
 
+- Mode2 MagicBook concrete effect rows and equip UI (schema + 6 slots + manufacture hook skeleton locked §3.15; concrete books later)
 - PushMap polish / dungeon gameplay body (rules + ModeSelect Mode2 entry landed §3.14 / D-044; details in `.scratch/push-map/issues/`)
 - Full skill casts / skill-effect table drive (soldiers/monsters: normal attacks only in v1; `SkillConfig` / CD formula retained unused)
 - Formal art / animation polish (temp Prefabs OK; **no** runtime refs to `SmallScaleInt/`)
@@ -586,7 +656,7 @@ Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 
 **状态：已定义（规则库；Demo 流水线垂直切片须实现，见 §3.8 D-010）**
 
-关卡由「关卡运作表」驱动。同一 `关卡ID` 的多行按 `阶段编号` **升序**执行。每阶段以 `玩法类型` 设置当前 `GameplayState`，并以 `玩法配置ID` 加载对应玩法配置（挖坟见 §3.10；升级与制造见 §3.11；防守见 §3.12；推图战见 §3.14；配置编码见 [SPEC_04 §9](SPEC_04_Technical.md)）。
+关卡由「关卡运作表」驱动。同一 `关卡ID` 的多行按 `阶段编号` **升序**执行。每阶段以 `玩法类型` 设置当前 `GameplayState`，并以 `玩法配置ID` 加载对应玩法配置（挖坟见 §3.10；自动制造见 §3.15；升级与制造见 §3.11；防守见 §3.12；推图战见 §3.14；配置编码见 [SPEC_04 §9](SPEC_04_Technical.md)）。
 
 **表 1 — 关卡运作表字段（规则语义）**
 
@@ -594,15 +664,15 @@ Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 |------|------|
 | 关卡ID | 关卡标识；同 ID 多行组成该关的全部阶段 |
 | 阶段编号 | 同关卡内执行顺序（升序） |
-| 玩法类型 | 本阶段玩法（如 `Dig` / `UpgradeManufacture` / `Defend` / `PushMap`）；映射到 `GameplayState` |
-| 玩法配置ID | **Dig** → 查 `DigGameplayConfig` 主键；**Defend** → **RecommendedConfigId**（选关默认高亮；UM 下一战斗地图预览仍可解析；**不**强制为唯一开战配置——开战配置由玩家在 `ModeSelect` 从该模式全部玩法配置中选择，见 §3.12）；**PushMap** → 查 `PushMapGameplayConfig` 主键（亦可经 ModeSelect 模式2 选关，见 §3.12 / §3.14）；**UpgradeManufacture** → **忽略**（可不空；运行时**不**查任何玩法配置表、不解析为 Dig/Defend/PushMap 行；本阶段读全局表如 `ProtagonistLevelConfig` 等，见 §3.11 / [SPEC_04 §9.1](SPEC_04_Technical.md)）。**本版不另开** `UpgradeManufactureGameplayConfig` |
+| 玩法类型 | 本阶段玩法（如 `Dig` / `AutoManufacture` / `UpgradeManufacture` / `Defend` / `PushMap`）；映射到 `GameplayState` |
+| 玩法配置ID | **Dig** → 查 `DigGameplayConfig` 主键；**Defend** → **RecommendedConfigId**（选关默认高亮；UM 下一战斗地图预览仍可解析；**不**强制为唯一开战配置——开战配置由玩家在 `ModeSelect` 从该模式全部玩法配置中选择，见 §3.12）；**PushMap** → 查 `PushMapGameplayConfig` 主键（亦可经 ModeSelect 模式2 选关，见 §3.12 / §3.14）；**UpgradeManufacture** / **AutoManufacture** → **忽略**（可不空；运行时**不**查任何玩法配置表、不解析为 Dig/Defend/PushMap 行；本阶段读全局表如 `ProtagonistLevelConfig` / `BodyPartConfig` 等，见 §3.11 / §3.15 / [SPEC_04 §9.1](SPEC_04_Technical.md)）。**本版不另开** `UpgradeManufactureGameplayConfig` / `AutoManufactureGameplayConfig` |
 
 **阶段流转**
 
 1. 进入关卡：按 `关卡ID` 加载关卡运作行 → 按阶段编号升序排序。
 2. 运行当前阶段：应用玩法类型与玩法配置 ID。
-3. 阶段结束：由该玩法的结束条件触发。挖坟阶段：有效挖坟时长倒计时归零 → 本阶段结束（§3.10；**无胜负**）。升级与制造阶段：玩家主动确认「完成 / 进入下一阶段」→ 本阶段结束（§3.11；无强制倒计时；**无独立阶段结算**）。防守/战斗阶段：玩家在 `ModeSelect` 所选模式的关卡胜利 → 阶段结束（§3.12；保卫战护盾归零 → **关卡失败**）；`GameplayType=PushMap` 或模式2：BOSS 通关 → 阶段结束，护盾归零 → **关卡失败**（§3.14）。
-4. 阶段结算：若该玩法定义了阶段结算则触发（挖坟：**DigStageSummary** 仅汇总本阶段已获奖励、无额外发放，玩家确认后继续；升级与制造 **跳过**；防守阶段胜利时至少含 **经验入账**，其余 **TBD**；推图战 BOSS 通关入账经验，占领奖励不含经验，见 §3.14），再进入下一阶段。
+3. 阶段结束：由该玩法的结束条件触发。挖坟阶段：有效挖坟时长倒计时归零 → 本阶段结束（§3.10；**无胜负**）。**自动制造**：算法跑完（造到不能再造 + 自动上阵）后播演出（UI-016；0 兵跳过），再 **自动**结束（§3.15；无玩家确认；**无独立阶段结算**）。升级与制造阶段：玩家主动确认「完成 / 进入下一阶段」→ 本阶段结束（§3.11；无强制倒计时；**无独立阶段结算**）。防守/战斗阶段：玩家在 `ModeSelect` 所选模式的关卡胜利 → 阶段结束（§3.12；保卫战护盾归零 → **关卡失败**）；`GameplayType=PushMap` 或模式2：BOSS 通关 → 阶段结束，护盾归零 → **关卡失败**（§3.14）。
+4. 阶段结算：若该玩法定义了阶段结算则触发（挖坟：**DigStageSummary** 仅汇总本阶段已获奖励、无额外发放，玩家确认后继续；**自动制造跳过**；升级与制造 **跳过**；防守阶段胜利时至少含 **经验入账**，其余 **TBD**；推图战 BOSS 通关入账经验，占领奖励不含经验，见 §3.14），再进入下一阶段。
 5. **无下一阶段**（已是最后一阶段结束后）：触发关卡级 **胜利结算（VictorySettlement）**。
 6. **关卡失败（LevelFailure）**：任意阶段触发关卡失败（如 Defend 中护盾归零）→ **立即结束关卡**；**不**触发 VictorySettlement / **无关卡结算奖励**；**不**入账本阶段 Defend 经验；此前已入账的 Experience、材料/精魂、士兵、TechPoint 等 **不扣除**；失败结算 UI / 字段 **TBD**。
 
@@ -613,12 +683,14 @@ EnterLevel
   → Run stage (GameplayType + GameplayConfigId)
   → Stage end condition
        Dig: EffectiveDigDuration countdown = 0 (no win/lose)
+       AutoManufacture: algo done + presentation (UI-016; skip if 0); no player confirm (§3.15)
        UpgradeManufacture: player confirm
        Defend: stage victory per §3.12  OR  LevelFailure → abort Level
        PushMap: Boss clear per §3.14  OR  LevelFailure → abort Level
   → If LevelFailure → no VictorySettlement / no stage Exp credit; keep already-owned; LevelFailure settlement UI TBD; stop
   → Stage settlement if any
        Dig: DigStageSummary (aggregate only; no extra grants) → player confirm
+       AutoManufacture: skip
        UpgradeManufacture: skip
        Defend: at least Experience credit; other TBD
        PushMap: Boss-clear Experience credit; capture loot separate; §3.14
@@ -629,7 +701,7 @@ EnterLevel
 
 **Status: Defined (rules library; Demo pipeline vertical must implement — §3.8 D-010)**
 
-A Level is driven by the Level Operation table. Rows sharing a `LevelId` run in ascending `StageNumber`. Each stage sets `GameplayState` from `GameplayType` and loads config via `GameplayConfigId` (Dig: §3.10; UpgradeManufacture: §3.11; Defend: §3.12; PushMap: §3.14; encodings: [SPEC_04 §9](SPEC_04_Technical.md)).
+A Level is driven by the Level Operation table. Rows sharing a `LevelId` run in ascending `StageNumber`. Each stage sets `GameplayState` from `GameplayType` and loads config via `GameplayConfigId` (Dig: §3.10; AutoManufacture: §3.15; UpgradeManufacture: §3.11; Defend: §3.12; PushMap: §3.14; encodings: [SPEC_04 §9](SPEC_04_Technical.md)).
 
 **Table 1 — Level Operation fields (rules semantics)**
 
@@ -637,15 +709,15 @@ A Level is driven by the Level Operation table. Rows sharing a `LevelId` run in 
 |-------|-------|
 | LevelId | Level id; multiple rows = all stages |
 | StageNumber | Execution order within the Level (ascending) |
-| GameplayType | Stage mode (e.g. `Dig` / `UpgradeManufacture` / `Defend` / `PushMap`) → `GameplayState` |
-| GameplayConfigId | **Dig** → lookup `DigGameplayConfig` PK; **Defend** → **RecommendedConfigId** (default highlight in ModeSelect; UM next-battle map preview may still resolve; **not** the sole start config — player picks from all mode configs in `ModeSelect`, §3.12); **PushMap** → lookup `PushMapGameplayConfig` PK (or ModeSelect Mode2 pick, §3.12 / §3.14); **UpgradeManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config table / Dig/Defend/PushMap rows; stage reads global tables such as `ProtagonistLevelConfig` — §3.11 / [SPEC_04 §9.1](SPEC_04_Technical.md)). **No** separate `UpgradeManufactureGameplayConfig` this version |
+| GameplayType | Stage mode (e.g. `Dig` / `AutoManufacture` / `UpgradeManufacture` / `Defend` / `PushMap`) → `GameplayState` |
+| GameplayConfigId | **Dig** → lookup `DigGameplayConfig` PK; **Defend** → **RecommendedConfigId** (default highlight in ModeSelect; UM next-battle map preview may still resolve; **not** the sole start config — player picks from all mode configs in `ModeSelect`, §3.12); **PushMap** → lookup `PushMapGameplayConfig` PK (or ModeSelect Mode2 pick, §3.12 / §3.14); **UpgradeManufacture** / **AutoManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config table / Dig/Defend/PushMap rows; stage reads global tables such as `ProtagonistLevelConfig` / `BodyPartConfig` — §3.11 / §3.15 / [SPEC_04 §9.1](SPEC_04_Technical.md)). **No** separate `UpgradeManufactureGameplayConfig` / `AutoManufactureGameplayConfig` this version |
 
 **Stage flow**
 
 1. Enter Level: load rows by LevelId → sort by StageNumber ascending.
 2. Run current stage: apply GameplayType + GameplayConfigId.
-3. Stage end: per-mode end condition. Dig: effective Dig duration countdown hits 0 → stage ends (§3.10; **no win/lose**). UpgradeManufacture: player confirms "Complete / Next stage" → stage ends (§3.11; no forced countdown; **no independent stage settlement**). Defend: see §3.12 (clear-spawn victory → stage end; Shield reaches 0 → **LevelFailure**, no next stage). PushMap: see §3.14 (Boss clear → stage end; Shield reaches 0 → **LevelFailure**).
-4. Stage settlement: if the mode defines one, run it (Dig: **DigStageSummary** — aggregate rewards earned this stage only, no extra grants, then player confirm; UpgradeManufacture **skips**; Defend victory at least **credits Experience**, other content **TBD**), then advance.
+3. Stage end: per-mode end condition. Dig: effective Dig duration countdown hits 0 → stage ends (§3.10; **no win/lose**). **AutoManufacture**: algorithm finishes (craft until cannot + auto-deploy) → play presentation (UI-016; skip if 0 craft) → stage ends automatically (§3.15; no player confirm; **no independent stage settlement**). UpgradeManufacture: player confirms "Complete / Next stage" → stage ends (§3.11; no forced countdown; **no independent stage settlement**). Defend: see §3.12 (clear-spawn victory → stage end; Shield reaches 0 → **LevelFailure**, no next stage). PushMap: see §3.14 (Boss clear → stage end; Shield reaches 0 → **LevelFailure**).
+4. Stage settlement: if the mode defines one, run it (Dig: **DigStageSummary** — aggregate rewards earned this stage only, no extra grants, then player confirm; **AutoManufacture skips**; UpgradeManufacture **skips**; Defend victory at least **credits Experience**, other content **TBD**), then advance.
 5. **No next stage** (after last stage ends): trigger level-level **VictorySettlement**.
 6. **LevelFailure**: any stage that triggers LevelFailure (e.g. Shield reaches 0 in Defend) → **abort the Level immediately**; **no** VictorySettlement / **no level settlement rewards**; **no** Defend stage Exp credit for the failed stage; already-owned Experience, materials/SpiritEssence, soldiers, TechPoints, etc. are **not clawed back**; failure settlement UI/fields **TBD**.
 
@@ -656,12 +728,14 @@ EnterLevel
   → Run stage (GameplayType + GameplayConfigId)
   → Stage end condition
        Dig: EffectiveDigDuration countdown = 0 (no win/lose)
+       AutoManufacture: algo done + presentation (UI-016; skip if 0); no player confirm (§3.15)
        UpgradeManufacture: player confirm
        Defend: stage victory per §3.12  OR  LevelFailure → abort Level
        PushMap: Boss clear per §3.14  OR  LevelFailure → abort Level
   → If LevelFailure → no VictorySettlement / no stage Exp credit; keep already-owned; LevelFailure settlement UI TBD; stop
   → Stage settlement if any
        Dig: DigStageSummary (aggregate only; no extra grants) → player confirm
+       AutoManufacture: skip
        UpgradeManufacture: skip
        Defend: at least Experience credit; other TBD
        PushMap: Boss-clear Experience credit; capture loot separate; §3.14
@@ -825,6 +899,17 @@ EnterLevel
 | 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分） |
 | 确认后 | 玩家确认关闭弹窗 → 进入 §3.9 下一阶段 /（若末阶段）`VictorySettlement` |
 
+**Demo GM（Dig HUD）**
+
+| 按钮 | 行为 |
+|------|------|
+| 增加坟墓 | 点一次：按当前 `GraveSpawnWeights` 加权抽品质，落点/避障/32 次重试规则同开局与过程生成；循环尝试 **10** 次；空间不足或有效权重为空时该次放弃，实际生成可少于 10 |
+| 增加躯体材料 | 点一次：对当前已加载 `Manufacture_BodyPartConfig` **全部行**各 `Warehouse.AddItem(BodyPartId, 10)`（堆叠上限 10000 钳制；**不**走 LootDrop / AutoConvert） |
+
+- 仅 Dig 进行中（未归零 / 未弹 Summary）可用；为 Demo/手验工具。
+- GM 直接写入仓库的躯体材料 **不**计入 DigStageSummary「本阶段已获奖励」。
+- 实现见 [SPEC_04 §6 Dig 垂直切片](SPEC_04_Technical.md)。
+
 ```
 EffectiveDigDuration countdown → 0
   → Stop spawn; cancel in-progress DigAction (no damage)
@@ -984,6 +1069,17 @@ For each `LootDrop` segment `Id_Count`:
 | Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`) |
 | After confirm | Player confirms/dismisses popup → §3.9 next stage / (if last) `VictorySettlement` |
 
+**Demo GM (Dig HUD)**
+
+| Button | Behavior |
+|--------|----------|
+| Add Graves | One click: weighted pick via current `GraveSpawnWeights`; placement / obstacle / 32-retry same as initial & process spawn; attempt **10** times; fewer than 10 if no space or empty effective weights |
+| Add Body Parts | One click: for **every** loaded `Manufacture_BodyPartConfig` row, `Warehouse.AddItem(BodyPartId, 10)` (stack cap 10000; **no** LootDrop / AutoConvert) |
+
+- Available only while Dig is active (before duration zero / Summary). Demo / hand-check tools.
+- Body parts granted via GM **do not** count toward DigStageSummary “rewards earned this stage”.
+- Impl: [SPEC_04 §6 Dig vertical](SPEC_04_Technical.md).
+
 ```
 EffectiveDigDuration countdown → 0
   → Stop spawn; cancel in-progress DigAction (no damage)
@@ -997,7 +1093,19 @@ EffectiveDigDuration countdown → 0
 
 ### 简体中文
 
-**状态：框架已关闭（规则库）；升级配置表结构、关卡失败经验边界、士兵属性构成（含宝石五维、种族、按项 FinalStat+下限、StaticStat 分层、职业 ClassId/ClassConfig（含 PrimaryStat、CombatConvertCoeffs 编码、AttackRange 等命中列）、生命维例外 MaxHP=ceil(BodyLife+Str×3)）、士兵制造流程/槽位/命名、躯体材料表与 Base(S)=Σ StatBonus、躯体外观选取（含保底外形）、失控程度/四档/叛变判定与概率公式、士兵死亡分层（CombatDead / PermanentDeath / 宝石特例）已关闭；科技树框架见 §3.13；士兵战斗选敌/攻击距离/命中/普攻·攻速·技能CD 派生见 §3.12；躯体/外观/灵魂·职业·宝石·种族表具体数值 / 失控与技能效果表具体数值行仍 TBD**
+**状态：框架已关闭（规则库）；升级配置表结构、关卡失败经验边界、士兵属性构成（含宝石五维、种族、按项 FinalStat+下限、StaticStat 分层、职业 ClassId/ClassConfig（含 PrimaryStat、CombatConvertCoeffs 编码、AttackRange 等命中列）、生命维例外 MaxHP=ceil(BodyLife+Str×3)）、士兵制造流程/槽位/命名、躯体材料表与 Base(S)=Σ StatBonus、躯体外观选取（含保底外形）、失控程度/四档/叛变判定与概率公式、士兵死亡分层（CombatDead / PermanentDeath / 宝石特例）已关闭；科技树框架见 §3.13；士兵战斗选敌/攻击距离/命中/普攻·攻速·技能CD 派生见 §3.12；躯体/外观/灵魂·职业·宝石·种族表具体数值 / 失控与技能效果表具体数值行仍 TBD。Mode2 士兵制造见 §3.15（自动制造）；本节为 Mode1 手动制造权威。**
+
+**Mode2 差分（进入本阶段时）**
+
+| 规则 | 说明 |
+|------|------|
+| 前置 | Mode2 样例关卡在 Dig 与本阶段之间插入 `AutoManufacture`（§3.15）；本阶段开始时士兵已由自动制造入池并可已上阵 |
+| 手动制造 | **关闭 / 隐藏** ManufactureZone 与制造按钮；**不可**手动拖料造兵（Demo：`UpgradeManufactureStageRoot_Mode2.prefab` 上 ManufactureZone 默认关；Catalog 按 CampaignMode 选型，见 [SPEC_04 §6](SPEC_04_Technical.md)） |
+| 升级 | 保留「GM升级」Modal（与 Mode1 同） |
+| 布阵 | 保留「布阵」打开共享 FormationEditor；可再编辑自动上阵结果 |
+| 制造记录 | 「布阵」**右侧**「制造记录」打开只读 Modal（UI-015）；展示最近一批 AutoManufacture 士兵摘要；详见 §3.15 |
+| Spirit / Control | Mode2 **屏蔽**：制造不计 `SpiritCost`；布阵 HUD **不**显示控制力占用（失控专题另议；本轮不按 ControlPower 拦上阵） |
+| 灵魂 | 自动造兵路径 **不写** `SoulId`；灵魂手动装配 **后续需求**（§3.15） |
 
 当关卡当前阶段 `玩法类型 = UpgradeManufacture` 时进入本阶段。本阶段包含三条并列能力：**升级**、**制造士兵**、**战斗布阵**。配置表载体与字段编码见 [SPEC_04 §9](SPEC_04_Technical.md)（升级表见 **§9.8 `ProtagonistLevelConfig`**；灵魂表见 **§9.9 `SoulConfig`**；职业表见 **§9.9b `ClassConfig`**；宝石表见 **§9.10 `GemConfig`**；种族表见 **§9.11 `RaceConfig`**；躯体材料见 **§9.12 `BodyPartConfig`**；躯体外观见 **§9.13 `BodyAppearanceConfig`**；额外装备 / 宝石后缀见 **§9.14–§9.15**；失控表见 **§9.20 `LossOfControlConfig`**；完整数值仍 **TBD**）。
 
@@ -1308,7 +1416,19 @@ UpgradeManufacture stage
 
 ### English
 
-**Status: Framework closed (rules library); upgrade table schema, LevelFailure Exp boundary, soldier attribute composition (incl. five-dim Gem, Race; per-stat FinalStat + floor; StaticStat layer; Class ClassId/ClassConfig (incl. PrimaryStat, CombatConvertCoeffs encoding, AttackRange hit columns); HP-dim exception MaxHP=ceil(BodyLife+Str×3)), soldier manufacture flow/slots/naming, BodyPartConfig + Base(S)=Σ StatBonus, BodyAppearance pick (incl. IsFallback), LossOfControlDegree / four tiers / Rebel rolls & chance formula, soldier death layers (CombatDead / PermanentDeath / gem exception) closed; TechTree framework in §3.13; WarriorCombat targeting / AttackRange / hit / NormalAttack·ASPD·SkillCD derives in §3.12; concrete Body/Appearance/Soul/Class/Gem/Race numbers / LossOfControl & skill-effect table concrete rows still TBD**
+**Status: Framework closed (rules library); upgrade table schema, LevelFailure Exp boundary, soldier attribute composition (incl. five-dim Gem, Race; per-stat FinalStat + floor; StaticStat layer; Class ClassId/ClassConfig (incl. PrimaryStat, CombatConvertCoeffs encoding, AttackRange hit columns); HP-dim exception MaxHP=ceil(BodyLife+Str×3)), soldier manufacture flow/slots/naming, BodyPartConfig + Base(S)=Σ StatBonus, BodyAppearance pick (incl. IsFallback), LossOfControlDegree / four tiers / Rebel rolls & chance formula, soldier death layers (CombatDead / PermanentDeath / gem exception) closed; TechTree framework in §3.13; WarriorCombat targeting / AttackRange / hit / NormalAttack·ASPD·SkillCD derives in §3.12; concrete Body/Appearance/Soul/Class/Gem/Race numbers / LossOfControl & skill-effect table concrete rows still TBD. Mode2 soldier manufacture is §3.15 (AutoManufacture); this section is Mode1 manual-manufacture authority.**
+
+**Mode2 diffs (when entering this stage)**
+
+| Rule | Notes |
+|------|-------|
+| Prefaced by | Mode2 sample Levels insert `AutoManufacture` between Dig and this stage (§3.15); soldiers may already be in pool/formation |
+| Manual manufacture | **Hide/disable** ManufactureZone and craft button; **no** manual drag-craft (Demo: `UpgradeManufactureStageRoot_Mode2.prefab` has ManufactureZone off; Catalog resolves by CampaignMode — [SPEC_04 §6](SPEC_04_Technical.md)) |
+| Upgrade | Keep "GM Upgrade" Modal (same as Mode1) |
+| Formation | Keep Formation button → shared FormationEditor; auto-deploy results remain editable |
+| Manufacture record | "Manufacture Record" to the **right** of Formation opens read-only Modal (UI-015); last AutoManufacture batch summaries; see §3.15 |
+| Spirit / Control | Mode2 **shielded**: manufacture ignores `SpiritCost`; formation HUD **hides** ControlPower (LOC later; this round does not gate deploy by ControlPower) |
+| Soul | Auto-craft path writes **no** `SoulId`; manual soul attach is a **later** topic (§3.15) |
 
 Entered when Level stage `GameplayType = UpgradeManufacture`. Three parallel capabilities: **Upgrade**, **Manufacture soldiers**, **BattleFormation**. Config encodings: [SPEC_04 §9](SPEC_04_Technical.md) (**§9.8 `ProtagonistLevelConfig`**; **§9.9 `SoulConfig`**; **§9.9b `ClassConfig`**; **§9.10 `GemConfig`**; **§9.11 `RaceConfig`**; **§9.12 `BodyPartConfig`**; **§9.13 `BodyAppearanceConfig`**; ExtraEquipment / gem-suffix **§9.14–§9.15**; **§9.20 `LossOfControlConfig`**; concrete numbers still **TBD**).
 
@@ -2726,6 +2846,325 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 
 ---
 
+---
+
+## 3.15 自动制造（AutoManufacture；Mode2）
+
+### 简体中文
+
+**状态：规则库已关闭（本轮）；Demo 实现见 §3.8 D-050～D-055 / `.scratch/mode2-auto-manufacture/issues/`；具体魔法书效果行与装备 UI 另专题**
+
+当关卡当前阶段 `玩法类型 = AutoManufacture` 时进入本阶段（Mode2 样例运作表：Dig → **本阶段** → UpgradeManufacture）。配置表见 [SPEC_04 §9.9b / §9.12 / §9.24](SPEC_04_Technical.md)。Mode1 **不**进入本阶段。
+
+**阶段边界**
+
+| 规则 | 说明 |
+|------|------|
+| 进入 | 上一阶段 Dig 经 DigStageSummary 玩家确认后，关卡驱动进入本阶段 |
+| 结束 | 算法跑完（造到不能再造 + 自动上阵）后播 **AutoManufacturePresentation**（UI-016；本批 0 兵则跳过），再 **自动**交还 §3.9；**无**玩家确认 |
+| 结算 | **无**独立阶段结算 |
+| 材料不足 | 进入时仓库连 1 套最低配方都没有 → 0 兵入临时仓库；仍执行「清空布阵」再进下一阶段 |
+| 0 兵 Tips | 本批造兵数 = 0（含最低配方不足、无主要手等停造且未造出任何兵）→ 屏幕中上部 Tips「无士兵可制造」，停留约 **1 秒**；**不**阻塞阶段推进 |
+| 余料 | 造完后剩余躯体材料 **留在普通仓库**，供下次 Dig 后继续使用 |
+
+**费用屏蔽（Mode2）**
+
+| 规则 | 说明 |
+|------|------|
+| SpiritCost | 自动制造 **不扣** 精魂；材料行 `SpiritCost` 本流程忽略 |
+| ControlPowerCost | 士兵实例 `ControlPowerCost` **恒写 0**；布阵不按控制力拦上阵；UM 控制力 HUD 屏蔽（§3.11 Mode2 差分） |
+
+**最低配方（可造 1 兵）**
+
+必填：**头 1 + 躯干 1 + 臂 2（须含 ≥1 主要手）+ 腿 2**。翼 / 坐骑 / 宝石 **永不**参与本流程。灵魂 **非必要**；本流程 **不消耗、不写入** `SoulId`（手动加灵魂后续需求）。
+
+**单兵流水线（循环）**
+
+```
+while 仓库满足最低配方:
+  1. 自动选择躯体材料（主要手 → 次要手 → 头/躯干/腿）
+  2. 生成职业（双手 ClassRestrict）
+  3. 生成基础属性 Base(S)=Σ StatBonus
+  4. 魔法书钩子 EffectPhase=SoldierManufacture（可无书）
+  5. 士兵最终静态属性定稿并记录
+  6. 士兵外观定稿
+  7. 扣仓库已选躯体 → 入临时仓库
+清空布阵 → 临时仓库全员按职业区自动上阵 → 入 WarriorPool 持久化 → 阶段结束
+```
+
+**1. 自动选择躯体材料**
+
+| 步骤 | 规则 |
+|------|------|
+| 候选池 | 仓库中 `BodySlot ∈ {Head,Torso,Arm,Leg}`；忽略翼/坐骑及 `ExtraEquipment` |
+| 近似品质 | 相对锚点 `|ΔBodyLevel| ≤ 1`；同档内排序：**更高 BodyLevel → 相同 → 低 1 级** |
+| 主要手 | `BodySlot=Arm` 且 `IsPrimaryHand=1`；按 `BodyLevel` **降序**取一件作锚点；若无 → **停造** |
+| 次要手 | `IsPrimaryHand=0` 的 Arm；先滤近似品质；优先 `ClassRestrict` 与主要手有交集；同级随机；**必须**选到，否则停造 |
+| 其余部位 | 顺序固定：**头 → 躯干 → 腿1 → 腿2**；锚点 = 主要手的 `BodyLevel` / `BodyPrimaryStat` / `RaceId`；优先级：近似品质 → `BodyPrimaryStat` 相同 → `RaceId` 相同 → 在满足近似品质的剩余中随机；满足近似但无主属性相同则在近似集内随机 |
+| 主要手 ClassRestrict 空 | 视为配置错误：**停造**并打日志（不静默跳过坏主要手以免掩盖配表问题） |
+
+**2. 生成职业**
+
+| 规则 | 说明 |
+|------|------|
+| 来源 | **手**（非灵魂） |
+| 交集 | `交集 = Primary.ClassRestrict ∩ Secondary.ClassRestrict` |
+| 抽取 | 交集非空 → 均匀随机；空 → **仅**主要手 `ClassRestrict` 均匀随机 |
+| 写入 | `WarriorInstance.ClassId`；**不**写 `SoulId` |
+| AttackMode | 取 `ClassConfig.AttackMode`（Mode2 扩列） |
+| MoveStyle / AttackPriority | 本轮全局默认 `Normal` / `Nearest`（不强制扩表） |
+
+**3. 生成属性（基础）**
+
+对已确定部位：`Base(S) = Σ StatBonus(S)`（同 §3.11）。种族定稿：已选头/躯干/臂×2/腿×2 各权重 **1** 加权随机（同 Mode1）。
+
+**4. 魔法书触发效果**
+
+| 规则 | 说明 |
+|------|------|
+| 槽位 | 主角默认 **6** 特殊装备槽（一书占 1 槽） |
+| 唯一 | 同 `MagicBookId` 默认可叠装；`IsUnique=1` 不可再装第二本 |
+| 触发 | 对本兵调用已装备且 `EffectPhase` 含 `SoldierManufacture` 的书；**本轮无具体效果实现**（空钩子 / 空表行） |
+| UI | 本轮 **不做** 装备/卸下 UI |
+| Combat 环节 | 枚举预留；本轮不实现 |
+
+**5. 士兵最终属性确认**
+
+待魔法书钩子返回后，定稿 StaticStat / BodyLife / MaxHP 公式（同 §3.11，无 Equip/Gem 则对应项 0），写入实例快照。
+
+**6. 士兵外观确定**
+
+1. 平均 `BodyLevel` → 保留 1 位小数 → 四舍五入 `AvgLevelInt`（同 Mode1）
+2. 候选 A：`AppearanceLevel==AvgLevelInt` 且 `RaceId==` 定稿种族
+3. 子集 B：`ClassAffinity` 含本兵 `ClassName`；B 非空 → 均匀随机
+4. 若无匹配 → **`ClassConfig.DefaultAppearanceId`**（非空则用之）
+5. 仍无 → 同种族 `IsFallback==1`
+6. 仍无 → 全表均匀随机
+
+**7. 完成制造放入临时仓库**
+
+扣已选躯体材料；实例入 **临时仓库**（批内缓冲，尚未改布阵）。命名：`RaceDisplayName + ClassName`（无外置前缀、无宝石后缀）。
+
+**8. 循环判定**
+
+剩余材料不满足最低配方 → 结束循环。
+
+**9. 临时仓库士兵自动上阵**
+
+| 规则 | 说明 |
+|------|------|
+| 清空 | **先清空**当前 `BattleFormation` 全部上阵位 |
+| 入池 | 临时仓库士兵写入 `WarriorPool` 并持久化 |
+| 排序 | 按士兵 `ClassId` → `ClassConfig.PlacementOrder` **升序**；同序稳定按实例 Id |
+| 区域 | 布阵地图 Prefab 上 `FormationClassZone`（绑定 `ClassId`）；开发人员手摆区域；体积 = **XZ OBB**（`HalfExtents` + 作者 `Transform` Y 欧拉角）；坐标与 `BattleFormation` 同为相对地图中心的连续 XZ；Demo 样例 `Ground_*` **Y=25°** |
+| 放置 | 区内落点；按 `BodyRadius` 碰撞体积挤开，避免重叠；**区内螺旋/环形**找空位（AM-06 方案 A；圆心须落在相对区界内缩 `BodyRadius` 的安全框） |
+| 失败 | 仍放不下 / 无匹配区 → 该兵 **留在池、不上阵**（UM 可手布） |
+| 旧兵 | 池内本批之前的旧兵 **不**自动再上（仅本批临时仓库兵上阵） |
+| 读区 | 无头 Stage 可短时 Instantiate 下一关 BattleMap（`FormationMapResolver` / `DefendPrefabCatalog`）采集区快照后销毁；规则层只消费快照，不持有 Transform |
+| 批次记录 | flush 后把本批 `WarriorId` **整表替换**写入 `AutoManufactureBatchRecord`（含 0 兵空列表）；下一批覆盖；按存档槽 + `CampaignMode` 持久化 |
+
+**10. 制造记录（UM 只读弹窗；UI-015 / D-054）**
+
+| 规则 | 说明 |
+|------|------|
+| 入口 | **仅 Mode2** UM；「布阵」**右侧**「制造记录」；Mode1 **无**此按钮 |
+| 范围 | **仅最近一批** AutoManufacture flush 的 Id；不是全池、不是多批历史 |
+| 展示 | 只读列表：`WarriorName` + 种族展示名 + `ClassName`（`｜` 分隔）；不点开详情、不再造 |
+| 空态 | 本批 0 兵，或 Id 在 `WarriorPool` 中全部缺失 → 文案「本批无士兵」 |
+| 缺兵 | 个别 Id 已不在池（死亡/移除）→ **跳过该行**，仍展示其余 |
+| 覆盖 | 下一次 AutoManufacture 批末覆盖记录；同档退出再进仍可见上一批 |
+| 删档 | 清该槽两模式 `AutoManufactureBatch` 键 |
+
+**11. 自动制造演出（阶段表现；UI-016 / D-055；方案 A）**
+
+规则层仍同步跑批（选料→造兵→上阵→批次记录）。本批造兵数 **>0** 时，阶段内挂表现 Prefab，播完后再交还驱动；**0 兵**仅 Tips「无士兵可制造」，跳过演出，进 UM **不**自动开布阵。
+
+| 步骤 | 规则 |
+|------|------|
+| Step1 | 画面中央横滑士兵行；每卡 **宽 150 × 高 200**；卡中央「?」字号 **42** + 其下职业名（`ClassName`）字号 **32**；士兵行**上方** 6 个魔法书方框（各 **120×160**）：读 `SpecialEquipSlotsService`；有书显示 `DisplayName`（及可解析的 `IconAssetId` 占位），空槽留空框 |
+| Step2 | 以单兵为单位：目标卡移至画面中央；6 书框**依次**伸缩；士兵卡上临时字「加强」（正式魔法书文案后置）；完成后该卡「?」→ Idle 外观缩略（`SampleIdleSprite`）；卡左移并聚焦下一兵；每完成 **3** 兵，特效播放速度相对初始 **+25%**（速率 × `1.25^floor(completed/3)`） |
+| Step3 | 全部士兵 Step2 完成后自动进 `UpgradeManufacture`，并**自动打开**共享布阵编辑器（同「布阵」按钮路径）；玩家「返回」回 Mode2 UM 主屏 |
+
+```
+AutoManufacture stage
+  → while warehouse can craft min recipe (Head+Torso+2Arm incl PrimaryHand+2Leg):
+       pick PrimaryHand (max BodyLevel) → SecondaryHand (approx + class overlap)
+       ClassId = intersect(ClassRestrict) or PrimaryHand pool
+       pick Head/Torso/Leg×2 (approx > BodyPrimaryStat > Race > random)
+       Base=Σ StatBonus; Race weight-1; MagicBook SoldierManufacture hook
+       finalize StaticStat; Appearance (class DefaultAppearanceId fallback)
+       consume parts → TempWarriorWarehouse
+  → Clear BattleFormation
+  → Flush temp → WarriorPool; deploy by PlacementOrder into FormationClassZone (+ separation)
+  → Replace AutoManufactureBatchRecord with flushed Ids
+  → if crafted>0: play AutoManufacturePresentation (UI-016 Step1–2)
+  → Auto return to §3.9 → UpgradeManufacture (+ auto-open Formation if presentation ran)
+```
+
+**待实现优先级（规则已锁；编码另切片）**
+
+| 优先级 | 内容 |
+|--------|------|
+| P0 | 表扩列 + AutoManufacture 阶段 + 选料/职业/属性循环 + 临时仓库 + 自动上阵 + Mode2 UM 差分 |
+| P1 | 魔法书 6 槽存档 + 空钩子；制造记录弹窗（最近一批）；自动制造演出 UI-016 |
+| P2 | 具体魔法书效果 / 装备 UI / 灵魂手动装配 |
+
+### English
+
+**Status: Rules library closed (this round); Demo impl §3.8 D-050–D-055 / `.scratch/mode2-auto-manufacture/issues/`; concrete MagicBook effect rows and equip UI later**
+
+Entered when Level stage `GameplayType = AutoManufacture` (Mode2 sample LevelOperation: Dig → **this stage** → UpgradeManufacture). Config: [SPEC_04 §9.9b / §9.12 / §9.24](SPEC_04_Technical.md). Mode1 does **not** enter this stage.
+
+**Stage boundary**
+
+| Rule | Notes |
+|------|-------|
+| Enter | After Dig DigStageSummary player confirm |
+| End | When algo finishes (craft until cannot + auto-deploy) → play **AutoManufacturePresentation** (UI-016; skip if batch 0) → **automatic** return to §3.9; **no** player confirm |
+| Settlement | **No** independent stage settlement |
+| Insufficient stock | If warehouse cannot craft even one min recipe → 0 soldiers in temp warehouse; still **clear formation** then advance |
+| Zero-craft Tips | Batch crafted count = 0 (incl. min-recipe short / no PrimaryHand stop with zero crafts) → upper-center Tips「无士兵可制造」for ~**1s**; does **not** block stage advance |
+| Leftovers | Remaining body parts stay in normal Warehouse for the next Dig cycle |
+
+**Cost shield (Mode2)**
+
+| Rule | Notes |
+|------|-------|
+| SpiritCost | AutoManufacture does **not** spend Spirit; ignore part `SpiritCost` |
+| ControlPowerCost | Instance `ControlPowerCost` **always 0**; deploy not gated by ControlPower; UM ControlPower HUD hidden (§3.11 Mode2 diffs) |
+
+**Min recipe (one soldier)**
+
+Required: **Head 1 + Torso 1 + Arm 2 (incl. ≥1 PrimaryHand) + Leg 2**. Wing / Mount / Gems **never** participate. Soul is **optional** and **not** consumed/written this flow (manual soul later).
+
+**Per-soldier pipeline (loop)**
+
+```
+while warehouse meets min recipe:
+  1. Auto-pick body parts (PrimaryHand → SecondaryHand → Head/Torso/Legs)
+  2. Generate Class (hand ClassRestrict)
+  3. Base stats Base(S)=Σ StatBonus
+  4. MagicBook hook EffectPhase=SoldierManufacture (may be empty)
+  5. Finalize static stats snapshot
+  6. Finalize Appearance
+  7. Consume warehouse parts → TempWarriorWarehouse
+Clear formation → auto-deploy all temp soldiers by class zone → WarriorPool persist → stage end
+```
+
+**1. Auto-pick body parts**
+
+| Step | Rules |
+|------|-------|
+| Pool | Warehouse `BodySlot ∈ {Head,Torso,Arm,Leg}`; ignore Wing/Mount/`ExtraEquipment` |
+| Approx quality | `|ΔBodyLevel| ≤ 1` vs anchor; within band sort **higher → same → lower-by-1** |
+| PrimaryHand | `Arm` + `IsPrimaryHand=1`; pick max `BodyLevel` as anchor; if none → **stop crafting** |
+| SecondaryHand | `IsPrimaryHand=0` Arms; filter approx; prefer ClassRestrict overlap with Primary; random among ties; **must** pick one else stop |
+| Remaining | Fixed order **Head → Torso → Leg1 → Leg2**; anchor = PrimaryHand BodyLevel / BodyPrimaryStat / RaceId; priority: approx → same BodyPrimaryStat → same RaceId → random among approx; if approx but no BodyPrimaryStat match → random in approx set |
+| Empty Primary ClassRestrict | Config error: **stop crafting** and log |
+
+**2. Generate Class**
+
+| Rule | Notes |
+|------|-------|
+| Source | **Hands** (not Soul) |
+| Intersect | `Primary.ClassRestrict ∩ Secondary.ClassRestrict` |
+| Roll | Non-empty → uniform; empty → **PrimaryHand ClassRestrict only** |
+| Write | `WarriorInstance.ClassId`; **no** `SoulId` |
+| AttackMode | From `ClassConfig.AttackMode` |
+| MoveStyle / AttackPriority | This round global defaults `Normal` / `Nearest` |
+
+**3. Base stats**
+
+`Base(S)=Σ StatBonus(S)` over chosen parts (§3.11). Race: weight-1 among Head/Torso/Arm×2/Leg×2 (Mode1 parity).
+
+**4. MagicBook effects**
+
+| Rule | Notes |
+|------|-------|
+| Slots | Default **6** special slots (one book per slot) |
+| Unique | Same MagicBookId stackable unless `IsUnique=1` |
+| Trigger | Equipped books whose `EffectPhase` includes `SoldierManufacture`; **no concrete effects this round** (empty hook / empty rows) |
+| UI | **No** equip/unequip UI this round |
+| Combat phase | Enum reserved; not implemented |
+
+**5. Final soldier stats**
+
+After MagicBook hook: finalize StaticStat / BodyLife / MaxHP (§3.11; Equip/Gem terms 0 if none).
+
+**6. Appearance**
+
+1. Mean BodyLevel → 1 decimal → round `AvgLevelInt` (Mode1)
+2. Set A: level + race match
+3. Subset B: ClassAffinity contains ClassName; if non-empty uniform pick
+4. Else **`ClassConfig.DefaultAppearanceId`** if non-empty
+5. Else race `IsFallback==1`
+6. Else full-table uniform
+
+**7. Temp warehouse**
+
+Consume chosen parts; instance → **TempWarriorWarehouse**. Name: `RaceDisplayName + ClassName` (no prefixes/suffixes).
+
+**8. Loop check**
+
+Stop when remaining stock cannot satisfy min recipe.
+
+**9. Auto-deploy**
+
+| Rule | Notes |
+|------|-------|
+| Clear | **Clear** all current BattleFormation slots first |
+| Pool | Flush temp → WarriorPool + persist |
+| Order | By `ClassConfig.PlacementOrder` ascending; tie-break instance Id |
+| Zones | Map Prefab `FormationClassZone` bound to ClassId (designer-authored); volume = **XZ OBB** (`HalfExtents` + authoring Transform Y euler); coords = map-center-relative XZ (same as BattleFormation); Demo sample `Ground_*` **Y=25°** |
+| Place | Inside zone; separate by BodyRadius; **spiral/ring** search (AM-06 Approach A; center must lie in zone shrunk by BodyRadius) |
+| Fail | Still no slot / no matching zone → leave in pool undeployed (manual in UM) |
+| Old pool | Prior pool soldiers are **not** auto-redeployed (only this batch) |
+| Read zones | Headless stage may briefly Instantiate next BattleMap (`FormationMapResolver` / `DefendPrefabCatalog`), snapshot zones, destroy; rules consume snapshots only (no Transform ownership) |
+| Batch record | After flush, **replace** `AutoManufactureBatchRecord` with this batch `WarriorId` list (incl. empty); next batch overwrites; persist per slot + `CampaignMode` |
+
+**10. Manufacture record (UM read-only popup; UI-015 / D-054)**
+
+| Rule | Notes |
+|------|-------|
+| Entry | **Mode2 UM only**; "Manufacture Record" to the **right** of Formation; Mode1 has **no** button |
+| Scope | **Last AutoManufacture batch** Ids only; not full pool, not multi-batch history |
+| Display | Read-only: `WarriorName` + race display name + `ClassName` (`｜`-separated); no detail tap, no remake |
+| Empty | Batch 0 soldiers, or all Ids missing from `WarriorPool` → 「本批无士兵」 |
+| Missing | Individual Id gone from pool (death/remove) → **skip that row**, still show the rest |
+| Overwrite | Next AutoManufacture batch replaces the record; survives leave/re-enter same save |
+| Delete save | Clear both-mode `AutoManufactureBatch` keys for that slot |
+
+**11. AutoManufacture presentation (stage View; UI-016 / D-055; Approach A)**
+
+Rules still run the batch synchronously (pick→craft→deploy→batch record). When crafted count **>0**, mount presentation Prefab in-stage and advance only after it finishes; **0 craft** shows Tips only, skips presentation, and UM does **not** auto-open Formation.
+
+| Step | Rules |
+|------|-------|
+| Step1 | Center horizontal-scroll soldier row; each card **150×200**; center "?" font size **42** + class name (`ClassName`) size **32** below; **above** the row: 6 MagicBook frames (**120×160** each) from `SpecialEquipSlotsService`; equipped show `DisplayName` (+ resolvable `IconAssetId` stub); empty slots stay empty frames |
+| Step2 | Per soldier: move target card to screen center; pulse 6 book frames **in sequence**; temporary text 「加强」 on the card (formal MagicBook copy later); then "?" → Idle thumbnail (`SampleIdleSprite`); shift left and focus next; every **3** completed soldiers, effect playback speed **+25%** vs base (rate × `1.25^floor(completed/3)`) |
+| Step3 | After all Step2 finishes → enter `UpgradeManufacture` and **auto-open** shared FormationEditor (same path as Formation button); Return → Mode2 UM main |
+
+```
+AutoManufacture stage
+  → while warehouse can craft min recipe:
+       … (see CN block)
+  → Clear BattleFormation
+  → Flush temp → WarriorPool; deploy by PlacementOrder into FormationClassZone
+  → Replace AutoManufactureBatchRecord with flushed Ids
+  → if crafted>0: play AutoManufacturePresentation (UI-016 Step1–2)
+  → Auto return to §3.9 → UpgradeManufacture (+ auto-open Formation if presentation ran)
+```
+
+**Impl priority (rules locked; coding in separate slices)**
+
+| Priority | Content |
+|----------|---------|
+| P0 | Table columns + AutoManufacture stage + pick/class/stat loop + temp warehouse + auto-deploy + Mode2 UM diffs |
+| P1 | MagicBook 6-slot save + empty hook; ManufactureRecord popup (last batch); AutoManufacture presentation UI-016 |
+| P2 | Concrete MagicBook effects / equip UI / manual soul |
+
+---
+
 ## 待澄清清单
 
 ### 简体中文
@@ -2783,6 +3222,10 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 - [ ] 存档完整字段（显示名、时间戳、局内进度等）
 - [ ] 工具面板后续功能列表
 - [x] 推图战（PushMap）框架：GameplayType、目标点/判定圈占领、空气墙、刷怪点/陷阱、BOSS 通关、AggroMode、复用 Defend 护盾/失控（§3.14）
+- [x] Mode2 自动制造（AutoManufacture）规则关闭：流水线 Dig→AutoManufacture→UM；最低配方头+躯干+双臂（含主要手）+双腿；近似品质 |Δ|≤1；职业由双手 ClassRestrict；不计 Spirit/Control；无 SoulId；魔法书表+6槽+钩子骨架；清空布阵后按 PlacementOrder/职业区上阵（§3.15）
+- [x] Mode2 制造记录弹窗（UI-015 / D-054）：最近一批只读摘要；布阵右侧入口；方案 A `AutoManufactureBatchRecordService`
+- [x] Mode2 自动制造演出（UI-016 / D-055）：Step1–3；方案 A `AutoManufacturePresentationController` + UM 自动开布阵
+- [ ] Mode2 魔法书具体效果行与装备 UI；灵魂手动装配（§3.15 另专题）
 - [x] PushMap 边界锁定：到达 `CaptureZone` 即占领（无计时/无「无怪」条件）；占领后已刷怪保留；全队共当前目标；无陷阱开战刷；无倒计时刷怪；仅 BOSS 通关入账经验；MapId=`Ground_*`|`PushMap_*`
 - [x] 大规模战斗寻路（方案 B）规则锁定：FlowField（共享目标）+ AttackSlot（追击/攻击）+ LocalDetour（友军左右绕）；容量双方约 200；实现见 `.scratch/mass-pathing/issues/`（§3.12 / SPEC_04 §9.7）
 - [ ] 推图战副本玩法正文
@@ -2844,6 +3287,10 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 - [ ] Full save fields (name, timestamp, progress, etc.)
 - [ ] Future ToolsPanel entries
 - [x] PushMap framework: GameplayType, objectives/CaptureZone, AirWall, SpawnPoint/Trap, Boss clear, AggroMode, reuse Defend Shield/LOC (§3.14)
+- [x] Mode2 AutoManufacture rules closed: Dig→AutoManufacture→UM; min recipe Head+Torso+2Arm(incl PrimaryHand)+2Leg; approx |Δ|≤1; class from hand ClassRestrict; no Spirit/Control; no SoulId; MagicBook schema+6 slots+hook stub; clear formation then PlacementOrder/class-zone deploy (§3.15)
+- [x] Mode2 ManufactureRecord popup (UI-015 / D-054): last-batch read-only summary; entry right of Formation; Approach A `AutoManufactureBatchRecordService`
+- [x] Mode2 AutoManufacture presentation (UI-016 / D-055): Step1–3; Approach A `AutoManufacturePresentationController` + UM auto-open Formation
+- [ ] Mode2 MagicBook concrete effects + equip UI; manual soul attach (§3.15 later)
 - [x] PushMap boundary locks: Capture on arrive to `CaptureZone` (no timer / no “clear monsters” condition); keep living after Capture; shared current objective; non-trap spawn at StartBattle; no countdown spawn; Exp only on Boss clear; MapId=`Ground_*`|`PushMap_*`
 - [x] Mass combat pathing (Approach B) rules locked: FlowField (shared goals) + AttackSlot (chase/attack) + LocalDetour (friendly L/R); ~200/side capacity; impl `.scratch/mass-pathing/issues/` (§3.12 / SPEC_04 §9.7)
 - [ ] PushMap dungeon gameplay body

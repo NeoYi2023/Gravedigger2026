@@ -48,3 +48,23 @@ MonoBehaviour:
     Prefab: {fileID: 8700000900000000001, guid: 6bb1da158e191484a9eeb1dc6cc794ce, type: 3}
   - QualityId: Q10
     Prefab: {fileID: 8700001000000000001, guid: 31b9dff5e5bbc7049957e08a87e33014, type: 3}
+  - QualityId: Q11
+    Prefab: {fileID: 8700001100000000001, guid: 8c4a1d2e9f6b4703a5e8c1d0b7f39214, type: 3}
+  - QualityId: Q12
+    Prefab: {fileID: 8700001200000000001, guid: 1b7e3c90a4d64f2c8e5a9f0b6d214873, type: 3}
+  - QualityId: Q13
+    Prefab: {fileID: 8700001300000000001, guid: 5f2a8c1d6e4b4930b7c9e0f3a185d246, type: 3}
+  - QualityId: Q14
+    Prefab: {fileID: 8700001400000000001, guid: 9d0e4b7a2c185f36e8a1d4c0b7f52963, type: 3}
+  - QualityId: Q15
+    Prefab: {fileID: 8700001500000000001, guid: 2e8c5a1f7d4b6039c0e6a9b3d185f472, type: 3}
+  - QualityId: Q16
+    Prefab: {fileID: 8700001600000000001, guid: 7a3f0e9c4b185d26a8e1c5d0f294b637, type: 3}
+  - QualityId: Q17
+    Prefab: {fileID: 8700001700000000001, guid: 4c1d8e2a6f0b4935e7a9c3d0b185f258, type: 3}
+  - QualityId: Q18
+    Prefab: {fileID: 8700001800000000001, guid: 6e9b2c4d0a185f37c8e1a5d9f304b761, type: 3}
+  - QualityId: Q19
+    Prefab: {fileID: 8700001900000000001, guid: 0a5f8c2e1d4b6937e9a0c4d8b215f380, type: 3}
+  - QualityId: Q20
+    Prefab: {fileID: 8700002000000000001, guid: 3d7e1a9c5b0f4826e8a2c4d1f096b573, type: 3}

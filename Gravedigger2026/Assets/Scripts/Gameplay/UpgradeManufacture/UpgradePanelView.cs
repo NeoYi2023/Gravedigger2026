@@ -5,7 +5,8 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.UpgradeManufacture
 {
     /// <summary>
-    /// Main shell: Complete / Formation + GM Upgrade Modal (SPEC_03 UI-010).
+    /// Main shell: Complete / Formation + GM Upgrade Modal (SPEC_03 UI-010);
+    /// Mode2 optional ManufactureRecord (UI-015 / D-054).
     /// </summary>
     public sealed class UpgradePanelView : MonoBehaviour
     {
@@ -18,6 +19,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         [SerializeField] private Button _inject500Button;
         [SerializeField] private Button _completeButton;
         [SerializeField] private Button _formationButton;
+        [SerializeField] private Button _manufactureRecordButton;
+        [SerializeField] private ManufactureRecordModalView _manufactureRecordModal;
 
         public event Action Inject100Requested;
         public event Action Inject500Requested;
@@ -25,6 +28,10 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         public event Action FormationRequested;
         public event Action OpenUpgradeModalRequested;
         public event Action CloseUpgradeModalRequested;
+        public event Action OpenManufactureRecordRequested;
+        public event Action CloseManufactureRecordRequested;
+
+        public ManufactureRecordModalView ManufactureRecordModal => _manufactureRecordModal;
 
         private void OnEnable()
         {
@@ -34,6 +41,11 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             Wire(_inject500Button, HandleInject500);
             Wire(_completeButton, HandleComplete);
             Wire(_formationButton, HandleFormation);
+            Wire(_manufactureRecordButton, HandleOpenManufactureRecord);
+            if (_manufactureRecordModal != null)
+            {
+                _manufactureRecordModal.CloseRequested += HandleCloseManufactureRecord;
+            }
         }
 
         private void OnDisable()
@@ -44,6 +56,11 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             Unwire(_inject500Button, HandleInject500);
             Unwire(_completeButton, HandleComplete);
             Unwire(_formationButton, HandleFormation);
+            Unwire(_manufactureRecordButton, HandleOpenManufactureRecord);
+            if (_manufactureRecordModal != null)
+            {
+                _manufactureRecordModal.CloseRequested -= HandleCloseManufactureRecord;
+            }
         }
 
         public void Show()
@@ -54,11 +71,13 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
 
             HideUpgradeModal();
+            HideManufactureRecordModal();
         }
 
         public void Hide()
         {
             HideUpgradeModal();
+            HideManufactureRecordModal();
             if (_root != null)
             {
                 _root.SetActive(false);
@@ -78,6 +97,37 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             if (_upgradeModal != null)
             {
                 _upgradeModal.SetActive(false);
+            }
+        }
+
+        public void ShowManufactureRecordModal()
+        {
+            _manufactureRecordModal?.ShowRoot();
+        }
+
+        public void HideManufactureRecordModal()
+        {
+            _manufactureRecordModal?.HideRoot();
+        }
+
+        /// <summary>Mode2 only: create record button + modal if Prefab refs are missing.</summary>
+        public void EnsureManufactureRecordUi()
+        {
+            if (_manufactureRecordButton != null && _manufactureRecordModal != null)
+            {
+                return;
+            }
+
+            if (_root == null)
+            {
+                return;
+            }
+
+            _manufactureRecordModal = ManufactureRecordModalView.Build(_root.transform, out _manufactureRecordButton);
+            if (isActiveAndEnabled)
+            {
+                Wire(_manufactureRecordButton, HandleOpenManufactureRecord);
+                _manufactureRecordModal.CloseRequested += HandleCloseManufactureRecord;
             }
         }
 
@@ -133,6 +183,16 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private void HandleFormation()
         {
             FormationRequested?.Invoke();
+        }
+
+        private void HandleOpenManufactureRecord()
+        {
+            OpenManufactureRecordRequested?.Invoke();
+        }
+
+        private void HandleCloseManufactureRecord()
+        {
+            CloseManufactureRecordRequested?.Invoke();
         }
     }
 }

@@ -34,6 +34,11 @@ namespace Gravedigger2026.UI
 
         public void Show(string message)
         {
+            Show(message, _visibleSeconds);
+        }
+
+        public void Show(string message, float visibleSeconds)
+        {
             if (_messageText != null)
             {
                 _messageText.text = message;
@@ -52,12 +57,13 @@ namespace Gravedigger2026.UI
                 StopCoroutine(_routine);
             }
 
-            _routine = StartCoroutine(HideAfterDelay());
+            var seconds = visibleSeconds > 0f ? visibleSeconds : _visibleSeconds;
+            _routine = StartCoroutine(HideAfterDelay(seconds));
         }
 
-        private IEnumerator HideAfterDelay()
+        private IEnumerator HideAfterDelay(float visibleSeconds)
         {
-            yield return new WaitForSecondsRealtime(_visibleSeconds);
+            yield return new WaitForSecondsRealtime(visibleSeconds);
             SetVisible(false);
             _routine = null;
         }

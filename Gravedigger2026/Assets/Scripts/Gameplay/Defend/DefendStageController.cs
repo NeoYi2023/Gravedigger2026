@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
@@ -392,7 +393,9 @@ namespace Gravedigger2026.Gameplay.Defend
         private void OpenFormationEditor()
         {
             CloseFormationEditor();
-            if (_formationCatalog == null || _formationCatalog.FormationEditorRootPrefab == null)
+            var mode = _formation != null ? _formation.BoundCampaignMode : CampaignMode.Mode1;
+            var rootPrefab = _formationCatalog != null ? _formationCatalog.ResolveEditorRoot(mode) : null;
+            if (rootPrefab == null)
             {
                 Debug.LogError("[DefendStage] FormationEditorRoot missing — falling back to HUD StartBattle only.");
                 if (_hudView != null)
@@ -408,8 +411,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            var instance = Instantiate(_formationCatalog.FormationEditorRootPrefab, transform);
-            instance.name = "FormationEditorRoot(Clone)";
+            var instance = Instantiate(rootPrefab, transform);
+            instance.name = mode == CampaignMode.Mode2
+                ? "FormationEditorRoot_Mode2(Clone)"
+                : "FormationEditorRoot(Clone)";
             _formationEditor = instance.GetComponent<FormationEditorController>();
             if (_formationEditor == null)
             {

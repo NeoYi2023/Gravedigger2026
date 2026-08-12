@@ -6,21 +6,20 @@ using UnityEngine;
 namespace Gravedigger2026.Core.PushMap
 {
     /// <summary>
-    /// Per-save-slot dungeon unlock set hook (SPEC_03 §3.14 / SPEC_04 §9.22 PM-07).
+    /// Per-save-slot + CampaignMode dungeon unlock set hook (SPEC_03 §3.14 / SPEC_04 §6).
     /// PlayerPrefs-backed; dungeon gameplay body is TBD — unlock IDs are log-verifiable only.
     /// </summary>
     public sealed class DungeonUnlockService
     {
-        private const string KeyPrefix = "Gravedigger2026.SaveSlot.";
-        private const string UnlockSuffix = ".DungeonUnlocks";
-
         private readonly HashSet<string> _unlocked = new HashSet<string>(StringComparer.Ordinal);
         private int _slotIndex = -1;
+        private CampaignMode _campaignMode = CampaignMode.Mode1;
 
         public int BoundSlotIndex => _slotIndex;
+        public CampaignMode BoundCampaignMode => _campaignMode;
         public IReadOnlyCollection<string> UnlockedIds => _unlocked;
 
-        public void BindSlot(int slotIndex)
+        public void BindSlot(int slotIndex, CampaignMode campaignMode)
         {
             if (slotIndex < 0 || slotIndex > 2)
             {
@@ -28,28 +27,65 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             _slotIndex = slotIndex;
+            _campaignMode = campaignMode;
             _unlocked.Clear();
-            var raw = PlayerPrefs.GetString(UnlockKey(slotIndex), string.Empty);
-            if (string.IsNullOrEmpty(raw))
+
+            var key = UnlockKey(slotIndex, campaignMode);
+            var raw = PlayerPrefs.GetString(key, string.Empty);
+            var migratedFromLegacy = false;
+
+            if (string.IsNullOrEmpty(raw) && campaignMode == CampaignMode.Mode1)
             {
-                return;
+                var legacyKey = SaveSlotPrefsKeys.LegacyDataKey(
+                    slotIndex, SaveSlotPrefsKeys.DungeonUnlocksSuffix);
+                raw = PlayerPrefs.GetString(legacyKey, string.Empty);
+                if (!string.IsNullOrEmpty(raw))
+                {
+                    migratedFromLegacy = true;
+                }
             }
 
-            var parts = raw.Split('|');
-            for (var i = 0; i < parts.Length; i++)
+            if (!string.IsNullOrEmpty(raw))
             {
-                var id = parts[i]?.Trim();
-                if (!string.IsNullOrEmpty(id))
+                var parts = raw.Split('|');
+                for (var i = 0; i < parts.Length; i++)
                 {
-                    _unlocked.Add(id);
+                    var id = parts[i]?.Trim();
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        _unlocked.Add(id);
+                    }
                 }
+            }
+
+            if (migratedFromLegacy)
+            {
+                Persist();
+                PlayerPrefs.DeleteKey(
+                    SaveSlotPrefsKeys.LegacyDataKey(slotIndex, SaveSlotPrefsKeys.DungeonUnlocksSuffix));
+                PlayerPrefs.Save();
             }
         }
 
         public void ClearBound()
         {
             _slotIndex = -1;
+            _campaignMode = CampaignMode.Mode1;
             _unlocked.Clear();
+        }
+
+        public static void DeleteSlotData(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex > 2)
+            {
+                return;
+            }
+
+            PlayerPrefs.DeleteKey(UnlockKey(slotIndex, CampaignMode.Mode1));
+            PlayerPrefs.DeleteKey(UnlockKey(slotIndex, CampaignMode.Mode2));
+            PlayerPrefs.DeleteKey(
+                SaveSlotPrefsKeys.LegacyDataKey(slotIndex, SaveSlotPrefsKeys.DungeonUnlocksSuffix));
+            PlayerPrefs.Save();
         }
 
         /// <summary>
@@ -78,12 +114,12 @@ namespace Gravedigger2026.Core.PushMap
 
             if (!_unlocked.Add(id))
             {
-                Debug.Log($"[DungeonUnlock] Slot={_slotIndex} already unlocked '{id}' (set=[{FormatSet()}]).");
+                Debug.Log($"[DungeonUnlock] Slot={_slotIndex} Mode={_campaignMode} already unlocked '{id}' (set=[{FormatSet()}]).");
                 return false;
             }
 
             Persist();
-            Debug.Log($"[DungeonUnlock] Slot={_slotIndex} unlocked '{id}' → set=[{FormatSet()}]");
+            Debug.Log($"[DungeonUnlock] Slot={_slotIndex} Mode={_campaignMode} unlocked '{id}' → set=[{FormatSet()}]");
             return true;
         }
 
@@ -109,7 +145,7 @@ namespace Gravedigger2026.Core.PushMap
                 return;
             }
 
-            PlayerPrefs.SetString(UnlockKey(_slotIndex), FormatSet());
+            PlayerPrefs.SetString(UnlockKey(_slotIndex, _campaignMode), FormatSet());
             PlayerPrefs.Save();
         }
 
@@ -136,9 +172,9 @@ namespace Gravedigger2026.Core.PushMap
             return sb.ToString();
         }
 
-        private static string UnlockKey(int slotIndex)
+        private static string UnlockKey(int slotIndex, CampaignMode mode)
         {
-            return KeyPrefix + slotIndex + UnlockSuffix;
+            return SaveSlotPrefsKeys.DataKey(slotIndex, mode, SaveSlotPrefsKeys.DungeonUnlocksSuffix);
         }
     }
 }

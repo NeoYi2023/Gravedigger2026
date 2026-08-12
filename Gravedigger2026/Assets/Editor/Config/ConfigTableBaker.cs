@@ -12,11 +12,12 @@ namespace Gravedigger2026.Editor.Config
 {
     /// <summary>
     /// One-click Excel → CSV bake (SPEC_04 §14.4 Approach A + three-row header Approach B).
-    /// Menu: Gravedigger2026/Config/Bake Tables
+    /// Menu: Bake Tables (Mode1) / Bake Mode2 Tables.
     /// </summary>
     public static class ConfigTableBaker
     {
         private const string MenuPath = "Gravedigger2026/Config/Bake Tables";
+        private const string MenuPathMode2 = "Gravedigger2026/Config/Bake Mode2 Tables";
         private const string LogPrefix = "[ConfigTableBaker]";
         private const int MaxHeaderScanRows = 3;
 
@@ -29,12 +30,26 @@ namespace Gravedigger2026.Editor.Config
         [MenuItem(MenuPath)]
         public static void BakeAllTables()
         {
-            var excelDir = Path.Combine(Application.dataPath, "ConfigTables", "Excel");
-            var csvDir = Path.Combine(Application.dataPath, "ConfigTables", "Csv");
+            BakeRoot(
+                Path.Combine(Application.dataPath, "ConfigTables", "Excel"),
+                Path.Combine(Application.dataPath, "ConfigTables", "Csv"),
+                "Mode1");
+        }
 
+        [MenuItem(MenuPathMode2)]
+        public static void BakeMode2Tables()
+        {
+            BakeRoot(
+                Path.Combine(Application.dataPath, "ConfigTables", "Mode2", "Excel"),
+                Path.Combine(Application.dataPath, "ConfigTables", "Mode2", "Csv"),
+                "Mode2");
+        }
+
+        private static void BakeRoot(string excelDir, string csvDir, string label)
+        {
             if (!Directory.Exists(excelDir))
             {
-                Debug.LogError($"{LogPrefix} Excel folder missing: {excelDir}");
+                Debug.LogError($"{LogPrefix} [{label}] Excel folder missing: {excelDir}");
                 return;
             }
 
@@ -51,7 +66,7 @@ namespace Gravedigger2026.Editor.Config
 
             if (xlsxFiles.Length == 0)
             {
-                Debug.LogWarning($"{LogPrefix} No .xlsx files under {excelDir}");
+                Debug.LogWarning($"{LogPrefix} [{label}] No .xlsx files under {excelDir}");
                 return;
             }
 
@@ -65,7 +80,7 @@ namespace Gravedigger2026.Editor.Config
                 if (!TryMapExcelBaseToCsvBase(baseName, out var csvBase, out var nameError))
                 {
                     Debug.LogError(
-                        $"{LogPrefix} Abort — {excelFileName}: {nameError}. No CSV files were written.");
+                        $"{LogPrefix} [{label}] Abort — {excelFileName}: {nameError}. No CSV files were written.");
                     return;
                 }
 
@@ -77,28 +92,28 @@ namespace Gravedigger2026.Editor.Config
                 catch (Exception ex)
                 {
                     Debug.LogError(
-                        $"{LogPrefix} Abort — {excelFileName}: failed to read sheet — {ex.Message}. No CSV files were written.");
+                        $"{LogPrefix} [{label}] Abort — {excelFileName}: failed to read sheet — {ex.Message}. No CSV files were written.");
                     return;
                 }
 
                 if (rows == null || rows.Count == 0)
                 {
                     Debug.LogError(
-                        $"{LogPrefix} Abort — {excelFileName}: first sheet is empty. No CSV files were written.");
+                        $"{LogPrefix} [{label}] Abort — {excelFileName}: first sheet is empty. No CSV files were written.");
                     return;
                 }
 
                 if (!TryFindEnglishHeaderRow(rows, out var headerIndex, out var headerError))
                 {
                     Debug.LogError(
-                        $"{LogPrefix} Abort — {excelFileName}: {headerError}. No CSV files were written.");
+                        $"{LogPrefix} [{label}] Abort — {excelFileName}: {headerError}. No CSV files were written.");
                     return;
                 }
 
                 if (headerIndex > 0)
                 {
                     Debug.Log(
-                        $"{LogPrefix} {excelFileName}: detected {headerIndex} header documentation row(s); stripped on bake.");
+                        $"{LogPrefix} [{label}] {excelFileName}: detected {headerIndex} header documentation row(s); stripped on bake.");
                 }
 
                 var exportRows = rows.GetRange(headerIndex, rows.Count - headerIndex);
@@ -115,7 +130,7 @@ namespace Gravedigger2026.Editor.Config
             AssetDatabase.Refresh();
 
             var summary = new StringBuilder();
-            summary.AppendLine($"{LogPrefix} Baked {pending.Count} table(s):");
+            summary.AppendLine($"{LogPrefix} [{label}] Baked {pending.Count} table(s):");
             foreach (var item in pending)
             {
                 summary.AppendLine($"  {item.ExcelFileName} → {Path.GetFileName(item.CsvPath)}");

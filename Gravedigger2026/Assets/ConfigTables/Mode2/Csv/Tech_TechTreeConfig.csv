@@ -1,0 +1,11 @@
+TechId,IconId,DisplayName,EffectDescription,UnlockNextTechIds,InitiallyUnlocked,LearnCost,TechUiFrameType
+Tech_Root,Icon_Tech_Root,掘墓学基础,科技树中心根项,Tech_DigDamage|Tech_DigSpeed|Tech_DigRadius,true,0,Root
+Tech_DigDamage,Icon_Tech_DigDamage,挖掘强化,提升挖坟伤害,Tech_Key_01,false,1,Normal
+Tech_DigSpeed,Icon_Tech_DigSpeed,迅掘,缩短单次挖掘时长,Tech_Normal_01,false,1,Normal
+Tech_DigRadius,Icon_Tech_DigRadius,光标扩展,扩大挖坟光标半径,Tech_Normal_02,false,1,Normal
+Tech_DigDuration,Icon_Tech_DigDuration,延时掘进,挖坟阶段时长加成,Tech_Leaf,false,2,Normal
+Tech_Key_01,Icon_Tech_Key,关键：深层采掘,关键节点,Tech_Capstone,false,3,Key
+Tech_Normal_01,Icon_Tech_N1,稳健掘进,普通节点,Tech_DigDuration,false,2,Normal
+Tech_Normal_02,Icon_Tech_N2,精准采掘,普通节点,Tech_DigDuration,false,2,Normal
+Tech_Capstone,Icon_Tech_Cap,终焉掘墓术,顶点科技,,false,5,Capstone
+Tech_Leaf,Icon_Tech_Leaf,收束训练,叶节点,,false,2,Normal

@@ -50,7 +50,7 @@ namespace Gravedigger2026.UI
             }
 
             var mapPart = string.IsNullOrEmpty(context.ResolvedMapId)
-                ? (context.GameplayConfigIgnored ? "MapId=（UM 忽略）" : "MapId=-")
+                ? (context.GameplayConfigIgnored ? "MapId=（配置忽略）" : "MapId=-")
                 : $"MapId={context.ResolvedMapId}";
 
             _stageInfoLabel.text =
@@ -86,6 +86,8 @@ namespace Gravedigger2026.UI
             {
                 case GameplayState.Dig:
                     return "当前玩法：挖坟（Dig）";
+                case GameplayState.AutoManufacture:
+                    return "当前玩法：自动制造（AutoManufacture）";
                 case GameplayState.UpgradeManufacture:
                     return "当前玩法：升级与制造（UpgradeManufacture）";
                 case GameplayState.Defend:

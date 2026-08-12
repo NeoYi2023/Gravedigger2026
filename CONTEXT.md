@@ -5,13 +5,31 @@
 | 术语 (EN) | 中文 | 定义摘要 | SPEC |
 |-----------|------|----------|------|
 | Gravedigger2026 | 本项目 | Unity 工程与工作区名称 | [SPEC_02](SPEC_02_GameOverview.md) |
-| GameplayState | 玩法状态 | Dig / UpgradeManufacture / Defend / PushMap；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
-| SaveSlot | 存档槽 | 固定 3 槽本地存档位；占用旗 + 士兵池/布阵/副本解锁等按槽 PlayerPrefs | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| GameplayState | 玩法状态 | Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| SaveSlot | 存档槽 | 固定 3 槽本地存档位；占用旗共享；士兵池/布阵/副本解锁等按槽 **且按 CampaignMode** PlayerPrefs | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| CampaignMode | 玩法模式 | 存档进出门闩：`Mode1` / `Mode2`；同槽进度隔离；Mode2 读独立配置根；**勿与** BattleMode（保卫/推图）混淆；Mode1 手动制造 §3.11，Mode2 自动制造 §3.15 | [§3.1](SPEC_03_GameRules.md)、[§3.4](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
+| AutoManufacture | 自动制造 | Mode2 阶段：Dig 后自动选料造兵→临时仓库→清空布阵按职业区上阵→再进 UM | [§3.15](SPEC_03_GameRules.md) |
+| TempWarriorWarehouse | 临时仓库 | AutoManufacture 批内缓冲；造完后入 WarriorPool | [§3.15](SPEC_03_GameRules.md) |
+| PrimaryHand | 主要手 | `IsPrimaryHand=1` 的 Arm；Mode2 选料锚点 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
+| SecondaryHand | 次要手 | `IsPrimaryHand=0` 的 Arm；与主要手定职业 | [§3.15](SPEC_03_GameRules.md) |
+| ClassRestrict | 职业限定 | BodyPart 多 ClassId；Mode2 双手交集定职业 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
+| BodyPrimaryStat | 躯体主属性 | BodyPart 上 Strength/Agility/Intelligence 恰一；Mode2 选料匹配（≠职业 PrimaryStat） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
+| ApproxBodyLevel | 近似品质 | `|ΔBodyLevel|≤1`；更高→相同→低1 | [§3.15](SPEC_03_GameRules.md) |
+| PlacementOrder | 放置排序 | ClassConfig；自动上阵职业先后 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 XZ OBB（HalfExtents + Transform Y）；自动上阵螺旋落入；样例 Ground_* Y=25° | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；制造等环节触发 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/生效环节/效果占位/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
+| SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；IsUnique 限制叠装 | [§3.15](SPEC_03_GameRules.md) |
+| EffectPhase | 生效环节 | SoldierManufacture / Combat 等；本轮制造钩子骨架 | [§3.15](SPEC_03_GameRules.md) |
+| ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：最近一批自动制造士兵摘要（名字/种族/职业）；布阵右侧入口（UI-015 / D-054） | [§3.15](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) Mode2 差分 |
+| AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 WarriorId；下一批覆盖；PlayerPrefs 按槽+CampaignMode | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：Step1 士兵行+书槽 → Step2 加强动画 → Step3 进 UM 自动开布阵（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 |
+| CampaignModeSelect | 玩法模式选择 | 新建/进入存档前弹窗选 CampaignMode（UI-014 / D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md) |
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡入口（流水线片可启样例关卡） | [§3.5](SPEC_03_GameRules.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
-| ConfigTables | 配置表根目录 | `Assets/ConfigTables/`：Excel 源（四段中英名）+ CSV 产物（两段英文名） | [SPEC_04 §14](SPEC_04_Technical.md) |
-| BakeTables | 打表 | Editor 一键 Excel→CSV（Excel 四段名映射为 CSV 英文基名）；菜单 `Gravedigger2026/Config/Bake Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
+| ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
+| BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | CharacterArtPipeline | 角色美术管线 | Character Creator **烘焙整角**；游戏资源不得落在工具目录；导出补丁→`Art/Characters`→`Prefabs` | [SPEC_04 §15](SPEC_04_Technical.md) |
 | BakedWholeCharacter | 烘焙整角 | 用 Creator 拼装后导出整角 spritesheet/Animator/Prefab；非运行时叠装 | [SPEC_04 §15](SPEC_04_Technical.md) |
 | LevelOperation | 关卡运作 | 关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
@@ -32,7 +50,7 @@
 | SpiritEssence | 精魂 | 货币；LootDrop `Spirit` + AutoConvert；造士兵消耗 | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert、外观图、素材路径、仓库品质外轮廓 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | CurrencyConfig | 货币配置表 | CurrencyId → 外观图、素材路径、仓库品质外轮廓；精魂=`Spirit` | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
-| UpgradeManufacture | 升级与制造 | 原 SewRevive；升级 + 造士兵 + 布阵 | [§3.11](SPEC_03_GameRules.md) |
+| UpgradeManufacture | 升级与制造 | 原 SewRevive；升级 + 造士兵 + 布阵；Mode2 关闭手动制造（§3.15） | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
 | Experience | 经验 | Defend 或 PushMap 阶段胜利入账至 LifetimeExperience；失败不入账；升级不扣累计 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
 | LifetimeExperience | 生涯累计经验 | 存档经验总值；只增不因升级减少 | [§3.11](SPEC_03_GameRules.md) |
 | ProtagonistLevelConfig | 主角升级配置表 | Level → 累计经验阈值、预留解锁、科技点、控制力上限、ProtagonistMaxHP（Defend 作护盾上限） | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.8](SPEC_04_Technical.md) |
@@ -54,7 +72,7 @@
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
 | Remanufacture | 再造 | 按士兵实例配方快照后台再走制造流水线，成功则新增池内士兵；不足弹 Tips | [§3.11](SPEC_03_GameRules.md) |
 | BodyPart | 躯体部位 | Head/Torso/Arm/Leg 材料；BodyPartConfig（BodyLevel/StatBonus/RaceId/SpiritCost/AutoConvert 等） | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
-| BodyPartConfig | 躯体材料配置表 | BodyPartId → 等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术 | [SPEC_04 §9.12](SPEC_04_Technical.md) |
+| BodyPartConfig | 躯体材料配置表 | BodyPartId → 等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术/IsPrimaryHand/ClassRestrict/BodyPrimaryStat | [SPEC_04 §9.12](SPEC_04_Technical.md) |
 | BodySlot | 躯体槽类型 | Head / Torso / Arm / Leg | [§3.11](SPEC_03_GameRules.md) |
 | BodyLevel | 躯体等级 | 躯体材料字段；平均后定外观等级 | [§3.11](SPEC_03_GameRules.md) |
 | StatBonus | 增加的属性值 | 躯体平坦加成；Base(S)=Σ StatBonus(S) | [§3.11](SPEC_03_GameRules.md) |
@@ -75,7 +93,7 @@
 | SoulConfig | 灵魂配置表 | SoulId → ClassId、AttackMode、Skills（`SkillId;Level|…`）、AttackPriority（同 TargetSelect）、MoveStyle、SpiritCost、ControlPowerCost；含系统默认 `Soul_00` | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | Class | 职业 | 实例 ClassId（有灵魂取自灵魂；无灵魂 Class_Servants）；ClassName/PrimaryStat/五维→战斗参数换算系数 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassId | 职业ID | 职业主键；有灵魂取自灵魂；无灵魂强制 Class_Servants；写入士兵实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| ClassConfig | 职业配置表 | ClassId → ClassName、PrimaryStat、CombatConvertCoeffs（`键_数值|…`）、AttackRange / 前摇 / 弹速 / 超时 | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| ClassConfig | 职业配置表 | ClassId → ClassName、PrimaryStat、CombatConvertCoeffs、AttackRange/前摇/弹速/超时、AttackMode、PlacementOrder、DefaultAppearanceId | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassName | 职业名 | 职业表字段；参与 WarriorName 与外观 ClassAffinity；可为「战士」等，**不是**单位称谓「士兵」 | [§3.11](SPEC_03_GameRules.md) |
 | MoveStyle | 移动风格 | `Normal` \| `Aggressive` \| `Cautious` | [§3.11](SPEC_03_GameRules.md) |
 | ExtraEquipment | 额外装备 | 翅膀/坐骑；制造锁定；属性/技能/NamePrefix | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.14](SPEC_04_Technical.md) |

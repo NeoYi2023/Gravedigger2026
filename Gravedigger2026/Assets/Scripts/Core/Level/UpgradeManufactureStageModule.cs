@@ -1,5 +1,6 @@
 using System;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
@@ -23,6 +24,8 @@ namespace Gravedigger2026.Core.Level
         private readonly ManufactureService _manufacture;
         private readonly WarriorPoolService _warriorPool;
         private readonly BattleFormationService _formation;
+        private readonly AutoManufactureBatchRecordService _batchRecord;
+        private readonly AutoManufacturePresentationFlags _presentationFlags;
         private readonly Action _onComplete;
         private readonly Action<bool> _onUmPresentationActive;
 
@@ -40,7 +43,9 @@ namespace Gravedigger2026.Core.Level
             WarriorPoolService warriorPool,
             BattleFormationService formation,
             Action onComplete,
-            Action<bool> onUmPresentationActive = null)
+            Action<bool> onUmPresentationActive = null,
+            AutoManufactureBatchRecordService batchRecord = null,
+            AutoManufacturePresentationFlags presentationFlags = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -53,6 +58,8 @@ namespace Gravedigger2026.Core.Level
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _onComplete = onComplete;
             _onUmPresentationActive = onUmPresentationActive;
+            _batchRecord = batchRecord;
+            _presentationFlags = presentationFlags;
         }
 
         public GameplayState HandledState => GameplayState.UpgradeManufacture;
@@ -69,7 +76,8 @@ namespace Gravedigger2026.Core.Level
             _progress.EnsureLoaded(_configs);
             _manufacture.ClearAllSlots();
 
-            var rootPrefab = _catalog.StageRootPrefab;
+            var mode = _formation != null ? _formation.BoundCampaignMode : CampaignMode.Mode1;
+            var rootPrefab = _catalog.ResolveStageRoot(mode);
             if (rootPrefab == null)
             {
                 Debug.LogError("[UpgradeManufactureStageModule] StageRoot prefab missing on catalog.");
@@ -79,7 +87,9 @@ namespace Gravedigger2026.Core.Level
             _stageRootInstance = _parent != null
                 ? UnityEngine.Object.Instantiate(rootPrefab, _parent)
                 : UnityEngine.Object.Instantiate(rootPrefab);
-            _stageRootInstance.name = "UpgradeManufactureStageRoot(Clone)";
+            _stageRootInstance.name = mode == CampaignMode.Mode2
+                ? "UpgradeManufactureStageRoot_Mode2(Clone)"
+                : "UpgradeManufactureStageRoot(Clone)";
 
             _controller = _stageRootInstance.GetComponent<UpgradeManufactureStageController>();
             if (_controller == null)
@@ -89,6 +99,7 @@ namespace Gravedigger2026.Core.Level
 
             _controller.ConfigureCatalog(_catalog);
             _onUmPresentationActive?.Invoke(true);
+            var autoOpenFormation = _presentationFlags != null && _presentationFlags.ConsumeAutoOpenFormation();
             _controller.Begin(
                 _configs,
                 _formationCatalog,
@@ -98,10 +109,12 @@ namespace Gravedigger2026.Core.Level
                 _warriorPool,
                 _formation,
                 context,
-                () => _onComplete?.Invoke());
+                () => _onComplete?.Invoke(),
+                _batchRecord,
+                autoOpenFormation);
 
             Debug.Log(
-                $"[Stage:UM] Enter Level={context?.LevelId} Stage={context?.StageNumber} ConfigIdIgnored={context?.GameplayConfigId} Formation={_formation.Entries.Count} (D-030/D-031/D-032)");
+                $"[Stage:UM] Enter Level={context?.LevelId} Stage={context?.StageNumber} ConfigIdIgnored={context?.GameplayConfigId} Formation={_formation.Entries.Count} AutoOpenFormation={autoOpenFormation} (D-030/D-031/D-032/D-055)");
         }
 
         public void Exit(LevelStageContext context)

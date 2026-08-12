@@ -131,6 +131,12 @@ namespace Gravedigger2026.Gameplay.Dig
             _hudView?.Show();
             _summaryView?.Hide();
 
+            if (_hudView != null)
+            {
+                _hudView.AddGravesRequested += HandleGmAddGraves;
+                _hudView.AddBodyPartsRequested += HandleGmAddBodyParts;
+            }
+
             _session.Begin(context.DigConfig, center, diggerR, half);
             RefreshWarehouseHud();
             _running = true;
@@ -350,6 +356,28 @@ namespace Gravedigger2026.Gameplay.Dig
             _hudView.SetWarehouse(sb.ToString());
         }
 
+        private void HandleGmAddGraves()
+        {
+            if (_session == null || !_session.IsActive || _session.IsTimeUp)
+            {
+                return;
+            }
+
+            var spawned = _session.DebugSpawnGraves(10);
+            Debug.Log($"[DigStageController] GM Add Graves → spawned {spawned}/10");
+        }
+
+        private void HandleGmAddBodyParts()
+        {
+            if (_session == null || !_session.IsActive || _session.IsTimeUp)
+            {
+                return;
+            }
+
+            _session.DebugGrantAllBodyParts(10);
+            Debug.Log("[DigStageController] GM Add Body Parts → +10 each BodyPartConfig row");
+        }
+
         private void EnsureWorldRoot()
         {
             if (_worldRoot == null)
@@ -383,6 +411,12 @@ namespace Gravedigger2026.Gameplay.Dig
         private void EndInternal(bool destroyWorld)
         {
             _running = false;
+            if (_hudView != null)
+            {
+                _hudView.AddGravesRequested -= HandleGmAddGraves;
+                _hudView.AddBodyPartsRequested -= HandleGmAddBodyParts;
+            }
+
             UnsubscribeSession(_session);
             _session?.Stop();
             _session = null;

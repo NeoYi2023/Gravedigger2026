@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8700000200000000002}
   - component: {fileID: 8700000200000000003}
-  - component: {fileID: 8700000200000000004}
   - component: {fileID: 5708107255241471660}
+  - component: {fileID: 8700000200000000004}
   m_Layer: 0
   m_Name: Grave_Q2
   m_TagString: Untagged
@@ -48,19 +48,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _radius: 0.55
---- !u!114 &8700000200000000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8700000200000000001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 087c375487ae4e842ac5c1061e0e58d3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _bodyRenderer: {fileID: 8700000200000000007}
 --- !u!114 &5708107255241471660
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -85,6 +72,19 @@ MonoBehaviour:
   - {x: -0.26000002, y: 0.30000004}
   - {x: -0.4500001, y: 0.030000042}
   _boundingRadius: 0.5643581
+--- !u!114 &8700000200000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8700000200000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 087c375487ae4e842ac5c1061e0e58d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _bodyRenderer: {fileID: 8700000200000000007}
 --- !u!1 &8700000200000000005
 GameObject:
   m_ObjectHideFlags: 0

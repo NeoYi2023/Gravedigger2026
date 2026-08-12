@@ -15,11 +15,12 @@ namespace Gravedigger2026.Editor.Dig
         private const int MaxVerts = 12;
         private const float AlphaThreshold = 0.15f;
         private const int AlphaSampleStep = 2;
-        private const string BakePrefsKey = "Gravedigger2026.DigHitShape.Baked.v053";
+        private const string BakePrefsKey = "Gravedigger2026.DigHitShape.Baked.v054";
 
         private static readonly string[] QualityIds =
         {
-            "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10"
+            "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
+            "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20"
         };
 
         [InitializeOnLoadMethod]
