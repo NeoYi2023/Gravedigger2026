@@ -199,6 +199,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.DebugAdvanceStageRequested += HandleDebugAdvanceStage;
                 _inSaveShellView.SettingsRequested += HandleSettings;
                 _inSaveShellView.LevelRequested += HandleLevel;
+                _inSaveShellView.LevelSelectPicked += HandleLevelSelectPicked;
             }
 
             if (_techTreeCanvasView != null)
@@ -580,7 +581,45 @@ namespace Gravedigger2026.Meta
 
         private void HandleLevel()
         {
+            if (!_configs.IsLoaded)
+            {
+                _configs.TryLoadAll();
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.HideToolsPanel();
+            }
+
+            var levelIds = _configs.GetDistinctLevelIds();
+            if (levelIds.Count == 0)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("当前模式无可用关卡");
+                }
+
+                return;
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.ShowLevelSelectPanel(levelIds);
+            }
+            else if (_toastView != null)
+            {
+                _toastView.Show("关卡列表 Prefab 未绑定");
+            }
+        }
+
+        private void HandleLevelSelectPicked(string levelId)
+        {
             if (_levelDriver == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(levelId))
             {
                 return;
             }
@@ -593,7 +632,7 @@ namespace Gravedigger2026.Meta
             _progress.EnsureLoaded(_configs);
             _progress.ResetToLevelOne(_configs);
 
-            if (!_levelDriver.TryEnterLevel(LevelOperationDriver.DemoSampleLevelId, out var error))
+            if (!_levelDriver.TryEnterLevel(levelId, out var error))
             {
                 if (_toastView != null)
                 {
@@ -605,12 +644,13 @@ namespace Gravedigger2026.Meta
 
             if (_inSaveShellView != null)
             {
+                _inSaveShellView.HideLevelSelectPanel();
                 _inSaveShellView.HideToolsPanel();
             }
 
             if (_toastView != null)
             {
-                _toastView.Show($"已启动样例关卡 {LevelOperationDriver.DemoSampleLevelId}");
+                _toastView.Show($"已启动关卡 {levelId}");
             }
         }
 

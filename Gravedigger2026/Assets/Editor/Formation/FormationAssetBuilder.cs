@@ -18,7 +18,7 @@ namespace Gravedigger2026.Editor.Formation
         private const string EditorRootPath = PrefabDir + "/FormationEditorRoot.prefab";
         private const string EditorRootMode2Path = PrefabDir + "/FormationEditorRoot_Mode2.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0775";
+        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0791";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -86,9 +86,64 @@ namespace Gravedigger2026.Editor.Formation
                 Debug.LogWarning("[FormationAssetBuilder] ControlPowerText not found when building Mode2 EditorRoot.");
             }
 
+            EnsureMode2CompleteButton(contents);
+
             PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
             PrefabUtility.UnloadPrefabContents(contents);
             return AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path);
+        }
+
+        /// <summary>
+        /// Mode2 only: Complete above SoldierBar, right edge (SPEC_03 §3.11 Mode2 / D-053).
+        /// </summary>
+        private static void EnsureMode2CompleteButton(GameObject editorRoot)
+        {
+            var canvas = FindDeep(editorRoot.transform, "FormationCanvas");
+            if (canvas == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationCanvas missing; cannot add Mode2 CompleteButton.");
+                return;
+            }
+
+            var existing = FindDeep(editorRoot.transform, "CompleteButton");
+            GameObject completeGo;
+            if (existing != null)
+            {
+                completeGo = existing.gameObject;
+            }
+            else
+            {
+                completeGo = CreateUiButton(
+                    canvas,
+                    "CompleteButton",
+                    "完成 / 进入下一阶段",
+                    new Color(0.28f, 0.48f, 0.36f, 1f));
+            }
+
+            // SoldierBar height 112; sit just above it on the right near screen edge.
+            Place(
+                completeGo.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-24f, 124f),
+                new Vector2(260f, 48f));
+            completeGo.SetActive(true);
+
+            var controller = editorRoot.GetComponent<FormationEditorController>();
+            if (controller == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationEditorController missing on Mode2 root.");
+                return;
+            }
+
+            var cso = new SerializedObject(controller);
+            var prop = cso.FindProperty("_completeButton");
+            if (prop != null)
+            {
+                prop.objectReferenceValue = completeGo.GetComponent<Button>();
+                cso.ApplyModifiedPropertiesWithoutUndo();
+            }
         }
 
         private static Transform FindDeep(Transform root, string name)

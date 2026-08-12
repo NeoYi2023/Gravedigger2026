@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Gameplay.Pathing;
@@ -18,6 +19,7 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _debugAdvanceStageButton;
         [SerializeField] private Button _debugWarriorTaskLabelButton;
         [SerializeField] private ToolsPanelView _toolsPanel;
+        [SerializeField] private LevelSelectPanelView _levelSelectPanel;
         [SerializeField] private GameplayStatePlaceholderView _placeholderView;
 
         private Color _backdropDefault = new Color(0.10f, 0.12f, 0.16f, 0.96f);
@@ -29,6 +31,8 @@ namespace Gravedigger2026.UI
         public event Action DebugAdvanceStageRequested;
         public event Action SettingsRequested;
         public event Action LevelRequested;
+        public event Action<string> LevelSelectPicked;
+        public event Action LevelSelectClosed;
 
         private void Awake()
         {
@@ -71,6 +75,12 @@ namespace Gravedigger2026.UI
                 _toolsPanel.SettingsClicked += () => SettingsRequested?.Invoke();
                 _toolsPanel.LevelClicked += () => LevelRequested?.Invoke();
             }
+
+            if (_levelSelectPanel != null)
+            {
+                _levelSelectPanel.LevelPicked += id => LevelSelectPicked?.Invoke(id);
+                _levelSelectPanel.Closed += () => LevelSelectClosed?.Invoke();
+            }
         }
 
         private void OnDestroy()
@@ -100,6 +110,8 @@ namespace Gravedigger2026.UI
                 _toolsPanel.Hide();
             }
 
+            HideLevelSelectPanel();
+
             if (_root != null)
             {
                 _root.SetActive(false);
@@ -119,6 +131,22 @@ namespace Gravedigger2026.UI
             if (_toolsPanel != null)
             {
                 _toolsPanel.Hide();
+            }
+        }
+
+        public void ShowLevelSelectPanel(IReadOnlyList<string> levelIds)
+        {
+            if (_levelSelectPanel != null)
+            {
+                _levelSelectPanel.Show(levelIds);
+            }
+        }
+
+        public void HideLevelSelectPanel()
+        {
+            if (_levelSelectPanel != null)
+            {
+                _levelSelectPanel.Hide();
             }
         }
 

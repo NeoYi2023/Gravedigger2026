@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.79.0
+**文档版本 / Document Version:** v0.79.2
 **最后更新 / Last Updated:** 2026-08-12  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数）  
 
@@ -65,6 +65,8 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-12 | v0.79.2 | 工具「关卡」→ Prefab 关卡列表（难度 2，方案 B / UI-008）：列出当前模式 `Level_LevelOperationConfig` 去重 `LevelId`；点选进入该关 `StageNumber=1`；废止直启样例 `Level_01`；同步 SPEC_03 §3.5/§3.6、SPEC_04 §6、CONTEXT |
+| 2026-08-12 | v0.79.1 | Mode2 布阵编辑器：`SoldierBar` 上方右侧近屏边 `CompleteButton`（难度 1；UM/Prepare 均显示；UM 点击=关编辑器并结束阶段，同主屏完成；Mode1 无）；同步 SPEC_03 §3.11 Mode2 差分/BattleFormation、SPEC_04 §6、D-053 备注 |
 | 2026-08-12 | v0.79.0 | Mode2 AutoManufacture 演出 UI（难度 2，方案 A / D-055 / UI-016）：Step1 士兵行+6 魔法书槽；Step2 逐兵「加强」动画/Idle 揭示/每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过演出；issues AM-10～13；同步 SPEC_03 §3.6/§3.8/§3.9/§3.15、SPEC_04 §6/§13、CONTEXT、spec-map |
 | 2026-08-12 | v0.78.0 | Mode2 制造记录弹窗（难度 2，方案 A / D-054 / UI-015）：最近一批 AutoManufacture Id 持久化；UM「布阵」右只读 Modal（名字/种族/职业）；0 兵「本批无士兵」；Mode1 无入口；同步 SPEC_03 §3.11/§3.15/§3.6/§3.8、SPEC_04 §6、CONTEXT |
 | 2026-08-12 | v0.77.10 | Dig 坟墓外观：`Grave_{QualityId}` Prefab Sprite 固定绑 `Art/Dig/Graves/Grave_{QualityId}/`；`DigPrefabCatalog` 覆盖当前模式品质表（Mode2 Demo Q1–Q20）；Builder/HitShape baker 品质列表对齐；同步 SPEC_04 §2/§6/§9.2 |
@@ -247,6 +249,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-12 | v0.79.2 | Tools Level → Prefab level list (diff 2, Approach B / UI-008): list distinct `LevelId` from current-mode `Level_LevelOperationConfig`; pick enters that level at `StageNumber=1`; retire direct sample `Level_01` start; synced SPEC_03 §3.5/§3.6, SPEC_04 §6, CONTEXT |
 | 2026-08-12 | v0.78.0 | Mode2 ManufactureRecord popup (diff 2, Approach A / D-054 / UI-015): persist last AutoManufacture batch Ids; UM read-only Modal to the right of Formation (name/race/class); empty 「本批无士兵」; Mode1 has no entry; synced SPEC_03 §3.11/§3.15/§3.6/§3.8, SPEC_04 §6, CONTEXT |
 | 2026-08-12 | v0.77.10 | Dig grave visuals: `Grave_{QualityId}` Prefab Sprite binds `Art/Dig/Graves/Grave_{QualityId}/`; `DigPrefabCatalog` covers all current-mode GraveQualityConfig ids (Mode2 Demo Q1–Q20); Builder/HitShape baker lists aligned; synced SPEC_04 §2/§6/§9.2 |
 | 2026-08-11 | v0.77.9 | FormationClassZone: XZ AABB → XZ OBB (Snapshot `RotationYDegrees`; spiral/Contains in local box); sample `Ground_*` Ensure/Prefab **Y=25°**; synced SPEC_03 §3.15, SPEC_04 §6/§13, CONTEXT |

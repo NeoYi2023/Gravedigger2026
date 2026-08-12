@@ -169,6 +169,27 @@ namespace Gravedigger2026.Core.Config
             return result;
         }
 
+        /// <summary>
+        /// Distinct LevelIds from loaded LevelOperationConfig (first-seen order; UI-008).
+        /// </summary>
+        public IReadOnlyList<string> GetDistinctLevelIds()
+        {
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < _levelOperations.Count; i++)
+            {
+                var id = _levelOperations[i].LevelId;
+                if (string.IsNullOrEmpty(id) || !seen.Add(id))
+                {
+                    continue;
+                }
+
+                result.Add(id);
+            }
+
+            return result;
+        }
+
         public bool TryGetDig(string gameplayConfigId, out DigGameplayConfigRow row)
         {
             return _digById.TryGetValue(gameplayConfigId ?? string.Empty, out row);

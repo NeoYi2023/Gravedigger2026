@@ -19,7 +19,7 @@ namespace Gravedigger2026.Editor.Meta
         private const string PrefabUiDir = "Assets/Prefabs/UI";
         private const string RootPrefabPath = PrefabMetaDir + "/MetaShellRoot.prefab";
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
-        private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0760a";
+        private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -32,13 +32,82 @@ namespace Gravedigger2026.Editor.Meta
                 }
 
                 var missing = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath) == null;
-                var needsLevelUiRegen = !EditorPrefs.GetBool(RegenPrefsKey, false);
-                if (missing || needsLevelUiRegen)
+                if (missing)
                 {
                     GenerateAll();
                     EditorPrefs.SetBool(RegenPrefsKey, true);
+                    return;
+                }
+
+                var needsLevelUiRegen = !EditorPrefs.GetBool(RegenPrefsKey, false);
+                if (needsLevelUiRegen)
+                {
+                    EnsureLevelSelectPanelOnExistingPrefab();
+                    EditorPrefs.SetBool(RegenPrefsKey, true);
                 }
             };
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure LevelSelectPanel (UI-008)")]
+        public static void EnsureLevelSelectPanelMenu()
+        {
+            EnsureLevelSelectPanelOnExistingPrefab();
+            EditorPrefs.SetBool(RegenPrefsKey, true);
+        }
+
+        /// <summary>
+        /// Surgical patch: add LevelSelectPanel under InSaveShell without rebuilding MetaShellRoot.
+        /// </summary>
+        public static void EnsureLevelSelectPanelOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                var so = new SerializedObject(inSave);
+                var panelProp = so.FindProperty("_levelSelectPanel");
+                if (panelProp != null && panelProp.objectReferenceValue != null)
+                {
+                    Debug.Log("[MetaShellAssetBuilder] LevelSelectPanel already wired.");
+                    return;
+                }
+
+                var existing = inSave.transform.Find("LevelSelectPanel");
+                if (existing != null)
+                {
+                    Object.DestroyImmediate(existing.gameObject);
+                }
+
+                var levelSelect = BuildLevelSelectPanel(inSave.transform);
+                if (panelProp != null)
+                {
+                    panelProp.objectReferenceValue = levelSelect;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] LevelSelectPanel patched onto MetaShellRoot.");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
 
         [MenuItem("Gravedigger2026/Meta/Generate Meta Shell Prefabs + Boot Scene")]
@@ -264,6 +333,7 @@ namespace Gravedigger2026.Editor.Meta
             Place(advanceBtn.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-240f, 24f), new Vector2(200f, 48f));
 
             var toolsPanel = BuildToolsPanel(root.transform);
+            var levelSelect = BuildLevelSelectPanel(root.transform);
 
             var view = root.AddComponent<InSaveShellView>();
             var so = new SerializedObject(view);
@@ -275,9 +345,91 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_debugCycleStateButton").objectReferenceValue = debugBtn.GetComponent<Button>();
             so.FindProperty("_debugAdvanceStageButton").objectReferenceValue = advanceBtn.GetComponent<Button>();
             so.FindProperty("_toolsPanel").objectReferenceValue = toolsPanel;
+            so.FindProperty("_levelSelectPanel").objectReferenceValue = levelSelect;
             so.FindProperty("_placeholderView").objectReferenceValue = placeholder;
             so.ApplyModifiedPropertiesWithoutUndo();
 
+            root.SetActive(false);
+            return view;
+        }
+
+        private static LevelSelectPanelView BuildLevelSelectPanel(Transform parent)
+        {
+            var root = CreatePanel(parent, "LevelSelectPanel", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(root.GetComponent<RectTransform>());
+
+            var box = CreatePanel(root.transform, "Box", new Color(0.16f, 0.18f, 0.22f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 560f));
+
+            var title = CreateText(box.transform, "Title", "关卡选择", 28, TextAnchor.MiddleCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(460f, 40f));
+
+            var scrollGo = new GameObject("LevelScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollGo.transform.SetParent(box.transform, false);
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            Place(scrollRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(460f, 400f));
+            scrollGo.GetComponent<Image>().color = new Color(0.10f, 0.11f, 0.14f, 1f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRt = content.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = new Vector2(0f, 0f);
+            var vlg = content.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(12, 12, 12, 12);
+            vlg.spacing = 10f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRt;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var rowTemplate = CreateButton(content.transform, "LevelRowTemplate", "Level_XX", new Color(0.28f, 0.38f, 0.52f, 1f));
+            var rowLe = rowTemplate.GetComponent<LayoutElement>();
+            if (rowLe == null)
+            {
+                rowLe = rowTemplate.AddComponent<LayoutElement>();
+            }
+
+            rowLe.minHeight = 48f;
+            rowLe.preferredHeight = 48f;
+            rowTemplate.SetActive(false);
+
+            var emptyHint = CreateText(box.transform, "EmptyHint", "当前模式无可用关卡", 22, TextAnchor.MiddleCenter);
+            Place(emptyHint.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(420f, 60f));
+            emptyHint.gameObject.SetActive(false);
+
+            var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(180f, 44f));
+
+            var view = root.AddComponent<LevelSelectPanelView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_titleText").objectReferenceValue = title;
+            so.FindProperty("_levelListContent").objectReferenceValue = content.transform;
+            so.FindProperty("_levelRowTemplate").objectReferenceValue = rowTemplate;
+            so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
+            so.FindProperty("_emptyHintText").objectReferenceValue = emptyHint;
+            so.ApplyModifiedPropertiesWithoutUndo();
             root.SetActive(false);
             return view;
         }

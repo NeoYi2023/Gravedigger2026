@@ -28,6 +28,7 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Text _controlPowerText;
         [SerializeField] private Button _returnButton;
         [SerializeField] private Button _startBattleButton;
+        [SerializeField] private Button _completeButton;
         [SerializeField] private RectTransform _dragGhost;
         [SerializeField] private Image _dragGhostImage;
 
@@ -58,6 +59,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
         public event Action ReturnRequested;
         public event Action StartBattleRequested;
+        public event Action CompleteRequested;
 
         public void Begin(
             FormationEditorMode mode,
@@ -125,6 +127,13 @@ namespace Gravedigger2026.Gameplay.Formation
                 _startBattleButton.onClick.AddListener(HandleStartBattle);
             }
 
+            // Mode2 Prefab only: always visible (UM + Prepare). Hosts may ignore CompleteRequested.
+            if (_completeButton != null)
+            {
+                _completeButton.gameObject.SetActive(true);
+                _completeButton.onClick.AddListener(HandleComplete);
+            }
+
             if (_soldierBar != null)
             {
                 _soldierBar.SlotLiftStarted += HandleBarSlotLiftStarted;
@@ -161,6 +170,11 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_startBattleButton != null)
             {
                 _startBattleButton.onClick.RemoveListener(HandleStartBattle);
+            }
+
+            if (_completeButton != null)
+            {
+                _completeButton.onClick.RemoveListener(HandleComplete);
             }
 
             if (_soldierBar != null)
@@ -663,6 +677,11 @@ namespace Gravedigger2026.Gameplay.Formation
         private void HandleStartBattle()
         {
             StartBattleRequested?.Invoke();
+        }
+
+        private void HandleComplete()
+        {
+            CompleteRequested?.Invoke();
         }
     }
 }

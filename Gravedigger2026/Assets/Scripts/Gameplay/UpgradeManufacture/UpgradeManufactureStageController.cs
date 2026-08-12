@@ -234,6 +234,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
 
             _editor.ReturnRequested += HandleFormationReturn;
+            _editor.CompleteRequested += HandleFormationComplete;
             _editor.Begin(
                 FormationEditorMode.UpgradeManufacture,
                 _defendCatalog,
@@ -253,6 +254,12 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             RefreshManufacture();
         }
 
+        private void HandleFormationComplete()
+        {
+            CloseFormationEditor();
+            HandleComplete();
+        }
+
         private void CloseFormationEditor()
         {
             if (_editor == null)
@@ -261,6 +268,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
             }
 
             _editor.ReturnRequested -= HandleFormationReturn;
+            _editor.CompleteRequested -= HandleFormationComplete;
             _editor.End();
             Destroy(_editor.gameObject);
             _editor = null;
