@@ -1,1 +1,3 @@
-MagicBookId,IsUnique,EffectPhase,EffectPayload,IconAssetId,DisplayName,Description
+MagicBookId,IsUnique,EffectPhase,EffectPayload,EffectParams,IconAssetId,DisplayName,Description
+MagicBook_Restore,1,SoldierManufacture,RaceWeightPick,,,还原,装备后制造时按部位 RaceId 加权随机定种族
+MagicBook_WarriorEnhance,0,SoldierManufacture,StatMul,Stat=Primary|Mul=1.15|ClassId=Class_Warrior,,战士强化,装备后，Mode2 制造的战士主属性增加躯体该维之和的 15%（可叠），至彻底死亡

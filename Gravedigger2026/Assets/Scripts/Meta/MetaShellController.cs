@@ -106,7 +106,8 @@ namespace Gravedigger2026.Meta
                         _warehouse,
                         _techTree,
                         HandleDigSummaryConfirmed,
-                        SetStagePresentationActive));
+                        SetStagePresentationActive,
+                        _specialEquipSlots));
             }
             else
             {

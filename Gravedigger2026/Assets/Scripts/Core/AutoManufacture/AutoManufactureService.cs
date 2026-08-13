@@ -222,7 +222,9 @@ namespace Gravedigger2026.Core.AutoManufacture
                 }
             }
 
-            var raceId = PickRace(raceCandidates);
+            var raceId = _magicBookHook.HasRaceWeightPick()
+                ? RaceResolve.PickWeighted(raceCandidates, _rng)
+                : RaceResolve.ResolveDefaultRace(raceCandidates);
             _configs.TryGetRace(raceId, out var raceRow);
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : default;
 
@@ -246,7 +248,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 draft.BodyLevels.Add(parts[i].BodyLevel);
             }
 
-            // Hook may mutate BaseStats later; finalize StaticStat / Appearance after hook.
+            // Hook may mutate BaseStats later; FinalizeDraft applies appearance (incl. A-empty Undead).
             _magicBookHook.ApplySoldierManufactureEffects(draft);
             FinalizeDraft(draft, classRow, raceRow);
             _tempWarehouse.Add(draft);
@@ -536,32 +538,33 @@ namespace Gravedigger2026.Core.AutoManufacture
             return top[_rng.Next(top.Count)];
         }
 
-        private string PickRace(List<string> candidates)
-        {
-            if (candidates == null || candidates.Count == 0)
-            {
-                return null;
-            }
-
-            return candidates[_rng.Next(candidates.Count)];
-        }
-
         /// <summary>
         /// After MagicBook hook: StaticStat / MaxHP / Appearance / WarriorName (SPEC_03 §3.15 §5–§7).
+        /// Appearance may rewrite RaceId to Race_Undead when set A is empty.
         /// </summary>
         private void FinalizeDraft(AutoCraftDraft draft, ClassConfigRow classRow, RaceConfigRow raceRow)
         {
-            var staticStats = WarriorStatMath.ComputeStaticStats(
-                draft.BaseStats, draft.EquipStats, draft.GemMult, draft.RaceAdjustCoeff);
-            draft.BodyLife = WarriorStatMath.ComputeBodyLife(draft.BaseStats, draft.EquipStats);
-            draft.MaxHP = WarriorStatMath.ComputeMaxHP(draft.BodyLife, staticStats.Strength);
-
             var avgLevelInt = ComputeAvgLevelInt(draft.BodyLevels);
             var className = !string.IsNullOrEmpty(draft.ClassName)
                 ? draft.ClassName
                 : (classRow != null ? classRow.ClassName : string.Empty);
             var defaultAppearanceId = classRow != null ? classRow.DefaultAppearanceId : null;
-            draft.AppearanceId = PickAppearanceMode2(avgLevelInt, draft.RaceId, className, defaultAppearanceId);
+            var raceId = draft.RaceId;
+            var raceAdjust = draft.RaceAdjustCoeff;
+            draft.AppearanceId = PickAppearanceMode2(
+                avgLevelInt,
+                ref raceId,
+                ref raceRow,
+                ref raceAdjust,
+                className,
+                defaultAppearanceId);
+            draft.RaceId = raceId;
+            draft.RaceAdjustCoeff = raceAdjust;
+
+            var staticStats = WarriorStatMath.ComputeStaticStats(
+                draft.BaseStats, draft.EquipStats, draft.GemMult, draft.RaceAdjustCoeff);
+            draft.BodyLife = WarriorStatMath.ComputeBodyLife(draft.BaseStats, draft.EquipStats);
+            draft.MaxHP = WarriorStatMath.ComputeMaxHP(draft.BodyLife, staticStats.Strength);
             draft.WarriorName = BuildWarriorName(raceRow, draft.RaceId, className);
         }
 
@@ -622,14 +625,35 @@ namespace Gravedigger2026.Core.AutoManufacture
         }
 
         /// <summary>
-        /// Mode2 appearance: A→B → DefaultAppearanceId → race IsFallback → table random (§3.15).
-        /// Does not alter Mode1 ManufactureService.PickAppearance.
+        /// Mode2 appearance: A empty → Race_Undead once;
+        /// B empty or A still empty after rewrite → DefaultAppearanceId → IsFallback → table.
         /// </summary>
         private string PickAppearanceMode2(
             int avgLevelInt,
-            string raceId,
+            ref string raceId,
+            ref RaceConfigRow raceRow,
+            ref StatBlock raceAdjust,
             string className,
             string defaultAppearanceId)
+        {
+            return PickAppearanceMode2Core(
+                avgLevelInt,
+                ref raceId,
+                ref raceRow,
+                ref raceAdjust,
+                className,
+                defaultAppearanceId,
+                allowUndeadRewrite: true);
+        }
+
+        private string PickAppearanceMode2Core(
+            int avgLevelInt,
+            ref string raceId,
+            ref RaceConfigRow raceRow,
+            ref StatBlock raceAdjust,
+            string className,
+            string defaultAppearanceId,
+            bool allowUndeadRewrite)
         {
             var all = _configs.BodyAppearances;
             if (all == null || all.Count == 0)
@@ -637,37 +661,73 @@ namespace Gravedigger2026.Core.AutoManufacture
                 return string.IsNullOrEmpty(defaultAppearanceId) ? null : defaultAppearanceId;
             }
 
-            if (!string.IsNullOrEmpty(raceId))
+            if (string.IsNullOrEmpty(raceId))
             {
-                var setA = new List<BodyAppearanceConfigRow>();
-                for (var i = 0; i < all.Count; i++)
+                if (!string.IsNullOrWhiteSpace(defaultAppearanceId))
                 {
-                    var row = all[i];
-                    if (row.AppearanceLevel == avgLevelInt
-                        && string.Equals(row.RaceId, raceId, StringComparison.Ordinal))
-                    {
-                        setA.Add(row);
-                    }
+                    return defaultAppearanceId.Trim();
                 }
 
-                if (setA.Count > 0)
-                {
-                    var setB = new List<BodyAppearanceConfigRow>();
-                    for (var i = 0; i < setA.Count; i++)
-                    {
-                        if (HasClassAffinity(setA[i].ClassAffinity, className))
-                        {
-                            setB.Add(setA[i]);
-                        }
-                    }
+                return all[_rng.Next(all.Count)].AppearanceId;
+            }
 
-                    if (setB.Count > 0)
-                    {
-                        return setB[_rng.Next(setB.Count)].AppearanceId;
-                    }
+            var setA = new List<BodyAppearanceConfigRow>();
+            for (var i = 0; i < all.Count; i++)
+            {
+                var row = all[i];
+                if (row.AppearanceLevel == avgLevelInt
+                    && string.Equals(row.RaceId, raceId, StringComparison.Ordinal))
+                {
+                    setA.Add(row);
                 }
             }
 
+            if (setA.Count == 0)
+            {
+                if (allowUndeadRewrite
+                    && !string.Equals(raceId, RaceResolve.UndeadRaceId, StringComparison.Ordinal))
+                {
+                    raceId = RaceResolve.UndeadRaceId;
+                    _configs.TryGetRace(raceId, out raceRow);
+                    raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : default;
+                    return PickAppearanceMode2Core(
+                        avgLevelInt,
+                        ref raceId,
+                        ref raceRow,
+                        ref raceAdjust,
+                        className,
+                        defaultAppearanceId,
+                        allowUndeadRewrite: false);
+                }
+
+                // Undead rewrite done or started as Undead with empty A:
+                // DefaultAppearanceId before IsFallback (SPEC_03 §3.15).
+                return PickDefaultThenFallbackOrTable(all, raceId, defaultAppearanceId);
+            }
+
+            var setB = new List<BodyAppearanceConfigRow>();
+            for (var i = 0; i < setA.Count; i++)
+            {
+                if (HasClassAffinity(setA[i].ClassAffinity, className))
+                {
+                    setB.Add(setA[i]);
+                }
+            }
+
+            if (setB.Count > 0)
+            {
+                return setB[_rng.Next(setB.Count)].AppearanceId;
+            }
+
+            // A non-empty, B empty: DefaultAppearanceId then IsFallback (SPEC_03 §3.15).
+            return PickDefaultThenFallbackOrTable(all, raceId, defaultAppearanceId);
+        }
+
+        private string PickDefaultThenFallbackOrTable(
+            IReadOnlyList<BodyAppearanceConfigRow> all,
+            string raceId,
+            string defaultAppearanceId)
+        {
             if (!string.IsNullOrWhiteSpace(defaultAppearanceId))
             {
                 return defaultAppearanceId.Trim();

@@ -10,8 +10,10 @@ namespace Gravedigger2026.Core.Config
         public int IsUnique;
         /// <summary>Phase encoding Phase|Phase|… (e.g. SoldierManufacture|Combat).</summary>
         public string EffectPhase;
-        /// <summary>Stub payload this round; empty = no effect.</summary>
+        /// <summary>Registered PascalCase token; empty = no effect (SPEC_04 §9.24).</summary>
         public string EffectPayload;
+        /// <summary>Key=Value|Key=Value|…; empty = none/defaults.</summary>
+        public string EffectParams;
         public string IconAssetId;
         public string DisplayName;
         public string Description;

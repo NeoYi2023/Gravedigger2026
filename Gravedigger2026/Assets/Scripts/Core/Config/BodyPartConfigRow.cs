@@ -6,6 +6,8 @@ namespace Gravedigger2026.Core.Config
     public sealed class BodyPartConfigRow
     {
         public string BodyPartId;
+        /// <summary>Item display name (SPEC_04 §9.12 DisplayName / 道具名称). Empty → UI falls back to BodyPartId.</summary>
+        public string DisplayName;
         public float BodyLevel;
         public BodySlot BodySlot;
         public string RaceId;

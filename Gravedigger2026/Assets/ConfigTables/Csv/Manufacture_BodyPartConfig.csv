@@ -1,11 +1,11 @@
-BodyPartId,BodyLevel,BodySlot,RaceId,ControlPowerCost,SpiritCost,StatBonus,AutoConvert,Description,ArtAssetId
-BP_Head_Human,1,Head,Race_Human,1,5,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,案例躯体材料 BP_Head_Human,Art_BP_Head_Human
-BP_Torso_Human,1,Torso,Race_Human,1,7,MaxHP_25|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.2,1.5,案例躯体材料 BP_Torso_Human,Art_BP_Torso_Human
-BP_Arm_Elf,2,Arm,Race_Elf,1,9,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,2,案例躯体材料 BP_Arm_Elf,Art_BP_Arm_Elf
-BP_Leg_Elf,2,Leg,Race_Elf,1,11,MaxHP_35|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.1,2.5,案例躯体材料 BP_Leg_Elf,Art_BP_Leg_Elf
-BP_Head_Orc,2,Head,Race_Orc,1,13,MaxHP_40|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.2,3,案例躯体材料 BP_Head_Orc,Art_BP_Head_Orc
-BP_Torso_Orc,3,Torso,Race_Orc,1,15,MaxHP_45|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.3,3.5,案例躯体材料 BP_Torso_Orc,Art_BP_Torso_Orc
-BP_Arm_Undead,2,Arm,Race_Undead,1,17,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,4,案例躯体材料 BP_Arm_Undead,Art_BP_Arm_Undead
-BP_Leg_Dwarf,3,Leg,Race_Dwarf,1,19,MaxHP_55|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.2,4.5,案例躯体材料 BP_Leg_Dwarf,Art_BP_Leg_Dwarf
-BP_Head_Demon,4,Head,Race_Demon,1,21,MaxHP_60|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.3,5,案例躯体材料 BP_Head_Demon,Art_BP_Head_Demon
-BP_Torso_Angel,3,Torso,Race_Angel,1,23,MaxHP_65|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.1,5.5,案例躯体材料 BP_Torso_Angel,Art_BP_Torso_Angel
+BodyPartId,DisplayName,BodyLevel,BodySlot,RaceId,ControlPowerCost,SpiritCost,StatBonus,AutoConvert,Description,ArtAssetId
+BP_Head_Human,人类头部,1,Head,Race_Human,1,5,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,案例躯体材料 BP_Head_Human,Art_BP_Head_Human
+BP_Torso_Human,人类躯干,1,Torso,Race_Human,1,7,MaxHP_25|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.2,1.5,案例躯体材料 BP_Torso_Human,Art_BP_Torso_Human
+BP_Arm_Elf,精灵手臂,2,Arm,Race_Elf,1,9,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,2,案例躯体材料 BP_Arm_Elf,Art_BP_Arm_Elf
+BP_Leg_Elf,精灵腿部,2,Leg,Race_Elf,1,11,MaxHP_35|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.1,2.5,案例躯体材料 BP_Leg_Elf,Art_BP_Leg_Elf
+BP_Head_Orc,兽人头部,2,Head,Race_Orc,1,13,MaxHP_40|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.2,3,案例躯体材料 BP_Head_Orc,Art_BP_Head_Orc
+BP_Torso_Orc,兽人躯干,3,Torso,Race_Orc,1,15,MaxHP_45|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.3,3.5,案例躯体材料 BP_Torso_Orc,Art_BP_Torso_Orc
+BP_Arm_Undead,亡灵手臂,2,Arm,Race_Undead,1,17,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,4,案例躯体材料 BP_Arm_Undead,Art_BP_Arm_Undead
+BP_Leg_Dwarf,矮人腿部,3,Leg,Race_Dwarf,1,19,MaxHP_55|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.2,4.5,案例躯体材料 BP_Leg_Dwarf,Art_BP_Leg_Dwarf
+BP_Head_Demon,恶魔头部,4,Head,Race_Demon,1,21,MaxHP_60|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.3,5,案例躯体材料 BP_Head_Demon,Art_BP_Head_Demon
+BP_Torso_Angel,天使躯干,3,Torso,Race_Angel,1,23,MaxHP_65|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.1,5.5,案例躯体材料 BP_Torso_Angel,Art_BP_Torso_Angel

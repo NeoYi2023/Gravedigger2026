@@ -24,10 +24,12 @@
 | ApproxBodyLevel | 近似品质 | Mode2 选料：相对锚点 `|ΔBodyLevel| ≤ 1`；候选排序更高 → 相同 → 低 1 级（§3.15）。 |
 | PlacementOrder | 放置排序 | `ClassConfig` 字段（≥1）；AutoManufacture 自动上阵时按此升序先后放置各职业（§3.15，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | FormationClassZone | 职业布阵区 | 布阵地图 Prefab 上按职业标定的空间区域（XZ OBB：`HalfExtents` + Transform Y）；自动上阵落入对应区并做碰撞挤开（§3.15，[SPEC_04 §13](SPEC_04_Technical.md)）。 |
-| MagicBook | 魔法书 | 主角特殊装备；效果库，在制造等环节触发增强士兵；配置见 `MagicBookConfig`（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
-| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique、EffectPhase、效果占位、Icon、名称、介绍（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| MagicBook | 魔法书 | 主角特殊装备；效果库，在制造等环节触发；含「还原」（`EffectPayload=RaceWeightPick`）、「战士强化」（`StatMul` / `Stat=Primary`）等（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique、EffectPhase、EffectPayload、EffectParams、Icon、名称、介绍（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 **6** 槽装配魔法书；同书默认可叠，`IsUnique=1` 不可（§3.15）。 |
-| EffectPhase | 生效环节 | 魔法书触发时机枚举：至少含 `SoldierManufacture` / `Combat`；本轮仅实现制造钩子骨架（§3.15）。 |
+| EffectPhase | 生效环节 | 魔法书触发时机枚举：至少含 `SoldierManufacture` / `Combat`；制造环节已实现「还原」等具体 payload（§3.15）。 |
+| EffectPayload | 魔法书效果编码 | 已登记 PascalCase Token（如 `RaceWeightPick`）；空=无效果；未登记 Token 空 apply + 警告（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| EffectParams | 魔法书效果参数 | 与 Token 配套：`Key=Value` 或 `Key=Value\|…`；空=无参/缺省（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
 | ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：展示**最近一批** AutoManufacture 造出的士兵摘要（名字/种族/职业）；入口在「布阵」右侧（UI-015 / §3.15）。 |
 | AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 `WarriorId` 列表；下一批覆盖；按槽 + CampaignMode 持久化（§3.15，[SPEC_04 §6](SPEC_04_Technical.md)）。 |
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现层（UI-016）：规则跑批后播 Step1–2，再进 UM 并自动开布阵（§3.15）。 |
@@ -49,7 +51,7 @@
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP% 切换：>65% 样式1；30%–65% 样式2；<30% 样式3（§3.10）。 |
 | GraveQualityConfig | 坟墓品质定义表 | 品质 ID → maxHP、掉落等；被挖坟权重引用（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | DigReward | 挖掘奖励 | 坟 HP 归 0 时在成功动画中心生成的奖励图标；飞向主角到达后入账并消失（§3.10）。 |
-| DigStageSummary | 挖坟阶段汇总 | Dig 有效时长归零后弹出的汇总弹窗：仅展示本阶段已获奖励按类型汇总，无额外发放（§3.10，UI-011）。 |
+| DigStageSummary | 挖坟阶段汇总 | Dig 有效时长归零后弹出的汇总弹窗：仅展示本阶段已获奖励按类型汇总，无额外发放；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`；右上「X」确认关闭（§3.10，UI-011）。 |
 | Warehouse | 仓库 | 按存档槽持久的材料仓库；不限格数与存储时长；材料按类型堆叠上限 10000（§3.10）。 |
 | SpiritEssence | 精魂 | 货币；挖坟获得（LootDrop 保留 Id + 堆叠超限自动兑换）；制造士兵时消耗（§3.10、§3.11）。 |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert、AppearanceIconId、AssetPath、WarehouseQualityOutlineId；堆叠超限时按 AutoConvert 兑精魂（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
@@ -71,7 +73,7 @@
 | WarriorName | 士兵名字 | 制造完成时生成：`Prefix(es) + RaceName + ClassName + Suffix`（§3.11）。 |
 | ManufactureSlot | 制造槽位 | 制造区严格槽位：头1/躯干1/臂2/腿2/灵魂1/宝石6（类型互斥）/坐骑1/翅膀1（§3.11）。 |
 | BodyPart | 躯体部位 | 可拖入头部/躯干/手臂/腿部槽的躯体材料；配置见 `BodyPartConfig`（含 `BodyLevel`、`StatBonus`、`RaceId`、`SpiritCost`、`AutoConvert` 等）（§3.11，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
-| BodyPartConfig | 躯体材料配置表 | BodyPartId → 等级/部位/种族/控制力/精魂消耗/StatBonus/AutoConvert/介绍/美术素材（§3.11，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
+| BodyPartConfig | 躯体材料配置表 | BodyPartId → 道具名称（`DisplayName`）/等级/部位/种族/控制力/精魂消耗/StatBonus/AutoConvert/介绍/美术素材（§3.11，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
 | BodySlot | 躯体槽类型 | `Head` / `Torso` / `Arm` / `Leg`（§3.11）。 |
 | BodyLevel | 躯体等级 | 躯体材料字段；制造时对已放部位取平均后定外观等级（§3.11）。 |
 | StatBonus | 增加的属性值 | 躯体材料平坦属性加成串；`Base(S)=Σ StatBonus(S)`（§3.11）。 |
@@ -87,8 +89,8 @@
 | AttackSpeed | 攻击速度 | 次/秒：`0.5+60/max(Agi,1)`；攻击开始间隔=`1/AttackSpeed`（§3.12）。 |
 | BodyAppearance | 躯体外观 | 预设整体外观造型；制造时按平均躯体等级+定稿种族+职业名选取（§3.11，[SPEC_04 §9.13](SPEC_04_Technical.md)）；资源为 Character Creator **烘焙整角** Prefab，见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → 外观等级/隶属种族/职业倾向/介绍/保底外形/`BodyRadius`（§3.11，[SPEC_04 §9.13](SPEC_04_Technical.md)）。 |
-| IsFallback | 保底外形 | 外观表字段；`1`=该种族保底外观；每种族至多一行；等级+种族命中但职业倾向无匹配时亦走保底（§3.11）。 |
-| Race | 种族 | 由已放入躯体部位（头/躯干/臂/腿）各权重 1 **加权随机**定稿；一士兵一族；提供五维 `RaceAdjustCoeff`；配置见 `RaceConfig`（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
+| IsFallback | 保底外形 | 外观表字段；`1`=该种族保底外观；每种族至多一行；等级+种族命中但职业倾向无匹配时走保底；等级+种族候选集 A 为空时先改写为 `Race_Undead` 再选外观（§3.11）。 |
+| Race | 种族 | 默认：参与部位全部 `RaceId` 相同 → 该族，否则 `Race_Undead`；Mode2 装备「还原」时改回部位权重 1 加权随机；一士兵一族；提供五维 `RaceAdjustCoeff`；配置见 `RaceConfig`（§3.11/§3.15，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维种族属性调整系数（§3.11，[SPEC_04 §9.11](SPEC_04_Technical.md)）。 |
 | RaceAdjustCoeff | 种族属性调整系数 | 五维（对应五项基础属性）；缺省维为 0；可正可负；代入 `BaseStat × RaceAdjustCoeff`；**不**单独计入控制力占用（§3.11）。 |
 | Soul | 灵魂 | 制造槽位 **可选**；有灵魂则消耗该行；无灵魂则实例 `SoulId=Soul_00`（系统默认行），`AttackMode`/技能/优先级/移动风格/灵魂侧 Spirit·控制力费用读 `Soul_00`，且 **强制** `ClassId=Class_Servants`；**不**改写力量/敏捷/智力本身；配置见 `SoulConfig`（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
@@ -131,7 +133,9 @@
 | AggroMode | 仇恨模式 | 怪物主动/被动 × 移动/原地四态；**异于** `AttackMode`（Melee/Ranged）；见 §3.14、[SPEC_04 §9.19](SPEC_04_Technical.md)。 |
 | AlertRadius | 警戒半径 | `AggroMode` 主动态用于发现我方士兵的半径；与 `AttackRange` 并列（§3.14）。 |
 | DungeonUnlock | 副本解锁 | PushMap 占领/通关配置的副本 ID 写入存档钩子；副本玩法正文 **TBD**（§3.14）。 |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat 表现层：`Auto`（粘随最近忠诚兵）/ `Manual`（拖拽平移）；见 §3.14。 |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat 表现层：`Auto`（沿 `CameraFollowPath` 最大投影进度）/ `Manual`（拖拽平移）；见 §3.14。 |
+| CameraFollowPath | 镜头跟随轨 | PushMap 地图 Prefab 上的虚拟推进折线；作者摆起点/拐弯/终点，相邻路点间按世界 XZ 直线按间距采样；镜头对准折线上的点，不对准士兵 Transform；见 §3.14。 |
+| CameraPathProgress | 镜头轨进度 | 折线弧长参数 `s∈[0,1]`；Auto 取存活忠诚兵投影最大值；领头失效则回退；见 §3.14。 |
 | ResumeFollow | 恢复跟随 | PushMap 手动模式下底中按钮；点击回到 `Auto`；见 §3.14。 |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移；见 §3.14。 |
 | FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s；见 §3.14。 |
@@ -188,10 +192,12 @@
 | ApproxBodyLevel | 近似品质 | Mode2 pick: `|ΔBodyLevel| ≤ 1` vs anchor; sort higher → same → lower-by-1 (§3.15). |
 | PlacementOrder | 放置排序 | `ClassConfig` field (≥1); AutoManufacture deploys classes in ascending order (§3.15, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | FormationClassZone | 职业布阵区 | Authoring zone on formation map Prefab per ClassId (XZ OBB: `HalfExtents` + Transform Y); auto-deploy lands there with separation (§3.15, [SPEC_04 §13](SPEC_04_Technical.md)). |
-| MagicBook | 魔法书 | Protagonist special equipment; effect library triggered at manufacture etc.; config `MagicBookConfig` (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
-| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique, EffectPhase, effect stub, Icon, name, description (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| MagicBook | 魔法书 | Protagonist special equipment; effect library at manufacture etc.; includes Restore (`EffectPayload=RaceWeightPick`) and Warrior Enhance (`StatMul` / `Stat=Primary`) (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique, EffectPhase, EffectPayload, EffectParams, Icon, name, description (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
 | SpecialEquipSlot | 特殊装备槽 | Default **6** protagonist slots for MagicBooks; same book stackable unless `IsUnique=1` (§3.15). |
-| EffectPhase | 生效环节 | MagicBook trigger enum: at least `SoldierManufacture` / `Combat`; this round manufacture hook skeleton only (§3.15). |
+| EffectPhase | 生效环节 | MagicBook trigger enum: at least `SoldierManufacture` / `Combat`; manufacture implements Restore and other payloads (§3.15). |
+| EffectPayload | MagicBook effect code | Registered PascalCase token (e.g. `RaceWeightPick`); empty = none; unknown token empty-apply + warn (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| EffectParams | MagicBook effect params | `Key=Value` or `Key=Value\|…`; empty = none/defaults (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
 | ManufactureRecord | 制造记录 | Mode2 UM read-only popup: last AutoManufacture batch soldier summaries (name/race/class); entry to the right of Formation (UI-015 / §3.15). |
 | AutoManufactureBatchRecord | 自动制造批次记录 | Save-scoped last-batch `WarriorId` list; next batch overwrites; persist per slot + CampaignMode (§3.15, [SPEC_04 §6](SPEC_04_Technical.md)). |
 | AutoManufacturePresentation | AutoManufacture presentation | Mode2 AutoManufacture stage presentation (UI-016): after rule batch play Step1–2, then UM + auto-open Formation (§3.15). |
@@ -213,7 +219,7 @@
 | GraveIconStyle | 坟墓图标样式 | By remaining HP%: >65% style1; 30%–65% style2; <30% style3 (§3.10). |
 | GraveQualityConfig | 坟墓品质定义表 | Quality Id → maxHP, loot, etc.; referenced by Dig spawn weights (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | DigReward | 挖掘奖励 | Reward icon spawned at dig-success anim center when HP hits 0; flies to Digger, credits on arrival, then disappears (§3.10). |
-| DigStageSummary | 挖坟阶段汇总 | Popup after Dig effective duration hits 0: aggregate rewards earned this stage by type only; no extra grants (§3.10, UI-011). |
+| DigStageSummary | 挖坟阶段汇总 | Popup after Dig effective duration hits 0: aggregate rewards earned this stage by type only; no extra grants; body-part lines `{DisplayName} Lv{BodyLevel} × count`; top-right "X" confirms (§3.10, UI-011). |
 | Warehouse | 仓库 | Per-SaveSlot material warehouse; unlimited slots and retention; materials stack by type up to 10000 (§3.10). |
 | SpiritEssence | 精魂 | Currency; from Dig (LootDrop reserved Id + stack overflow AutoConvert); spent when manufacturing soldiers (§3.10, §3.11). |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert, AppearanceIconId, AssetPath, WarehouseQualityOutlineId; overflow converts to SpiritEssence via AutoConvert (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
@@ -235,7 +241,7 @@
 | WarriorName | 士兵名字 | Generated at manufacture: `Prefix(es) + RaceName + ClassName + Suffix` (§3.11). |
 | ManufactureSlot | 制造槽位 | Strict slots: Head1 / Torso1 / Arm2 / Leg2 / Soul1 / Gem6 (type-exclusive) / Mount1 / Wing1 (§3.11). |
 | BodyPart | 躯体部位 | Body materials for Head/Torso/Arm/Leg slots; config `BodyPartConfig` (`BodyLevel`, `StatBonus`, `RaceId`, `SpiritCost`, `AutoConvert`, …) (§3.11, [SPEC_04 §9.12](SPEC_04_Technical.md)). |
-| BodyPartConfig | 躯体材料配置表 | BodyPartId → level/slot/race/ControlPower/SpiritCost/StatBonus/AutoConvert/desc/art (§3.11, [SPEC_04 §9.12](SPEC_04_Technical.md)). |
+| BodyPartConfig | 躯体材料配置表 | BodyPartId → item name (`DisplayName`) / level/slot/race/ControlPower/SpiritCost/StatBonus/AutoConvert/desc/art (§3.11, [SPEC_04 §9.12](SPEC_04_Technical.md)). |
 | BodySlot | 躯体槽类型 | `Head` / `Torso` / `Arm` / `Leg` (§3.11). |
 | BodyLevel | 躯体等级 | BodyPart field; mean of filled parts drives appearance level (§3.11). |
 | StatBonus | 增加的属性值 | BodyPart flat-stat string; `Base(S)=Σ StatBonus(S)` (§3.11). |
@@ -251,8 +257,8 @@
 | AttackSpeed | 攻击速度 | Attacks/sec: `0.5+60/max(Agi,1)`; attack-start interval = `1/AttackSpeed` (§3.12). |
 | BodyAppearance | 躯体外观 | Preset overall look; picked by avg BodyLevel + finalized Race + class ClassName (§3.11, [SPEC_04 §9.13](SPEC_04_Technical.md)); assets are Character Creator **baked whole-character** Prefabs — [SPEC_04 §15](SPEC_04_Technical.md). |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → AppearanceLevel / RaceId / ClassAffinity / Description / IsFallback / `BodyRadius` (§3.11, [SPEC_04 §9.13](SPEC_04_Technical.md)). |
-| IsFallback | 保底外形 | Appearance field; `1` = race fallback; at most one per RaceId; also used when level+race matches but class affinity does not (§3.11). |
-| Race | 种族 | Finalized by **weighted random** over filled BodyParts (Head/Torso/Arm/Leg), weight **1** each; one race per soldier; five-dim `RaceAdjustCoeff`; config via `RaceConfig` (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
+| IsFallback | 保底外形 | Appearance field; `1` = race fallback; at most one per RaceId; used when level+race matches but class affinity does not; when set A (level+race) is empty, rewrite to `Race_Undead` then re-pick appearance (§3.11). |
+| Race | 种族 | Default: all filled BodyPart `RaceId`s identical → that race, else `Race_Undead`; Mode2 with Restore book → weight-1 pick; one race per soldier; five-dim `RaceAdjustCoeff`; config via `RaceConfig` (§3.11/§3.15, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
 | RaceConfig | 种族配置表 | RaceId → display name, five-dimensional race adjust coeffs (§3.11, [SPEC_04 §9.11](SPEC_04_Technical.md)). |
 | RaceAdjustCoeff | 种族属性调整系数 | Five dims (one per BaseStat); missing dim = 0; may be +/-; used as `BaseStat × RaceAdjustCoeff`; does **not** add to ControlPowerCost alone (§3.11). |
 | Soul | 灵魂 | Manufacture slot **optional**; if filled, consume that row; if empty, instance `SoulId=Soul_00` (system default), AttackMode/skills/priority/MoveStyle/soul Spirit·Control costs from `Soul_00`, and **force** `ClassId=Class_Servants`; does **not** rewrite Strength/Agility/Intelligence; config via `SoulConfig` (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md)). |
@@ -295,7 +301,9 @@
 | AggroMode | 仇恨模式 | Monster active/passive × chase/stationary; **not** AttackMode (Melee/Ranged); §3.14 / SPEC_04 §9.19. |
 | AlertRadius | 警戒半径 | AggroMode active detect radius; alongside AttackRange (§3.14). |
 | DungeonUnlock | 副本解锁 | Save-slot unlock hook from PushMap config; dungeon gameplay **TBD** (§3.14). |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat presentation: `Auto` (sticky closest loyal) / `Manual` (drag pan); §3.14. |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat presentation: `Auto` (max projection on `CameraFollowPath`) / `Manual` (drag pan); §3.14. |
+| CameraFollowPath | 镜头跟随轨 | Virtual advance polyline on the PushMap map Prefab; author start/turns/end, bake world-XZ straight samples between adjacent waypoints; camera looks at a point on the rail, not a soldier Transform; §3.14. |
+| CameraPathProgress | 镜头轨进度 | Polyline arc-length `s∈[0,1]`; Auto = max projection of living loyal soldiers; retreats if the lead drops; §3.14. |
 | ResumeFollow | 恢复跟随 | PushMap Manual-only bottom-center button → back to `Auto`; §3.14. |
 | FollowDeadzone | Follow deadzone | Auto world-XZ radius 0.15; ignore small target motion inside; §3.14. |
 | FollowSmoothTime | Follow smooth time | Auto XZ SmoothDamp time 0.25s when outside deadzone; §3.14. |
@@ -496,7 +504,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-008 | 关卡选择面板 | 已实现（方案 B） | Prefab `LevelSelectPanel`（InSaveShell 子级）；列出当前模式 `LevelOperationConfig` 去重 `LevelId`；点选进入 Stage 1；关闭按钮；验收见 §3.8 D-003 |
 | UI-009 | 开战按钮 | 已定义（Demo 流水线） | Defend 准备态；点击 → StartBattle（§3.12）；验收见 §3.8 D-040 |
 | UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 默认全屏制造区；顶部「GM升级」打开升级 Modal（右上 X 关闭）；底栏库存方格拖拽 +「完成」与其右「布阵」；布阵打开共享 FormationEditor；验收见 §3.8 D-030～D-032 |
-| UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；确认后接 §3.9；验收见 §3.8 D-020 |
+| UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；`SummaryRoot` **1020×1150**、`Body` **920×1030**；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（精魂/非躯体仍 `{Id} × 数量`）；`ConfirmButton` 文案「X」、锚 `SummaryRoot` 右上角（语义仍为确认）；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 | UI-013 | 战斗模式选关 | 已定义（Demo 流水线） | 进入 Defend 阶段后：选 `BattleMode` + 关卡（该模式全部玩法配置）；模式1进保卫战 Prepare；模式2选 `PushMapGameplayConfig` 后进 §3.14 Prepare；验收见 §3.8 D-044 |
 | UI-014 | 玩法模式选择 | 已定义（Demo） | 新建/进入存档前：选 `CampaignMode` Mode1/Mode2 或取消；**勿与** UI-013 混淆；验收见 §3.8 D-045 |
@@ -517,7 +525,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-008 | Level select panel | Done (Approach B) | Prefab `LevelSelectPanel` under InSaveShell; distinct `LevelId` from current-mode `LevelOperationConfig`; pick → Stage 1; close button; accept §3.8 D-003 |
 | UI-009 | StartBattle button | Defined (Demo pipeline) | Defend Prepare; click → StartBattle (§3.12); accept §3.8 D-040 |
 | UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Full-screen manufacture by default; top "GM Upgrade" opens upgrade Modal (top-right X closes); bottom inventory square bar + drag + Complete with Formation to its right; opens shared FormationEditor; accept §3.8 D-030–D-032 |
-| UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; confirm → §3.9; accept §3.8 D-020 |
+| UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; `SummaryRoot` **1020×1150**, `Body` **920×1030**; body-part lines `{DisplayName} Lv{BodyLevel} × count` (Spirit/non-body still `{Id} × count`); `ConfirmButton` label "X", top-right of `SummaryRoot` (still confirms); confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 | UI-013 | Battle mode/level select | Defined (Demo pipeline) | After entering Defend: pick `BattleMode` + level (all configs for mode); Mode1 → Defend Prepare; Mode2 pick `PushMapGameplayConfig` → §3.14 Prepare; accept §3.8 D-044 |
 | UI-014 | Campaign mode select | Defined (Demo) | Before create/enter save: pick `CampaignMode` Mode1/Mode2 or cancel; **not** UI-013; accept §3.8 D-045 |
@@ -589,10 +597,13 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-053 | Mode2 UM：隐藏手动制造；保留升级 Modal 与可编辑布阵；控制力 HUD 屏蔽；布阵内 `CompleteButton`（SoldierBar 上右，UM/Prepare 均显示；UM 接线结束阶段） | P1 | 已实现（方案 C：`UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`；Catalog 按 CampaignMode Resolve；手验见 AM-08；Complete 见 Mode2 差分） |
 | D-054 | Mode2 UM：布阵右侧「制造记录」打开只读弹窗；展示最近一批 AutoManufacture 士兵摘要（名字/种族/职业）；0 兵空态「本批无士兵」；下一批覆盖；同档再进仍可见；Mode1 无此按钮 | P1 | 已实现（方案 A：`AutoManufactureBatchRecordService` + Mode2 Modal；`UmAssetBuilder` Mode2 追加 / 运行时 Ensure） |
 | D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；Step2 逐兵加强/Idle 揭示/每 3 兵加速；完成后进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | 已实现（方案 A：`AutoManufacturePresentationController` + 播完再 Advance + UM `AutoOpenFormationOnce`） |
+| D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_01`…`App_0_33`、`App_4_41`、`App_5_51`） |
+| D-057 | 样例 `Ground_*` 的 `FormationClassZone` 覆盖当前模式 `ClassConfig` **全部** ClassId（缺区→自动上阵留池）；Mode2 须含 `Class_DarkMage`/`Class_Guardian` 等 | P1 | 已实现（WA-02：Ensure 补第二前/后排 8 区；不覆盖既有 11 区坐标；未调用 GenerateAll） |
+| D-058 | Mode2 魔法书「战士强化」：装备 `MagicBook_WarriorEnhance` 后 AutoManufacture 仅对 `Class_Warrior` 将主属性 Base 增加躯体该维 Σ StatBonus 的 15%（可叠；种族不过滤）；非战士不变；写入实例至彻底死亡；Dig HUD GM 可装备 | P1 | 本片实现（方案 A：扩展 `StatMul` + `Stat=Primary` + 可选 `ClassId`） |
 
 **Demo 范围外（仍排除）：**
 
-- Mode2 魔法书具体效果行与装备 UI（表结构 + 6 槽 + 制造钩子骨架已锁 §3.15；具体书另专题）
+- Mode2 魔法书装备 UI 与其余具体效果行（「还原」`RaceWeightPick`、「战士强化」`StatMul`/`Primary` 已实现；正式装备 UI / 其它书另专题）
 - 推图战（PushMap）完整 polish / 副本玩法正文（规则与 ModeSelect 模式2入口已落地 §3.14 / D-044；细节见 `.scratch/push-map/issues/`）
 - 完整技能施放与技能效果表驱动（士兵/怪物第一版仅普通攻击；`SkillConfig` / CD 公式保留不驱动）
 - 正式美术与动画 polish（临时 Prefab / 占位资源允许；禁止运行时引用 `SmallScaleInt/`）
@@ -633,10 +644,13 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-053 | Mode2 UM: hide manual manufacture; keep upgrade Modal + editable formation; hide ControlPower HUD; in-editor `CompleteButton` (above SoldierBar right; visible UM+Prepare; UM wires stage end) | P1 | Done (Approach C: `UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`; Catalog Resolve by CampaignMode; handcheck AM-08; Complete in Mode2 diffs) |
 | D-054 | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only popup; last AutoManufacture batch summaries (name/race/class); empty 「本批无士兵」; next batch overwrites; survives re-enter save; Mode1 has no button | P1 | Done (Approach A: `AutoManufactureBatchRecordService` + Mode2 Modal; `UmAssetBuilder` Mode2 append / runtime Ensure) |
 | D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; Step2 per-soldier amplify / Idle reveal / +25% speed every 3; then UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | Done (Approach A: `AutoManufacturePresentationController` + advance after play + UM `AutoOpenFormationOnce`) |
+| D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_01`…`App_0_33`, `App_4_41`, `App_5_51`) |
+| D-057 | Sample `Ground_*` `FormationClassZone` covers **every** current-mode `ClassConfig.ClassId` (no zone → auto-deploy stays in pool); Mode2 must include `Class_DarkMage`/`Class_Guardian` etc. | P1 | Done (WA-02: Ensure adds second front/back 8 zones; does not overwrite existing 11 coords; did not call GenerateAll) |
+| D-058 | Mode2 MagicBook Warrior Enhance: equipped `MagicBook_WarriorEnhance` adds 15% of body Σ StatBonus(class PrimaryStat) to Base for `Class_Warrior` only (stackable; no race filter); other classes unchanged; baked until PermanentDeath; Dig HUD GM can equip | P1 | This slice (Approach A: extend `StatMul` + `Stat=Primary` + optional `ClassId`) |
 
 **Out of Demo scope (still excluded):**
 
-- Mode2 MagicBook concrete effect rows and equip UI (schema + 6 slots + manufacture hook skeleton locked §3.15; concrete books later)
+- Mode2 MagicBook equip UI and remaining concrete effects (Restore `RaceWeightPick` and Warrior Enhance `StatMul`/`Primary` done; formal equip UI / other books later)
 - PushMap polish / dungeon gameplay body (rules + ModeSelect Mode2 entry landed §3.14 / D-044; details in `.scratch/push-map/issues/`)
 - Full skill casts / skill-effect table drive (soldiers/monsters: normal attacks only in v1; `SkillConfig` / CD formula retained unused)
 - Formal art / animation polish (temp Prefabs OK; **no** runtime refs to `SmallScaleInt/`)
@@ -869,8 +883,8 @@ EnterLevel
 **坟墓消除与奖励（DigReward）**
 
 1. 当坟的当前 HP **变为 0** 时：播放「坟挖掘成功」动画；该坟障碍立即失效。
-2. 成功动画播放的同时，在动画 **中心点** 出现本次获得的奖励图标（掉落内容取自该坟品质在「坟墓品质定义表」中的 `LootDrop`；编码见 [SPEC_04 §9.3](SPEC_04_Technical.md)）。
-3. 随后奖励图标 **飞向主角**；**到达瞬间**按下方规则入账，然后图标消失。
+2. 成功动画播放的同时，规则层按该坟品质的 `DropMode` 对 `LootDrop` **结算**（编码与模式见 [SPEC_04 §9.3](SPEC_04_Technical.md)），得到已确定的 `Id_Count` 列表；在动画 **中心点** 出现本次获得的奖励图标。结算为空则不生成奖励图标。
+3. 随后奖励图标 **飞向主角**；**到达瞬间**按下方规则入账（对已结算列表），然后图标消失。
 
 **仓库（Warehouse）与精魂（SpiritEssence）入账**
 
@@ -881,7 +895,7 @@ EnterLevel
 | 精魂 | 货币；**不**进入材料堆叠；挖坟获得（`LootDrop` 保留 Id 直接掉落 + 堆叠超限自动兑换）；在 **制造士兵** 时消耗（§3.11） |
 | 入账时机 | DigReward 飞到 Digger **到达瞬间** |
 
-解析 `LootDrop` 每一段 `Id_Count`：
+解析已结算的每一段 `Id_Count`（**不是**表内原始 `Id;Weight;Count`）：
 
 1. 若 `Id` 为保留精魂 Id（`Spirit`，见 SPEC_04 §9.3）→ 增加 `Count` 点精魂。
 2. 若 `Id` 为材料 Id → 尝试写入仓库：
@@ -896,8 +910,8 @@ EnterLevel
 | 胜负 | Dig 阶段 **无胜 / 负**；**不**触发 `LevelFailure` |
 | 唯一结束条件 | **有效挖坟时长**倒计时归零 |
 | 归零瞬间 | 停止过程生成；**取消**所有进行中的 `DigAction`（**不**结算本次扣血）；不可再触发挖掘 |
-| 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分） |
-| 确认后 | 玩家确认关闭弹窗 → 进入 §3.9 下一阶段 /（若末阶段）`VictorySettlement` |
+| 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分）。躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（`DisplayName` 空则回退 `BodyPartId`）；精魂与非躯体材料仍 `{Id} × 数量`。Demo 面板 `SummaryRoot` **1020×1150**、`Body` **920×1030**；关闭为右上「X」（`ConfirmButton`） |
+| 确认后 | 玩家点右上「X」关闭弹窗 → 进入 §3.9 下一阶段 /（若末阶段）`VictorySettlement` |
 
 **Demo GM（Dig HUD）**
 
@@ -905,6 +919,7 @@ EnterLevel
 |------|------|
 | 增加坟墓 | 点一次：按当前 `GraveSpawnWeights` 加权抽品质，落点/避障/32 次重试规则同开局与过程生成；循环尝试 **10** 次；空间不足或有效权重为空时该次放弃，实际生成可少于 10 |
 | 增加躯体材料 | 点一次：对当前已加载 `Manufacture_BodyPartConfig` **全部行**各 `Warehouse.AddItem(BodyPartId, 10)`（堆叠上限 10000 钳制；**不**走 LootDrop / AutoConvert） |
+| 装备战士强化 | **仅 Mode2**：点一次 `SpecialEquipSlotsService.TryEquip("MagicBook_WarriorEnhance")`（可叠；槽满则 Tips/日志失败）。正式装备 UI 另专题；手验 D-058 |
 
 - 仅 Dig 进行中（未归零 / 未弹 Summary）可用；为 Demo/手验工具。
 - GM 直接写入仓库的躯体材料 **不**计入 DigStageSummary「本阶段已获奖励」。
@@ -914,7 +929,7 @@ EnterLevel
 EffectiveDigDuration countdown → 0
   → Stop spawn; cancel in-progress DigAction (no damage)
   → DigStageSummary popup (aggregate rewards earned this Dig stage; no extra grants)
-  → Player confirm → §3.9 next stage / VictorySettlement
+  → Player confirm (top-right X) → §3.9 next stage / VictorySettlement
 ```
 
 ### English
@@ -1039,8 +1054,8 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 **Grave clear & DigReward**
 
 1. When current HP hits **0**: play dig-success animation; grave obstacle clears immediately.
-2. While that anim plays, spawn the reward icon at the anim **center** (loot from GraveQualityConfig `LootDrop`; encoding: [SPEC_04 §9.3](SPEC_04_Technical.md)).
-3. Reward icon then **flies to the Digger**; **on arrival** credit per rules below, then the icon disappears.
+2. While that anim plays, rules **resolve** that quality's `DropMode` + `LootDrop` (encoding: [SPEC_04 §9.3](SPEC_04_Technical.md)) into a settled `Id_Count` list, then spawn the reward icon at the anim **center**. Empty resolve → no reward icon.
+3. Reward icon then **flies to the Digger**; **on arrival** credit the settled list per rules below, then the icon disappears.
 
 **Warehouse & SpiritEssence credit**
 
@@ -1051,7 +1066,7 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 | SpiritEssence | Currency; **not** stacked as material; from Dig (LootDrop reserved Id + overflow AutoConvert); spent when **manufacturing soldiers** (§3.11) |
 | Credit timing | When DigReward **arrives** at the Digger |
 
-For each `LootDrop` segment `Id_Count`:
+For each settled `Id_Count` (not the raw table `Id;Weight;Count`):
 
 1. If `Id` is the reserved Spirit Id (`Spirit`, SPEC_04 §9.3) → add `Count` SpiritEssence.
 2. If `Id` is a Material Id → credit Warehouse:
@@ -1066,8 +1081,8 @@ For each `LootDrop` segment `Id_Count`:
 | Win/lose | Dig stage has **no win / lose**; does **not** trigger `LevelFailure` |
 | Sole end condition | **Effective Dig duration** countdown hits 0 |
 | On zero | Stop ongoing spawn; **cancel** all in-progress `DigAction`s (**no** damage resolve); no further dig triggers |
-| Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`) |
-| After confirm | Player confirms/dismisses popup → §3.9 next stage / (if last) `VictorySettlement` |
+| Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`). Body-part lines `{DisplayName} Lv{BodyLevel} × count` (empty `DisplayName` → `BodyPartId`); Spirit / non-body still `{Id} × count`. Demo panel `SummaryRoot` **1020×1150**, `Body` **920×1030**; dismiss via top-right "X" (`ConfirmButton`) |
+| After confirm | Player taps top-right "X" → §3.9 next stage / (if last) `VictorySettlement` |
 
 **Demo GM (Dig HUD)**
 
@@ -1075,6 +1090,7 @@ For each `LootDrop` segment `Id_Count`:
 |--------|----------|
 | Add Graves | One click: weighted pick via current `GraveSpawnWeights`; placement / obstacle / 32-retry same as initial & process spawn; attempt **10** times; fewer than 10 if no space or empty effective weights |
 | Add Body Parts | One click: for **every** loaded `Manufacture_BodyPartConfig` row, `Warehouse.AddItem(BodyPartId, 10)` (stack cap 10000; **no** LootDrop / AutoConvert) |
+| Equip Warrior Enhance | **Mode2 only**: one click `SpecialEquipSlotsService.TryEquip("MagicBook_WarriorEnhance")` (stackable; full slots → fail log/Tips). Formal equip UI later; hand-check D-058 |
 
 - Available only while Dig is active (before duration zero / Summary). Demo / hand-check tools.
 - Body parts granted via GM **do not** count toward DigStageSummary “rewards earned this stage”.
@@ -1084,7 +1100,7 @@ For each `LootDrop` segment `Id_Count`:
 EffectiveDigDuration countdown → 0
   → Stop spawn; cancel in-progress DigAction (no damage)
   → DigStageSummary popup (aggregate rewards earned this Dig stage; no extra grants)
-  → Player confirm → §3.9 next stage / VictorySettlement
+  → Player confirm (top-right X) → §3.9 next stage / VictorySettlement
 ```
 
 ---
@@ -1210,13 +1226,13 @@ EffectiveDigDuration countdown → 0
 | 字段来源 | 各材料/灵魂/外置/宝石配置表的 `SpiritCost`（[SPEC_04 §9](SPEC_04_Technical.md)）；具体数值 **TBD** |
 | 不足 | 材料齐但精魂不够 → **不能制造** |
 
-**种族定稿（加权随机）**
+**种族定稿（默认同族 / 否则亡灵）**
 
 | 规则 | 说明 |
 |------|------|
 | 参与部位 | 已放入的 **头部、躯干、手臂×2、腿×2**；空槽 **不**参与 |
-| 权重 | 每部位权重 **1**（相同权重） |
-| 抽取 | 按各部位配置的 `RaceId` 加权随机 → 定稿 `RaceId` |
+| 默认定稿 | 参与部位 **全部** `RaceId` 相同 → 定稿为该族；否则定稿为 **`Race_Undead`**（不论各部位等级） |
+| Mode2「还原」 | 若特殊装备槽已装备 `EffectPayload=RaceWeightPick` 的魔法书（「还原」），则改为各部位权重 **1** 加权随机（旧规则）；**Mode1 不读**魔法书，始终用默认定稿 |
 | 数值 | 定稿后查 `RaceConfig`，将五维 `RaceAdjustCoeff` 写入实例 |
 | 标签 | 定稿种族为 **WarriorInfo 主标签来源**；**不再**用「躯体 + 灵魂 InfoTags 拼接」生成主标签 |
 
@@ -1237,8 +1253,9 @@ EffectiveDigDuration countdown → 0
 |------|------|
 | 1. 平均等级 | 对已放入全部躯体槽的 `BodyLevel` 取算术平均 → **保留 1 位小数** → 再 **四舍五入为整数** `AvgLevelInt`（空槽不计） |
 | 2. 等级+种族 | 候选集 A = `BodyAppearanceConfig` 中 `AppearanceLevel == AvgLevelInt` **且** `RaceId ==` 定稿种族 |
-| 3. 职业倾向 | 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经实例 `ClassId`：有灵魂取自该灵魂，无灵魂为 `Class_Servants`）的行；B 非空 → 在 B 中均匀随机；**B 为空（职业不匹配）→ 不采用 A，改走步骤 4 同种族保底** |
-| 4. 保底外形 | 若 A 为空，**或** A 非空但 B 为空：取同种族 `IsFallback == 1` 的行（每种族至多配置 1 个；常规行为空/`0`） |
+| 2b. A 空→亡灵 | 若 A **为空**：将定稿种族改为 **`Race_Undead`**，重载 `RaceAdjustCoeff`，重建 `WarriorName` 种族段，再从步骤 2 **仅重跑一轮**（防循环）；本轮 A 仍空 → 走步骤 4→5 |
+| 3. 职业倾向 | 若 A 非空：子集 B = `ClassAffinity` 含 `ClassConfig.ClassName`（经实例 `ClassId`：有灵魂取自该灵魂，无灵魂为 `Class_Servants`）的行；B 非空 → 在 B 中均匀随机；**B 为空（职业不匹配）→ 不采用 A，改走步骤 4 同种族保底**（**不**因职业不匹配改亡灵） |
+| 4. 保底外形 | A 非空但 B 为空，或亡灵重跑后 A 仍空：取**当前**定稿种族 `IsFallback == 1` 的行（每种族至多配置 1 个；常规行为空/`0`） |
 | 5. 全表随机 | 若仍无匹配 → 在 **全表** 中均匀随机一行 |
 | 写入 | 定稿 `AppearanceId` 写入士兵实例 |
 
@@ -1399,8 +1416,8 @@ UpgradeManufacture stage
        → UnlockedFeatureIds reserved only; TechTree learn/spend → §3.13
   → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg (Soul optional; empty → Soul_00 + Class_Servants)
        → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
-       → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
-       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity match else race IsFallback; else table-random)
+       → Race: same-race else Race_Undead (Mode2 Restore → weight-1); RaceConfig; write RaceId + RaceAdjustCoeff (5D)
+       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; A empty→Race_Undead once; class affinity else race IsFallback; else table-random)
        → Gem: GemIds[]; GemMult(S)=Σ socketed GemMult(S) (5D; all 0 if none)
        → WarriorName = Prefix(es)+RaceName+ClassName+Suffix; WarriorInfo primary = Race
        → Warrior instance {Id, WarriorName, RemainingHP, RaceId, RaceAdjustCoeff, BaseStats, AppearanceId, SoulId, ClassId, AttackMode, LockedEquipIds, GemIds[], GemMult(5D), ControlPowerCost}
@@ -1535,13 +1552,13 @@ Required: **1 Torso + 2 Arms + 2 Legs**. Head, Soul, gems, mount, wings are **op
 | Field source | `SpiritCost` on each config row ([SPEC_04 §9](SPEC_04_Technical.md)); concrete numbers **TBD** |
 | Insufficient | Parts OK but Spirit short → **cannot manufacture** |
 
-**Race finalization (weighted pick)**
+**Race finalization (same-race / else Undead)**
 
 | Rule | Notes |
 |------|-------|
 | Participants | Filled **Head, Torso, Arm×2, Leg×2**; empty slots excluded |
-| Weight | **1** per part |
-| Pick | Weighted random by each part's `RaceId` → finalized `RaceId` |
+| Default | All participant `RaceId`s **identical** → that race; else finalize **`Race_Undead`** (ignore part levels) |
+| Mode2 Restore | If a MagicBook with `EffectPayload=RaceWeightPick` (Restore) is equipped → weight-**1** pick among parts (legacy); **Mode1 ignores** MagicBooks and always uses default |
 | Numerics | Lookup `RaceConfig`; copy five-dim `RaceAdjustCoeff` into instance |
 | Labels | Finalized Race is **primary WarriorInfo label**; **no** Body+Soul `InfoTags` merge for primary tags |
 
@@ -1562,8 +1579,9 @@ BodyAppearance is a preset **overall look**. Finalized at manufacture (same batc
 |------|-------|
 | 1. Average level | Mean `BodyLevel` over filled body slots → keep **1 decimal** → **round half-up to int** `AvgLevelInt` (empty slots excluded) |
 | 2. Level + race | Set A = `BodyAppearanceConfig` rows with `AppearanceLevel == AvgLevelInt` **and** `RaceId ==` finalized race |
-| 3. Class affinity | If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via instance `ClassId`: placed soul when present, else `Class_Servants`); if B non-empty → uniform random in B; **if B empty (class mismatch) → do not use A; go to step 4 same-race fallback** |
-| 4. Fallback | If A empty, **or** A non-empty but B empty: same-race row with `IsFallback == 1` (at most one per race; normal rows empty/`0`) |
+| 2b. A empty → Undead | If A **empty**: force race to **`Race_Undead`**, reload `RaceAdjustCoeff`, rebuild WarriorName race segment, re-run from step 2 **once** only; if A still empty → steps 4→5 |
+| 3. Class affinity | If A non-empty: subset B = rows whose `ClassAffinity` contains `ClassConfig.ClassName` (via instance `ClassId`: placed soul when present, else `Class_Servants`); if B non-empty → uniform random in B; **if B empty (class mismatch) → do not use A; go to step 4 same-race fallback** (class mismatch does **not** rewrite to Undead) |
+| 4. Fallback | A non-empty but B empty, or Undead re-run still has empty A: current-race row with `IsFallback == 1` (at most one per race; normal rows empty/`0`) |
 | 5. Table random | If still none → uniform random over **entire table** |
 | Write | Final `AppearanceId` onto soldier instance |
 
@@ -1724,8 +1742,8 @@ UpgradeManufacture stage
        → UnlockedFeatureIds reserved only; TechTree learn/spend → §3.13
   → Manufacture: slots (Head/Torso/Arm×2/Leg×2/Soul/Gem×6 type-exclusive/Mount/Wing); min = Torso+2Arm+2Leg (Soul optional; empty → Soul_00 + Class_Servants)
        → preview on drag; TotalSpiritCost = Σ SpiritCost; gate on SpiritEssence
-       → Race: weight-1 pick from filled BodyParts → RaceConfig; write RaceId + RaceAdjustCoeff (5D)
-       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; class affinity match else race IsFallback; else table-random)
+       → Race: same-race else Race_Undead (Mode2 Restore → weight-1); RaceConfig; write RaceId + RaceAdjustCoeff (5D)
+       → Base(S)=Σ StatBonus(S); AppearanceId via BodyAppearanceConfig (avg BodyLevel→round; A empty→Race_Undead once; class affinity else race IsFallback; else table-random)
        → Gem: GemIds[]; GemMult(S)=Σ socketed GemMult(S) (5D; all 0 if none)
        → WarriorName = Prefix(es)+RaceName+ClassName+Suffix; WarriorInfo primary = Race
        → Warrior instance {Id, WarriorName, RemainingHP, RaceId, RaceAdjustCoeff, BaseStats, AppearanceId, SoulId, ClassId, AttackMode, LockedEquipIds, GemIds[], GemMult(5D), ControlPowerCost}
@@ -1863,7 +1881,7 @@ UpgradeManufacture stage
 | 对士兵 | 使用 `AttackPower` **直接扣士兵当前 HP**（本批无护甲/减伤） |
 | 对主角 | 普通攻击只扣护盾 1 点（见上）；不用 `AttackPower` |
 | 技能 | `Skills` 字段引用技能 ID+CD；技能效果表 **TBD**；**第一版 Demo 不生效**（只打普通攻击；实现时可忽略或配空） |
-| 掉落 | 击杀时按 `LootDrop`（编码同 Dig：`Id_Count|…`） |
+| 掉落 | 击杀时按 `LootDrop`（**仍为**旧编码 `Id_Count|…`；**不是**坟墓品质表的 `DropMode` / `Id;Weight;Count`） |
 
 **目标选择与寻路（怪物）**
 
@@ -2198,7 +2216,7 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | Vs soldier | Use `AttackPower` to **subtract from soldier current HP** directly (no armor/mitigation this batch) |
 | Vs protagonist | Normal attack reduces Shield by 1 only (above); do not use `AttackPower` |
 | Skills | `Skills` references SkillId+CD; skill-effect table **TBD**; **unused in Demo v1** (normal attacks only; ignore or leave empty at implement time) |
-| Loot | On kill, `LootDrop` (same encoding as Dig: `Id_Count|…`) |
+| Loot | On kill, `LootDrop` (**legacy** `Id_Count|…`; **not** GraveQuality `DropMode` / `Id;Weight;Count`) |
 
 **Targeting & pathfinding (monsters)**
 
@@ -2595,7 +2613,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 士兵战斗 | 同 §3.12 WarriorCombat（EngageZone / AttackMode Melee\|Ranged / 命中方案 D）；**第一版仅普攻** |
 | 不复用 | Defend 倒计时刷怪（`WaveSpawnConfig` / `SpawnRemainingSeconds`）；清场胜利条件（刷怪行全触发+全灭） |
 | 表现机位 | 与 Defend **同为正交俯视**（`Euler(90,0,0)`）；Combat 须启用专用战斗相机，不得落到场景透视主相机（见 [SPEC_04 §6](SPEC_04_Technical.md)） |
-| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。`CameraFollowMode`：`Auto`（默认）= 粘随距 **CurrentObjective** 最近的**忠诚**士兵（`!IsRebel`）；目标失效（销毁/失活/叛变；真实 `CombatDead` 接入后并入）后重选；无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。Auto 表现：世界 XZ 圆形死区 **`FollowDeadzone=0.15`** 内忽略目标小幅位移（镜头不动）；超出后以 **`FollowSmoothTime=0.25`** 对 XZ 做 `SmoothDamp` 缓动追赶（Y/旋转不变）；`EnterAuto` / 开战启用 / 跟随目标重选成功 → **立刻 Snap** 到目标 XZ（清零 damp 速度）。`Manual` = 左键拖动画布，镜头 XZ 平移；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度不变；开战默认 `orthographicSize=2`；Combat 滚轮缩放 Size，钳制 **`[0.5, 20]`**（前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
+| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。`CameraFollowMode`：`Auto`（默认）= 跟随地图 **`CameraFollowPath`** 折线上的机位，**不**粘士兵 Transform。进度 `s∈[0,1]` = 场上**忠诚存活**（`!IsRebel` 且非 `CombatDead`）士兵把世界 XZ **投影到折线**后的**最大值**；领头兵死亡/叛变/失活 → `s` 变小 → `SmoothDamp` **回退**（不 Snap）。无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。缺 `CameraFollowPath` 或未烘焙折线 → warn + **回退**旧行为（粘随距 **CurrentObjective** 最近忠诚兵）。Auto 表现：世界 XZ 圆形死区 **`FollowDeadzone=0.15`** 内忽略目标小幅位移（镜头不动）；超出后以 **`FollowSmoothTime=0.25`** 对 XZ 做 `SmoothDamp` 缓动追赶（Y/旋转不变）；`EnterAuto` / 开战启用 → **立刻 Snap** 到**当时**的折线点（或回退士兵）XZ（清零 damp 速度）；进度回退**不** Snap。`Manual` = 左键拖动画布，镜头 XZ 平移；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度不变；开战默认 `orthographicSize=2`；Combat 滚轮缩放 Size，钳制 **`[0.5, 20]`**（前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
 
 **阶段内子状态（PushMapPhase）**
 
@@ -2625,6 +2643,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | SpawnPoint | 刷怪点；独立 `SpawnPointId`；与配置表行匹配 |
 | TrapZone | 陷阱区域；独立 `TrapZoneId`；我方 **忠诚** 士兵进入触发绑定刷怪 |
 | BossPoint | BOSS 点；关联刷怪生成的 BOSS；击杀 → 阶段通关 |
+| CameraFollowPath | 镜头跟随轨；子物体有序路点（起点/拐弯/终点，≥2）；烘焙折线存 Prefab；作者路点可 Snap 到 Tilemap Grid；相邻路点之间按**世界 XZ 直线**按间距采样（倾斜已在路点世界坐标内）；拐弯由作者路点表达；镜头轨**不是**士兵寻路，直线可穿 AirWall（须作者加转弯点）；Gizmo 可见；开战若未烘焙则补 Bake 一次 |
 | EngageZone / WalkSurface | 复用 §3.12 约定（选敌区 / NavMesh 可走面） |
 | Demo 空气墙边界 | PM-08（方案 A）：开战 Runtime Bake 收集地图 `AirWall`，以 `NavMeshBuildSource` **Box + Not Walkable** 注入可走面烘焙（`HalfExtents×2` 尺寸；`Transform` 含 Y 旋转 → **含 45°**）；敌我士兵与怪物 `NavMeshAgent` 均不可穿；**不做** NavMeshObstacle Carve、复杂多层障碍 polish。**作者硬约束：** `ObjectivePoint` / `SpawnPoint` / `BossPoint` 的世界 XZ **不得**落在任一 `AirWall` OBB 内（加厚/平移墙体时须复核）；目标落墙内 → FlowField 目标格不可走、到达圈内守备后无法再向下一目标推进 |
 
@@ -2651,7 +2670,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | Demo 受伤闪烁边界 | **HitFlash（PM-12/13）：** 与飘字同一命中成功事件。目标子树 Renderer 临时亮色（`MaterialPropertyBlock`，勿永久改共享材质）。怪物亮**红**；士兵亮**白**。共 **2** 次脉冲（立即 1 + 再 1），每次持续 **0.1s**，**中间不灭**（紧接）→ 视觉连续亮约 **0.2s** 后恢复本色。闪烁未结束再次受伤 → 从头刷新。未命中/挥空不闪。防守战本需求 **不做** |
 | Demo 友军脚下圈边界 | **AllyFootCircle：** Defend/PushMap Combat **忠诚存活**士兵脚下绿描边 + 内黑 α=**160/255**；半径=`BodyRadius`；localPos `(0,-0.05,-0.2)`；rotation X=**-30**；Order In Layer=`1`；跟随移动；叛变/死亡隐藏；见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | Demo 选敌粘滞边界 | v0.74.10：遇敌选敌带**粘滞迟滞**——已认领怪仍存活且仍在其遇敌检测半径内时，仅当新候选中心距比已认领目标近超过 **`EngageStickHysteresisMargin`（默认 0.15 世界单位，常量）** 才切换认领，否则保持原认领。原因：密集怪群叠加 SoftCollision 微推使「严格最近」目标逐帧翻飞，破坏 AttackSlot / 前摇稳定性。粘滞不改变检测半径与槽位合法性；目标死亡/出圈仍正常切换（**不再**绑定已废止的 `DemoKillEngageSeconds`） |
-| Demo BOSS 引导边界 | v0.74.10：目标链耗尽（`CurrentObjectiveOrder=0`，全部占领）且地图有 `BossPoint` → `FlowField` 重建指向 BossPoint 世界 XZ（`CurrentObjectiveChanged(0)` 触发一次；无目标点地图开战后立即重建）；此时 `ObjectiveArriveRadius` 收紧为 **`BossAdvanceArriveRadius`（默认 0.35，常量）**，保证士兵进入遇敌检测半径（现配置 ≈0.38+）转 `AttackSlot` 并靠 HitConfirm 打空 BOSS HP；`Stationary*` BOSS 不移动时本引导是唯一接近手段；无 `BossPoint` → 维持「保持当前位置/就近守备」原语义；镜头跟随不受影响（跟随目标为士兵本人） |
+| Demo BOSS 引导边界 | v0.74.10：目标链耗尽（`CurrentObjectiveOrder=0`，全部占领）且地图有 `BossPoint` → `FlowField` 重建指向 BossPoint 世界 XZ（`CurrentObjectiveChanged(0)` 触发一次；无目标点地图开战后立即重建）；此时 `ObjectiveArriveRadius` 收紧为 **`BossAdvanceArriveRadius`（默认 0.35，常量）**，保证士兵进入遇敌检测半径（现配置 ≈0.38+）转 `AttackSlot` 并靠 HitConfirm 打空 BOSS HP；`Stationary*` BOSS 不移动时本引导是唯一接近手段；无 `BossPoint` → 维持「保持当前位置/就近守备」原语义；镜头跟随仍走 `CameraFollowPath` 最大投影（不跟士兵本人） |
 | Demo 士兵受击边界 | **PM-13：** 怪物对忠诚士兵按 `MonsterConfig.AttackPower` 扣士兵 `RemainingHp`（无护甲）；命中成功 → 士兵头顶白飘字 + 白 HitFlash。`HP≤0` → `CombatDead`（停手；宝石/PermanentDeath 对齐 §3.12 Demo 最小即可）。对主角仍 `Shield -= 1`（忽略 AttackPower；不要求主角飘字/闪烁） |
 || Demo 怪物朝向稳定边界 | v0.75.10：推图怪追击朝向带**迟滞 + 最短保持**（`FacingHysteresisDegrees`=12°、`FacingSwitchMinDwellSeconds`=0.12s，常量；详见 SPEC_04 §15.5）；被堵**停滞**（0.25s 滑窗 XZ 位移 < 0.05 且 steer 非零）时停播 Run、面向当前追击目标，位移恢复或 steer 归零即退出。仅 `PushMapMonsterAgentView` 表现层；不改攻击判定 / 槽位认领 / 寻路规则；士兵与防守战怪 **不做** |
 
@@ -2745,7 +2764,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | WarriorCombat | Same §3.12 (EngageZone / AttackMode Melee\|Ranged / hit scheme D); **v1 normal attacks only** |
 | Not reused | Defend countdown spawns (`WaveSpawnConfig` / `SpawnRemainingSeconds`); clear-all victory (all rows fired + all killed) |
 | Presentation camera | Same orthographic top-down as Defend (`Euler(90,0,0)`); Combat must enable a dedicated battle camera — must not fall back to scene perspective Main Camera (see [SPEC_04 §6](SPEC_04_Technical.md)) |
-| Camera follow | Combat only (Prepare keeps FormationCamera). `CameraFollowMode`: `Auto` (default) = sticky-follow closest **loyal** (`!IsRebel`) to **CurrentObjective**; on invalid (destroyed/inactive/rebel; real `CombatDead` joins later) → repick; no loyal left → **freeze** last pose (not protagonist, not map center). Auto presentation: ignore small target motion inside world-XZ circular deadzone **`FollowDeadzone=0.15`** (camera holds); outside → XZ `SmoothDamp` with **`FollowSmoothTime=0.25`** (Y/rotation unchanged); `EnterAuto` / combat enable / successful follow-target repick → **immediate Snap** to target XZ (clear damp velocity). `Manual` = LMB drag pans camera XZ; bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height unchanged; StartBattle default `orthographicSize=2`; Combat scroll-wheel zooms Size clamped **`[0.5, 20]`** (forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
+| Camera follow | Combat only (Prepare keeps FormationCamera). `CameraFollowMode`: `Auto` (default) = follow a look-at on map **`CameraFollowPath`**, **not** a soldier Transform. Progress `s∈[0,1]` = **max** polyline projection of living **loyal** soldiers (`!IsRebel` and not `CombatDead`); lead death/rebel/inactive → `s` shrinks → `SmoothDamp` **retreats** (no Snap). No followable loyal → **freeze** last pose (not protagonist, not map center). Missing `CameraFollowPath` or empty bake → warn + **fallback** to sticky-follow closest loyal to **CurrentObjective**. Auto presentation: ignore small target motion inside world-XZ circular deadzone **`FollowDeadzone=0.15`** (camera holds); outside → XZ `SmoothDamp` with **`FollowSmoothTime=0.25`** (Y/rotation unchanged); `EnterAuto` / combat enable → **immediate Snap** to the **current** rail point (or fallback soldier) XZ (clear damp velocity); progress retreat does **not** Snap. `Manual` = LMB drag pans camera XZ; bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height unchanged; StartBattle default `orthographicSize=2`; Combat scroll-wheel zooms Size clamped **`[0.5, 20]`** (forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
 
 **PushMapPhase**
 
@@ -2775,6 +2794,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | SpawnPoint | Unique `SpawnPointId`; matched by config rows |
 | TrapZone | Unique `TrapZoneId`; loyal soldier enter triggers bound spawns |
 | BossPoint | Boss spawn marker; kill → stage clear |
+| CameraFollowPath | Camera rail; ordered child waypoints (start/turns/end, ≥2); baked polyline stored on Prefab; author waypoints may Snap to Tilemap Grid; adjacent waypoints filled by **world-XZ straight** samples (tilt is in waypoint world poses); turns are author waypoints; rail is **not** soldier pathing and may cross AirWall (author must add turn waypoints); gizmos visible; StartBattle rebakes if empty |
 | EngageZone / WalkSurface | Reuse §3.12 |
 | Demo AirWall edge | PM-08 (Approach A): StartBattle runtime bake collects map `AirWall`s and injects `NavMeshBuildSource` **Box + Not Walkable** into the walkable bake (`HalfExtents×2`; `Transform` Y rotation → **incl. 45°**); both soldiers and monsters (`NavMeshAgent`) cannot path through; **no** NavMeshObstacle Carve or multi-layer obstacle polish. **Authoring hard rule:** world XZ of `ObjectivePoint` / `SpawnPoint` / `BossPoint` must **not** fall inside any `AirWall` OBB (re-check after thickening/moving walls); goal-inside-wall → FlowField goal cell non-walkable and advance can stall after CaptureZone hold |
 
@@ -2801,7 +2821,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Demo HitFlash edge | **HitFlash (PM-12/13):** same successful-hit event as DamagePopup. Temporarily tint target subtree Renderers (MaterialPropertyBlock; do not permanently mutate shared materials). Monster bright **red**; soldier bright **white**. **2** pulses (immediate + one more), each **0.1s**, **no off gap** between them → ≈**0.2s** continuous tint then restore. Hit again mid-flash → restart from t=0. Miss / whiff → no flash. Defend mode out of scope |
 | Demo AllyFootCircle edge | **AllyFootCircle:** Defend/PushMap Combat **loyal living** soldiers: green-stroke foot circle + black fill α=**160/255**; radius=`BodyRadius`; localPos `(0,-0.05,-0.2)`; rotation X=**-30**; Order In Layer=`1`; follows movement; hide on Rebel/CombatDead; see [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | Demo engage stickiness edge | v0.74.10: engage target selection carries **sticky hysteresis** — while the claimed monster is alive and still inside its engage detect radius, switch claims only if a new candidate's center distance is closer by more than **`EngageStickHysteresisMargin` (default 0.15 world units, constant)**; otherwise keep the current claim. Rationale: dense packs + SoftCollision micro-pushes flip-flop the strictly-nearest target per frame and destabilize AttackSlot / windup. Stickiness changes neither detect radius nor slot legality; target death / leaving range still switches normally (**no longer** tied to retired `DemoKillEngageSeconds`) |
-| Demo Boss guidance edge | v0.74.10: when the objective chain is exhausted (`CurrentObjectiveOrder=0`, all captured) and the map has a `BossPoint` → rebuild the `FlowField` toward the BossPoint world XZ (fired once by `CurrentObjectiveChanged(0)`; maps with no objectives rebuild right after StartBattle); `ObjectiveArriveRadius` tightens to **`BossAdvanceArriveRadius` (default 0.35, constant)** so soldiers enter engage detect (≈0.38+ on current configs), convert to `AttackSlot`, and empty Boss HP via HitConfirm; for `Stationary*` bosses this guidance is the only approach means; no `BossPoint` → keep the original "hold position / guard nearby" semantics; camera follow unaffected (it follows the soldier itself) |
+| Demo Boss guidance edge | v0.74.10: when the objective chain is exhausted (`CurrentObjectiveOrder=0`, all captured) and the map has a `BossPoint` → rebuild the `FlowField` toward the BossPoint world XZ (fired once by `CurrentObjectiveChanged(0)`; maps with no objectives rebuild right after StartBattle); `ObjectiveArriveRadius` tightens to **`BossAdvanceArriveRadius` (default 0.35, constant)** so soldiers enter engage detect (≈0.38+ on current configs), convert to `AttackSlot`, and empty Boss HP via HitConfirm; for `Stationary*` bosses this guidance is the only approach means; no `BossPoint` → keep the original "hold position / guard nearby" semantics; camera follow still uses `CameraFollowPath` max projection (does not follow the soldier) |
 | Demo soldier-hit edge | **PM-13:** monsters subtract soldier `RemainingHp` by `MonsterConfig.AttackPower` (no armor); successful hit → white DamagePopup + white HitFlash on the soldier. `HP≤0` → `CombatDead` (stop acting; gems / PermanentDeath follow §3.12 Demo-min). Protagonist hits still `Shield -= 1` (ignore AttackPower; no protagonist popup/flash required) |
 || Demo monster facing stabilization edge | v0.75.10: PushMap monster chase facing carries **hysteresis + min dwell** (`FacingHysteresisDegrees`=12°, `FacingSwitchMinDwellSeconds`=0.12s, constants; see SPEC_04 §15.5); when **stuck** (XZ displacement over a 0.25s sliding window < 0.05 while steer is non-zero) stop Run and face the current chase target; exit on displacement recovery or zero steer. `PushMapMonsterAgentView` presentation only; attack checks / slot claims / pathing rules unchanged; soldiers and Defend monsters **out of scope** |
 
@@ -2856,7 +2876,7 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 
 ### 简体中文
 
-**状态：规则库已关闭（本轮）；Demo 实现见 §3.8 D-050～D-055 / `.scratch/mode2-auto-manufacture/issues/`；具体魔法书效果行与装备 UI 另专题**
+**状态：规则库已关闭（本轮）；Demo 实现见 §3.8 D-050～D-055 / D-058 / `.scratch/mode2-auto-manufacture/issues/`；其余魔法书效果行与正式装备 UI 另专题**
 
 当关卡当前阶段 `玩法类型 = AutoManufacture` 时进入本阶段（Mode2 样例运作表：Dig → **本阶段** → UpgradeManufacture）。配置表见 [SPEC_04 §9.9b / §9.12 / §9.24](SPEC_04_Technical.md)。Mode1 **不**进入本阶段。
 
@@ -2920,7 +2940,7 @@ while 仓库满足最低配方:
 
 **3. 生成属性（基础）**
 
-对已确定部位：`Base(S) = Σ StatBonus(S)`（同 §3.11）。种族定稿：已选头/躯干/臂×2/腿×2 各权重 **1** 加权随机（同 Mode1）。
+对已确定部位：`Base(S) = Σ StatBonus(S)`（同 §3.11）。种族定稿（**均在定稿前探测**已装备书）：若有有效 `ForceRace` → 用其 `RaceId`；否则若有 `RaceWeightPick`（「还原」）→ 已选头/躯干/臂×2/腿×2 各权重 **1** 加权随机；否则同 §3.11（全同族→该族，否则 `Race_Undead`）。多本 `ForceRace`：按槽 **左→右**，后者覆盖；`RaceId` 缺/非法 → 该书无效并忽略，继续看其余 `ForceRace`。冲突优先级：`ForceRace` > `RaceWeightPick` > 默认定稿。
 
 **4. 魔法书触发效果**
 
@@ -2928,7 +2948,16 @@ while 仓库满足最低配方:
 |------|------|
 | 槽位 | 主角默认 **6** 特殊装备槽（一书占 1 槽） |
 | 唯一 | 同 `MagicBookId` 默认可叠装；`IsUnique=1` 不可再装第二本 |
-| 触发 | 对本兵调用已装备且 `EffectPhase` 含 `SoldierManufacture` 的书；**本轮无具体效果实现**（空钩子 / 空表行） |
+| 触发 | 对本兵调用已装备且 `EffectPhase` 含 `SoldierManufacture` 的书 |
+| 「还原」 | `MagicBook_Restore`：`EffectPayload=RaceWeightPick`、`EffectParams` 空；**在种族定稿前**探测；`IsUnique=1` |
+| 「战士强化」 | `MagicBook_WarriorEnhance`：`EffectPayload=StatMul`、`EffectParams=Stat=Primary\|Mul=1.15\|ClassId=Class_Warrior`；`IsUnique=0` 可叠；仅 Mode2 制造；种族不过滤；职业须为战士；见下 `StatMul` / `Primary` |
+| 指定种族 | `ForceRace`：必填 `RaceId`（须存在于 `RaceConfig`）；定稿前探测；优先于「还原」；多本按槽左→右后者覆盖 |
+| 指定职业 | `ForceClass`：必填 `ClassId`（须存在于 `ClassConfig`）；在钩子（步骤 4）改写 `ClassId` 并重载 `ClassName` / `AttackMode`（外观亲和、命名、上阵区按新职业）；多本按槽左→右后者覆盖；非法则忽略，保留双手定职业 |
+| 属性倍率 | `StatMul`：必填 `Stat` + `Mul`；可选 `ClassId`（有则仅匹配职业 apply；非法→该书无效）。`Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`。五维或 `All`：`Base(S)*=Mul`。`Stat=Primary`：`S`=当前 `ClassConfig.PrimaryStat`；`BodySum(S)=Σ` 已消耗躯体 `StatBonus(S)`（不含种族/宝石/装备，不用已被前书改过的 Base）；`Base(S)+=(Mul−1)×BodySum(S)`；可叠=各书对同一 BodySum 再加一次。写入 Base 后走 StaticStat；持续至 PermanentDeath |
+| 属性加算 | `StatAdd`：必填 `Stat` + `Add`；`Stat`∈五维/`All`（**不含** `Primary`）。改 Strength 间接影响派生 MaxHP；改 MaxHP 只动 BodyLife。多本与其它制造书一律按槽左→右依次 apply |
+| 品质偏移 | `QualityDelta`：必填 `Delta`（整数，可负）；外观定稿 `AvgLevelInt = round(mean BodyLevel) + ΣDelta`；**不**重选料、**不**改 Base；多本 Delta **相加** |
+| 编码 | `EffectPayload` 须为 [SPEC_04 §9.24](SPEC_04_Technical.md) 已登记 Token；一书一 Token，多书可共用；参数进 `EffectParams`（`Key=Value\|…`） |
+| 其它书 | 未登记 / 未实现 Token 仍空 apply + 警告日志 |
 | UI | 本轮 **不做** 装备/卸下 UI |
 | Combat 环节 | 枚举预留；本轮不实现 |
 
@@ -2938,12 +2967,15 @@ while 仓库满足最低配方:
 
 **6. 士兵外观确定**
 
-1. 平均 `BodyLevel` → 保留 1 位小数 → 四舍五入 `AvgLevelInt`（同 Mode1）
+1. 平均 `BodyLevel` → 保留 1 位小数 → 四舍五入得基础 `AvgLevelInt`（同 Mode1）；若已装备 `QualityDelta` → `AvgLevelInt += ΣDelta`
 2. 候选 A：`AppearanceLevel==AvgLevelInt` 且 `RaceId==` 定稿种族
-3. 子集 B：`ClassAffinity` 含本兵 `ClassName`；B 非空 → 均匀随机
-4. 若无匹配 → **`ClassConfig.DefaultAppearanceId`**（非空则用之）
-5. 仍无 → 同种族 `IsFallback==1`
-6. 仍无 → 全表均匀随机
+3. **若 A 为空**：定稿种族改为 `Race_Undead`，重载系数与命名种族段，从步骤 2 **仅重跑一轮**（同 §3.11）
+4. 子集 B：`ClassAffinity` 含本兵 `ClassName`；B 非空 → 均匀随机
+5. 若 A 非空但 B 空，**或** 亡灵改写后 A 仍空 → **`ClassConfig.DefaultAppearanceId`**（非空则用之）
+6. 仍无 → 同种族 `IsFallback==1`
+7. 仍无 → 全表均匀随机
+
+（说明：A 空仍先亡灵改写，**改写前**不吃 `DefaultAppearanceId`；改写后 A 仍空或 B 空时用默认外形。避免混族 3 级兵因无「亡灵+该等级」行掉到 `App_94` 等保底。）
 
 **7. 完成制造放入临时仓库**
 
@@ -2995,7 +3027,7 @@ AutoManufacture stage
        pick PrimaryHand (max BodyLevel) → SecondaryHand (approx + class overlap)
        ClassId = intersect(ClassRestrict) or PrimaryHand pool
        pick Head/Torso/Leg×2 (approx > BodyPrimaryStat > Race > random)
-       Base=Σ StatBonus; Race weight-1; MagicBook SoldierManufacture hook
+       Base=Σ StatBonus; Race same-race/Undead (Restore→weight-1); MagicBook SoldierManufacture hook
        finalize StaticStat; Appearance (class DefaultAppearanceId fallback)
        consume parts → TempWarriorWarehouse
   → Clear BattleFormation
@@ -3011,11 +3043,11 @@ AutoManufacture stage
 |--------|------|
 | P0 | 表扩列 + AutoManufacture 阶段 + 选料/职业/属性循环 + 临时仓库 + 自动上阵 + Mode2 UM 差分 |
 | P1 | 魔法书 6 槽存档 + 空钩子；制造记录弹窗（最近一批）；自动制造演出 UI-016 |
-| P2 | 具体魔法书效果 / 装备 UI / 灵魂手动装配 |
+| P2 | 其余魔法书效果 / 正式装备 UI / 灵魂手动装配 |
 
 ### English
 
-**Status: Rules library closed (this round); Demo impl §3.8 D-050–D-055 / `.scratch/mode2-auto-manufacture/issues/`; concrete MagicBook effect rows and equip UI later**
+**Status: Rules library closed (this round); Demo impl §3.8 D-050–D-055 / D-058 / `.scratch/mode2-auto-manufacture/issues/`; remaining MagicBook effect rows and formal equip UI later**
 
 Entered when Level stage `GameplayType = AutoManufacture` (Mode2 sample LevelOperation: Dig → **this stage** → UpgradeManufacture). Config: [SPEC_04 §9.9b / §9.12 / §9.24](SPEC_04_Technical.md). Mode1 does **not** enter this stage.
 
@@ -3079,7 +3111,7 @@ Clear formation → auto-deploy all temp soldiers by class zone → WarriorPool 
 
 **3. Base stats**
 
-`Base(S)=Σ StatBonus(S)` over chosen parts (§3.11). Race: weight-1 among Head/Torso/Arm×2/Leg×2 (Mode1 parity).
+`Base(S)=Σ StatBonus(S)` over chosen parts (§3.11). Race (probe equipped books **before** finalize): valid `ForceRace` → its `RaceId`; else `RaceWeightPick` (Restore) → weight-1 pick among Head/Torso/2×Arm/2×Leg; else same-race / `Race_Undead` (§3.11). Multiple `ForceRace`: slots **left→right**, last wins; missing/illegal `RaceId` → that book invalid, skip and continue. Conflict: `ForceRace` > `RaceWeightPick` > default.
 
 **4. MagicBook effects**
 
@@ -3087,7 +3119,16 @@ Clear formation → auto-deploy all temp soldiers by class zone → WarriorPool 
 |------|-------|
 | Slots | Default **6** special slots (one book per slot) |
 | Unique | Same MagicBookId stackable unless `IsUnique=1` |
-| Trigger | Equipped books whose `EffectPhase` includes `SoldierManufacture`; **no concrete effects this round** (empty hook / empty rows) |
+| Trigger | Equipped books whose `EffectPhase` includes `SoldierManufacture` |
+| Restore | `MagicBook_Restore`: `EffectPayload=RaceWeightPick`, empty `EffectParams`; probe **before** race finalize; `IsUnique=1` |
+| Warrior Enhance | `MagicBook_WarriorEnhance`: `EffectPayload=StatMul`, `EffectParams=Stat=Primary\|Mul=1.15\|ClassId=Class_Warrior`; `IsUnique=0` stackable; Mode2 manufacture only; no race filter; class must be Warrior; see `StatMul` / `Primary` |
+| Force race | `ForceRace`: required `RaceId` (must exist in `RaceConfig`); probe before finalize; beats Restore; multiple left→right last wins |
+| Force class | `ForceClass`: required `ClassId` (must exist in `ClassConfig`); hook (step 4) rewrites `ClassId` and reloads `ClassName` / `AttackMode` (appearance affinity, name, deploy zone follow new class); multiple left→right last wins; illegal → skip, keep hand-resolved class |
+| Stat mul | `StatMul`: required `Stat` + `Mul`; optional `ClassId` (if set, apply only when class matches; illegal → book invalid). `Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`. Five-dim or `All`: `Base(S)*=Mul`. `Stat=Primary`: `S`=current `ClassConfig.PrimaryStat`; `BodySum(S)=Σ` consumed BodyPart `StatBonus(S)` (no race/gem/equip; not already-mutated Base); `Base(S)+=(Mul−1)×BodySum(S)`; stackable = each book adds once against the same BodySum. Baked into Base then StaticStat; lasts until PermanentDeath |
+| Stat add | `StatAdd`: required `Stat` + `Add`; `Stat`∈ five dims/`All` (**not** `Primary`). Strength change affects derived MaxHP; MaxHP change only BodyLife. All manufacture books apply left→right in slot order |
+| Quality shift | `QualityDelta`: required `Delta` (int, may be negative); appearance `AvgLevelInt = round(mean BodyLevel) + ΣDelta`; **no** re-pick, **no** Base change; multiple Deltas **sum** |
+| Encoding | `EffectPayload` must be a registered token ([SPEC_04 §9.24](SPEC_04_Technical.md)); one token per book, tokens reusable; params in `EffectParams` (`Key=Value\|…`) |
+| Other books | Unregistered / unimplemented tokens still empty apply + warn |
 | UI | **No** equip/unequip UI this round |
 | Combat phase | Enum reserved; not implemented |
 
@@ -3097,12 +3138,15 @@ After MagicBook hook: finalize StaticStat / BodyLife / MaxHP (§3.11; Equip/Gem 
 
 **6. Appearance**
 
-1. Mean BodyLevel → 1 decimal → round `AvgLevelInt` (Mode1)
+1. Mean BodyLevel → 1 decimal → round base `AvgLevelInt` (Mode1); if `QualityDelta` equipped → `AvgLevelInt += ΣDelta`
 2. Set A: level + race match
-3. Subset B: ClassAffinity contains ClassName; if non-empty uniform pick
-4. Else **`ClassConfig.DefaultAppearanceId`** if non-empty
-5. Else race `IsFallback==1`
-6. Else full-table uniform
+3. **If A empty**: force `Race_Undead`, reload coeffs + name race segment, re-run from step 2 **once** (§3.11)
+4. Subset B: ClassAffinity contains ClassName; if non-empty uniform pick
+5. If A non-empty but B empty, **or** A still empty after Undead rewrite → **`ClassConfig.DefaultAppearanceId`** if non-empty
+6. Else race `IsFallback==1`
+7. Else full-table uniform
+
+(Note: A-empty still rewrites to Undead first — do **not** eat `DefaultAppearanceId` before the rewrite; after rewrite, use default when A is still empty or B is empty. Prevents mixed-race Lv3 soldiers falling to `App_94` when no Undead+level row exists.)
 
 **7. Temp warehouse**
 
@@ -3165,7 +3209,7 @@ AutoManufacture stage
 |----------|---------|
 | P0 | Table columns + AutoManufacture stage + pick/class/stat loop + temp warehouse + auto-deploy + Mode2 UM diffs |
 | P1 | MagicBook 6-slot save + empty hook; ManufactureRecord popup (last batch); AutoManufacture presentation UI-016 |
-| P2 | Concrete MagicBook effects / equip UI / manual soul |
+| P2 | Remaining MagicBook effects / formal equip UI / manual soul |
 
 ---
 
@@ -3179,7 +3223,7 @@ AutoManufacture stage
 - [x] 玩家挖坟交互与单坟奖励产出表现及入账（见 §3.10；Warehouse / SpiritEssence）
 - [x] 挖坟阶段结束与结算：无胜负；有效时长=配置基础+科技时长加成；DigStageSummary 仅汇总无额外发放（见 §3.10 / UI-011）
 - [ ] 胜利结算 UI / 字段
-- [x] 坟墓品质定义表字段与 `LootDrop` 编码（见 SPEC_04 §9.3；MaxHP 具体数值仍 TBD）
+- [x] 坟墓品质定义表字段与 `LootDrop` 编码（见 SPEC_04 §9.3：`DropMode` + `Id;Weight;Count`；MaxHP 具体数值仍 TBD）
 - [x] 权重零值剔除与 Dig 空有效权重列表放弃该次生成（见 SPEC_04 §9 通用规则 / §3.10）
 - [ ] 坟墓品质表 `MaxHP` 具体数值
 - [x] 挖坟四项科技绑定能力算法（伤害 / 单次速度 / 光标半径 / 可挖类型；见 §3.10 `DigProtagonistCapabilities`）
@@ -3200,7 +3244,8 @@ AutoManufacture stage
 - [x] 主角升级配置表 `ProtagonistLevelConfig` 字段与累计阈值语义（SPEC_04 §9.8）；各行具体数值仍 TBD
 - [x] 士兵控制力占用值 = 躯体+灵魂+额外装备+宝石叠加（制造时定稿）；灵魂配置表 `SoulConfig`（SPEC_04 §9.9）；职业配置表 `ClassConfig`（SPEC_04 §9.9b）；宝石配置表 `GemConfig`（SPEC_04 §9.10）；种族配置表 `RaceConfig`（SPEC_04 §9.11）
 - [x] 宝石：制造可选镶嵌（**6 槽、类型互斥**）；五维 `GemMult`（多颗按维 **Σ**）；**彻底死亡**全部回仓库，其余绑定材料销毁；带宝石士兵 HP≤0 立即彻底死亡
-- [x] 种族：躯体部位权重 1 加权随机定稿；五维 `RaceAdjustCoeff`；不另计控制力；为主标签来源
+- [x] 种族：默认同族否则 `Race_Undead`；Mode2「还原」→权重 1 加权随机；五维 `RaceAdjustCoeff`；不另计控制力；为主标签来源
+- [x] 外观：A 空→改写 `Race_Undead` 再选；B 空或改写后 A 仍空→Mode2 DefaultAppearanceId / 同族 IsFallback；全表兜底
 - [x] FinalStat 按单项属性汇总（先定 `S` 再取来源）；`FinalStat(S)=max(0, …)` 下限保护
 - [x] 士兵命名：`Prefix(es)+RaceName+ClassName+Suffix`（外置前缀 / 种族 / 职业 ClassConfig.ClassName / 宝石后缀表）
 - [ ] 躯体/外观具体数值与美术资源清单（另专题）
@@ -3229,7 +3274,9 @@ AutoManufacture stage
 - [x] Mode2 自动制造（AutoManufacture）规则关闭：流水线 Dig→AutoManufacture→UM；最低配方头+躯干+双臂（含主要手）+双腿；近似品质 |Δ|≤1；职业由双手 ClassRestrict；不计 Spirit/Control；无 SoulId；魔法书表+6槽+钩子骨架；清空布阵后按 PlacementOrder/职业区上阵（§3.15）
 - [x] Mode2 制造记录弹窗（UI-015 / D-054）：最近一批只读摘要；布阵右侧入口；方案 A `AutoManufactureBatchRecordService`
 - [x] Mode2 自动制造演出（UI-016 / D-055）：Step1–3；方案 A `AutoManufacturePresentationController` + UM 自动开布阵
-- [ ] Mode2 魔法书具体效果行与装备 UI；灵魂手动装配（§3.15 另专题）
+- [x] Mode2 魔法书「还原」`RaceWeightPick`（种族定稿前探测）
+- [x] Mode2 魔法书「战士强化」`StatMul`/`Primary`（D-058；可叠；Dig HUD GM 装备）
+- [ ] Mode2 魔法书正式装备 UI 与其余效果行；灵魂手动装配（§3.15 另专题）
 - [x] PushMap 边界锁定：到达 `CaptureZone` 即占领（无计时/无「无怪」条件）；占领后已刷怪保留；全队共当前目标；无陷阱开战刷；无倒计时刷怪；仅 BOSS 通关入账经验；MapId=`Ground_*`|`PushMap_*`
 - [x] 大规模战斗寻路（方案 B）规则锁定：FlowField（共享目标）+ AttackSlot（追击/攻击）+ LocalDetour（友军左右绕）；容量双方约 200；实现见 `.scratch/mass-pathing/issues/`（§3.12 / SPEC_04 §9.7）
 - [ ] 推图战副本玩法正文
@@ -3244,7 +3291,7 @@ AutoManufacture stage
 - [x] Player dig interaction, per-grave rewards, and inventory credit (§3.10; Warehouse / SpiritEssence)
 - [x] Dig stage end & settlement: no win/lose; effective duration = config base + tech duration bonus; DigStageSummary aggregate only, no extra grants (§3.10 / UI-011)
 - [ ] VictorySettlement UI / fields
-- [x] GraveQualityConfig fields and `LootDrop` encoding (SPEC_04 §9.3; MaxHP concrete values still TBD)
+- [x] GraveQualityConfig fields and `LootDrop` encoding (SPEC_04 §9.3: `DropMode` + `Id;Weight;Count`; MaxHP concrete values still TBD)
 - [x] Zero-weight drop and Dig empty effective weight list → abandon that spawn (SPEC_04 §9 common rules / §3.10)
 - [ ] GraveQualityConfig MaxHP concrete values
 - [x] Four Dig tech-bound capability formulas (damage / dig speed / cursor radius / diggable types; §3.10 `DigProtagonistCapabilities`)
@@ -3294,7 +3341,9 @@ AutoManufacture stage
 - [x] Mode2 AutoManufacture rules closed: Dig→AutoManufacture→UM; min recipe Head+Torso+2Arm(incl PrimaryHand)+2Leg; approx |Δ|≤1; class from hand ClassRestrict; no Spirit/Control; no SoulId; MagicBook schema+6 slots+hook stub; clear formation then PlacementOrder/class-zone deploy (§3.15)
 - [x] Mode2 ManufactureRecord popup (UI-015 / D-054): last-batch read-only summary; entry right of Formation; Approach A `AutoManufactureBatchRecordService`
 - [x] Mode2 AutoManufacture presentation (UI-016 / D-055): Step1–3; Approach A `AutoManufacturePresentationController` + UM auto-open Formation
-- [ ] Mode2 MagicBook concrete effects + equip UI; manual soul attach (§3.15 later)
+- [x] Mode2 MagicBook Restore `RaceWeightPick` (probe before race finalize)
+- [x] Mode2 MagicBook Warrior Enhance `StatMul`/`Primary` (D-058; stackable; Dig HUD GM equip)
+- [ ] Mode2 MagicBook formal equip UI + remaining effects; manual soul attach (§3.15 later)
 - [x] PushMap boundary locks: Capture on arrive to `CaptureZone` (no timer / no “clear monsters” condition); keep living after Capture; shared current objective; non-trap spawn at StartBattle; no countdown spawn; Exp only on Boss clear; MapId=`Ground_*`|`PushMap_*`
 - [x] Mass combat pathing (Approach B) rules locked: FlowField (shared goals) + AttackSlot (chase/attack) + LocalDetour (friendly L/R); ~200/side capacity; impl `.scratch/mass-pathing/issues/` (§3.12 / SPEC_04 §9.7)
 - [ ] PushMap dungeon gameplay body

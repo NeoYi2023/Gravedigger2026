@@ -1,2 +1,4 @@
 GameplayConfigId,MapId,DisplayName,StageExpReward,CaptureLoot,DungeonUnlockIds,CaptureSeconds,Notes
 PushMap_01,PushMap_Demo_01,推图样例一,100,Iron_2|Spirit_10,Dungeon_Stub_01,2,PM-02 sample
+PushMap_02,PushMap_Demo_02,推图样例二,100,Iron_2|Spirit_10,Dungeon_Stub_01,2,Level_02
+PushMap_03,PushMap_Demo_03,推图样例三,100,Iron_2|Spirit_10,Dungeon_Stub_01,2,Level_03

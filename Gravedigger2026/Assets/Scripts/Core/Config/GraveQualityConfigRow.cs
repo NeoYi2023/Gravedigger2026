@@ -4,6 +4,7 @@ namespace Gravedigger2026.Core.Config
     {
         public string QualityId;
         public float MaxHP;
+        public int DropMode;
         public string LootDrop;
         public string IconStyleHighId;
         public string IconStyleMidId;

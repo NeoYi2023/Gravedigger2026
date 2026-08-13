@@ -47,7 +47,9 @@ namespace Gravedigger2026.Editor.Defend
         /// </summary>
         private static readonly string[] CatalogExtraMapIds =
         {
-            "PushMap_Demo_01"
+            "PushMap_Demo_01",
+            "PushMap_Demo_02",
+            "PushMap_Demo_03"
         };
 
         private static readonly Color[] MonsterColors =
@@ -184,6 +186,33 @@ namespace Gravedigger2026.Editor.Defend
             }
         }
 
+        /// <summary>
+        /// Writes FormationClassZone markers onto Ground_01…05 only (SPEC_03 §3.8 D-057).
+        /// Does not call GenerateAll; does not rewrite EngageZone / spawn points.
+        /// </summary>
+        [MenuItem("Gravedigger2026/Defend/Ensure Formation Class Zones on Maps")]
+        public static void EnsureFormationClassZonesOnMaps()
+        {
+            for (var i = 0; i < MapIds.Length; i++)
+            {
+                var path = $"{PrefabMapsDir}/{MapIds[i]}.prefab";
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+                {
+                    continue;
+                }
+
+                var contents = PrefabUtility.LoadPrefabContents(path);
+                var bounds = contents.GetComponent<DigMapBounds>();
+                var center = bounds != null ? bounds.Center : contents.transform.position;
+                EnsureFormationClassZones(contents.transform, center);
+                PrefabUtility.SaveAsPrefabAsset(contents, path);
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("[DefendAssetBuilder] EnsureFormationClassZonesOnMaps done (no GenerateAll).");
+        }
+
         public static void EnsureEngageZonesAndSpawnPointsOnMaps()
         {
             for (var i = 0; i < MapIds.Length; i++)
@@ -226,9 +255,9 @@ namespace Gravedigger2026.Editor.Defend
         }
 
         /// <summary>
-        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / AM-06). Idempotent by ClassId child name.
-        /// Layout: front melee / mid servants / back ranged (map-center-relative XZ).
-        /// Each zone localEuler Y=25° (XZ OBB authoring).
+        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / D-057). Idempotent by ClassId child name.
+        /// Existing zones keep Transform + HalfExtents. Missing zones are created (Y=25°).
+        /// Layout: front melee / mid servants / back ranged + second front/back rows (map-center-relative XZ).
         /// </summary>
         private static void EnsureFormationClassZones(Transform mapRoot, Vector3 mapCenter)
         {
@@ -240,12 +269,8 @@ namespace Gravedigger2026.Editor.Defend
                 go.transform.position = mapCenter;
                 root = go.transform;
             }
-            else
-            {
-                root.position = mapCenter;
-            }
 
-            var half = new Vector2(0.45f, 0.35f);
+            var half = ResolveSampleHalfExtents(root);
             // relX, relZ — front = −Z, back = +Z
             EnsureOneClassZone(root, mapCenter, "Class_Warrior", -2.0f, -1.2f, half);
             EnsureOneClassZone(root, mapCenter, "Class_Knight", -1.0f, -1.2f, half);
@@ -258,6 +283,36 @@ namespace Gravedigger2026.Editor.Defend
             EnsureOneClassZone(root, mapCenter, "Class_Mage", 0.0f, 1.0f, half);
             EnsureOneClassZone(root, mapCenter, "Class_Warlock", 1.0f, 1.0f, half);
             EnsureOneClassZone(root, mapCenter, "Class_Priest", 2.0f, 1.0f, half);
+            // D-057 second front row z=−1.9
+            EnsureOneClassZone(root, mapCenter, "Class_Guardian", -2.0f, -1.9f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Brawler", 0.0f, -1.9f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_Shadowblade", 2.0f, -1.9f, half);
+            // D-057 second back row z=+1.7
+            EnsureOneClassZone(root, mapCenter, "Class_Longbowman", -2.0f, 1.7f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_BombMaster", -1.0f, 1.7f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_IceMage", 0.0f, 1.7f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_FireMage", 1.0f, 1.7f, half);
+            EnsureOneClassZone(root, mapCenter, "Class_DarkMage", 2.0f, 1.7f, half);
+        }
+
+        private static Vector2 ResolveSampleHalfExtents(Transform zonesRoot)
+        {
+            var sample = zonesRoot.Find("Class_Paladin");
+            if (sample == null && zonesRoot.childCount > 0)
+            {
+                sample = zonesRoot.GetChild(0);
+            }
+
+            if (sample != null)
+            {
+                var zone = sample.GetComponent<FormationClassZone>();
+                if (zone != null)
+                {
+                    return zone.HalfExtents;
+                }
+            }
+
+            return new Vector2(0.45f, 0.35f);
         }
 
         private static void EnsureOneClassZone(
@@ -269,22 +324,26 @@ namespace Gravedigger2026.Editor.Defend
             Vector2 halfExtents)
         {
             var child = zonesRoot.Find(classId);
-            if (child == null)
+            if (child != null)
             {
-                var go = new GameObject(classId);
-                go.transform.SetParent(zonesRoot, false);
-                child = go.transform;
+                var existing = child.GetComponent<FormationClassZone>();
+                if (existing == null)
+                {
+                    existing = child.gameObject.AddComponent<FormationClassZone>();
+                    existing.EditorSet(classId, halfExtents);
+                    EditorUtility.SetDirty(existing);
+                }
+
+                return;
             }
 
+            var go = new GameObject(classId);
+            go.transform.SetParent(zonesRoot, false);
+            child = go.transform;
             child.position = new Vector3(mapCenter.x + relX, mapCenter.y + 0.05f, mapCenter.z + relZ);
             // Demo sample OBB orientation (SPEC_03 §3.15 / SPEC_04 §13).
             child.localEulerAngles = new Vector3(0f, 25f, 0f);
-            var zone = child.GetComponent<FormationClassZone>();
-            if (zone == null)
-            {
-                zone = child.gameObject.AddComponent<FormationClassZone>();
-            }
-
+            var zone = go.AddComponent<FormationClassZone>();
             zone.EditorSet(classId, halfExtents);
             EditorUtility.SetDirty(zone);
         }

@@ -95,6 +95,7 @@ namespace Gravedigger2026.Editor.PushMap
 
                 // Cover authored markers (objectives / spawns / Boss) on hand-tuned sample layout.
                 EnsureFootprint(contents, new Vector2(40f, 20f), engageScale: 0.85f);
+                EnsureCameraFollowPath(markersRoot);
 
                 PrefabUtility.SaveAsPrefabAsset(contents, SamplePrefabPath);
             }
@@ -204,6 +205,52 @@ namespace Gravedigger2026.Editor.PushMap
             zone.SetTrapZoneId(trapZoneId);
             zone.SetRadius(radius);
             EditorUtility.SetDirty(zone);
+        }
+
+        private static void EnsureCameraFollowPath(Transform markersRoot)
+        {
+            var createdRoot = markersRoot.Find("CameraFollowPath") == null;
+            var pathT = EnsureChild(markersRoot, "CameraFollowPath");
+            if (createdRoot)
+            {
+                pathT.localPosition = Vector3.zero;
+                pathT.localRotation = Quaternion.identity;
+                pathT.localScale = Vector3.one;
+            }
+
+            var path = pathT.GetComponent<PushMapCameraPath>() ??
+                       pathT.gameObject.AddComponent<PushMapCameraPath>();
+
+            // Defaults match hand-tuned PushMap_Demo_01 corridor (Obj01→Obj02→Boss).
+            EnsureWaypoint(pathT, "WP_Start", 1, new Vector3(4.5f, 0.05f, 2.2f));
+            EnsureWaypoint(pathT, "WP_Obj01", 2, new Vector3(6.71f, 0.05f, 3.55f));
+            EnsureWaypoint(pathT, "WP_Obj02", 3, new Vector3(12.31f, 0.05f, 6.35f));
+            EnsureWaypoint(pathT, "WP_End", 4, new Vector3(20.34f, 0.05f, 10.72f));
+
+            if (path.TryBake(out var error))
+            {
+                EditorUtility.SetDirty(path);
+            }
+            else
+            {
+                Debug.LogWarning($"[PushMapSampleMapBuilder] CameraFollowPath bake: {error}");
+            }
+        }
+
+        private static void EnsureWaypoint(Transform pathRoot, string name, int order, Vector3 localPosition)
+        {
+            var created = pathRoot.Find(name) == null;
+            var t = EnsureChild(pathRoot, name);
+            if (created)
+            {
+                t.localPosition = localPosition;
+                t.localRotation = Quaternion.identity;
+                t.localScale = Vector3.one;
+            }
+
+            var wp = t.GetComponent<CameraPathWaypoint>() ?? t.gameObject.AddComponent<CameraPathWaypoint>();
+            wp.SetOrder(order);
+            EditorUtility.SetDirty(wp);
         }
 
         private static void EnsureBossPoint(Transform markersRoot, string name, Vector3 localPosition)

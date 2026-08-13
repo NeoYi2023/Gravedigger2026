@@ -518,6 +518,12 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             _configs.TryGetRace(raceId, out var raceRow);
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
             var className = aggregate.Class != null ? aggregate.Class.ClassName : string.Empty;
+            var appearanceId = PickAppearance(
+                ComputeAvgLevelInt(aggregate.BodyLevels),
+                ref raceId,
+                ref raceRow,
+                ref raceAdjust,
+                className);
 
             var staticStats = WarriorStatMath.ComputeStaticStats(
                 aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
@@ -556,7 +562,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 ControlPowerCost = aggregate.ControlPowerCost,
                 TrialRaceId = raceId,
                 TrialRaceDisplayName = ResolveRaceDisplayName(raceRow, raceId),
-                TrialAppearanceId = PickAppearance(ComputeAvgLevelInt(aggregate.BodyLevels), raceId, className),
+                TrialAppearanceId = appearanceId,
                 ClassId = ResolveInstanceClassId(aggregate),
                 ClassName = className,
                 MinRequirementMet = minMet,
@@ -654,7 +660,12 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
             var classId = ResolveInstanceClassId(aggregate);
             var className = aggregate.Class != null ? aggregate.Class.ClassName : string.Empty;
-            var appearanceId = PickAppearance(ComputeAvgLevelInt(aggregate.BodyLevels), raceId, className);
+            var appearanceId = PickAppearance(
+                ComputeAvgLevelInt(aggregate.BodyLevels),
+                ref raceId,
+                ref raceRow,
+                ref raceAdjust,
+                className);
 
             var staticStats = WarriorStatMath.ComputeStaticStats(
                 aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
@@ -880,14 +891,10 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             return string.IsNullOrEmpty(raceRow.DisplayNameKey) ? raceRow.RaceId : raceRow.DisplayNameKey;
         }
 
-        private string PickRace(List<string> candidates)
+        /// <summary>Mode1: same-race else Race_Undead (SPEC_03 §3.11). No MagicBook Restore.</summary>
+        private static string PickRace(List<string> candidates)
         {
-            if (candidates == null || candidates.Count == 0)
-            {
-                return null;
-            }
-
-            return candidates[_rng.Next(candidates.Count)];
+            return RaceResolve.ResolveDefaultRace(candidates);
         }
 
         private static int ComputeAvgLevelInt(List<float> bodyLevels)
@@ -907,7 +914,33 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             return (int)Math.Round(oneDecimal, 0, MidpointRounding.AwayFromZero);
         }
 
-        private string PickAppearance(int avgLevelInt, string raceId, string className)
+        /// <summary>
+        /// Appearance pick; if set A empty, rewrite race to Race_Undead once then re-pick (SPEC_03 §3.11).
+        /// Class mismatch (B empty) keeps IsFallback — does not rewrite race.
+        /// </summary>
+        private string PickAppearance(
+            int avgLevelInt,
+            ref string raceId,
+            ref RaceConfigRow raceRow,
+            ref StatBlock raceAdjust,
+            string className)
+        {
+            return PickAppearanceCore(
+                avgLevelInt,
+                ref raceId,
+                ref raceRow,
+                ref raceAdjust,
+                className,
+                allowUndeadRewrite: true);
+        }
+
+        private string PickAppearanceCore(
+            int avgLevelInt,
+            ref string raceId,
+            ref RaceConfigRow raceRow,
+            ref StatBlock raceAdjust,
+            string className,
+            bool allowUndeadRewrite)
         {
             var all = _configs.BodyAppearances;
             if (all == null || all.Count == 0 || string.IsNullOrEmpty(raceId))
@@ -925,25 +958,47 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 }
             }
 
-            if (setA.Count > 0)
+            if (setA.Count == 0)
             {
-                var setB = new List<BodyAppearanceConfigRow>();
-                for (var i = 0; i < setA.Count; i++)
+                if (allowUndeadRewrite
+                    && !string.Equals(raceId, RaceResolve.UndeadRaceId, StringComparison.Ordinal))
                 {
-                    if (HasClassAffinity(setA[i].ClassAffinity, className))
-                    {
-                        setB.Add(setA[i]);
-                    }
+                    raceId = RaceResolve.UndeadRaceId;
+                    _configs.TryGetRace(raceId, out raceRow);
+                    raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : new StatBlock();
+                    return PickAppearanceCore(
+                        avgLevelInt,
+                        ref raceId,
+                        ref raceRow,
+                        ref raceAdjust,
+                        className,
+                        allowUndeadRewrite: false);
                 }
 
-                if (setB.Count > 0)
+                var undeadFallback = TryPickRaceFallback(all, raceId);
+                if (!string.IsNullOrEmpty(undeadFallback))
                 {
-                    return setB[_rng.Next(setB.Count)].AppearanceId;
+                    return undeadFallback;
                 }
 
-                // Class mismatch: do not use unmatched set A — race IsFallback instead (SPEC_03 §3.11).
+                return all[_rng.Next(all.Count)].AppearanceId;
             }
 
+            var setB = new List<BodyAppearanceConfigRow>();
+            for (var i = 0; i < setA.Count; i++)
+            {
+                if (HasClassAffinity(setA[i].ClassAffinity, className))
+                {
+                    setB.Add(setA[i]);
+                }
+            }
+
+            if (setB.Count > 0)
+            {
+                return setB[_rng.Next(setB.Count)].AppearanceId;
+            }
+
+            // Class mismatch: do not use unmatched set A — race IsFallback instead (SPEC_03 §3.11).
             var fallbackId = TryPickRaceFallback(all, raceId);
             if (!string.IsNullOrEmpty(fallbackId))
             {

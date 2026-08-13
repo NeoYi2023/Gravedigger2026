@@ -17,10 +17,12 @@
 | ApproxBodyLevel | 近似品质 | `|ΔBodyLevel|≤1`；更高→相同→低1 | [§3.15](SPEC_03_GameRules.md) |
 | PlacementOrder | 放置排序 | ClassConfig；自动上阵职业先后 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 XZ OBB（HalfExtents + Transform Y）；自动上阵螺旋落入；样例 Ground_* Y=25° | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
-| MagicBook | 魔法书 | 主角特殊装备效果库；制造等环节触发 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
-| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/生效环节/效果占位/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；制造等环节触发；含「还原」`RaceWeightPick`、「战士强化」`StatMul`（`Stat=Primary`） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/环节/EffectPayload/EffectParams/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；IsUnique 限制叠装 | [§3.15](SPEC_03_GameRules.md) |
-| EffectPhase | 生效环节 | SoldierManufacture / Combat 等；本轮制造钩子骨架 | [§3.15](SPEC_03_GameRules.md) |
+| EffectPhase | 生效环节 | SoldierManufacture / Combat 等；制造含「还原」等具体 payload | [§3.15](SPEC_03_GameRules.md) |
+| EffectPayload | 魔法书效果编码 | 已登记 PascalCase Token；空=无效果；未登记空 apply | [SPEC_04 §9.24](SPEC_04_Technical.md) |
+| EffectParams | 魔法书效果参数 | `Key=Value` 或 `Key=Value\|…`；空=无参 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：最近一批自动制造士兵摘要（名字/种族/职业）；布阵右侧入口（UI-015 / D-054） | [§3.15](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) Mode2 差分 |
 | AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 WarriorId；下一批覆盖；PlayerPrefs 按槽+CampaignMode | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：Step1 士兵行+书槽 → Step2 加强动画 → Step3 进 UM 自动开布阵（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 |
@@ -43,9 +45,9 @@
 | DigProtagonistCapabilities | 挖坟主角能力 | 伤害/时长缩短和/光标半径/可挖品质/阶段时长加成；科技树学会写入 | [§3.10](SPEC_03_GameRules.md)、[§3.13](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | GraveHP | 坟墓血量 | maxHP 来自品质表；归 0 触发成功与奖励 | [§3.10](SPEC_03_GameRules.md) |
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP%：>65%/30–65%/<30% → 样式1/2/3 | [§3.10](SPEC_03_GameRules.md) |
-| GraveQualityConfig | 坟墓品质定义表 | QualityId → MaxHP、LootDrop、IconStyleHighId/MidId/LowId | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
+| GraveQualityConfig | 坟墓品质定义表 | QualityId → MaxHP、DropMode、LootDrop、IconStyleHighId/MidId/LowId | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigReward | 挖掘奖励 | HP=0 时生成；飞向主角到达后入账并消失 | [§3.10](SPEC_03_GameRules.md) |
-| DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；无额外发放 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；躯体行 DisplayName+BodyLevel；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | Warehouse | 仓库 | 存档槽材料仓；不限格/时长；按类型堆叠上限 10000 | [§3.10](SPEC_03_GameRules.md) |
 | SpiritEssence | 精魂 | 货币；LootDrop `Spirit` + AutoConvert；造士兵消耗 | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert、外观图、素材路径、仓库品质外轮廓 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
@@ -72,11 +74,11 @@
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
 | Remanufacture | 再造 | 按士兵实例配方快照后台再走制造流水线，成功则新增池内士兵；不足弹 Tips | [§3.11](SPEC_03_GameRules.md) |
 | BodyPart | 躯体部位 | Head/Torso/Arm/Leg 材料；BodyPartConfig（BodyLevel/StatBonus/RaceId/SpiritCost/AutoConvert 等） | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
-| BodyPartConfig | 躯体材料配置表 | BodyPartId → 等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术/IsPrimaryHand/ClassRestrict/BodyPrimaryStat | [SPEC_04 §9.12](SPEC_04_Technical.md) |
+| BodyPartConfig | 躯体材料配置表 | BodyPartId → DisplayName（道具名称）/等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术/IsPrimaryHand/ClassRestrict/BodyPrimaryStat | [SPEC_04 §9.12](SPEC_04_Technical.md) |
 | BodySlot | 躯体槽类型 | Head / Torso / Arm / Leg | [§3.11](SPEC_03_GameRules.md) |
 | BodyLevel | 躯体等级 | 躯体材料字段；平均后定外观等级 | [§3.11](SPEC_03_GameRules.md) |
 | StatBonus | 增加的属性值 | 躯体平坦加成；Base(S)=Σ StatBonus(S) | [§3.11](SPEC_03_GameRules.md) |
-| Body | 躯体 | 部位集合；Base(S)=Σ StatBonus；部位加权定种族 | [§3.11](SPEC_03_GameRules.md) |
+| Body | 躯体 | 部位集合；Base(S)=Σ StatBonus；默认同族否则亡灵定种族 | [§3.11](SPEC_03_GameRules.md) |
 | BaseStats | 基础属性 | HP/移速/力量/敏捷/智力；Σ StatBonus；经 StaticStat/FinalStat 派生攻/速/CD/血 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | StaticStat | 静态属性 | 制造/布阵：不含 SkillBuff 的终值 | [§3.11](SPEC_03_GameRules.md) |
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
@@ -85,8 +87,9 @@
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；等级+种族命中但职业倾向无匹配时亦走保底 | [§3.11](SPEC_03_GameRules.md) |
-| Race | 种族 | 部位权重1加权随机定稿；五维 RaceAdjustCoeff；主标签 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
+| IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；职业不匹配时走保底；A 空先改亡灵 | [§3.11](SPEC_03_GameRules.md) |
+| DefaultAppearanceId | 职业默认外形 | Mode2 ClassConfig 字段；B 空或亡灵改写后 A 仍空时优先于 IsFallback | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| Race | 种族 | 默认同族否则 Race_Undead；Mode2「还原」→权重1加权随机；五维 RaceAdjustCoeff；主标签 | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维调整系数、失控概率加成 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceAdjustCoeff | 种族属性调整系数 | Base(S)×系数；缺省维=0；可正负；不计控制力 | [§3.11](SPEC_03_GameRules.md) |
 | Soul | 灵魂 | 槽位可选；有灵魂消耗该行；无灵魂→Soul_00 + 强制 Class_Servants；AttackMode/技能等；不改写三维；Demo 不施放技能 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
@@ -122,7 +125,7 @@
 | BattleModeSelect | 战斗模式选关 | 进入 Defend 后选模式+关卡（UI-013 / D-044；模式2确认→§3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | PushMap | 推图战 | GameplayType/GameplayState；亦可作战斗模式2；目标点占领+刷怪/陷阱/BOSS；复用 Defend 布阵/护盾/失控 | [§3.14](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | PushMapPhase | 推图战子状态 | Prepare / Combat / Ended | [§3.14](SPEC_03_GameRules.md) |
-| MapId | 地图编号 | PushMap 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo 样例 `PushMap_Demo_01`）→ `Prefabs/Maps/` | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| MapId | 地图编号 | PushMap 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo：`PushMap_Demo_01`–`03`）→ `Prefabs/Maps/`；运行时经 `DefendPrefabCatalog.Maps` 绑定 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | ObjectivePoint | 目标点 | 有序推进点 1→2→3…；全队共当前目标 | [§3.14](SPEC_03_GameRules.md) |
 | CaptureZone | 判定圈 | 默认半径 2；任一忠诚兵进入当前圈 → 立即占领 | [§3.14](SPEC_03_GameRules.md) |
 | Capture | 占领 | 目标点本场已占领；关联刷怪停刷；可发奖励/副本解锁钩子 | [§3.14](SPEC_03_GameRules.md) |
@@ -134,7 +137,9 @@
 | AlertRadius | 警戒半径 | AggroMode 主动发现半径 | [§3.14](SPEC_03_GameRules.md) |
 | BodyRadius | 占地半径 | 单位 XZ 占地圆；怪物=`MonsterConfig`；士兵=`BodyAppearanceConfig`（按 AppearanceId，缺省 0.1）；PushMap 刷出散开与 NavMeshAgent/MassMove 避障 | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto` / `Manual` | [§3.14](SPEC_03_GameRules.md) |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
+| CameraFollowPath | 镜头跟随轨 | 地图 Prefab 虚拟推进折线；作者路点 + 相邻点世界 XZ 直线烘焙；镜头对准折线点 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| CameraPathProgress | 镜头轨进度 | 折线弧长 `s∈[0,1]`；Auto=存活忠诚兵投影最大值；领头失效回退 | [§3.14](SPEC_03_GameRules.md) |
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移 | [§3.14](SPEC_03_GameRules.md) |
 | FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s | [§3.14](SPEC_03_GameRules.md) |

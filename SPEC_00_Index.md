@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.79.2
-**最后更新 / Last Updated:** 2026-08-12  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数）  
+**文档版本 / Document Version:** v0.82.2
+**最后更新 / Last Updated:** 2026-08-13  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,25 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-13 | v0.82.2 | Mode2 推图战关卡 2/3 地图接线：`PushMap_02/03` → `PushMap_Demo_02/03`；运行时须 `DefendPrefabCatalog.Maps` 绑定（不扫文件夹）；`CatalogExtraMapIds` 含 Demo_01–03 防 GenerateAll 冲掉；同步 SPEC_04 §9.22、CONTEXT |
+| 2026-08-13 | v0.82.1 | `CameraFollowPath` Bake 改为相邻作者路点世界 XZ 直线按间距采样（难度 2，方案 A）：不再用 NavMesh/轴对齐格心 A*；拐弯由作者路点表达；直线可穿 AirWall；倾斜走廊与路点共线；同步 SPEC_03 §3.14、SPEC_04 §9.22、CONTEXT |
+| 2026-08-13 | v0.82.0 | 魔法书「战士强化」（难度 2，方案 A）：扩展 `StatMul`（可选 `ClassId`、`Stat=Primary`）；Mode2 表行 `MagicBook_WarriorEnhance` 可叠；`Primary` 按躯体 Σ StatBonus(职业主属性)×(Mul−1) 加算写入 Base；落地 handler + Dig HUD GM；D-058；同步 SPEC_03 §3.8/§3.10/§3.15、SPEC_04 §6/§9.24、CONTEXT |
+| 2026-08-13 | v0.81.0 | PushMap Combat Auto 镜头改跟 `CameraFollowPath` 虚拟推进轨（难度 2，方案 B）：作者摆起点/拐弯/终点，NavMesh/格点 A* 补齐折线；机位=存活忠诚兵最大投影 `s`；领头失效 SmoothDamp 回退；缺轨回退旧粘兵；同步 SPEC_03 §3.14、SPEC_04 §6/§9.22/§13、CONTEXT |
+| 2026-08-13 | v0.80.14 | 魔法书表落地 `EffectParams` 列（Mode1+Mode2 Excel/CSV；还原行空参）+ `MagicBookConfigRow` / 加载；未实现新 Token handler；同步 SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.13 | 魔法书品质 Token：登记 `QualityDelta`（必填 `Delta`）；只改外观 `AvgLevelInt+=ΣDelta`，不重选料、不改 Base；多本 Delta 相加；本轮登记表收口（另含 ForceRace/ForceClass/StatMul/StatAdd）；同步 SPEC_03 §3.15、SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.12 | 魔法书属性 Token：登记 `StatMul`（`Stat`+`Mul`）与 `StatAdd`（`Stat`+`Add`）；钩子按槽左→右改 Base(S)；Stat∈MaxHP/MoveSpeed/Strength/Agility/Intelligence/All；同步 SPEC_03 §3.15、SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.11 | 魔法书职业 Token：登记 `ForceClass`（必填 `ClassId`）；钩子内改写 ClassId 并重载 ClassName/AttackMode；多本按槽左→右后者覆盖；非法则忽略并保留双手职业；同步 SPEC_03 §3.15、SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.10 | 魔法书种族 Token：登记 `ForceRace`（必填 `RaceId`）；定稿前探测；冲突 `ForceRace` > `RaceWeightPick` > 默认同族/亡灵；多本 ForceRace 按槽左→右后者覆盖；同步 SPEC_03 §3.15、SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.9 | 魔法书 `EffectParams` 编码锁定：`Key=Value` 或 `Key=Value\|Key=Value\|…`（与 EffectPhase 同分隔符）；空=无参；Key 按 Token 登记；同步 SPEC_03 §3.15、SPEC_04 §9.24、CONTEXT |
+| 2026-08-13 | v0.80.8 | 魔法书 EffectPayload 编码：纯登记 Token + 新列 `EffectParams`（格式 TBD）；一书一 Token，多书可共用 Token；未登记 Token 空 apply+警告；同步 SPEC_03 §3.15、SPEC_04 §9.24、CONTEXT |
+| 2026-08-13 | v0.80.7 | Mode2 外观：亡灵改写后 A 仍空也吃 `ClassConfig.DefaultAppearanceId`（再 IsFallback）；修复混族 3 级暗黑法师落到 `App_94` 而非 `App_5_51`；选定方案 A；同步 SPEC_03 §3.15、SPEC_04 §9.9b/§9.13 |
+| 2026-08-13 | v0.80.6 | WA-02 落地 D-057：`EnsureFormationClassZones` 补第二前/后排 8 区并写回 `Ground_01`…`Ground_05`；已有 11 区坐标/HalfExtents 不覆盖；新区 HalfExtents 对齐现区 Paladin；菜单只写区、未调用 GenerateAll |
+| 2026-08-13 | v0.80.5 | WA-01 落地 D-056：扩展 `WarriorAppearancePrefabAssembler` From-Art；Catalog 刷新并集 Mode1+Mode2 AppearanceId；新增 14 士兵 Prefab（`App_0_*`/`App_4_41`/`App_5_51`）并绑定 Defend/UM Catalog；未调用 GenerateAll；D-057/WA-02 仍待做 |
+| 2026-08-13 | v0.80.4 | Mode2 士兵外观缺口：Art 已生产/修复但未组装游戏 Prefab（圣骑士 `App_4_41`、暗黑法师 `App_5_51`、亡灵 `App_0_*`）+ 8 职业缺 `FormationClassZone`；新增 D-056/D-057；选定方案 B（扩展 `WarriorAppearancePrefabAssembler` From-Art，禁止 GenerateAll）；issues `.scratch/mode2-warrior-art-bind/`；本会话仅 SPEC+issues，未编码 |
+| 2026-08-13 | v0.80.3 | DigStageSummary：`SummaryRoot` 1020×1150、`Body` 920×1030；`ConfirmButton` 改右上「X」；`BodyPartConfig` 增 `DisplayName`（道具名称）；汇总躯体行 `{DisplayName} Lv{BodyLevel} × 数量`；同步 SPEC_03 §3.10/UI-011、SPEC_04 §9.12、CONTEXT、样例 CSV/Excel |
+| 2026-08-12 | v0.80.2 | Dig `GraveQualityConfig.LootDrop` 段内分隔符 `_` → `;`（编码 `Id;Weight;Count\|…`）；Monster/CaptureLoot 仍用 `Id_Count`；同步 SPEC_03 §3.10、SPEC_04 §9.3、样例 CSV/Excel |
+| 2026-08-12 | v0.80.1 | 士兵种族定稿：默认同族否则 `Race_Undead`；Mode2 魔法书「还原」`RaceWeightPick` 恢复部位加权随机；外观 A 空→改写亡灵再选（B 空仍 IsFallback）；同步 SPEC_03 §3.11/§3.15、SPEC_04 §9.11/9.13/9.24、CONTEXT |
+| 2026-08-12 | v0.80.0 | Dig 坟墓品质表增 `DropMode`；`LootDrop` 改为 `Id_Weight_Count\|…`（模式 1=独立万分比，模式 2=权重抽 1）；HP=0 时规则层先结算再 DigReward/入账；Monster/CaptureLoot 仍用旧 `Id_Count`；样例行 DropMode=1 权重 10000；同步 SPEC_03 §3.10、SPEC_04 §9.3、CONTEXT |
 | 2026-08-12 | v0.79.2 | 工具「关卡」→ Prefab 关卡列表（难度 2，方案 B / UI-008）：列出当前模式 `Level_LevelOperationConfig` 去重 `LevelId`；点选进入该关 `StageNumber=1`；废止直启样例 `Level_01`；同步 SPEC_03 §3.5/§3.6、SPEC_04 §6、CONTEXT |
 | 2026-08-12 | v0.79.1 | Mode2 布阵编辑器：`SoldierBar` 上方右侧近屏边 `CompleteButton`（难度 1；UM/Prepare 均显示；UM 点击=关编辑器并结束阶段，同主屏完成；Mode1 无）；同步 SPEC_03 §3.11 Mode2 差分/BattleFormation、SPEC_04 §6、D-053 备注 |
 | 2026-08-12 | v0.79.0 | Mode2 AutoManufacture 演出 UI（难度 2，方案 A / D-055 / UI-016）：Step1 士兵行+6 魔法书槽；Step2 逐兵「加强」动画/Idle 揭示/每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过演出；issues AM-10～13；同步 SPEC_03 §3.6/§3.8/§3.9/§3.15、SPEC_04 §6/§13、CONTEXT、spec-map |
@@ -249,6 +268,25 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-13 | v0.82.2 | Mode2 PushMap Level 2/3 map wiring: `PushMap_02/03` → `PushMap_Demo_02/03`; runtime requires `DefendPrefabCatalog.Maps` bind (no folder scan); `CatalogExtraMapIds` includes Demo_01–03 so GenerateAll does not drop them; synced SPEC_04 §9.22, CONTEXT |
+| 2026-08-13 | v0.82.1 | `CameraFollowPath` Bake = world-XZ straight samples between author waypoints (diff 2, Approach A): drop NavMesh/axis-aligned cell-center A*; turns are author waypoints; straight may cross AirWall; tilted corridors stay collinear with waypoints; synced SPEC_03 §3.14, SPEC_04 §9.22, CONTEXT |
+| 2026-08-13 | v0.82.0 | MagicBook Warrior Enhance (diff 2, Approach A): extend `StatMul` (optional `ClassId`, `Stat=Primary`); Mode2 row `MagicBook_WarriorEnhance` stackable; `Primary` adds (Mul−1)×Σ body StatBonus(class PrimaryStat) into Base; handler + Dig HUD GM; D-058; synced SPEC_03 §3.8/§3.10/§3.15, SPEC_04 §6/§9.24, CONTEXT |
+| 2026-08-13 | v0.81.0 | PushMap Combat Auto camera follows `CameraFollowPath` rail (diff 2, Approach B): author start/turns/end, NavMesh/grid A* fills polyline; look-at = max living-loyal projection `s`; lead drop SmoothDamp retreats; missing path falls back to sticky soldier; synced SPEC_03 §3.14, SPEC_04 §6/§9.22/§13, CONTEXT |
+| 2026-08-13 | v0.80.14 | MagicBook table lands `EffectParams` (Mode1+Mode2 Excel/CSV; Restore row empty) + `MagicBookConfigRow` / loader; new token handlers not implemented; synced SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.13 | MagicBook quality token: register `QualityDelta` (required `Delta`); appearance `AvgLevelInt+=ΣDelta` only; no re-pick / no Base change; deltas sum; this-round catalog closed (+ ForceRace/ForceClass/StatMul/StatAdd); synced SPEC_03 §3.15, SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.12 | MagicBook stat tokens: register `StatMul` (`Stat`+`Mul`) and `StatAdd` (`Stat`+`Add`); hook mutates Base(S) left→right; Stat∈MaxHP/MoveSpeed/Strength/Agility/Intelligence/All; synced SPEC_03 §3.15, SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.11 | MagicBook class token: register `ForceClass` (required `ClassId`); hook rewrites ClassId and reloads ClassName/AttackMode; multiple left→right last wins; illegal → skip, keep hand-resolved class; synced SPEC_03 §3.15, SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.10 | MagicBook race tokens: register `ForceRace` (required `RaceId`); probe before race finalize; conflict `ForceRace` > `RaceWeightPick` > default same-race/Undead; multiple ForceRace left→right last wins; synced SPEC_03 §3.15, SPEC_04 §9.24 |
+| 2026-08-13 | v0.80.9 | MagicBook `EffectParams` encoding locked: `Key=Value` or `Key=Value\|Key=Value\|…` (same delimiter as EffectPhase); empty = none; Keys registered per Token; synced SPEC_03 §3.15, SPEC_04 §9.24, CONTEXT |
+| 2026-08-13 | v0.80.8 | MagicBook EffectPayload encoding: registered token + new `EffectParams` column (format TBD); one token per book, tokens reusable; unknown token empty-apply + warn; synced SPEC_03 §3.15, SPEC_04 §9.24, CONTEXT |
+| 2026-08-13 | v0.80.7 | Mode2 appearance: after Undead rewrite, if A still empty use `ClassConfig.DefaultAppearanceId` before IsFallback; fixes mixed-race Lv3 DarkMage landing on `App_94` instead of `App_5_51`; Approach A; synced SPEC_03 §3.15, SPEC_04 §9.9b/§9.13 |
+| 2026-08-13 | v0.80.6 | WA-02 lands D-057: `EnsureFormationClassZones` adds second front/back 8 zones and writes `Ground_01`…`Ground_05`; existing 11 zone coords/HalfExtents kept; new zones copy Paladin HalfExtents; zones-only menu, did not call GenerateAll |
+| 2026-08-13 | v0.80.5 | WA-01 lands D-056: extend `WarriorAppearancePrefabAssembler` From-Art; catalog refresh unions Mode1+Mode2 AppearanceIds; add 14 warrior Prefabs (`App_0_*`/`App_4_41`/`App_5_51`) and bind Defend/UM catalogs; did not call GenerateAll; D-057/WA-02 still open |
+| 2026-08-13 | v0.80.4 | Mode2 soldier visual gap: Art baked/repaired but game Prefabs unbound (Paladin `App_4_41`, DarkMage `App_5_51`, Undead `App_0_*`) + 8 classes missing `FormationClassZone`; add D-056/D-057; Approach B (extend `WarriorAppearancePrefabAssembler` From-Art; do not GenerateAll); issues `.scratch/mode2-warrior-art-bind/`; this session SPEC+issues only, no code |
+| 2026-08-13 | v0.80.3 | DigStageSummary: `SummaryRoot` 1020×1150, `Body` 920×1030; `ConfirmButton` becomes top-right "X"; `BodyPartConfig` adds `DisplayName` (item name); body-part summary lines `{DisplayName} Lv{BodyLevel} × count`; synced SPEC_03 §3.10/UI-011, SPEC_04 §9.12, CONTEXT, sample CSV/Excel |
+| 2026-08-12 | v0.80.2 | Dig `GraveQualityConfig.LootDrop` intra-segment delimiter `_` → `;` (encoding `Id;Weight;Count\|…`); Monster/CaptureLoot stay on `Id_Count`; synced SPEC_03 §3.10, SPEC_04 §9.3, sample CSV/Excel |
+| 2026-08-12 | v0.80.1 | Soldier race finalize: default same-race else `Race_Undead`; Mode2 MagicBook Restore `RaceWeightPick` restores part weight-1 pick; appearance set A empty → rewrite Undead then re-pick (B empty still IsFallback); synced SPEC_03 §3.11/§3.15, SPEC_04 §9.11/9.13/9.24, CONTEXT |
+| 2026-08-12 | v0.80.0 | Dig GraveQualityConfig adds `DropMode`; `LootDrop` becomes `Id_Weight_Count\|…` (mode 1=independent per-10,000, mode 2=weighted pick-one); resolve at HP=0 before DigReward/credit; Monster/CaptureLoot keep legacy `Id_Count`; sample rows DropMode=1 weight 10000; synced SPEC_03 §3.10, SPEC_04 §9.3, CONTEXT |
 | 2026-08-12 | v0.79.2 | Tools Level → Prefab level list (diff 2, Approach B / UI-008): list distinct `LevelId` from current-mode `Level_LevelOperationConfig`; pick enters that level at `StageNumber=1`; retire direct sample `Level_01` start; synced SPEC_03 §3.5/§3.6, SPEC_04 §6, CONTEXT |
 | 2026-08-12 | v0.78.0 | Mode2 ManufactureRecord popup (diff 2, Approach A / D-054 / UI-015): persist last AutoManufacture batch Ids; UM read-only Modal to the right of Formation (name/race/class); empty 「本批无士兵」; Mode1 has no entry; synced SPEC_03 §3.11/§3.15/§3.6/§3.8, SPEC_04 §6, CONTEXT |
 | 2026-08-12 | v0.77.10 | Dig grave visuals: `Grave_{QualityId}` Prefab Sprite binds `Art/Dig/Graves/Grave_{QualityId}/`; `DigPrefabCatalog` covers all current-mode GraveQualityConfig ids (Mode2 Demo Q1–Q20); Builder/HitShape baker lists aligned; synced SPEC_04 §2/§6/§9.2 |

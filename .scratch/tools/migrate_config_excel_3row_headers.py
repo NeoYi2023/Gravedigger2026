@@ -38,7 +38,8 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
     "Dig_GraveQualityConfig": {
         "QualityId": ("坟墓品质ID", "主键；被 GraveSpawnWeights 引用"),
         "MaxHP": ("总血量", "生成时初始化坟的 maxHP / 当前 HP"),
-        "LootDrop": ("掉落内容", "挖掘成功（HP=0）时产出；编码 Id_Count|…"),
+        "DropMode": ("掉落模式", "1=每段独立万分比；2=权重抽恰好 1 项；后续可扩展"),
+        "LootDrop": ("掉落内容", "挖掘成功（HP=0）时产出；编码 Id_Weight_Count|…；权重用法见 DropMode"),
         "IconStyleHighId": ("高血量图标ID", "剩余 HP%>65%；空=品质默认"),
         "IconStyleMidId": ("中血量图标ID", "剩余 HP% 30%–65%；空=默认"),
         "IconStyleLowId": ("低血量图标ID", "剩余 HP%<30%；空=默认"),
@@ -165,6 +166,7 @@ FIELDS: dict[str, dict[str, tuple[str, str]]] = {
     },
     "Manufacture_BodyPartConfig": {
         "BodyPartId": ("躯体部件ID", "主键；与 MaterialId 同命名空间不得冲突"),
+        "DisplayName": ("道具名称", "仓库 / DigStageSummary 展示名；空则回退 BodyPartId"),
         "BodyLevel": ("部件等级", "部件品质/等级"),
         "BodySlot": ("部件槽位", "Head|Torso|Arm|Leg 等"),
         "RaceId": ("种族倾向", "可选；影响外观抽取"),

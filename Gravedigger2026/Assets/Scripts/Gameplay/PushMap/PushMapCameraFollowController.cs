@@ -7,9 +7,10 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PushMap Combat camera follow (PM-09 Approach A / SPEC_03 §3.14).
-    /// Auto: sticky-follow closest loyal AdvanceView to CurrentObjective; freeze when none.
-    /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto / repick.
+    /// PushMap Combat camera follow (PM-09 Approach B / SPEC_03 §3.14 v0.81.0).
+    /// Auto: look-at CameraFollowPath at max living-loyal projection s; SmoothDamp retreat
+    /// when the lead drops; freeze when none. Missing path falls back to closest loyal.
+    /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto.
     /// Manual: LMB drag pans XZ mirrored to screen delta (grab-map); ResumeFollow returns to Auto.
     /// Scroll wheel zooms orthographicSize in [0.5, 20] (forward zoom-in).
     /// </summary>
@@ -31,15 +32,16 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Camera _camera;
         private IReadOnlyList<PushMapAdvanceView> _advanceViews;
         private Func<ObjectivePoint> _currentObjectiveProvider;
+        private PushMapCameraPath _followPath;
         private GameObject _resumeButtonRoot;
         private Button _resumeButton;
         private bool _combatActive;
         private Mode _mode = Mode.Auto;
-        private PushMapAdvanceView _followTarget;
         private bool _dragArmed;
         private Vector3 _lastMousePosition;
         private float _dragAccumPixels;
         private Vector3 _smoothVelocity;
+        private bool _loggedMissingPath;
 
         public Mode CurrentMode => _mode;
 
@@ -48,11 +50,14 @@ namespace Gravedigger2026.Gameplay.PushMap
         public void Bind(
             Camera camera,
             IReadOnlyList<PushMapAdvanceView> advanceViews,
-            Func<ObjectivePoint> currentObjectiveProvider)
+            Func<ObjectivePoint> currentObjectiveProvider,
+            PushMapCameraPath followPath = null)
         {
             _camera = camera;
             _advanceViews = advanceViews;
             _currentObjectiveProvider = currentObjectiveProvider;
+            _followPath = followPath;
+            _loggedMissingPath = false;
         }
 
         public void BindResumeButton(GameObject root, Button button)
@@ -77,13 +82,30 @@ namespace Gravedigger2026.Gameplay.PushMap
             _combatActive = true;
             _dragArmed = false;
             _dragAccumPixels = 0f;
+            if (_followPath != null && !_followPath.HasBakedPath)
+            {
+                if (!_followPath.TryBake(out var error) && !_loggedMissingPath)
+                {
+                    Debug.LogWarning(
+                        $"[PushMapCameraFollow] CameraFollowPath bake empty at StartBattle: {error}. " +
+                        "Falling back to closest loyal soldier.");
+                    _loggedMissingPath = true;
+                }
+            }
+            else if (_followPath == null && !_loggedMissingPath)
+            {
+                Debug.LogWarning(
+                    "[PushMapCameraFollow] No CameraFollowPath on map. " +
+                    "Falling back to closest loyal soldier.");
+                _loggedMissingPath = true;
+            }
+
             EnterAuto(silent: true);
         }
 
         public void Disable()
         {
             _combatActive = false;
-            _followTarget = null;
             _dragArmed = false;
             _mode = Mode.Auto;
             _smoothVelocity = Vector3.zero;
@@ -98,9 +120,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private void EnterAuto(bool silent)
         {
             _mode = Mode.Auto;
-            _followTarget = null;
-            TryPickClosestLoyal();
-            SnapFollowToTarget();
+            SnapFollowToLookAt();
             RefreshResumeButtonVisibility();
             if (!silent)
             {
@@ -116,7 +136,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _mode = Mode.Manual;
-            _followTarget = null;
             _smoothVelocity = Vector3.zero;
             RefreshResumeButtonVisibility();
             ModeChanged?.Invoke(_mode);
@@ -145,25 +164,14 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            if (!IsFollowable(_followTarget))
-            {
-                var previous = _followTarget;
-                TryPickClosestLoyal();
-                if (_followTarget != null && _followTarget != previous)
-                {
-                    SnapFollowToTarget();
-                }
-            }
-
-            if (_followTarget == null)
+            if (!TryGetLookAt(out var lookAt))
             {
                 return;
             }
 
             var p = _camera.transform.position;
-            var t = _followTarget.transform.position;
-            var dx = t.x - p.x;
-            var dz = t.z - p.z;
+            var dx = lookAt.x - p.x;
+            var dz = lookAt.z - p.z;
             var distSq = dx * dx + dz * dz;
             if (distSq <= FollowDeadzone * FollowDeadzone)
             {
@@ -171,7 +179,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var desired = new Vector3(t.x, p.y, t.z);
+            var desired = new Vector3(lookAt.x, p.y, lookAt.z);
             var next = Vector3.SmoothDamp(
                 p,
                 desired,
@@ -181,17 +189,107 @@ namespace Gravedigger2026.Gameplay.PushMap
             _camera.transform.position = new Vector3(next.x, p.y, next.z);
         }
 
-        private void SnapFollowToTarget()
+        private void SnapFollowToLookAt()
         {
             _smoothVelocity = Vector3.zero;
-            if (_camera == null || !IsFollowable(_followTarget))
+            if (_camera == null || !TryGetLookAt(out var lookAt))
             {
                 return;
             }
 
             var p = _camera.transform.position;
-            var t = _followTarget.transform.position;
-            _camera.transform.position = new Vector3(t.x, p.y, t.z);
+            _camera.transform.position = new Vector3(lookAt.x, p.y, lookAt.z);
+        }
+
+        private bool TryGetLookAt(out Vector3 worldXz)
+        {
+            if (_followPath != null && _followPath.HasBakedPath)
+            {
+                return TryGetPathLookAt(out worldXz);
+            }
+
+            return TryGetClosestLoyalLookAt(out worldXz);
+        }
+
+        private bool TryGetPathLookAt(out Vector3 worldXz)
+        {
+            worldXz = default;
+            if (_advanceViews == null)
+            {
+                return false;
+            }
+
+            var any = false;
+            var sMax = 0f;
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var view = _advanceViews[i];
+                if (!IsFollowable(view))
+                {
+                    continue;
+                }
+
+                if (!_followPath.TryProjectProgress(view.transform.position, out var s))
+                {
+                    continue;
+                }
+
+                any = true;
+                if (s > sMax)
+                {
+                    sMax = s;
+                }
+            }
+
+            if (!any)
+            {
+                return false;
+            }
+
+            return _followPath.TryEvaluate(sMax, out worldXz);
+        }
+
+        private bool TryGetClosestLoyalLookAt(out Vector3 worldXz)
+        {
+            worldXz = default;
+            if (_advanceViews == null || _currentObjectiveProvider == null)
+            {
+                return false;
+            }
+
+            var objective = _currentObjectiveProvider();
+            var objectivePos = objective != null
+                ? objective.transform.position
+                : Vector3.zero;
+            var bestDistSq = float.MaxValue;
+            PushMapAdvanceView best = null;
+
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var view = _advanceViews[i];
+                if (!IsFollowable(view))
+                {
+                    continue;
+                }
+
+                var pos = view.transform.position;
+                var dx = pos.x - objectivePos.x;
+                var dz = pos.z - objectivePos.z;
+                var distSq = dx * dx + dz * dz;
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    best = view;
+                }
+            }
+
+            if (best == null)
+            {
+                return false;
+            }
+
+            worldXz = best.transform.position;
+            return true;
         }
 
         private void HandleScrollZoom()
@@ -275,46 +373,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             _camera.transform.position += worldDelta;
         }
 
-        private void TryPickClosestLoyal()
-        {
-            _followTarget = null;
-            if (_advanceViews == null || _currentObjectiveProvider == null)
-            {
-                return;
-            }
-
-            var objective = _currentObjectiveProvider();
-            var objectivePos = objective != null
-                ? objective.transform.position
-                : Vector3.zero;
-            var bestDistSq = float.MaxValue;
-
-            for (var i = 0; i < _advanceViews.Count; i++)
-            {
-                var view = _advanceViews[i];
-                if (!IsFollowable(view))
-                {
-                    continue;
-                }
-
-                var pos = view.transform.position;
-                var dx = pos.x - objectivePos.x;
-                var dz = pos.z - objectivePos.z;
-                var distSq = dx * dx + dz * dz;
-                if (distSq < bestDistSq)
-                {
-                    bestDistSq = distSq;
-                    _followTarget = view;
-                }
-            }
-        }
-
         private static bool IsFollowable(PushMapAdvanceView view)
         {
             return view != null
                    && view.isActiveAndEnabled
                    && view.gameObject.activeInHierarchy
-                   && !view.IsRebel;
+                   && !view.IsRebel
+                   && view.IsCombatActive;
         }
 
         private void HandleResumeClicked()

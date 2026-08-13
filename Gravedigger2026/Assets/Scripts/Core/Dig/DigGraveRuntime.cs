@@ -16,6 +16,7 @@ namespace Gravedigger2026.Core.Dig
         public float HitBoundingRadius;
         public bool IsBusy;
         public bool IsCleared;
+        public int DropMode;
         public string LootDropEncoded;
 
         public bool HasHitPolygon => HitLocalXZ != null && HitLocalXZ.Length >= 3;

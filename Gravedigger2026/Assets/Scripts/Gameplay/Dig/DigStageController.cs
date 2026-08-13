@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Gravedigger2026.Core;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
@@ -21,6 +23,8 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private DigStageSummaryView _summaryView;
 
         private DigSessionService _session;
+        private ConfigCsvRepository _configs;
+        private SpecialEquipSlotsService _specialEquipSlots;
         private Action _onSummaryConfirmed;
         private readonly Dictionary<int, DigGraveView> _graveViews = new Dictionary<int, DigGraveView>();
         private GameObject _mapInstance;
@@ -41,7 +45,8 @@ namespace Gravedigger2026.Gameplay.Dig
             ConfigCsvRepository configs,
             WarehouseService warehouse,
             DigProtagonistCapabilities caps,
-            Action onSummaryConfirmed)
+            Action onSummaryConfirmed,
+            SpecialEquipSlotsService specialEquipSlots = null)
         {
             EndInternal(destroyWorld: true);
 
@@ -58,6 +63,8 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             _onSummaryConfirmed = onSummaryConfirmed;
+            _configs = configs;
+            _specialEquipSlots = specialEquipSlots;
 
             if (!_catalog.TryGetMap(context.DigConfig.DigMapId, out var mapPrefab))
             {
@@ -130,11 +137,14 @@ namespace Gravedigger2026.Gameplay.Dig
 
             _hudView?.Show();
             _summaryView?.Hide();
+            var mode2 = _configs != null && _configs.LoadedCampaignMode == CampaignMode.Mode2;
+            _hudView?.SetWarriorEnhanceGmVisible(mode2 && _specialEquipSlots != null);
 
             if (_hudView != null)
             {
                 _hudView.AddGravesRequested += HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested += HandleGmAddBodyParts;
+                _hudView.EquipWarriorEnhanceRequested += HandleGmEquipWarriorEnhance;
             }
 
             _session.Begin(context.DigConfig, center, diggerR, half);
@@ -321,7 +331,7 @@ namespace Gravedigger2026.Gameplay.Dig
                 _cursorView.DestroySpawnedUiRing();
                 _cursorView.gameObject.SetActive(false);
             }
-            var body = _session != null ? _session.Ledger.BuildSummaryText() : "本阶段未获得奖励。";
+            var body = _session != null ? _session.Ledger.BuildSummaryText(_configs) : "本阶段未获得奖励。";
             if (_summaryView != null)
             {
                 _summaryView.Show(body, () =>
@@ -378,6 +388,23 @@ namespace Gravedigger2026.Gameplay.Dig
             Debug.Log("[DigStageController] GM Add Body Parts → +10 each BodyPartConfig row");
         }
 
+        private void HandleGmEquipWarriorEnhance()
+        {
+            if (_specialEquipSlots == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Equip Warrior Enhance — no SpecialEquipSlots bound.");
+                return;
+            }
+
+            if (!_specialEquipSlots.TryEquip(SoldierManufactureMagicBookHook.WarriorEnhanceBookId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Equip Warrior Enhance failed: {error}");
+                return;
+            }
+
+            Debug.Log("[DigStageController] GM Equip Warrior Enhance → MagicBook_WarriorEnhance");
+        }
+
         private void EnsureWorldRoot()
         {
             if (_worldRoot == null)
@@ -415,6 +442,7 @@ namespace Gravedigger2026.Gameplay.Dig
             {
                 _hudView.AddGravesRequested -= HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested -= HandleGmAddBodyParts;
+                _hudView.EquipWarriorEnhanceRequested -= HandleGmEquipWarriorEnhance;
             }
 
             UnsubscribeSession(_session);
@@ -447,6 +475,7 @@ namespace Gravedigger2026.Gameplay.Dig
             _diggerView = null;
             _gravesParent = null;
             _onSummaryConfirmed = null;
+            _configs = null;
         }
     }
 }

@@ -33,7 +33,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// (shared field + LocalDetour; no per-soldier SetDestination(Objective)).
     /// MP-05: engage/chase → AttackSlot claim + LocalDetour; slot refresh ≤50/frame; no per-frame CalculatePath.
     /// Combat camera: Runtime Ensure PushMapCamera (ortho top-down; Size=2).
-    /// PM-09: PushMapCameraFollowController Auto/Manual + ResumeFollow.
+    /// PM-09 Approach B: PushMapCameraFollowController follows CameraFollowPath max projection.
     /// PM-10: BodyRadius spawn spread + NavMeshAgent.radius for RVO.
     /// v0.66: Bake → deploy → FireStartBattleSpawns; advance does not pause on capture probe.
     /// v0.74.10: sticky target selection (view side) fixes the starvation deadlock;
@@ -1565,7 +1565,18 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            _cameraFollow.Bind(_pushMapCamera, _advanceViews, ResolveCurrentObjective);
+            var cameraPath = _mapInstance != null
+                ? _mapInstance.GetComponentInChildren<PushMapCameraPath>(true)
+                : null;
+            if (cameraPath != null && !cameraPath.HasBakedPath)
+            {
+                if (!cameraPath.TryBake(out var bakeError))
+                {
+                    Debug.LogWarning($"[PushMapStage] CameraFollowPath bake failed: {bakeError}");
+                }
+            }
+
+            _cameraFollow.Bind(_pushMapCamera, _advanceViews, ResolveCurrentObjective, cameraPath);
             _cameraFollow.EnableForCombat();
         }
 

@@ -473,7 +473,14 @@ namespace Gravedigger2026.Core.Dig
 
             grave.IsCleared = true;
             grave.IsBusy = false;
-            GraveClearedForReward?.Invoke(grave, grave.LootDropEncoded);
+            var settled = LootDropParser.Resolve(
+                grave.LootDropEncoded,
+                grave.DropMode,
+                _rng,
+                msg => Debug.LogWarning($"[DigSession] {msg}"));
+            var settledEncoded = LootDropParser.Encode(settled);
+            grave.LootDropEncoded = settledEncoded;
+            GraveClearedForReward?.Invoke(grave, settledEncoded);
             _graves.Remove(grave);
             _gravesById.Remove(grave.InstanceId);
         }
@@ -505,6 +512,7 @@ namespace Gravedigger2026.Core.Dig
                 CurrentHP = quality.MaxHP,
                 WorldPosition = pos,
                 ObstacleRadius = radius,
+                DropMode = quality.DropMode,
                 LootDropEncoded = quality.LootDrop
             };
 

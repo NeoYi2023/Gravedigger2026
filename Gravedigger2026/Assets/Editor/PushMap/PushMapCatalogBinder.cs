@@ -6,12 +6,20 @@ using UnityEngine;
 namespace Gravedigger2026.Editor.PushMap
 {
     /// <summary>
-    /// Binds the sample PushMap map into DefendPrefabCatalog.Maps so PushMapStageController
-    /// can resolve it at runtime (PM-03 Approach A). Does not rewrite existing Ground_* entries.
+    /// Binds PushMap_Demo_* maps into DefendPrefabCatalog.Maps so PushMapStageController
+    /// can resolve them at runtime (PM-03 Approach A). Does not rewrite existing Ground_* entries.
+    /// Does not regenerate Demo_02/03 (author-owned); only EnsureSampleMapPrefab for Demo_01.
     /// </summary>
     public static class PushMapCatalogBinder
     {
         private const string CatalogPath = "Assets/Settings/Defend/DefendPrefabCatalog.asset";
+
+        private static readonly string[] CatalogMapIds =
+        {
+            "PushMap_Demo_01",
+            "PushMap_Demo_02",
+            "PushMap_Demo_03"
+        };
 
         [MenuItem("Gravedigger2026/PushMap/Ensure Catalog Map Binding")]
         public static void EnsureCatalogMapBindingMenu()
@@ -19,7 +27,7 @@ namespace Gravedigger2026.Editor.PushMap
             if (EnsureCatalogMapBinding())
             {
                 Debug.Log(
-                    $"[PushMapCatalogBinder] Bound '{PushMapSampleMapBuilder.SampleMapId}' into {CatalogPath}.");
+                    $"[PushMapCatalogBinder] Bound {string.Join(", ", CatalogMapIds)} into {CatalogPath}.");
             }
         }
 
@@ -50,19 +58,6 @@ namespace Gravedigger2026.Editor.PushMap
                 return false;
             }
 
-            var prefabPath = $"{PushMapSampleMapBuilder.PrefabMapsDir}/{PushMapSampleMapBuilder.SampleMapId}.prefab";
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            if (prefab == null)
-            {
-                Debug.LogError($"[PushMapCatalogBinder] Map prefab missing: {prefabPath}");
-                return false;
-            }
-
-            if (catalog.TryGetMap(PushMapSampleMapBuilder.SampleMapId, out var existing) && existing == prefab)
-            {
-                return true;
-            }
-
             var so = new SerializedObject(catalog);
             var mapsProp = so.FindProperty("_maps");
             if (mapsProp == null || !mapsProp.isArray)
@@ -71,6 +66,36 @@ namespace Gravedigger2026.Editor.PushMap
                 return false;
             }
 
+            var bound = 0;
+            for (var i = 0; i < CatalogMapIds.Length; i++)
+            {
+                var mapId = CatalogMapIds[i];
+                var prefabPath = $"{PushMapSampleMapBuilder.PrefabMapsDir}/{mapId}.prefab";
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (prefab == null)
+                {
+                    Debug.LogWarning($"[PushMapCatalogBinder] Map prefab missing: {prefabPath}");
+                    continue;
+                }
+
+                UpsertMapEntry(mapsProp, mapId, prefab);
+                bound++;
+            }
+
+            if (bound == 0)
+            {
+                Debug.LogError("[PushMapCatalogBinder] No PushMap_Demo_* prefabs bound.");
+                return false;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(catalog);
+            AssetDatabase.SaveAssets();
+            return true;
+        }
+
+        private static void UpsertMapEntry(SerializedProperty mapsProp, string mapId, GameObject prefab)
+        {
             var mapIdPropPath = nameof(DefendPrefabCatalog.MapEntry.MapId);
             var prefabPropPath = nameof(DefendPrefabCatalog.MapEntry.Prefab);
 
@@ -78,24 +103,17 @@ namespace Gravedigger2026.Editor.PushMap
             {
                 var entry = mapsProp.GetArrayElementAtIndex(i);
                 var idProp = entry.FindPropertyRelative(mapIdPropPath);
-                if (idProp != null && idProp.stringValue == PushMapSampleMapBuilder.SampleMapId)
+                if (idProp != null && idProp.stringValue == mapId)
                 {
                     entry.FindPropertyRelative(prefabPropPath).objectReferenceValue = prefab;
-                    so.ApplyModifiedPropertiesWithoutUndo();
-                    EditorUtility.SetDirty(catalog);
-                    AssetDatabase.SaveAssets();
-                    return true;
+                    return;
                 }
             }
 
             mapsProp.InsertArrayElementAtIndex(mapsProp.arraySize);
             var newEntry = mapsProp.GetArrayElementAtIndex(mapsProp.arraySize - 1);
-            newEntry.FindPropertyRelative(mapIdPropPath).stringValue = PushMapSampleMapBuilder.SampleMapId;
+            newEntry.FindPropertyRelative(mapIdPropPath).stringValue = mapId;
             newEntry.FindPropertyRelative(prefabPropPath).objectReferenceValue = prefab;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(catalog);
-            AssetDatabase.SaveAssets();
-            return true;
         }
     }
 }

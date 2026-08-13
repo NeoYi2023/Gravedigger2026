@@ -11,21 +11,25 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private Text _warehouseText;
         [SerializeField] private Button _addGravesButton;
         [SerializeField] private Button _addBodyPartsButton;
+        [SerializeField] private Button _equipWarriorEnhanceButton;
 
         public event Action AddGravesRequested;
         public event Action AddBodyPartsRequested;
+        public event Action EquipWarriorEnhanceRequested;
 
         private void OnEnable()
         {
             EnsureGmButtons();
             Wire(_addGravesButton, HandleAddGraves);
             Wire(_addBodyPartsButton, HandleAddBodyParts);
+            Wire(_equipWarriorEnhanceButton, HandleEquipWarriorEnhance);
         }
 
         private void OnDisable()
         {
             Unwire(_addGravesButton, HandleAddGraves);
             Unwire(_addBodyPartsButton, HandleAddBodyParts);
+            Unwire(_equipWarriorEnhanceButton, HandleEquipWarriorEnhance);
         }
 
         public void Show()
@@ -81,6 +85,20 @@ namespace Gravedigger2026.Gameplay.Dig
             AddBodyPartsRequested?.Invoke();
         }
 
+        private void HandleEquipWarriorEnhance()
+        {
+            EquipWarriorEnhanceRequested?.Invoke();
+        }
+
+        public void SetWarriorEnhanceGmVisible(bool visible)
+        {
+            EnsureGmButtons();
+            if (_equipWarriorEnhanceButton != null)
+            {
+                _equipWarriorEnhanceButton.gameObject.SetActive(visible);
+            }
+        }
+
         private void SetGmButtonsVisible(bool visible)
         {
             if (_addGravesButton != null)
@@ -91,6 +109,11 @@ namespace Gravedigger2026.Gameplay.Dig
             if (_addBodyPartsButton != null)
             {
                 _addBodyPartsButton.gameObject.SetActive(visible);
+            }
+
+            if (_equipWarriorEnhanceButton != null && !visible)
+            {
+                _equipWarriorEnhanceButton.gameObject.SetActive(false);
             }
         }
 
@@ -105,6 +128,16 @@ namespace Gravedigger2026.Gameplay.Dig
             if (_addBodyPartsButton == null)
             {
                 _addBodyPartsButton = FindOrCreateGmButton(parent, "GmAddBodyPartsButton", "增加躯体材料", new Vector2(-24f, -138f));
+            }
+
+            if (_equipWarriorEnhanceButton == null)
+            {
+                _equipWarriorEnhanceButton = FindOrCreateGmButton(
+                    parent,
+                    "GmEquipWarriorEnhanceButton",
+                    "装备战士强化",
+                    new Vector2(-24f, -190f));
+                _equipWarriorEnhanceButton.gameObject.SetActive(false);
             }
         }
 

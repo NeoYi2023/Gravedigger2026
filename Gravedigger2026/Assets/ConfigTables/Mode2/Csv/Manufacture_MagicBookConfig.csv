@@ -1,1 +1,3 @@
-MagicBookId,IsUnique,EffectPhase,EffectPayload,IconAssetId,DisplayName,Description
+MagicBookId,IsUnique,EffectPhase,EffectPayload,EffectParams,IconAssetId,DisplayName,Description
+MagicBook_Restore,1,SoldierManufacture,RaceWeightPick,,,还原,装备后制造时按部位 RaceId 加权随机定种族
+MagicBook_WarriorEnhance,0,SoldierManufacture,StatMul,Stat=Primary|Mul=1.15|ClassId=Class_Warrior,,鎴樺＋寮哄寲,瑁呭鍚庯紝Mode2 鍒堕€犵殑鎴樺＋涓诲睘鎬у鍔犺函浣撹缁翠箣鍜岀殑 15%锛堝彲鍙狅級锛岃嚦褰诲簳姝讳骸

@@ -817,10 +817,17 @@ namespace Gravedigger2026.Core.Config
                     throw new InvalidOperationException($"{table} row {rowIndex}: illegal MaxHP '{hpText}'.");
                 }
 
+                var dropModeText = SimpleCsv.Require(raw, "DropMode", table, rowIndex);
+                if (!int.TryParse(dropModeText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var dropMode))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: illegal DropMode '{dropModeText}'.");
+                }
+
                 _graveById[id] = new GraveQualityConfigRow
                 {
                     QualityId = id,
                     MaxHP = maxHp,
+                    DropMode = dropMode,
                     LootDrop = SimpleCsv.Require(raw, "LootDrop", table, rowIndex),
                     IconStyleHighId = SimpleCsv.Require(raw, "IconStyleHighId", table, rowIndex),
                     IconStyleMidId = SimpleCsv.Require(raw, "IconStyleMidId", table, rowIndex),
@@ -964,6 +971,7 @@ namespace Gravedigger2026.Core.Config
                 _bodyPartById[id] = new BodyPartConfigRow
                 {
                     BodyPartId = id,
+                    DisplayName = OptionalText(raw, "DisplayName"),
                     BodyLevel = RequireFloat(raw, "BodyLevel", table, rowIndex),
                     BodySlot = slot,
                     RaceId = SimpleCsv.Require(raw, "RaceId", table, rowIndex),
@@ -1083,6 +1091,7 @@ namespace Gravedigger2026.Core.Config
                     IsUnique = ParseOptional01(raw, "IsUnique", table, rowIndex),
                     EffectPhase = OptionalText(raw, "EffectPhase"),
                     EffectPayload = OptionalText(raw, "EffectPayload"),
+                    EffectParams = OptionalText(raw, "EffectParams"),
                     IconAssetId = OptionalText(raw, "IconAssetId"),
                     DisplayName = OptionalText(raw, "DisplayName"),
                     Description = OptionalText(raw, "Description")

@@ -1,5 +1,6 @@
 using System;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
@@ -20,6 +21,7 @@ namespace Gravedigger2026.Core.Level
         private readonly Transform _parent;
         private readonly WarehouseService _warehouse;
         private readonly TechTreeService _techTree;
+        private readonly SpecialEquipSlotsService _specialEquipSlots;
         private readonly Action _onSummaryConfirmed;
         private readonly Action<bool> _onDigPresentationActive;
 
@@ -33,7 +35,8 @@ namespace Gravedigger2026.Core.Level
             WarehouseService warehouse,
             TechTreeService techTree,
             Action onSummaryConfirmed,
-            Action<bool> onDigPresentationActive = null)
+            Action<bool> onDigPresentationActive = null,
+            SpecialEquipSlotsService specialEquipSlots = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -42,6 +45,7 @@ namespace Gravedigger2026.Core.Level
             _techTree = techTree;
             _onSummaryConfirmed = onSummaryConfirmed;
             _onDigPresentationActive = onDigPresentationActive;
+            _specialEquipSlots = specialEquipSlots;
         }
 
         public GameplayState HandledState => GameplayState.Dig;
@@ -85,7 +89,7 @@ namespace Gravedigger2026.Core.Level
             _controller.Begin(context, _configs, _warehouse, caps, () =>
             {
                 _onSummaryConfirmed?.Invoke();
-            });
+            }, _specialEquipSlots);
 
             Debug.Log(
                 $"[Stage:Dig] Enter Level={context.LevelId} Stage={context.StageNumber} ConfigId={context.GameplayConfigId} MapId={context.ResolvedMapId} Prefab={context.ResolvedMapPrefabPath}");

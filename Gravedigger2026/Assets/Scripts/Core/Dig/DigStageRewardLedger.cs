@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 
 namespace Gravedigger2026.Core.Dig
 {
@@ -28,7 +29,7 @@ namespace Gravedigger2026.Core.Dig
             _amounts[rewardId] = current + amount;
         }
 
-        public string BuildSummaryText()
+        public string BuildSummaryText(ConfigCsvRepository configs)
         {
             if (_amounts.Count == 0)
             {
@@ -38,10 +39,22 @@ namespace Gravedigger2026.Core.Dig
             var lines = new List<string> { "Dig 阶段汇总（已入账）：" };
             foreach (var kv in _amounts)
             {
-                lines.Add($"  {kv.Key} × {FormatAmount(kv.Value)}");
+                lines.Add($"  {FormatRewardLine(kv.Key, kv.Value, configs)}");
             }
 
             return string.Join("\n", lines);
+        }
+
+        private static string FormatRewardLine(string rewardId, float amount, ConfigCsvRepository configs)
+        {
+            var countText = FormatAmount(amount);
+            if (configs != null && configs.TryGetBodyPart(rewardId, out var part))
+            {
+                var name = string.IsNullOrEmpty(part.DisplayName) ? part.BodyPartId : part.DisplayName;
+                return $"{name} Lv{FormatAmount(part.BodyLevel)} × {countText}";
+            }
+
+            return $"{rewardId} × {countText}";
         }
 
         private static string FormatAmount(float value)

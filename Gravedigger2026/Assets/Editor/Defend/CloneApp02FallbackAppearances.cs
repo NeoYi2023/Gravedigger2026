@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
+using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
@@ -65,7 +66,11 @@ namespace Gravedigger2026.Editor.Defend
             CloneAndRefreshCatalogs();
         }
 
-        private static void RefreshWarriorCatalogBindings()
+        /// <summary>
+        /// Rebuilds Defend/UM warrior appearance lists from Mode1+Mode2 BodyAppearanceConfig
+        /// rows that already have a Warriors/{Id}.prefab. Does not call GenerateAll.
+        /// </summary>
+        public static void RefreshWarriorCatalogBindings()
         {
             var entries = BuildWarriorAppearanceEntries();
 
@@ -118,17 +123,33 @@ namespace Gravedigger2026.Editor.Defend
         private static List<DefendPrefabCatalog.WarriorAppearanceEntry> BuildWarriorAppearanceEntries()
         {
             var entries = new List<DefendPrefabCatalog.WarriorAppearanceEntry>();
-            var csvPath = CsvPathResolver.ResolveExistingFile(AppearanceCsv);
+            var seen = new HashSet<string>();
+            AppendAppearanceIdsFromCsv(CampaignMode.Mode1, seen, entries);
+            AppendAppearanceIdsFromCsv(CampaignMode.Mode2, seen, entries);
+            return entries;
+        }
+
+        private static void AppendAppearanceIdsFromCsv(
+            CampaignMode mode,
+            HashSet<string> seen,
+            List<DefendPrefabCatalog.WarriorAppearanceEntry> entries)
+        {
+            var csvPath = CsvPathResolver.ResolveExistingFile(AppearanceCsv, mode);
             if (csvPath == null)
             {
-                Debug.LogWarning($"[CloneApp02FallbackAppearances] {AppearanceCsv} not found.");
-                return entries;
+                Debug.LogWarning($"[CloneApp02FallbackAppearances] {AppearanceCsv} not found for {mode}.");
+                return;
             }
 
             var rows = SimpleCsv.ReadRows(csvPath);
             for (var i = 0; i < rows.Count; i++)
             {
                 if (!rows[i].TryGetValue("AppearanceId", out var appearanceId) || string.IsNullOrEmpty(appearanceId))
+                {
+                    continue;
+                }
+
+                if (!seen.Add(appearanceId))
                 {
                     continue;
                 }
@@ -147,8 +168,6 @@ namespace Gravedigger2026.Editor.Defend
                     Prefab = prefab
                 });
             }
-
-            return entries;
         }
 
         private static void RenamePrefabRoot(string prefabPath, string rootName)

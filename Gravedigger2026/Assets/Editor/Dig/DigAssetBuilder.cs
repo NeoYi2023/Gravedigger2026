@@ -444,19 +444,19 @@ namespace Gravedigger2026.Editor.Dig
 
             var summaryRoot = CreateUiPanel(canvasGo.transform, "SummaryRoot", new Color(0.08f, 0.09f, 0.12f, 0.92f));
             Place(summaryRoot.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(720f, 420f));
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1020f, 1150f));
 
             var summaryTitle = CreateUiText(summaryRoot.transform, "Title", "挖坟阶段汇总", 32, TextAnchor.UpperCenter);
             Place(summaryTitle.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(640f, 44f));
+                new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(900f, 44f));
+
+            var confirmBtn = CreateUiButton(summaryRoot.transform, "ConfirmButton", "X", new Color(0.28f, 0.55f, 0.35f, 1f));
+            Place(confirmBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
 
             var summaryBody = CreateUiText(summaryRoot.transform, "Body", "", 22, TextAnchor.UpperLeft);
-            Place(summaryBody.GetComponent<RectTransform>(), new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.55f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(640f, 220f));
-
-            var confirmBtn = CreateUiButton(summaryRoot.transform, "ConfirmButton", "确认", new Color(0.28f, 0.55f, 0.35f, 1f));
-            Place(confirmBtn.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(200f, 48f));
+            Place(summaryBody.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(920f, 1030f));
 
             var summary = summaryRoot.AddComponent<DigStageSummaryView>();
             var sso = new SerializedObject(summary);
