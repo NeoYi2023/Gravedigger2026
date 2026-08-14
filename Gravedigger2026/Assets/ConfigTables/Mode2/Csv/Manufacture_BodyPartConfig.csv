@@ -21,10 +21,10 @@ BP_Head_Demon,恶魔头部,1,Head,Race_Demon,1,1,MaxHP_60|Strength_8|Agility_16|
 BP_Torso_Angel,天使躯干,1,Torso,Race_Angel,1,1,MaxHP_65|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.1,1,案例躯体材料 BP_Torso_Angel,Art_BP_Torso_Angel,0,,Agility
 BP_Head_Undead_0,亡灵头部,1,Head,Race_Undead,1,1,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,,Art_BP_Head_Undead_1,0,,Intelligence
 BP_Torso_Undead_0,亡灵躯干,1,Torso,Race_Undead,1,1,MaxHP_25|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.2,1,,Art_BP_Torso_Undead_1,0,,Strength
-BP_Arm_Undead_Warrior_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,战士,Art_BP_Arm_Undead_Warrior,1,Class_Warrior,Strength
-BP_Arm_Undead_Archer_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,射手,Art_BP_Arm_Undead_Archer,1,Class_Archer,Agility
-BP_Arm_Undead_Mage_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,法师,Art_BP_Arm_Undead_Mage,1,Class_Mage,Intelligence
-BP_Arm_Undead_Rogue_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,盗贼,Art_BP_Arm_Undead_Rogue,1,Class_Rogue,Agility
+BP_Arm_Undead_Warrior_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,战士,Art_BP_Arm_Undead_Warrior,1,Class_Warrior_0,Strength
+BP_Arm_Undead_Archer_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,射手,Art_BP_Arm_Undead_Archer,1,Class_Archer_0,Agility
+BP_Arm_Undead_Mage_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,法师,Art_BP_Arm_Undead_Mage,1,Class_Mage_0,Intelligence
+BP_Arm_Undead_Rogue_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,盗贼,Art_BP_Arm_Undead_Rogue,1,Class_Rogue_0,Agility
 BP_Arm_Undead_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_45|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.3,1,,Art_BP_Arm_Undead_1,0,,Agility
 BP_Leg_Undead_0,亡灵腿部,1,Leg,Race_Undead,1,1,MaxHP_55|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.2,1,,Art_BP_Leg_Undead_1,0,,Strength
 BP_Head_Undead_1,亡灵头部,2,Head,Race_Undead,1,1,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,,Art_BP_Head_Undead_1,0,,Intelligence

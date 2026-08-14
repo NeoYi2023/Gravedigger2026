@@ -121,6 +121,8 @@ namespace Gravedigger2026.Gameplay.Formation
 
         public void SetSlots(
             IReadOnlyList<string> warriorIds,
+            IReadOnlyList<string> displayNames,
+            IReadOnlyList<int> classLevels,
             IReadOnlyList<Sprite> thumbnails,
             IReadOnlyList<bool> highlighted)
         {
@@ -141,7 +143,9 @@ namespace Gravedigger2026.Gameplay.Formation
                 slot.gameObject.SetActive(true);
                 var sprite = thumbnails != null && i < thumbnails.Count ? thumbnails[i] : null;
                 var hi = highlighted != null && i < highlighted.Count && highlighted[i];
-                slot.Bind(warriorIds[i], sprite, hi);
+                var displayName = displayNames != null && i < displayNames.Count ? displayNames[i] : null;
+                var classLevel = classLevels != null && i < classLevels.Count ? classLevels[i] : 0;
+                slot.Bind(warriorIds[i], displayName, classLevel, sprite, hi);
             }
 
             if (_content != null)

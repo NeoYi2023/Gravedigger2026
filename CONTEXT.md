@@ -19,7 +19,7 @@
 | ClassLevel | 职业等级 | ClassConfig 展示用品质等级；UI-016 士兵卡 `Lv.N`；不进战斗公式 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵螺旋落入 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
 | IsoTileYaw | 等距砖轴偏航 | `Y=-atan2(cellSize.y,cellSize.x)`，使 Transform 本地 +X 对齐 Isometric Grid 在 XZ 上的砖轴（Demo ≈ -26.57°）；**职业布阵区已废止此偏航**（改无旋转 IsoDiamond，同 WalkSurface） | [SPEC_04 §13](SPEC_04_Technical.md) |
-| MagicBook | 魔法书 | 主角特殊装备效果库；制造等环节触发；含「还原」`RaceWeightPick`、「战士强化」`StatMul`（`Stat=Primary`）、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
 | MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；IsUnique 限制叠装 | [§3.15](SPEC_03_GameRules.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
@@ -28,7 +28,7 @@
 | EquipCommonExp | 装备公共经验 | 独立池，专供主角装备升级；≠ LifetimeExperience | [§3.16](SPEC_03_GameRules.md) |
 | OwnedEquip | 已拥有装备实例 | EquipId + Level + CurrentExp | [§3.16](SPEC_03_GameRules.md) |
 | EquipEffectDomain | 装备生效功能 | Dig \| SoldierManufacture \| Combat（可多值） | [§3.16](SPEC_03_GameRules.md) |
-| EffectPhase | 生效环节 | SoldierManufacture / Combat 等；制造含「还原」等具体 payload | [§3.15](SPEC_03_GameRules.md) |
+| EffectPhase | 生效环节 | SoldierManufacture / Combat 等；Mode2 制造书在 Step2 单槽节拍 apply | [§3.15](SPEC_03_GameRules.md) |
 | EffectPayload | 魔法书效果编码 | 已登记 PascalCase Token；空=无效果；未登记空 apply | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | EffectParams | 魔法书效果参数 | `Key=Value` 或 `Key=Value\|…`；空=无参 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：最近一批自动制造士兵摘要（名字/种族/职业）；布阵右侧入口（UI-015 / D-054） | [§3.15](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) Mode2 差分 |

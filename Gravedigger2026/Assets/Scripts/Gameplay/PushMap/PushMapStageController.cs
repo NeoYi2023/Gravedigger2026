@@ -1590,6 +1590,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _warriorPool,
                 _formation,
                 _progress,
+                _configs,
                 null,
                 _mapInstance);
         }

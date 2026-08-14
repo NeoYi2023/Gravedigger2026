@@ -347,25 +347,35 @@ namespace Gravedigger2026.Editor.Formation
             thumbGo.transform.SetParent(go.transform, false);
             var thumbRt = thumbGo.GetComponent<RectTransform>();
             Stretch(thumbRt);
-            thumbRt.offsetMin = new Vector2(4f, 16f);
+            thumbRt.offsetMin = new Vector2(4f, 24f);
             thumbRt.offsetMax = new Vector2(-4f, -4f);
             var thumb = thumbGo.GetComponent<Image>();
             thumb.preserveAspect = true;
             thumb.raycastTarget = false;
 
-            var label = CreateUiText(go.transform, "Label", "Id", 11, TextAnchor.LowerCenter);
+            var label = CreateUiText(go.transform, "Label", "Class", 10, TextAnchor.MiddleCenter);
             var labelRt = label.GetComponent<RectTransform>();
             labelRt.anchorMin = new Vector2(0f, 0f);
             labelRt.anchorMax = new Vector2(1f, 0f);
             labelRt.pivot = new Vector2(0.5f, 0f);
-            labelRt.anchoredPosition = new Vector2(0f, 2f);
-            labelRt.sizeDelta = new Vector2(0f, 14f);
+            labelRt.anchoredPosition = new Vector2(0f, 12f);
+            labelRt.sizeDelta = new Vector2(0f, 12f);
             label.raycastTarget = false;
+
+            var classLevel = CreateUiText(go.transform, "ClassLevel", "Lv.0", 9, TextAnchor.MiddleCenter);
+            var levelRt = classLevel.GetComponent<RectTransform>();
+            levelRt.anchorMin = new Vector2(0f, 0f);
+            levelRt.anchorMax = new Vector2(1f, 0f);
+            levelRt.pivot = new Vector2(0.5f, 0f);
+            levelRt.anchoredPosition = new Vector2(0f, 1f);
+            levelRt.sizeDelta = new Vector2(0f, 11f);
+            classLevel.raycastTarget = false;
 
             var view = go.GetComponent<FormationSoldierSlotView>();
             var so = new SerializedObject(view);
             so.FindProperty("_thumbnail").objectReferenceValue = thumb;
             so.FindProperty("_label").objectReferenceValue = label;
+            so.FindProperty("_classLevelLabel").objectReferenceValue = classLevel;
             so.FindProperty("_background").objectReferenceValue = bg;
             so.ApplyModifiedPropertiesWithoutUndo();
 

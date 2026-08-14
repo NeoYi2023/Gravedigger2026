@@ -12,7 +12,8 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.AutoManufacture
 {
     /// <summary>
-    /// Mode2 AutoManufacture presentation Step1–2 (SPEC_03 UI-016 / D-055 Approach A).
+    /// Mode2 AutoManufacture presentation Step1–2 (SPEC_03 UI-016 / D-055).
+    /// Step2 book pulse peak invokes onBookPulsePeak(warriorId, slotIndex) for Core apply.
     /// </summary>
     public sealed class AutoManufacturePresentationController : MonoBehaviour
     {
@@ -39,6 +40,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private WarriorPoolService _warriorPool;
         private DefendPrefabCatalog _defendCatalog;
         private Action _onComplete;
+        private Action<string, int> _onBookPulsePeak;
         private Coroutine _playRoutine;
         private Canvas _canvas;
 
@@ -55,7 +57,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             ConfigCsvRepository configs,
             WarriorPoolService warriorPool,
             DefendPrefabCatalog defendCatalog,
-            Action onComplete)
+            Action onComplete,
+            Action<string, int> onBookPulsePeak = null)
         {
             End();
             if (_soldierScroll == null || _soldierContent == null || _cardTemplate == null
@@ -70,6 +73,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _warriorPool = warriorPool;
             _defendCatalog = defendCatalog;
             _onComplete = onComplete;
+            _onBookPulsePeak = onBookPulsePeak;
 
             _batchIds.Clear();
             if (batchWarriorIds != null)
@@ -90,6 +94,27 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _playRoutine = StartCoroutine(CoPlay());
         }
 
+        /// <summary>Refresh class name / Lv on the card for <paramref name="warriorId"/> after a book apply.</summary>
+        public void RefreshFocusedCardClass(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId))
+            {
+                return;
+            }
+
+            for (var i = 0; i < _cards.Count; i++)
+            {
+                var card = _cards[i];
+                if (card == null || !string.Equals(card.WarriorId, warriorId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                card.RefreshClass(ResolveClassName(warriorId), ResolveClassLevel(warriorId));
+                return;
+            }
+        }
+
         public void End()
         {
             if (_playRoutine != null)
@@ -103,6 +128,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _warriorPool = null;
             _defendCatalog = null;
             _onComplete = null;
+            _onBookPulsePeak = null;
             _batchIds.Clear();
         }
 
@@ -351,10 +377,11 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                     var slot = _bookSlots[b];
                     if (slot == null)
                     {
+                        _onBookPulsePeak?.Invoke(card.WarriorId, b);
                         continue;
                     }
 
-                    yield return CoPulseBook(slot, pulseDur);
+                    yield return CoPulseBook(slot, pulseDur, card.WarriorId, b);
                 }
 
                 card.SetAmplifyVisible(false);
@@ -427,7 +454,11 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             return Mathf.Clamp01(desired / scrollable);
         }
 
-        private static IEnumerator CoPulseBook(AutoMfgMagicBookSlotView slot, float duration)
+        private IEnumerator CoPulseBook(
+            AutoMfgMagicBookSlotView slot,
+            float duration,
+            string warriorId,
+            int slotIndex)
         {
             if (slot == null)
             {
@@ -443,6 +474,10 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 slot.SetPulseScale(Mathf.Lerp(1f, 1.18f, u));
                 yield return null;
             }
+
+            slot.SetPulseScale(1.18f);
+            // Peak scale: apply only this slot's MagicBook (SPEC_03 §3.15 Step2).
+            _onBookPulsePeak?.Invoke(warriorId, slotIndex);
 
             t = 0f;
             while (t < half)

@@ -8,24 +8,21 @@ using UnityEngine;
 namespace Gravedigger2026.Core.AutoManufacture
 {
     /// <summary>
-    /// MagicBook EffectPhase=SoldierManufacture hook (SPEC_03 §3.15 / SPEC_04 §9.24).
-    /// RaceWeightPick (Restore) is probed via <see cref="HasRaceWeightPick"/> before race finalize;
-    /// StatMul and ForceClass are applied in-hook; SoldierSkillLevelAdd is deferred to
-    /// <see cref="ApplySoldierSkillLevelSecondPass"/> after DefaultSkillIds grant.
+    /// MagicBook EffectPhase=SoldierManufacture (SPEC_03 §3.15 / SPEC_04 §9.24).
+    /// Applied per equipped slot at UI-016 Step2 pulse peak (one book at a time).
     /// </summary>
     public interface ISoldierManufactureMagicBookHook
     {
-        void ApplySoldierManufactureEffects(AutoCraftDraft draft);
+        /// <summary>
+        /// Apply only the book in <paramref name="slotIndex"/> to the warrior (empty / wrong phase → no-op).
+        /// Caller must Refinalize + persist after.
+        /// </summary>
+        void ApplyEquippedBookAtSlot(WarriorInstance warrior, int slotIndex);
 
         /// <summary>
-        /// Second pass after DefaultSkillIds grant: SoldierSkillLevelAdd only (slots left→right).
+        /// Instant left→right apply from <paramref name="fromSlotInclusive"/> through slot 5 (fail/Exit fallback).
         /// </summary>
-        void ApplySoldierSkillLevelSecondPass(AutoCraftDraft draft);
-
-        /// <summary>
-        /// True when an equipped SoldierManufacture book has EffectPayload=RaceWeightPick.
-        /// </summary>
-        bool HasRaceWeightPick();
+        void ApplyRemainingSlots(WarriorInstance warrior, int fromSlotInclusive);
     }
 
     public sealed class NoOpSoldierManufactureMagicBookHook : ISoldierManufactureMagicBookHook
@@ -33,23 +30,17 @@ namespace Gravedigger2026.Core.AutoManufacture
         public static readonly NoOpSoldierManufactureMagicBookHook Instance =
             new NoOpSoldierManufactureMagicBookHook();
 
-        public void ApplySoldierManufactureEffects(AutoCraftDraft draft)
+        public void ApplyEquippedBookAtSlot(WarriorInstance warrior, int slotIndex)
         {
         }
 
-        public void ApplySoldierSkillLevelSecondPass(AutoCraftDraft draft)
+        public void ApplyRemainingSlots(WarriorInstance warrior, int fromSlotInclusive)
         {
-        }
-
-        public bool HasRaceWeightPick()
-        {
-            return false;
         }
     }
 
     /// <summary>
-    /// Reads SpecialEquipSlots + MagicBookConfig; probes RaceWeightPick; applies StatMul
-    /// and ForceClass; defers SoldierSkillLevelAdd to the second pass after DefaultSkillIds grant.
+    /// Reads SpecialEquipSlots + MagicBookConfig; applies one slot token to a pool WarriorInstance.
     /// </summary>
     public sealed class SoldierManufactureMagicBookHook : ISoldierManufactureMagicBookHook
     {
@@ -67,132 +58,85 @@ namespace Gravedigger2026.Core.AutoManufacture
 
         private readonly SpecialEquipSlotsService _slots;
         private readonly ConfigCsvRepository _configs;
+        private readonly System.Random _rng;
 
         public SoldierManufactureMagicBookHook(SpecialEquipSlotsService slots, ConfigCsvRepository configs)
         {
             _slots = slots ?? throw new ArgumentNullException(nameof(slots));
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
+            _rng = new System.Random(Environment.TickCount);
         }
 
-        public bool HasRaceWeightPick()
+        public void ApplyEquippedBookAtSlot(WarriorInstance warrior, int slotIndex)
         {
-            var found = false;
-            _slots.ForEachEquipped((_, magicBookId) =>
-            {
-                if (found)
-                {
-                    return;
-                }
-
-                if (!_configs.TryGetMagicBook(magicBookId, out var row) || row == null)
-                {
-                    return;
-                }
-
-                if (!EffectPhaseContains(row.EffectPhase, PhaseSoldierManufacture))
-                {
-                    return;
-                }
-
-                if (string.Equals(
-                        row.EffectPayload?.Trim(),
-                        RaceResolve.RaceWeightPickPayload,
-                        StringComparison.Ordinal))
-                {
-                    found = true;
-                }
-            });
-            return found;
-        }
-
-        public void ApplySoldierManufactureEffects(AutoCraftDraft draft)
-        {
-            if (draft == null)
+            if (warrior == null
+                || slotIndex < 0
+                || slotIndex >= SpecialEquipSlotsService.SlotCount)
             {
                 return;
             }
 
-            var applied = 0;
-            _slots.ForEachEquipped((_, magicBookId) =>
-            {
-                if (!_configs.TryGetMagicBook(magicBookId, out var row) || row == null)
-                {
-                    return;
-                }
-
-                if (!EffectPhaseContains(row.EffectPhase, PhaseSoldierManufacture))
-                {
-                    return;
-                }
-
-                applied++;
-                var payload = (row.EffectPayload ?? string.Empty).Trim();
-                if (string.Equals(payload, RaceResolve.RaceWeightPickPayload, StringComparison.Ordinal))
-                {
-                    Debug.Log(
-                        $"[MagicBook] SoldierManufacture Restore (RaceWeightPick) book={magicBookId} " +
-                        $"draft={draft.TempId} (race mode already applied at finalize)");
-                    return;
-                }
-
-                if (string.Equals(payload, PayloadStatMul, StringComparison.Ordinal))
-                {
-                    ApplyStatMul(draft, magicBookId, row);
-                    return;
-                }
-
-                if (string.Equals(payload, PayloadForceClass, StringComparison.Ordinal))
-                {
-                    ApplyForceClass(draft, magicBookId, row);
-                    return;
-                }
-
-                if (string.Equals(payload, PayloadSoldierSkillLevelAdd, StringComparison.Ordinal))
-                {
-                    Debug.Log(
-                        $"[MagicBook] SoldierManufacture deferred SoldierSkillLevelAdd " +
-                        $"book={magicBookId} draft={draft.TempId}");
-                    return;
-                }
-
-                Debug.Log(
-                    $"[MagicBook] SoldierManufacture empty hook book={magicBookId} draft={draft.TempId} " +
-                    $"payload='{payload}'");
-            });
-
-            if (applied == 0)
-            {
-                // No equipped books with this phase — skip silently (avoid craft-loop spam).
-            }
-        }
-
-        public void ApplySoldierSkillLevelSecondPass(AutoCraftDraft draft)
-        {
-            if (draft == null)
+            var magicBookId = _slots.GetSlot(slotIndex);
+            if (string.IsNullOrEmpty(magicBookId))
             {
                 return;
             }
 
-            _slots.ForEachEquipped((_, magicBookId) =>
+            if (!_configs.TryGetMagicBook(magicBookId, out var row) || row == null)
             {
-                if (!_configs.TryGetMagicBook(magicBookId, out var row) || row == null)
-                {
-                    return;
-                }
+                Debug.LogWarning(
+                    $"[MagicBook] ApplyAtSlot missing config book={magicBookId} slot={slotIndex} " +
+                    $"warrior={warrior.Id}");
+                return;
+            }
 
-                if (!EffectPhaseContains(row.EffectPhase, PhaseSoldierManufacture))
-                {
-                    return;
-                }
+            if (!EffectPhaseContains(row.EffectPhase, PhaseSoldierManufacture))
+            {
+                return;
+            }
 
-                var payload = (row.EffectPayload ?? string.Empty).Trim();
-                if (!string.Equals(payload, PayloadSoldierSkillLevelAdd, StringComparison.Ordinal))
-                {
-                    return;
-                }
+            var payload = (row.EffectPayload ?? string.Empty).Trim();
+            if (string.Equals(payload, RaceResolve.RaceWeightPickPayload, StringComparison.Ordinal))
+            {
+                ApplyRaceWeightPick(warrior, magicBookId);
+                return;
+            }
 
-                ApplySoldierSkillLevelAdd(draft, magicBookId, row);
-            });
+            if (string.Equals(payload, PayloadStatMul, StringComparison.Ordinal))
+            {
+                ApplyStatMul(warrior, magicBookId, row);
+                return;
+            }
+
+            if (string.Equals(payload, PayloadForceClass, StringComparison.Ordinal))
+            {
+                ApplyForceClass(warrior, magicBookId, row);
+                return;
+            }
+
+            if (string.Equals(payload, PayloadSoldierSkillLevelAdd, StringComparison.Ordinal))
+            {
+                ApplySoldierSkillLevelAdd(warrior, magicBookId, row);
+                return;
+            }
+
+            Debug.Log(
+                $"[MagicBook] SoldierManufacture empty hook book={magicBookId} slot={slotIndex} " +
+                $"warrior={warrior.Id} payload='{payload}'");
+        }
+
+        public void ApplyRemainingSlots(WarriorInstance warrior, int fromSlotInclusive)
+        {
+            if (warrior == null)
+            {
+                return;
+            }
+
+            var start = fromSlotInclusive < 0 ? 0 : fromSlotInclusive;
+            for (var i = start; i < SpecialEquipSlotsService.SlotCount; i++)
+            {
+                ApplyEquippedBookAtSlot(warrior, i);
+            }
         }
 
         public static bool EffectPhaseContains(string effectPhase, string phase)
@@ -215,7 +159,38 @@ namespace Gravedigger2026.Core.AutoManufacture
             return false;
         }
 
-        private void ApplySoldierSkillLevelAdd(AutoCraftDraft draft, string magicBookId, MagicBookConfigRow row)
+        private void ApplyRaceWeightPick(WarriorInstance warrior, string magicBookId)
+        {
+            var candidates = CollectSourceRaceIds(warrior);
+            if (candidates.Count == 0)
+            {
+                Debug.LogWarning(
+                    $"[MagicBook] RaceWeightPick no SourceItemIds book={magicBookId} warrior={warrior.Id}");
+                return;
+            }
+
+            var raceId = RaceResolve.PickWeighted(candidates, _rng);
+            if (string.IsNullOrEmpty(raceId))
+            {
+                return;
+            }
+
+            warrior.RaceId = raceId;
+            if (_configs.TryGetRace(raceId, out var raceRow) && raceRow != null)
+            {
+                warrior.RaceAdjustCoeff = raceRow.RaceAdjustCoeff;
+            }
+            else
+            {
+                warrior.RaceAdjustCoeff = default;
+            }
+
+            Debug.Log(
+                $"[MagicBook] SoldierManufacture Restore (RaceWeightPick) book={magicBookId} " +
+                $"warrior={warrior.Id} Race={raceId}");
+        }
+
+        private void ApplySoldierSkillLevelAdd(WarriorInstance warrior, string magicBookId, MagicBookConfigRow row)
         {
             var map = MagicBookEffectParams.Parse(row.EffectParams, SkillLevelAddAllowedKeys);
             if (!MagicBookEffectParams.TryGet(map, "SkillId", out var skillId)
@@ -223,7 +198,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             {
                 Debug.LogWarning(
                     $"[MagicBook] SoldierSkillLevelAdd invalid (need SkillId+Delta) " +
-                    $"book={magicBookId} draft={draft.TempId}");
+                    $"book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
@@ -231,16 +206,16 @@ namespace Gravedigger2026.Core.AutoManufacture
             {
                 Debug.LogWarning(
                     $"[MagicBook] SoldierSkillLevelAdd invalid Delta='{deltaText}' " +
-                    $"book={magicBookId} draft={draft.TempId}");
+                    $"book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
-            var entry = FindSkill(draft.SoldierSkills, skillId);
+            var entry = FindSkill(warrior.SoldierSkills, skillId);
             if (entry == null)
             {
                 Debug.Log(
                     $"[MagicBook] SoldierSkillLevelAdd skip (no such skill) book={magicBookId} " +
-                    $"draft={draft.TempId} skill={skillId} class={draft.ClassId}");
+                    $"warrior={warrior.Id} skill={skillId} class={warrior.ClassId}");
                 return;
             }
 
@@ -248,7 +223,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             {
                 Debug.LogWarning(
                     $"[MagicBook] SoldierSkillLevelAdd skip (no SkillConfig range) " +
-                    $"book={magicBookId} draft={draft.TempId} skill={skillId}");
+                    $"book={magicBookId} warrior={warrior.Id} skill={skillId}");
                 return;
             }
 
@@ -267,7 +242,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             entry.SkillLevel = next;
             Debug.Log(
                 $"[MagicBook] SoldierSkillLevelAdd skill={skillId} {before}{delta:+0;-0;+0}→{next} " +
-                $"(clamp {minLevel}..{maxLevel}) book={magicBookId} draft={draft.TempId} class={draft.ClassId}");
+                $"(clamp {minLevel}..{maxLevel}) book={magicBookId} warrior={warrior.Id} class={warrior.ClassId}");
         }
 
         private static SoldierSkillEntry FindSkill(List<SoldierSkillEntry> skills, string skillId)
@@ -289,13 +264,13 @@ namespace Gravedigger2026.Core.AutoManufacture
             return null;
         }
 
-        private void ApplyForceClass(AutoCraftDraft draft, string magicBookId, MagicBookConfigRow row)
+        private void ApplyForceClass(WarriorInstance warrior, string magicBookId, MagicBookConfigRow row)
         {
             var map = MagicBookEffectParams.Parse(row.EffectParams, ForceClassAllowedKeys);
             if (!MagicBookEffectParams.TryGet(map, "ClassId", out var targetClassId))
             {
                 Debug.LogWarning(
-                    $"[MagicBook] ForceClass invalid (need ClassId) book={magicBookId} draft={draft.TempId}");
+                    $"[MagicBook] ForceClass invalid (need ClassId) book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
@@ -303,7 +278,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             {
                 Debug.LogWarning(
                     $"[MagicBook] ForceClass invalid ClassId='{targetClassId}' " +
-                    $"book={magicBookId} draft={draft.TempId}");
+                    $"book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
@@ -313,15 +288,15 @@ namespace Gravedigger2026.Core.AutoManufacture
                 {
                     Debug.LogWarning(
                         $"[MagicBook] ForceClass invalid RequireClassId='{requireClassId}' " +
-                        $"book={magicBookId} draft={draft.TempId}");
+                        $"book={magicBookId} warrior={warrior.Id}");
                     return;
                 }
 
-                if (!string.Equals(draft.ClassId, requireClassId, StringComparison.Ordinal))
+                if (!string.Equals(warrior.ClassId, requireClassId, StringComparison.Ordinal))
                 {
                     Debug.Log(
                         $"[MagicBook] ForceClass skip class mismatch book={magicBookId} " +
-                        $"draft={draft.TempId} class={draft.ClassId} require={requireClassId}");
+                        $"warrior={warrior.Id} class={warrior.ClassId} require={requireClassId}");
                     return;
                 }
             }
@@ -335,7 +310,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 {
                     Debug.LogWarning(
                         $"[MagicBook] ForceClass invalid Chance='{chanceText}' " +
-                        $"book={magicBookId} draft={draft.TempId}");
+                        $"book={magicBookId} warrior={warrior.Id}");
                     return;
                 }
             }
@@ -346,29 +321,29 @@ namespace Gravedigger2026.Core.AutoManufacture
             {
                 Debug.Log(
                     $"[MagicBook] ForceClass miss roll={roll:0.###} chance={chance} " +
-                    $"book={magicBookId} draft={draft.TempId} class={draft.ClassId} " +
+                    $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} " +
                     $"target={targetClassId}");
                 return;
             }
 
-            var fromClassId = draft.ClassId;
-            draft.ClassId = targetRow.ClassId;
-            draft.ClassName = targetRow.ClassName ?? string.Empty;
-            draft.AttackMode = targetRow.AttackMode;
+            var fromClassId = warrior.ClassId;
+            warrior.ClassId = targetRow.ClassId;
+            warrior.AttackMode = targetRow.AttackMode;
+            SoldierSkillGrant.GrantDefaultSkillsAtLevel1(warrior, _configs);
             Debug.Log(
                 $"[MagicBook] ForceClass hit roll={roll:0.###} chance={chance} " +
-                $"book={magicBookId} draft={draft.TempId} {fromClassId}→{draft.ClassId} " +
-                $"AttackMode={draft.AttackMode}");
+                $"book={magicBookId} warrior={warrior.Id} {fromClassId}→{warrior.ClassId} " +
+                $"AttackMode={warrior.AttackMode} Skills={SoldierSkillGrant.FormatSummary(warrior.SoldierSkills)}");
         }
 
-        private void ApplyStatMul(AutoCraftDraft draft, string magicBookId, MagicBookConfigRow row)
+        private void ApplyStatMul(WarriorInstance warrior, string magicBookId, MagicBookConfigRow row)
         {
             var map = MagicBookEffectParams.Parse(row.EffectParams, StatMulAllowedKeys);
             if (!MagicBookEffectParams.TryGet(map, "Stat", out var statText)
                 || !MagicBookEffectParams.TryGet(map, "Mul", out var mulText))
             {
                 Debug.LogWarning(
-                    $"[MagicBook] StatMul invalid (need Stat+Mul) book={magicBookId} draft={draft.TempId}");
+                    $"[MagicBook] StatMul invalid (need Stat+Mul) book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
@@ -376,7 +351,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 || mul < 0f)
             {
                 Debug.LogWarning(
-                    $"[MagicBook] StatMul invalid Mul='{mulText}' book={magicBookId} draft={draft.TempId}");
+                    $"[MagicBook] StatMul invalid Mul='{mulText}' book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
@@ -385,32 +360,32 @@ namespace Gravedigger2026.Core.AutoManufacture
                 if (!_configs.TryGetClass(classFilter, out _))
                 {
                     Debug.LogWarning(
-                        $"[MagicBook] StatMul invalid ClassId='{classFilter}' book={magicBookId} draft={draft.TempId}");
+                        $"[MagicBook] StatMul invalid ClassId='{classFilter}' book={magicBookId} warrior={warrior.Id}");
                     return;
                 }
 
-                if (!string.Equals(draft.ClassId, classFilter, StringComparison.Ordinal))
+                if (!string.Equals(warrior.ClassId, classFilter, StringComparison.Ordinal))
                 {
                     Debug.Log(
                         $"[MagicBook] StatMul skip class mismatch book={magicBookId} " +
-                        $"draft={draft.TempId} class={draft.ClassId} filter={classFilter}");
+                        $"warrior={warrior.Id} class={warrior.ClassId} filter={classFilter}");
                     return;
                 }
             }
 
             if (string.Equals(statText, StatPrimary, StringComparison.Ordinal))
             {
-                ApplyPrimaryStatMul(draft, magicBookId, mul);
+                ApplyPrimaryStatMul(warrior, magicBookId, mul);
                 return;
             }
 
             if (string.Equals(statText, StatAll, StringComparison.Ordinal))
             {
-                var block = draft.BaseStats;
+                var block = warrior.BaseStats;
                 ScaleAll(ref block, mul);
-                draft.BaseStats = block;
+                warrior.BaseStats = block;
                 Debug.Log(
-                    $"[MagicBook] StatMul All *={mul} book={magicBookId} draft={draft.TempId}");
+                    $"[MagicBook] StatMul All *={mul} book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
@@ -418,43 +393,43 @@ namespace Gravedigger2026.Core.AutoManufacture
                 || !IsFiveDim(kind))
             {
                 Debug.LogWarning(
-                    $"[MagicBook] StatMul invalid Stat='{statText}' book={magicBookId} draft={draft.TempId}");
+                    $"[MagicBook] StatMul invalid Stat='{statText}' book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
-            var stats = draft.BaseStats;
+            var stats = warrior.BaseStats;
             stats.Set(kind, stats.Get(kind) * mul);
-            draft.BaseStats = stats;
+            warrior.BaseStats = stats;
             Debug.Log(
-                $"[MagicBook] StatMul {kind} *={mul} book={magicBookId} draft={draft.TempId} " +
+                $"[MagicBook] StatMul {kind} *={mul} book={magicBookId} warrior={warrior.Id} " +
                 $"Base={stats.Get(kind)}");
         }
 
-        private void ApplyPrimaryStatMul(AutoCraftDraft draft, string magicBookId, float mul)
+        private void ApplyPrimaryStatMul(WarriorInstance warrior, string magicBookId, float mul)
         {
-            if (!_configs.TryGetClass(draft.ClassId, out var classRow) || classRow == null)
+            if (!_configs.TryGetClass(warrior.ClassId, out var classRow) || classRow == null)
             {
                 Debug.LogWarning(
-                    $"[MagicBook] StatMul Primary missing ClassId='{draft.ClassId}' " +
-                    $"book={magicBookId} draft={draft.TempId}");
+                    $"[MagicBook] StatMul Primary missing ClassId='{warrior.ClassId}' " +
+                    $"book={magicBookId} warrior={warrior.Id}");
                 return;
             }
 
             var kind = classRow.PrimaryStat;
-            var bodySum = SumConsumedBodyStat(draft, kind);
+            var bodySum = SumConsumedBodyStat(warrior, kind);
             var delta = (mul - 1f) * bodySum;
-            var stats = draft.BaseStats;
+            var stats = warrior.BaseStats;
             stats.Add(kind, delta);
-            draft.BaseStats = stats;
+            warrior.BaseStats = stats;
             Debug.Log(
                 $"[MagicBook] StatMul Primary {kind} +=({mul}-1)*{bodySum}={delta} " +
-                $"book={magicBookId} draft={draft.TempId} class={draft.ClassId} Base={stats.Get(kind)}");
+                $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} Base={stats.Get(kind)}");
         }
 
-        private float SumConsumedBodyStat(AutoCraftDraft draft, StatKind kind)
+        private float SumConsumedBodyStat(WarriorInstance warrior, StatKind kind)
         {
             var sum = 0f;
-            var ids = draft.ConsumedBodyPartIds;
+            var ids = warrior.SourceItemIds;
             if (ids == null)
             {
                 return 0f;
@@ -471,6 +446,31 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             return sum;
+        }
+
+        private List<string> CollectSourceRaceIds(WarriorInstance warrior)
+        {
+            var list = new List<string>(6);
+            var ids = warrior.SourceItemIds;
+            if (ids == null)
+            {
+                return list;
+            }
+
+            for (var i = 0; i < ids.Count; i++)
+            {
+                if (!_configs.TryGetBodyPart(ids[i], out var part) || part == null)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(part.RaceId))
+                {
+                    list.Add(part.RaceId);
+                }
+            }
+
+            return list;
         }
 
         private static void ScaleAll(ref StatBlock block, float mul)

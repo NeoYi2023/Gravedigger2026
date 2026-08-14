@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.25
+**文档版本 / Document Version:** v0.82.29
 **最后更新 / Last Updated:** 2026-08-14  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08））  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,10 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-14 | v0.82.29 | Mode2 `BodyPartConfig`：`BP_Arm_Undead_*_0` 的 `ClassRestrict` 由进阶 `Class_*` 改为基础 `Class_*_0`（与 `ClassLevel`/`DefaultAppearanceId` 档位对齐；避免 UI 显示进阶 ClassName/Lv 却对应基础外观档） |
+| 2026-08-14 | v0.82.28 | 布阵士兵栏方格：`ClassName` 下方增加 `Lv.{ClassLevel}`（经 `ClassConfig`；缺行按 0）；同步 SPEC_03 §3.11、SPEC_04 §6 |
+| 2026-08-14 | v0.82.27 | 布阵士兵栏方格 `Label`：由展示 `WarriorId` 改为 `Manufacture_ClassConfig.ClassName`（经实例 `ClassId`；缺行回退 `ClassId`）；`FormationEditorController` 注入 `ConfigCsvRepository`；同步 SPEC_03 §3.11、SPEC_04 §6 |
+| 2026-08-14 | v0.82.26 | Mode2 魔法书改为 UI-016 Step2 **单槽节拍生效**：造兵时不套书；聚焦兵后每槽缩放到峰值只 apply 该书（`ApplyEquippedBookAtSlot`）；取消定稿前还原探测与技能二次扫描；`ForceClass` 命中重授 `DefaultSkillIds`；Deploy 延后到套书后；演出失败/`Exit` `ApplyRemainingSlots`；D-055/058/062/063 备注更新；issues `.scratch/magicbook-step2-apply/`；同步 SPEC_03 §3.8/§3.15、SPEC_04 §6/§9.9/§9.24、CONTEXT |
 | 2026-08-14 | v0.82.25 | `MonsterConfig.MonsterType`（怪物类型）：CSV `1`=普通 / `2`=精英 / `3`=BOSS；缺列/空→`Normal`；非法→加载失败；与 `PushMapSpawnConfig.IsBoss` 解耦（通关仍看刷怪行）；本批不驱动技能判定；Mode1+Mode2 样例 `Monster_01`–`10`=`1`、`Monster_11`=`3`；同步 SPEC_03 术语、SPEC_04 §9.19、CONTEXT |
 | 2026-08-14 | v0.82.24 | 魔法书职业进阶（方案 A）：扩展 `ForceClass`（必填 `ClassId`；可选 `RequireClassId` 精确匹配、`Chance`∈[0,1] 缺省=1 真正 roll）；四本 `MagicBook_*Advance`（战士/射手/法师/盗贼，`IsUnique=1` `IsProbabilistic=1` `Chance=0.25`）；Mode2 钩子落地并钩后重取 `classRow`；D-063；手验 Tools「增加魔法书」；同步 SPEC_03 §3.8/§3.15、SPEC_04 §6/§9.24、CONTEXT |
 | 2026-08-14 | v0.82.23 | 魔法书表增列 `IsProbabilistic`（概率型，`0\|1`）：`1`=概率触发标记，供后续判定读取；本轮不驱动效果；现有样例行均为 `0`；Mode1+Mode2 Excel/CSV + `MagicBookConfigRow` 加载；同步 SPEC_03 §3.15、SPEC_04 §9.24、CONTEXT |
@@ -289,6 +293,10 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-14 | v0.82.29 | Mode2 `BodyPartConfig`: `BP_Arm_Undead_*_0` `ClassRestrict` retargeted from advanced `Class_*` to base `Class_*_0` (align ClassLevel / DefaultAppearanceId tiers; avoid advanced ClassName/Lv with base appearance tier) |
+| 2026-08-14 | v0.82.28 | Formation soldier-bar cell: add `Lv.{ClassLevel}` under `ClassName` (via `ClassConfig`; missing row → 0); synced SPEC_03 §3.11, SPEC_04 §6 |
+| 2026-08-14 | v0.82.27 | Formation soldier-bar cell `Label`: show `Manufacture_ClassConfig.ClassName` (via instance `ClassId`; missing row → fallback `ClassId`) instead of `WarriorId`; `FormationEditorController` takes `ConfigCsvRepository`; synced SPEC_03 §3.11, SPEC_04 §6 |
+| 2026-08-14 | v0.82.26 | Mode2 MagicBook apply moved to UI-016 Step2 **per-slot beat**: no books at craft; each slot peak-scale applies only that book (`ApplyEquippedBookAtSlot`); drop pre-finalize Restore probe and skill second pass; `ForceClass` hit re-grants `DefaultSkillIds`; Deploy deferred until after books; fail/`Exit` `ApplyRemainingSlots`; D-055/058/062/063 notes updated; issues `.scratch/magicbook-step2-apply/`; synced SPEC_03 §3.8/§3.15, SPEC_04 §6/§9.9/§9.24, CONTEXT |
 | 2026-08-14 | v0.82.25 | `MonsterConfig.MonsterType`: CSV `1`=Normal / `2`=Elite / `3`=Boss; missing/empty → `Normal`; illegal → load fail; decoupled from `PushMapSpawnConfig.IsBoss` (clear still uses spawn row); this slice does not drive skill filters; Mode1+Mode2 samples `Monster_01`–`10`=`1`, `Monster_11`=`3`; synced SPEC_03 glossary, SPEC_04 §9.19, CONTEXT |
 | 2026-08-14 | v0.82.24 | MagicBook class-advance (Approach A): extend `ForceClass` (required `ClassId`; optional exact `RequireClassId`, `Chance`∈[0,1] default 1 actually rolls); four `MagicBook_*Advance` books (Warrior/Archer/Mage/Rogue, `IsUnique=1` `IsProbabilistic=1` `Chance=0.25`); Mode2 hook lands and re-resolves `classRow` after hook; D-063; hand-check Tools Grant MagicBook; synced SPEC_03 §3.8/§3.15, SPEC_04 §6/§9.24, CONTEXT |
 | 2026-08-14 | v0.82.23 | MagicBookConfig adds `IsProbabilistic` (ZH 概率型, `0\|1`): `1` = chance-trigger marker for later judgment; this round does not drive effects; existing sample rows are `0`; Mode1+Mode2 Excel/CSV + `MagicBookConfigRow` load; synced SPEC_03 §3.15, SPEC_04 §9.24, CONTEXT |

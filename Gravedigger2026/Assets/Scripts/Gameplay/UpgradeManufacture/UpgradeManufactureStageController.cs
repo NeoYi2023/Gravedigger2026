@@ -241,6 +241,7 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _warriorPool,
                 _formation,
                 _progress,
+                _configs,
                 mapPrefab,
                 null);
 

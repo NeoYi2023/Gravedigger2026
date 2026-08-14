@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
@@ -33,12 +34,15 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Image _dragGhostImage;
 
         private readonly List<string> _barIds = new List<string>();
+        private readonly List<string> _barDisplayNames = new List<string>();
+        private readonly List<int> _barClassLevels = new List<int>();
         private readonly List<Sprite> _barSprites = new List<Sprite>();
         private readonly List<bool> _barHighlighted = new List<bool>();
         private readonly Dictionary<string, Sprite> _thumbnailCache =
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
 
         private DefendPrefabCatalog _defendCatalog;
+        private ConfigCsvRepository _configs;
         private WarriorPoolService _pool;
         private BattleFormationService _formation;
         private ProtagonistProgressService _progress;
@@ -67,6 +71,7 @@ namespace Gravedigger2026.Gameplay.Formation
             WarriorPoolService pool,
             BattleFormationService formation,
             ProtagonistProgressService progress,
+            ConfigCsvRepository configs,
             GameObject mapPrefabOrNull,
             GameObject existingMapOrNull)
         {
@@ -76,6 +81,7 @@ namespace Gravedigger2026.Gameplay.Formation
             _pool = pool ?? throw new ArgumentNullException(nameof(pool));
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _progress = progress;
+            _configs = configs;
             _active = true;
             _dragKind = DragKind.None;
             _dragWarriorId = null;
@@ -214,6 +220,7 @@ namespace Gravedigger2026.Gameplay.Formation
             _ownsMap = false;
             _mapBounds = null;
             _defendCatalog = null;
+            _configs = null;
             _pool = null;
             _formation = null;
             _progress = null;
@@ -498,6 +505,8 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             _barIds.Clear();
+            _barDisplayNames.Clear();
+            _barClassLevels.Clear();
             _barSprites.Clear();
             _barHighlighted.Clear();
             var warriors = _pool.Warriors;
@@ -505,11 +514,46 @@ namespace Gravedigger2026.Gameplay.Formation
             {
                 var w = warriors[i];
                 _barIds.Add(w.Id);
+                _barDisplayNames.Add(ResolveClassName(w));
+                _barClassLevels.Add(ResolveClassLevel(w));
                 _barSprites.Add(ResolveThumbnail(w.AppearanceId));
                 _barHighlighted.Add(_formation.IsDeployed(w.Id));
             }
 
-            _soldierBar.SetSlots(_barIds, _barSprites, _barHighlighted);
+            _soldierBar.SetSlots(_barIds, _barDisplayNames, _barClassLevels, _barSprites, _barHighlighted);
+        }
+
+        private string ResolveClassName(WarriorInstance warrior)
+        {
+            if (warrior == null)
+            {
+                return string.Empty;
+            }
+
+            if (_configs != null &&
+                _configs.TryGetClass(warrior.ClassId, out var row) &&
+                row != null &&
+                !string.IsNullOrEmpty(row.ClassName))
+            {
+                return row.ClassName;
+            }
+
+            return warrior.ClassId ?? string.Empty;
+        }
+
+        private int ResolveClassLevel(WarriorInstance warrior)
+        {
+            if (warrior == null || _configs == null)
+            {
+                return 0;
+            }
+
+            if (_configs.TryGetClass(warrior.ClassId, out var row) && row != null)
+            {
+                return row.ClassLevel < 0 ? 0 : row.ClassLevel;
+            }
+
+            return 0;
         }
 
         private void RefreshHud()

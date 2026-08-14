@@ -39,6 +39,92 @@ namespace Gravedigger2026.Core.AutoManufacture
         public TempWarriorWarehouse TempWarehouse => _tempWarehouse;
 
         /// <summary>
+        /// UI-016 Step2: apply one equipped MagicBook slot then refinalize + persist.
+        /// </summary>
+        public void ApplyBookAtSlotAndRefinalize(WarriorInstance warrior, int slotIndex)
+        {
+            if (warrior == null)
+            {
+                return;
+            }
+
+            _magicBookHook.ApplyEquippedBookAtSlot(warrior, slotIndex);
+            RefinalizeInstance(warrior);
+            _warriorPool.NotifyMutated();
+        }
+
+        /// <summary>
+        /// Presentation fail / Exit fallback: apply remaining slots left→right with refinalize each.
+        /// </summary>
+        public void ApplyRemainingBooksAndRefinalize(WarriorInstance warrior, int fromSlotInclusive)
+        {
+            if (warrior == null)
+            {
+                return;
+            }
+
+            var start = fromSlotInclusive < 0 ? 0 : fromSlotInclusive;
+            for (var i = start; i < SpecialEquipSlotsService.SlotCount; i++)
+            {
+                _magicBookHook.ApplyEquippedBookAtSlot(warrior, i);
+                RefinalizeInstance(warrior);
+            }
+
+            _warriorPool.NotifyMutated();
+        }
+
+        /// <summary>
+        /// Recompute appearance / name / BodyLife / MaxHP / RemainingHP from current Base/Class/Race
+        /// (SourceItemIds BodyLevels). Used after each Step2 MagicBook slot apply.
+        /// </summary>
+        public void RefinalizeInstance(WarriorInstance warrior)
+        {
+            if (warrior == null)
+            {
+                return;
+            }
+
+            _configs.TryGetClass(warrior.ClassId, out var classRow);
+            var className = classRow != null ? (classRow.ClassName ?? string.Empty) : (warrior.ClassId ?? string.Empty);
+            var defaultAppearanceId = classRow != null ? classRow.DefaultAppearanceId : null;
+
+            var bodyLevels = new List<float>();
+            var ids = warrior.SourceItemIds;
+            if (ids != null)
+            {
+                for (var i = 0; i < ids.Count; i++)
+                {
+                    if (_configs.TryGetBodyPart(ids[i], out var part) && part != null)
+                    {
+                        bodyLevels.Add(part.BodyLevel);
+                    }
+                }
+            }
+
+            var avgLevelInt = ComputeAvgLevelInt(bodyLevels);
+            var raceId = warrior.RaceId;
+            _configs.TryGetRace(raceId, out var raceRow);
+            var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : warrior.RaceAdjustCoeff;
+
+            warrior.AppearanceId = PickAppearanceMode2(
+                avgLevelInt,
+                ref raceId,
+                ref raceRow,
+                ref raceAdjust,
+                className,
+                defaultAppearanceId);
+            warrior.RaceId = raceId;
+            warrior.RaceAdjustCoeff = raceAdjust;
+
+            var staticStats = WarriorStatMath.ComputeStaticStats(
+                warrior.BaseStats, warrior.EquipStats, warrior.GemMult, warrior.RaceAdjustCoeff);
+            warrior.BodyLife = WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats);
+            var maxHp = WarriorStatMath.ComputeMaxHP(warrior.BodyLife, staticStats.Strength);
+            warrior.RemainingHP = maxHp;
+            warrior.WarriorName = BuildWarriorName(raceRow, warrior.RaceId, className);
+        }
+
+        /// <summary>
         /// Craft until warehouse cannot satisfy min recipe or a pick step stops crafting,
         /// then flush temp warehouse → WarriorPool (persist). Does not spend Spirit.
         /// Clear formation + zone deploy are orchestrated by StageModule (AM-06).
@@ -224,9 +310,8 @@ namespace Gravedigger2026.Core.AutoManufacture
                 }
             }
 
-            var raceId = _magicBookHook.HasRaceWeightPick()
-                ? RaceResolve.PickWeighted(raceCandidates, _rng)
-                : RaceResolve.ResolveDefaultRace(raceCandidates);
+            // Craft without MagicBook (SPEC_03 §3.15 Step2 per-slot apply). Default race only.
+            var raceId = RaceResolve.ResolveDefaultRace(raceCandidates);
             _configs.TryGetRace(raceId, out var raceRow);
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : default;
 
@@ -250,21 +335,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 draft.BodyLevels.Add(parts[i].BodyLevel);
             }
 
-            // Hook may mutate BaseStats / ClassId (ForceClass); grant + appearance use post-hook ClassId.
-            _magicBookHook.ApplySoldierManufactureEffects(draft);
-            if (_configs.TryGetClass(draft.ClassId, out var postClassRow) && postClassRow != null)
-            {
-                classRow = postClassRow;
-            }
-            else
-            {
-                Debug.LogWarning(
-                    $"[AutoManufacture] Post-hook ClassConfig missing ClassId={draft.ClassId} " +
-                    $"draft={draft.TempId}; keep pre-hook class row for FinalizeDraft");
-            }
-
             SoldierSkillGrant.GrantDefaultSkillsAtLevel1(draft.ClassId, _configs, draft.SoldierSkills);
-            _magicBookHook.ApplySoldierSkillLevelSecondPass(draft);
             FinalizeDraft(draft, classRow, raceRow);
             _tempWarehouse.Add(draft);
 

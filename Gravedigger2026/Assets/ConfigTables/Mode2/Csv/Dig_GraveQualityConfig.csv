@@ -1,7 +1,7 @@
 QualityId,MaxHP,DropMode,LootDrop,IconStyleHighId,IconStyleMidId,IconStyleLowId
-Q1,26,1,BP_Head_Undead_0;2000;1|BP_Torso_Undead_0;2000;1|BP_Arm_Undead_Warrior;2000;1|BP_Arm_Undead_0;2000;1|BP_Leg_Undead_0;2000;1,GraveIcon_Q1_High,GraveIcon_Q1_Mid,GraveIcon_Q1_Low
-Q2,26,1,BP_Head_Undead_0;2000;1|BP_Torso_Undead_0;2000;1|BP_Arm_Undead_Archer;2000;1|BP_Arm_Undead_0;2000;1|BP_Leg_Undead_0;2000;1,GraveIcon_Q2_High,GraveIcon_Q2_Mid,GraveIcon_Q2_Low
-Q3,26,1,BP_Head_Undead_0;2000;1|BP_Torso_Undead_0;2000;1|BP_Arm_Undead_Rogue;2000;1|BP_Arm_Undead_0;2000;1|BP_Leg_Undead_0;2000;1,GraveIcon_Q3_High,GraveIcon_Q3_Mid,GraveIcon_Q3_Low
+Q1,26,1,BP_Head_Undead_0;2000;1|BP_Torso_Undead_0;2000;1|BP_Arm_Undead_Warrior_0;2000;1|BP_Arm_Undead_0;2000;1|BP_Leg_Undead_0;2000;1,GraveIcon_Q1_High,GraveIcon_Q1_Mid,GraveIcon_Q1_Low
+Q2,26,1,BP_Head_Undead_0;2000;1|BP_Torso_Undead_0;2000;1|BP_Arm_Undead_Archer_0;2000;1|BP_Arm_Undead_0;2000;1|BP_Leg_Undead_0;2000;1,GraveIcon_Q2_High,GraveIcon_Q2_Mid,GraveIcon_Q2_Low
+Q3,26,1,BP_Head_Undead_0;2000;1|BP_Torso_Undead_0;2000;1|BP_Arm_Undead_Rogue_0;2000;1|BP_Arm_Undead_0;2000;1|BP_Leg_Undead_0;2000;1,GraveIcon_Q3_High,GraveIcon_Q3_Mid,GraveIcon_Q3_Low
 Q4,26,1,BP_Head_Undead_1;4000;1|BP_Torso_Undead_1;4000;1|BP_Arm_Undead_Warrior;4000;1|BP_Arm_Undead_1;4000;1|BP_Leg_Undead_1;4000;1,GraveIcon_Q4_High,GraveIcon_Q4_Mid,GraveIcon_Q4_Low
 Q5,26,1,BP_Head_Undead_1;1200;1|BP_Torso_Undead_1;1200;1|BP_Arm_Undead_Archer;1200;1|BP_Arm_Undead_1;1200;1|BP_Leg_Undead_1;1200;1,GraveIcon_Q5_High,GraveIcon_Q5_Mid,GraveIcon_Q5_Low
 Q6,26,1,BP_Head_Undead_1;1200;1|BP_Torso_Undead_1;1200;1|BP_Arm_Undead_Rogue;1200;1|BP_Arm_Undead_1;1200;1|BP_Leg_Undead_1;1200;1,GraveIcon_Q6_High,GraveIcon_Q6_Mid,GraveIcon_Q6_Low

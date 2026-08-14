@@ -44,18 +44,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         public void BindMystery(string warriorId, string className, int classLevel)
         {
             _warriorId = warriorId ?? string.Empty;
-            if (_className != null)
-            {
-                _className.text = className ?? string.Empty;
-                _className.gameObject.SetActive(true);
-            }
-
-            if (_classLevel != null)
-            {
-                var level = classLevel < 0 ? 0 : classLevel;
-                _classLevel.text = "Lv." + level;
-                _classLevel.gameObject.SetActive(true);
-            }
+            RefreshClass(className, classLevel);
 
             if (_questionMark != null)
             {
@@ -70,6 +59,23 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             SetAmplifyVisible(false);
+        }
+
+        /// <summary>Update class name / Lv after ForceClass (etc.) during Step2 book pulse.</summary>
+        public void RefreshClass(string className, int classLevel)
+        {
+            if (_className != null)
+            {
+                _className.text = className ?? string.Empty;
+                _className.gameObject.SetActive(true);
+            }
+
+            if (_classLevel != null)
+            {
+                var level = classLevel < 0 ? 0 : classLevel;
+                _classLevel.text = "Lv." + level;
+                _classLevel.gameObject.SetActive(true);
+            }
         }
 
         public void RevealIdle(Sprite idleSprite)
