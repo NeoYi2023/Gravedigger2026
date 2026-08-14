@@ -16,10 +16,18 @@
 | BodyPrimaryStat | 躯体主属性 | BodyPart 上 Strength/Agility/Intelligence 恰一；Mode2 选料匹配（≠职业 PrimaryStat） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
 | ApproxBodyLevel | 近似品质 | `|ΔBodyLevel|≤1`；更高→相同→低1 | [§3.15](SPEC_03_GameRules.md) |
 | PlacementOrder | 放置排序 | ClassConfig；自动上阵职业先后 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
-| FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 XZ OBB（HalfExtents + Transform Y）；自动上阵螺旋落入；样例 Ground_* Y=25° | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
-| MagicBook | 魔法书 | 主角特殊装备效果库；制造等环节触发；含「还原」`RaceWeightPick`、「战士强化」`StatMul`（`Stat=Primary`） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
-| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/环节/EffectPayload/EffectParams/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
+| ClassLevel | 职业等级 | ClassConfig 展示用品质等级；UI-016 士兵卡 `Lv.N`；不进战斗公式 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵螺旋落入 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
+| IsoTileYaw | 等距砖轴偏航 | `Y=-atan2(cellSize.y,cellSize.x)`，使 Transform 本地 +X 对齐 Isometric Grid 在 XZ 上的砖轴（Demo ≈ -26.57°）；**职业布阵区已废止此偏航**（改无旋转 IsoDiamond，同 WalkSurface） | [SPEC_04 §13](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；制造等环节触发；含「还原」`RaceWeightPick`、「战士强化」`StatMul`（`Stat=Primary`）、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；IsUnique 限制叠装 | [§3.15](SPEC_03_GameRules.md) |
+| ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
+| ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
+| ProtagonistEquipmentConfig | 主角装备配置表 | EquipId+EquipLevel → 名/图标/升下一级经验/转化经验/生效域/效果/描述 | [SPEC_04 §9.25](SPEC_04_Technical.md) |
+| EquipCommonExp | 装备公共经验 | 独立池，专供主角装备升级；≠ LifetimeExperience | [§3.16](SPEC_03_GameRules.md) |
+| OwnedEquip | 已拥有装备实例 | EquipId + Level + CurrentExp | [§3.16](SPEC_03_GameRules.md) |
+| EquipEffectDomain | 装备生效功能 | Dig \| SoldierManufacture \| Combat（可多值） | [§3.16](SPEC_03_GameRules.md) |
 | EffectPhase | 生效环节 | SoldierManufacture / Combat 等；制造含「还原」等具体 payload | [§3.15](SPEC_03_GameRules.md) |
 | EffectPayload | 魔法书效果编码 | 已登记 PascalCase Token；空=无效果；未登记空 apply | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | EffectParams | 魔法书效果参数 | `Key=Value` 或 `Key=Value\|…`；空=无参 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
@@ -28,7 +36,7 @@
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：Step1 士兵行+书槽 → Step2 加强动画 → Step3 进 UM 自动开布阵（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 |
 | CampaignModeSelect | 玩法模式选择 | 新建/进入存档前弹窗选 CampaignMode（UI-014 / D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡入口（关卡→LevelSelectPanel 去重 LevelId 选关） | [§3.5](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」「增加魔法书」（→GmGrantListPanel / D-061） | [§3.5](SPEC_03_GameRules.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
@@ -38,15 +46,16 @@
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
 | Grave | 坟墓 | 挖坟可生成实体；带品质 ID；未消除时为 DigObstacle | [§3.10](SPEC_03_GameRules.md) |
-| Digger | 挖坟主角 | 挖坟阶段地图中心生成；待机/挖坟循环动画；烘焙整角 Prefab | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
+| Digger | 挖坟主角 | Dig 阶段不生成地图模型；HUD 左上 60×60 头像框；Prefab 可保留于 Catalog/Art | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | DigAction | 挖掘流程 | 0.2s 停留触发；`DigActionDuration` 帧动画后扣血；busy 不可重触 | [§3.10](SPEC_03_GameRules.md) |
-| DigObstacle | 挖坟障碍物 | 仅 Digger + 未消除 Grave；圆形半径在 Prefab 上 | [§3.10](SPEC_03_GameRules.md) |
+| DigObstacle | 挖坟障碍物 | 仅未消除 Grave；圆形半径在 Prefab 上 | [§3.10](SPEC_03_GameRules.md) |
 | DigHitShape | 挖坟命中形 | Grave Prefab 离线烘焙本地 XZ 凸包；光标圆相交触发挖掘；与障碍圆分离 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9.2](SPEC_04_Technical.md) |
-| DigProtagonistCapabilities | 挖坟主角能力 | 伤害/时长缩短和/光标半径/可挖品质/阶段时长加成；科技树学会写入 | [§3.10](SPEC_03_GameRules.md)、[§3.13](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
+| DigProtagonistCapabilities | 挖坟主角能力 | 伤害/时长缩短和/光标半径/可挖品质/阶段时长加成/坟墓生成权重加成；科技树 + 主角装备 Dig 效果按键加法重算 | [§3.10](SPEC_03_GameRules.md)、[§3.13](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
+| GraveSpawnWeightBonus | 坟墓生成权重加成 | 按 QualityId 加法叠到 `GraveSpawnWeights`；表中缺席视为 0；键 `GraveSpawnWeightBonus_{QualityId}` | [§3.10](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.6](SPEC_04_Technical.md) |
 | GraveHP | 坟墓血量 | maxHP 来自品质表；归 0 触发成功与奖励 | [§3.10](SPEC_03_GameRules.md) |
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP%：>65%/30–65%/<30% → 样式1/2/3 | [§3.10](SPEC_03_GameRules.md) |
 | GraveQualityConfig | 坟墓品质定义表 | QualityId → MaxHP、DropMode、LootDrop、IconStyleHighId/MidId/LowId | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
-| DigReward | 挖掘奖励 | HP=0 时生成；飞向主角到达后入账并消失 | [§3.10](SPEC_03_GameRules.md) |
+| DigReward | 挖掘奖励 | HP=0 时生成；飞向 Dig HUD 左上头像框，到达后入账并消失 | [§3.10](SPEC_03_GameRules.md) |
 | DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；躯体行 DisplayName+BodyLevel；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | Warehouse | 仓库 | 存档槽材料仓；不限格/时长；按类型堆叠上限 10000 | [§3.10](SPEC_03_GameRules.md) |
 | SpiritEssence | 精魂 | 货币；LootDrop `Spirit` + AutoConvert；造士兵消耗 | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
@@ -89,6 +98,7 @@
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；职业不匹配时走保底；A 空先改亡灵 | [§3.11](SPEC_03_GameRules.md) |
 | DefaultAppearanceId | 职业默认外形 | Mode2 ClassConfig 字段；B 空或亡灵改写后 A 仍空时优先于 IsFallback | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| DefaultSkillIds | 制造默认获得技能ID | ClassConfig 列；空=无；否则 SkillId 或 `SkillId\|…`；ClassId 定稿后写入 SoldierSkills Lv1 | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | Race | 种族 | 默认同族否则 Race_Undead；Mode2「还原」→权重1加权随机；五维 RaceAdjustCoeff；主标签 | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceConfig | 种族配置表 | RaceId → 展示名、五维调整系数、失控概率加成 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.11](SPEC_04_Technical.md) |
 | RaceAdjustCoeff | 种族属性调整系数 | Base(S)×系数；缺省维=0；可正负；不计控制力 | [§3.11](SPEC_03_GameRules.md) |
@@ -96,8 +106,9 @@
 | SoulConfig | 灵魂配置表 | SoulId → ClassId、AttackMode、Skills（`SkillId;Level|…`）、AttackPriority（同 TargetSelect）、MoveStyle、SpiritCost、ControlPowerCost；含系统默认 `Soul_00` | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | Class | 职业 | 实例 ClassId（有灵魂取自灵魂；无灵魂 Class_Servants）；ClassName/PrimaryStat/五维→战斗参数换算系数 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassId | 职业ID | 职业主键；有灵魂取自灵魂；无灵魂强制 Class_Servants；写入士兵实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| ClassConfig | 职业配置表 | ClassId → ClassName、PrimaryStat、CombatConvertCoeffs、AttackRange/前摇/弹速/超时、AttackMode、PlacementOrder、DefaultAppearanceId | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PrimaryStat、CombatConvertCoeffs、AttackRange/前摇/弹速/超时、AttackMode、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassName | 职业名 | 职业表字段；参与 WarriorName 与外观 ClassAffinity；可为「战士」等，**不是**单位称谓「士兵」 | [§3.11](SPEC_03_GameRules.md) |
+| BaseClass | 基础职业 | ClassConfig 列；CSV 中文战士/射手/法师/盗贼；空或非法→Unspecified；预留魔法书等条件；不参与命名/外观/战斗；不烘进实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | MoveStyle | 移动风格 | `Normal` \| `Aggressive` \| `Cautious` | [§3.11](SPEC_03_GameRules.md) |
 | ExtraEquipment | 额外装备 | 翅膀/坐骑；制造锁定；属性/技能/NamePrefix | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.14](SPEC_04_Technical.md) |
 | ExtraEquipmentConfig | 额外装备配置表 | EquipSlot、NamePrefix、EquipStats（`Attr_Value|…`）、Skills（`SkillId;Level|…`）、SpiritCost、ControlPowerCost | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.14](SPEC_04_Technical.md) |
@@ -110,13 +121,16 @@
 | GemSuffixNameConfig | 宝石后缀命名表 | 已镶嵌 GemType 排序拼接 ComboKey → WarriorName 后缀 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.15](SPEC_04_Technical.md) |
 | ControlPowerCost | 控制力占用值 | 躯体+灵魂+额外装备+宝石；制造时定稿 | [§3.11](SPEC_03_GameRules.md) |
 | SkillBuffCoeff | 技能 Buff 系数 | 仅战斗运行时；FinalStat 公式 | [§3.11](SPEC_03_GameRules.md) |
+| SoldierSkill | 士兵技能 | 绑定士兵实例；职业默认授予；Mode2 魔法书可改等级；无经验升级；PermanentDeath 删除 | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
+| SoldierSkills | 士兵技能列表 | 实例 `{SkillId,SkillLevel}[]`；制造烘进；CombatDead 保留 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
+| SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/CD/失控加成；Demo 不施放 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
+| SkillEffectConfig | 技能效果配置表 | SkillEffectId 主键；效果正文列仍骨架 | [SPEC_04 §9.21b](SPEC_04_Technical.md) |
 | ControlPower | 控制力 | 上阵占用；本版上限=等级行 ControlPowerCap；超额失控 | [§3.11](SPEC_03_GameRules.md) |
 | LossOfControl | 失控 | Degree 分档；开战锁定；各士兵独立 roll；成功→叛变 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | LossOfControlDegree | 失控程度 | ΣCost/Cap−1；≤0 未失控；开战锁定 | [§3.11](SPEC_03_GameRules.md) |
 | LossOfControlTier | 失控程度段 | 1~4（轻度/中度/重度/完全） | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.20](SPEC_04_Technical.md) |
 | LossOfControlConfig | 失控配置表 | TierId→名称/描述/基础失控概率 | [SPEC_04 §9.20](SPEC_04_Technical.md) |
 | Rebel | 叛变 | 失控成功状态；就近打主角/士兵/敌人；至死亡 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
-| SkillConfig | 技能配置表 | 骨架；BaseCooldownSeconds + 失控概率加成；效果列另专题（同文件扩写）；**Demo 不施放技能** | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
 | BattleFormation | 战斗布阵 | 连续坐标；共享 `FormationEditor`；与士兵池同槽 PlayerPrefs 持久化 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | WarriorPool | 士兵可上阵池 | 存档级已造士兵实例集合；制造入池；布阵/Defend/PushMap 共用；按槽持久化 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | FormationEditor | 布阵编辑器 | Prefab `FormationEditorRoot`；底栏士兵格（上阵保留+变亮）+ Idle 跟手拖放；UM 返回 / Defend 开战 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
@@ -162,7 +176,7 @@
 | SurroundGap | 包围缺口 | Surround 下 AttackSlot 环跳过的扇区 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | DesiredDestination | 期望目的地 | 移动层趋近的世界坐标（Objective/Home/Slot 等） | [§3.12](SPEC_03_GameRules.md) |
 | GoalKind | 目的地种类 | Objective \| FormationHome \| AttackSlot \| ChaseAnchor | [§3.12](SPEC_03_GameRules.md) |
-| IsoDiamond | 地图菱形足迹 | XZ 曼哈顿菱形（`|dx|/hx+|dz|/hz≤1`）；半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`，可随 iso 高宽比各向异性（Demo `(5,2.5)`）；`DigMapBounds`/`EngageZone`/`WalkSurface`/NavMesh 共用 | [§3.10](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| IsoDiamond | 地图菱形足迹 | XZ 曼哈顿菱形（`|dx|/hx+|dz|/hz≤1`）；半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`，可随 iso 高宽比各向异性（Demo `(5,2.5)`）；`DigMapBounds`/`EngageZone`/`WalkSurface`/`FormationClassZone`/NavMesh 共用（职业区半尺寸更小，Sanitize 下限 0.05） | [§3.10](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md)/[§13](SPEC_04_Technical.md) |
 | AttackMode | 攻击模式 | Melee/Ranged；士兵 SoulConfig / 怪物 MonsterConfig；普攻命中分支；**异于** AggroMode | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | AttackRange | 攻击距离 | 士兵 ClassConfig / 怪物 MonsterConfig；进入距内才攻击 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | CombatDead | 战斗死亡 | 无宝石士兵 HP≤0；可复活；不触发物资去向 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
@@ -172,7 +186,8 @@
 | BattleProtagonist | 战斗主角 | 地图中央；异于 Digger；Defend 用护盾承受普通攻击；烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | Shield | 护盾 | 普通攻击承受次数（敌人或叛变士兵）；开战 = ProtagonistMaxHP；归零 LevelFailure | [§3.12](SPEC_03_GameRules.md) |
 | Monster | 怪物 | 防守敌方；InsideMap/OutsideMap；ModelId 烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/AggroMode/AlertRadius/BodyRadius/FacingYawFlip/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/FacingYawFlip/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| MonsterType | 怪物类型 | `1`=普通 / `2`=精英 / `3`=BOSS；MonsterConfig 原型标签；异于 PushMapSpawnConfig.IsBoss；本批不驱动技能 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[SPEC_03](SPEC_03_GameRules.md) |
 | Wave | 波次 | WaveConfigId 下刷怪行集合；全触发且全灭为胜利条件之一 | [§3.12](SPEC_03_GameRules.md) |
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 顺序/剩余秒/怪物/数量/位置/方式 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.18](SPEC_04_Technical.md) |
 | WaveConfigId | 波次配置ID | DefendGameplayConfig → WaveSpawnConfig 分组键 | [SPEC_04 §9.7](SPEC_04_Technical.md) |
@@ -180,7 +195,9 @@
 | TargetSelect | 目标选择 | Nearest / PreferWarrior / PreferProtagonist | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
 | AttackPriority | 攻击优先级 | 灵魂字段；与 TargetSelect 同枚举；本批不驱动选目标（默认 EngageZone 内最近） | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | TargetRetargetInterval | 目标修正间隔 | 怪物与士兵重算目的地间隔；暂定 1s | [§3.12](SPEC_03_GameRules.md) |
-| LevelFailure | 关卡失败 | 护盾归零等（Defend/PushMap）；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣 | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
+| LevelFailure | 关卡失败 | 护盾归零等（Defend/PushMap）；PushMap 另含无忠诚存活；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣；PushMap Demo 经 UI-017 → LevelSelect | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
+| PushMapBattleSettlement | 推图战斗结算 | 胜负均弹（UI-017）：胜利/失败 + 耗时 + 击杀数；Continue 路由选关或奖励弹窗 | [§3.14](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| PushMapRewardPopup | 推图奖励弹窗 | UI-018：展示本场已入账 Exp+CaptureLoot；Continue → LevelSelect | [§3.14](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | VictorySettlement | 胜利结算 | 最后一阶段结束后的关卡级结算 | [§3.9](SPEC_03_GameRules.md) |
 | Demo acceptance (D-xxx) | Demo 验收项 | D-001～D-004 Meta 壳；D-010～D-044 Dig→UM→Defend（含 ModeSelect）流水线垂直切片 | [§3.8](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 

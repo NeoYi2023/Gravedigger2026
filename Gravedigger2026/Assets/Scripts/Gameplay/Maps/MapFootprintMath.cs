@@ -12,11 +12,35 @@ namespace Gravedigger2026.Gameplay.Maps
         /// <summary>Demo Grid cell size matching Ground_* Prefabs (Isometric).</summary>
         public static readonly Vector3 DemoIsoCellSize = new Vector3(1f, 0.5f, 2f);
 
+        /// <summary>Map-scale IsoDiamond (WalkSurface / DigMapBounds / EngageZone).</summary>
+        public const float DefaultMinHalfExtent = 0.5f;
+
+        /// <summary>FormationClassZone and other sub-map markers (SPEC_04 §13).</summary>
+        public const float MarkerMinHalfExtent = 0.05f;
+
+        /// <summary>
+        /// Yaw (degrees) that aligns Transform local +X with the isometric Grid X-axis on XZ
+        /// after GroundTilemap RotX 90°. Demo cellSize (1, 0.5) → ≈ -26.57°.
+        /// FormationClassZone no longer uses this (identity IsoDiamond, same as WalkSurface).
+        /// </summary>
+        public static float IsoTileYawYDegrees(Vector3 cellSize)
+        {
+            var x = Mathf.Max(0.01f, cellSize.x);
+            var y = Mathf.Max(0.01f, cellSize.y);
+            return -Mathf.Atan2(y, x) * Mathf.Rad2Deg;
+        }
+
         public static Vector2 SanitizeHalfExtents(Vector2 halfExtents)
         {
+            return SanitizeHalfExtents(halfExtents, DefaultMinHalfExtent);
+        }
+
+        public static Vector2 SanitizeHalfExtents(Vector2 halfExtents, float minExtent)
+        {
+            var min = Mathf.Max(0.01f, minExtent);
             return new Vector2(
-                Mathf.Max(0.5f, halfExtents.x),
-                Mathf.Max(0.5f, halfExtents.y));
+                Mathf.Max(min, halfExtents.x),
+                Mathf.Max(min, halfExtents.y));
         }
 
         /// <summary>
@@ -33,7 +57,16 @@ namespace Gravedigger2026.Gameplay.Maps
 
         public static bool ContainsXZ(Vector3 center, Vector2 halfExtents, Vector3 worldPosition)
         {
-            var half = SanitizeHalfExtents(halfExtents);
+            return ContainsXZ(center, halfExtents, worldPosition, DefaultMinHalfExtent);
+        }
+
+        public static bool ContainsXZ(
+            Vector3 center,
+            Vector2 halfExtents,
+            Vector3 worldPosition,
+            float minExtent)
+        {
+            var half = SanitizeHalfExtents(halfExtents, minExtent);
             var dx = Mathf.Abs(worldPosition.x - center.x);
             var dz = Mathf.Abs(worldPosition.z - center.z);
             return dx / half.x + dz / half.y <= 1f;
@@ -71,7 +104,12 @@ namespace Gravedigger2026.Gameplay.Maps
         /// </summary>
         public static Mesh BuildDiamondMesh(Vector2 halfExtents, float thickness = 0.05f)
         {
-            var half = SanitizeHalfExtents(halfExtents);
+            return BuildDiamondMesh(halfExtents, thickness, DefaultMinHalfExtent);
+        }
+
+        public static Mesh BuildDiamondMesh(Vector2 halfExtents, float thickness, float minExtent)
+        {
+            var half = SanitizeHalfExtents(halfExtents, minExtent);
             var y = Mathf.Max(0.01f, thickness) * 0.5f;
             var mesh = new Mesh { name = "IsoDiamondWalkSurface" };
 
@@ -131,7 +169,17 @@ namespace Gravedigger2026.Gameplay.Maps
 
         public static void DrawDiamondGizmo(Vector3 center, Vector2 halfExtents, Color color, float y = 0.05f)
         {
-            var half = SanitizeHalfExtents(halfExtents);
+            DrawDiamondGizmo(center, halfExtents, color, y, DefaultMinHalfExtent);
+        }
+
+        public static void DrawDiamondGizmo(
+            Vector3 center,
+            Vector2 halfExtents,
+            Color color,
+            float y,
+            float minExtent)
+        {
+            var half = SanitizeHalfExtents(halfExtents, minExtent);
             var c = new Vector3(center.x, center.y + y, center.z);
             var n = c + new Vector3(0f, 0f, half.y);
             var e = c + new Vector3(half.x, 0f, 0f);

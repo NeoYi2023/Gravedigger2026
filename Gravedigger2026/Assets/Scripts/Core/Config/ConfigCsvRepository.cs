@@ -32,8 +32,14 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, SoulConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, ClassConfigRow> _classById =
             new Dictionary<string, ClassConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, SkillConfigRow> _skillByKey =
+            new Dictionary<string, SkillConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, SkillLevelRange> _skillLevelRangeById =
+            new Dictionary<string, SkillLevelRange>(StringComparer.Ordinal);
         private readonly Dictionary<string, MagicBookConfigRow> _magicBookById =
             new Dictionary<string, MagicBookConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, ProtagonistEquipmentConfigRow> _protagonistEquipmentByKey =
+            new Dictionary<string, ProtagonistEquipmentConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, RaceConfigRow> _raceById =
             new Dictionary<string, RaceConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, GemConfigRow> _gemById =
@@ -95,7 +101,10 @@ namespace Gravedigger2026.Core.Config
             _bodyPartById.Clear();
             _soulById.Clear();
             _classById.Clear();
+            _skillByKey.Clear();
+            _skillLevelRangeById.Clear();
             _magicBookById.Clear();
+            _protagonistEquipmentByKey.Clear();
             _raceById.Clear();
             _gemById.Clear();
             _equipById.Clear();
@@ -125,7 +134,9 @@ namespace Gravedigger2026.Core.Config
                 LoadBodyParts();
                 LoadSouls();
                 LoadClasses();
+                LoadSkills();
                 LoadMagicBooks();
+                LoadProtagonistEquipment();
                 LoadRaces();
                 LoadGems();
                 LoadExtraEquipment();
@@ -137,7 +148,7 @@ namespace Gravedigger2026.Core.Config
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, MagicBook={_magicBookById.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -330,12 +341,60 @@ namespace Gravedigger2026.Core.Config
             return _classById.TryGetValue(classId ?? string.Empty, out row);
         }
 
+        /// <summary>Composite PK lookup (SPEC_04 §9.21): SkillId + SkillLevel.</summary>
+        public bool TryGetSkill(string skillId, int skillLevel, out SkillConfigRow row)
+        {
+            row = null;
+            if (string.IsNullOrEmpty(skillId) || skillLevel < 1)
+            {
+                return false;
+            }
+
+            return _skillByKey.TryGetValue(MakeSkillKey(skillId, skillLevel), out row);
+        }
+
+        /// <summary>
+        /// Min/max SkillLevel present for this SkillId (SS-04 clamp).
+        /// False when the Id has no rows.
+        /// </summary>
+        public bool TryGetSkillLevelRange(string skillId, out int minLevel, out int maxLevel)
+        {
+            minLevel = 0;
+            maxLevel = 0;
+            if (string.IsNullOrEmpty(skillId)
+                || !_skillLevelRangeById.TryGetValue(skillId, out var range))
+            {
+                return false;
+            }
+
+            minLevel = range.Min;
+            maxLevel = range.Max;
+            return true;
+        }
+
+        public IEnumerable<SkillConfigRow> Skills => _skillByKey.Values;
+
         public bool TryGetMagicBook(string magicBookId, out MagicBookConfigRow row)
         {
             return _magicBookById.TryGetValue(magicBookId ?? string.Empty, out row);
         }
 
         public IEnumerable<MagicBookConfigRow> MagicBooks => _magicBookById.Values;
+
+        /// <summary>Composite PK lookup (SPEC_04 §9.25): EquipId + EquipLevel.</summary>
+        public bool TryGetProtagonistEquipment(string equipId, int equipLevel, out ProtagonistEquipmentConfigRow row)
+        {
+            row = null;
+            if (string.IsNullOrEmpty(equipId) || equipLevel < 1)
+            {
+                return false;
+            }
+
+            return _protagonistEquipmentByKey.TryGetValue(MakeProtagonistEquipmentKey(equipId, equipLevel), out row);
+        }
+
+        public IEnumerable<ProtagonistEquipmentConfigRow> ProtagonistEquipmentRows =>
+            _protagonistEquipmentByKey.Values;
 
         public bool TryGetRace(string raceId, out RaceConfigRow row)
         {
@@ -573,6 +632,25 @@ namespace Gravedigger2026.Core.Config
                     throw new InvalidOperationException($"{table} row {rowIndex}: illegal AttackMode '{modeText}'.");
                 }
 
+                var monsterTypeText = OptionalText(raw, "MonsterType");
+                MonsterType monsterType;
+                if (monsterTypeText.Length == 0)
+                {
+                    monsterType = MonsterType.Normal;
+                }
+                else if (!int.TryParse(monsterTypeText, NumberStyles.Integer, CultureInfo.InvariantCulture,
+                             out var monsterTypeInt)
+                         || monsterTypeInt < (int)MonsterType.Normal
+                         || monsterTypeInt > (int)MonsterType.Boss)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal MonsterType '{monsterTypeText}'.");
+                }
+                else
+                {
+                    monsterType = (MonsterType)monsterTypeInt;
+                }
+
                 var attackRange = RequireFloat(raw, "AttackRange", table, rowIndex);
                 var aggroText = OptionalText(raw, "AggroMode");
                 AggroMode aggroMode;
@@ -653,6 +731,7 @@ namespace Gravedigger2026.Core.Config
                     DisplayName = SimpleCsv.Require(raw, "DisplayName", table, rowIndex),
                     TargetSelect = targetSelect,
                     AttackMode = attackMode,
+                    MonsterType = monsterType,
                     AggroMode = aggroMode,
                     AlertRadius = alertRadius,
                     BodyRadius = bodyRadius,
@@ -1051,6 +1130,8 @@ namespace Gravedigger2026.Core.Config
                 {
                     ClassId = id,
                     ClassName = SimpleCsv.Require(raw, "ClassName", table, rowIndex),
+                    BaseClass = ParseBaseClass(OptionalText(raw, "BaseClass"), table, rowIndex),
+                    ClassLevel = ParseOptionalNonNegInt(raw, "ClassLevel", table, rowIndex),
                     PrimaryStat = primary,
                     CombatConvertCoeffs = OptionalText(raw, "CombatConvertCoeffs"),
                     AttackRange = OptionalFloat(raw, "AttackRange"),
@@ -1071,9 +1152,150 @@ namespace Gravedigger2026.Core.Config
                         rowIndex),
                     AttackMode = attackMode,
                     PlacementOrder = ParseOptionalPlacementOrder(raw, "PlacementOrder", table, rowIndex),
-                    DefaultAppearanceId = OptionalText(raw, "DefaultAppearanceId")
+                    DefaultAppearanceId = OptionalText(raw, "DefaultAppearanceId"),
+                    DefaultSkillIds = ParseDefaultSkillIds(OptionalText(raw, "DefaultSkillIds"))
                 };
             }
+        }
+
+        private void LoadSkills()
+        {
+            const string table = "Combat_SkillConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            var levelsBySkill = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var skillId = SimpleCsv.Require(raw, "SkillId", table, rowIndex);
+                var levelText = SimpleCsv.Require(raw, "SkillLevel", table, rowIndex);
+                if (!int.TryParse(levelText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var level)
+                    || level < 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SkillLevel '{levelText}' (expect ≥ 1).");
+                }
+
+                var key = MakeSkillKey(skillId, level);
+                if (_skillByKey.ContainsKey(key))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate composite PK ({skillId}, {level}).");
+                }
+
+                _skillByKey[key] = new SkillConfigRow
+                {
+                    SkillId = skillId,
+                    SkillLevel = level,
+                    CooldownMode = OptionalText(raw, "CooldownMode"),
+                    CastTarget = OptionalText(raw, "CastTarget"),
+                    ExtraActivationCondition = OptionalText(raw, "ExtraActivationCondition"),
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    Description = OptionalText(raw, "Description"),
+                    IconAssetId = OptionalText(raw, "IconAssetId"),
+                    SkillEffectId = OptionalText(raw, "SkillEffectId"),
+                    BaseCooldownSeconds = OptionalFloat(raw, "BaseCooldownSeconds"),
+                    LossOfControlChanceBonus = OptionalFloat(raw, "LossOfControlChanceBonus")
+                };
+
+                if (!levelsBySkill.TryGetValue(skillId, out var levels))
+                {
+                    levels = new List<int>();
+                    levelsBySkill[skillId] = levels;
+                }
+
+                levels.Add(level);
+            }
+
+            foreach (var pair in levelsBySkill)
+            {
+                pair.Value.Sort();
+                _skillLevelRangeById[pair.Key] = new SkillLevelRange
+                {
+                    Min = pair.Value[0],
+                    Max = pair.Value[pair.Value.Count - 1]
+                };
+
+                for (var expected = 1; expected <= pair.Value.Count; expected++)
+                {
+                    if (pair.Value[expected - 1] == expected)
+                    {
+                        continue;
+                    }
+
+                    Debug.LogWarning(
+                        $"[Config] {table}: SkillId '{pair.Key}' levels are not contiguous from 1 " +
+                        $"(got [{string.Join(",", pair.Value)}]).");
+                    break;
+                }
+            }
+        }
+
+        private static string MakeSkillKey(string skillId, int skillLevel)
+        {
+            return skillId + "\u001f" + skillLevel.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// Empty = Unspecified; CSV Chinese 战士/射手/法师/盗贼; illegal → Warning + Unspecified.
+        /// </summary>
+        private static BaseClassKind ParseBaseClass(string text, string table, int rowIndex)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return BaseClassKind.Unspecified;
+            }
+
+            switch (text.Trim())
+            {
+                case "战士":
+                    return BaseClassKind.Warrior;
+                case "射手":
+                    return BaseClassKind.Archer;
+                case "法师":
+                    return BaseClassKind.Mage;
+                case "盗贼":
+                    return BaseClassKind.Thief;
+                default:
+                    Debug.LogWarning(
+                        $"[Config] {table} row {rowIndex}: illegal BaseClass '{text}' " +
+                        "(expect 战士|射手|法师|盗贼 or empty); using Unspecified.");
+                    return BaseClassKind.Unspecified;
+            }
+        }
+
+        /// <summary>
+        /// Empty = none; else SkillId or SkillId|… . Duplicates keep first.
+        /// Unknown SkillId is kept (grant-time Warning, SPEC_04 §9.9b).
+        /// </summary>
+        private static string[] ParseDefaultSkillIds(string encoded)
+        {
+            if (string.IsNullOrEmpty(encoded))
+            {
+                return Array.Empty<string>();
+            }
+
+            var parts = encoded.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var id = parts[i].Trim();
+                if (id.Length == 0 || !seen.Add(id))
+                {
+                    continue;
+                }
+
+                result.Add(id);
+            }
+
+            return result.Count == 0 ? Array.Empty<string>() : result.ToArray();
+        }
+
+        private struct SkillLevelRange
+        {
+            public int Min;
+            public int Max;
         }
 
         private void LoadMagicBooks()
@@ -1089,6 +1311,7 @@ namespace Gravedigger2026.Core.Config
                 {
                     MagicBookId = id,
                     IsUnique = ParseOptional01(raw, "IsUnique", table, rowIndex),
+                    IsProbabilistic = ParseOptional01(raw, "IsProbabilistic", table, rowIndex),
                     EffectPhase = OptionalText(raw, "EffectPhase"),
                     EffectPayload = OptionalText(raw, "EffectPayload"),
                     EffectParams = OptionalText(raw, "EffectParams"),
@@ -1097,6 +1320,83 @@ namespace Gravedigger2026.Core.Config
                     Description = OptionalText(raw, "Description")
                 };
             }
+        }
+
+        private void LoadProtagonistEquipment()
+        {
+            const string table = "Protagonist_ProtagonistEquipmentConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            var levelsByEquip = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var equipId = SimpleCsv.Require(raw, "EquipId", table, rowIndex);
+                var levelText = SimpleCsv.Require(raw, "EquipLevel", table, rowIndex);
+                if (!int.TryParse(levelText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var level)
+                    || level < 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal EquipLevel '{levelText}' (expect ≥ 1).");
+                }
+
+                var convertText = SimpleCsv.Require(raw, "ConvertExpValue", table, rowIndex);
+                if (!int.TryParse(convertText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var convertExp))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal ConvertExpValue '{convertText}'.");
+                }
+
+                var key = MakeProtagonistEquipmentKey(equipId, level);
+                if (_protagonistEquipmentByKey.ContainsKey(key))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate composite PK ({equipId}, {level}).");
+                }
+
+                _protagonistEquipmentByKey[key] = new ProtagonistEquipmentConfigRow
+                {
+                    EquipId = equipId,
+                    EquipLevel = level,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    IconAssetId = OptionalText(raw, "IconAssetId"),
+                    ExpToNextLevel = ParseOptionalNonNegInt(raw, "ExpToNextLevel", table, rowIndex),
+                    ConvertExpValue = convertExp,
+                    EffectDomain = OptionalText(raw, "EffectDomain"),
+                    EquipEffect = OptionalText(raw, "EquipEffect"),
+                    Description = OptionalText(raw, "Description")
+                };
+
+                if (!levelsByEquip.TryGetValue(equipId, out var levels))
+                {
+                    levels = new List<int>();
+                    levelsByEquip[equipId] = levels;
+                }
+
+                levels.Add(level);
+            }
+
+            foreach (var pair in levelsByEquip)
+            {
+                pair.Value.Sort();
+                for (var expected = 1; expected <= pair.Value.Count; expected++)
+                {
+                    if (pair.Value[expected - 1] == expected)
+                    {
+                        continue;
+                    }
+
+                    Debug.LogWarning(
+                        $"[Config] {table}: EquipId '{pair.Key}' levels are not contiguous from 1 " +
+                        $"(got [{string.Join(",", pair.Value)}]).");
+                    break;
+                }
+            }
+        }
+
+        private static string MakeProtagonistEquipmentKey(string equipId, int equipLevel)
+        {
+            return equipId + "\u001f" + equipLevel.ToString(CultureInfo.InvariantCulture);
         }
 
         private void LoadRaces()
@@ -1484,6 +1784,28 @@ namespace Gravedigger2026.Core.Config
 
             if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
                 || (value != 0 && value != 1))
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return value;
+        }
+
+        /// <summary>Missing/empty → 0; else non-negative int (SPEC §9.25 ExpToNextLevel empty = max).</summary>
+        private static int ParseOptionalNonNegInt(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, column);
+            if (text.Length == 0)
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                || value < 0)
             {
                 throw new InvalidOperationException($"{table} row {rowIndex}: illegal {column} '{text}'.");
             }

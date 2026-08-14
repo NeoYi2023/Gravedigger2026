@@ -1,3 +1,5 @@
+using System;
+
 namespace Gravedigger2026.Core.Config
 {
     /// <summary>
@@ -13,6 +15,13 @@ namespace Gravedigger2026.Core.Config
 
         public string ClassId;
         public string ClassName;
+        /// <summary>
+        /// Base class family (SPEC_04 §9.9b). CSV Chinese 战士/射手/法师/盗贼.
+        /// Empty/illegal → Unspecified. Reserved; not used in naming/combat this slice.
+        /// </summary>
+        public BaseClassKind BaseClass;
+        /// <summary>Display-only grade (UI-016 Lv.N). Missing → 0. Not used in combat math.</summary>
+        public int ClassLevel;
         public StatKind PrimaryStat;
         public string CombatConvertCoeffs;
         public float AttackRange;
@@ -33,5 +42,10 @@ namespace Gravedigger2026.Core.Config
         public const int DefaultPlacementOrderMissing = 9999;
         /// <summary>Mode2 appearance fallback Id; empty → race IsFallback path.</summary>
         public string DefaultAppearanceId;
+        /// <summary>
+        /// Parsed DefaultSkillIds (SPEC_04 §9.9b). Never null; empty = none.
+        /// Duplicates keep first. Unknown SkillId kept (warn at grant, not load).
+        /// </summary>
+        public string[] DefaultSkillIds = Array.Empty<string>();
     }
 }

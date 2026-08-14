@@ -66,6 +66,64 @@ namespace Gravedigger2026.Core.Config
             return result;
         }
 
+        /// <summary>
+        /// SPEC_03 §3.10 / D-060: table weights + live GraveSpawnWeightBonus.
+        /// Missing QualityId treated as 0 then bonus; bonus applies to the first matching segment or inserts.
+        /// </summary>
+        public static List<WeightedId> OverlaySpawnWeightBonuses(
+            IReadOnlyList<WeightedId> baseWeights,
+            IReadOnlyDictionary<string, float> bonuses)
+        {
+            var result = new List<WeightedId>();
+            if (baseWeights != null)
+            {
+                for (var i = 0; i < baseWeights.Count; i++)
+                {
+                    result.Add(baseWeights[i]);
+                }
+            }
+
+            if (bonuses != null)
+            {
+                foreach (var kv in bonuses)
+                {
+                    var qualityId = kv.Key;
+                    var bonus = kv.Value;
+                    if (string.IsNullOrEmpty(qualityId) || bonus == 0f)
+                    {
+                        continue;
+                    }
+
+                    var found = false;
+                    for (var i = 0; i < result.Count; i++)
+                    {
+                        if (string.Equals(result[i].Id, qualityId, StringComparison.Ordinal))
+                        {
+                            result[i] = new WeightedId(result[i].Id, result[i].Weight + bonus);
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found && bonus > 0f)
+                    {
+                        result.Add(new WeightedId(qualityId, bonus));
+                    }
+                }
+            }
+
+            var filtered = new List<WeightedId>(result.Count);
+            for (var i = 0; i < result.Count; i++)
+            {
+                if (result[i].Weight > 0f)
+                {
+                    filtered.Add(result[i]);
+                }
+            }
+
+            return filtered;
+        }
+
         public static bool TryParseSpawnRate(string encoded, out float intervalSeconds, out int countPerInterval)
         {
             intervalSeconds = 0f;

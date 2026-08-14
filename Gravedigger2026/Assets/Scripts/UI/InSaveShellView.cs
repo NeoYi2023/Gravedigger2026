@@ -20,6 +20,7 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _debugWarriorTaskLabelButton;
         [SerializeField] private ToolsPanelView _toolsPanel;
         [SerializeField] private LevelSelectPanelView _levelSelectPanel;
+        [SerializeField] private GmGrantListPanelView _gmGrantListPanel;
         [SerializeField] private GameplayStatePlaceholderView _placeholderView;
 
         private Color _backdropDefault = new Color(0.10f, 0.12f, 0.16f, 0.96f);
@@ -31,8 +32,12 @@ namespace Gravedigger2026.UI
         public event Action DebugAdvanceStageRequested;
         public event Action SettingsRequested;
         public event Action LevelRequested;
+        public event Action GrantProtagonistEquipmentRequested;
+        public event Action GrantMagicBookRequested;
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
+        public event Action<string> GmGrantItemPicked;
+        public event Action GmGrantListClosed;
 
         private void Awake()
         {
@@ -62,6 +67,7 @@ namespace Gravedigger2026.UI
             }
 
             EnsureWarriorTaskLabelToggleButton();
+            EnsureGmGrantListPanel();
             if (_debugWarriorTaskLabelButton != null)
             {
                 _debugWarriorTaskLabelButton.onClick.AddListener(HandleWarriorTaskLabelToggleClicked);
@@ -74,12 +80,21 @@ namespace Gravedigger2026.UI
             {
                 _toolsPanel.SettingsClicked += () => SettingsRequested?.Invoke();
                 _toolsPanel.LevelClicked += () => LevelRequested?.Invoke();
+                _toolsPanel.GrantProtagonistEquipmentClicked +=
+                    () => GrantProtagonistEquipmentRequested?.Invoke();
+                _toolsPanel.GrantMagicBookClicked += () => GrantMagicBookRequested?.Invoke();
             }
 
             if (_levelSelectPanel != null)
             {
                 _levelSelectPanel.LevelPicked += id => LevelSelectPicked?.Invoke(id);
                 _levelSelectPanel.Closed += () => LevelSelectClosed?.Invoke();
+            }
+
+            if (_gmGrantListPanel != null)
+            {
+                _gmGrantListPanel.ItemPicked += id => GmGrantItemPicked?.Invoke(id);
+                _gmGrantListPanel.Closed += () => GmGrantListClosed?.Invoke();
             }
         }
 
@@ -111,6 +126,7 @@ namespace Gravedigger2026.UI
             }
 
             HideLevelSelectPanel();
+            HideGmGrantListPanel();
 
             if (_root != null)
             {
@@ -149,6 +165,24 @@ namespace Gravedigger2026.UI
                 _levelSelectPanel.Hide();
             }
         }
+
+        public void ShowGmGrantListPanel(string title, IReadOnlyList<GmGrantListItem> items)
+        {
+            if (_gmGrantListPanel != null)
+            {
+                _gmGrantListPanel.Show(title, items);
+            }
+        }
+
+        public void HideGmGrantListPanel()
+        {
+            if (_gmGrantListPanel != null)
+            {
+                _gmGrantListPanel.Hide();
+            }
+        }
+
+        public bool HasGmGrantListPanel => _gmGrantListPanel != null;
 
         public void SetModePanelsSuppressed(bool suppressed)
         {
@@ -256,6 +290,44 @@ namespace Gravedigger2026.UI
             }
 
             _warriorTaskLabelButtonText = clone.GetComponentInChildren<Text>(true);
+        }
+
+        private void EnsureGmGrantListPanel()
+        {
+            if (_gmGrantListPanel != null)
+            {
+                return;
+            }
+
+            if (_levelSelectPanel == null)
+            {
+                return;
+            }
+
+            var template = _levelSelectPanel.gameObject;
+            var clone = Instantiate(template, template.transform.parent);
+            clone.name = "GmGrantListPanel";
+            clone.SetActive(false);
+
+            var oldView = clone.GetComponent<LevelSelectPanelView>();
+            if (oldView != null)
+            {
+                DestroyImmediate(oldView);
+            }
+
+            var view = clone.GetComponent<GmGrantListPanelView>();
+            if (view == null)
+            {
+                view = clone.AddComponent<GmGrantListPanelView>();
+            }
+
+            var title = clone.transform.Find("Box/Title")?.GetComponent<Text>();
+            var content = clone.transform.Find("Box/LevelScroll/Viewport/Content");
+            var rowTemplate = content != null ? content.Find("LevelRowTemplate")?.gameObject : null;
+            var close = clone.transform.Find("Box/CloseButton")?.GetComponent<Button>();
+            var emptyHint = clone.transform.Find("Box/EmptyHint")?.GetComponent<Text>();
+            view.BindRuntime(clone, title, content, rowTemplate, close, emptyHint);
+            _gmGrantListPanel = view;
         }
     }
 }

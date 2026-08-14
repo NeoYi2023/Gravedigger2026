@@ -278,7 +278,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             Debug.Log(
                 $"[UM Manufacture] {instance.Id} '{instance.WarriorName}' Race={instance.RaceId} Class={instance.ClassId} " +
                 $"Appearance={instance.AppearanceId} MaxHP={instance.RemainingHP} ControlCost={instance.ControlPowerCost} " +
-                $"Spirit-{aggregate.SpiritCost:0.##} Gems={instance.GemIds.Count} Equips={instance.LockedEquipIds.Count}");
+                $"Spirit-{aggregate.SpiritCost:0.##} Gems={instance.GemIds.Count} Equips={instance.LockedEquipIds.Count} " +
+                $"Skills={SoldierSkillGrant.FormatSummary(instance.SoldierSkills)}");
             return true;
         }
 
@@ -311,14 +312,16 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             error = null;
             Debug.Log(
                 $"[UM Remanufacture] from={sourceWarriorId} → {instance.Id} '{instance.WarriorName}' " +
-                $"Race={instance.RaceId} Class={instance.ClassId} Appearance={instance.AppearanceId}");
+                $"Race={instance.RaceId} Class={instance.ClassId} Appearance={instance.AppearanceId} " +
+                $"Skills={SoldierSkillGrant.FormatSummary(instance.SoldierSkills)}");
             return true;
         }
 
         /// <summary>
         /// Legacy save repair (SPEC_04 §6): warriors whose StatBlock fields were dropped by JsonUtility
         /// (BaseStats all-zero) but still have SourceItemIds — rebuild Base/Equip/GemMult/RaceAdjust/BodyLife
-        /// and persist. Preserves Id / RaceId / AppearanceId / RemainingHP / ControlPowerCost / names.
+        /// and persist. Preserves Id / RaceId / AppearanceId / RemainingHP / ControlPowerCost / names /
+        /// SoldierSkills (must not clear baked skills).
         /// </summary>
         public int RepairMissingStatSnapshots()
         {
@@ -384,6 +387,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             warrior.GemMult = aggregate.GemMult;
             warrior.RaceAdjustCoeff = raceAdjust;
             warrior.BodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
+            // SoldierSkills: leave as loaded (SS-02). Repair must not clear baked skills.
 
             if (warrior.GemIds.Count == 0 && aggregate.GemIds.Count > 0)
             {
@@ -700,6 +704,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 }
             }
 
+            SoldierSkillGrant.GrantDefaultSkillsAtLevel1(instance, _configs);
             return instance;
         }
 

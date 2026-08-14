@@ -95,11 +95,13 @@ namespace Gravedigger2026.Core.AutoManufacture
                 _warriorPool.Add(instance);
                 flushedIds?.Add(instance.Id);
                 count++;
+                var skillsSummary = SoldierSkillGrant.FormatSummary(instance.SoldierSkills);
                 Debug.Log(
                     $"[AutoManufacture] Pool+ {instance.Id} Name={instance.WarriorName} " +
                     $"Class={instance.ClassId} Appearance={instance.AppearanceId} " +
                     $"AttackMode={instance.AttackMode} SoulId='{instance.SoulId ?? string.Empty}' " +
-                    $"ControlCost={instance.ControlPowerCost} MaxHP={instance.RemainingHP}");
+                    $"ControlCost={instance.ControlPowerCost} MaxHP={instance.RemainingHP} " +
+                    $"Skills={skillsSummary}");
             }
 
             _tempWarehouse.Clear();
@@ -248,15 +250,29 @@ namespace Gravedigger2026.Core.AutoManufacture
                 draft.BodyLevels.Add(parts[i].BodyLevel);
             }
 
-            // Hook may mutate BaseStats later; FinalizeDraft applies appearance (incl. A-empty Undead).
+            // Hook may mutate BaseStats / ClassId (ForceClass); grant + appearance use post-hook ClassId.
             _magicBookHook.ApplySoldierManufactureEffects(draft);
+            if (_configs.TryGetClass(draft.ClassId, out var postClassRow) && postClassRow != null)
+            {
+                classRow = postClassRow;
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[AutoManufacture] Post-hook ClassConfig missing ClassId={draft.ClassId} " +
+                    $"draft={draft.TempId}; keep pre-hook class row for FinalizeDraft");
+            }
+
+            SoldierSkillGrant.GrantDefaultSkillsAtLevel1(draft.ClassId, _configs, draft.SoldierSkills);
+            _magicBookHook.ApplySoldierSkillLevelSecondPass(draft);
             FinalizeDraft(draft, classRow, raceRow);
             _tempWarehouse.Add(draft);
 
+            var skillsSummary = SoldierSkillGrant.FormatSummary(draft.SoldierSkills);
             Debug.Log(
                 $"[AutoManufacture] Crafted {draft.TempId} Class={draft.ClassId} AttackMode={draft.AttackMode} " +
                 $"Race={draft.RaceId} Appearance={draft.AppearanceId} Name={draft.WarriorName} " +
-                $"MaxHP={draft.MaxHP} Parts={string.Join(",", consumed)}");
+                $"MaxHP={draft.MaxHP} Skills={skillsSummary} Parts={string.Join(",", consumed)}");
             return true;
         }
 
@@ -589,7 +605,39 @@ namespace Gravedigger2026.Core.AutoManufacture
                 SourceSpiritCost = 0f
             };
             instance.SourceItemIds.AddRange(draft.ConsumedBodyPartIds);
+            CopySoldierSkills(draft.SoldierSkills, instance.SoldierSkills);
             return instance;
+        }
+
+        private static void CopySoldierSkills(
+            List<SoldierSkillEntry> source,
+            List<SoldierSkillEntry> dest)
+        {
+            if (dest == null)
+            {
+                return;
+            }
+
+            dest.Clear();
+            if (source == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var entry = source[i];
+                if (entry == null || string.IsNullOrEmpty(entry.SkillId))
+                {
+                    continue;
+                }
+
+                dest.Add(new SoldierSkillEntry
+                {
+                    SkillId = entry.SkillId,
+                    SkillLevel = entry.SkillLevel
+                });
+            }
         }
 
         private static string BuildWarriorName(RaceConfigRow raceRow, string raceId, string className)

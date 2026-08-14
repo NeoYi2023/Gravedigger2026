@@ -26,6 +26,13 @@ namespace Gravedigger2026.Core.PushMap
         private int _lockedLossOfControlTierId;
         private float _lockedTierChance;
         private int _pendingBossCount;
+        private float _combatStartRealtime;
+        private float _combatEndRealtime;
+        private int _monstersKilled;
+        private bool _isVictory;
+        private long _stageExpCredited;
+        private readonly Dictionary<string, int> _captureLootLedger =
+            new Dictionary<string, int>(StringComparer.Ordinal);
 
         public event Action<PushMapPhase> PhaseChanged;
         public event Action<int, int> ShieldChanged;
@@ -70,6 +77,26 @@ namespace Gravedigger2026.Core.PushMap
         public float LockedTierChance => _lockedTierChance;
         public int PendingBossCount => _pendingBossCount;
         public bool OutcomeSettled => _outcomeSettled;
+        public bool IsVictory => _isVictory;
+        public int MonstersKilled => _monstersKilled;
+        public long StageExpCredited => _stageExpCredited;
+
+        /// <summary>Seconds from StartBattle to Ended (0 if still in Combat).</summary>
+        public float CombatElapsedSeconds
+        {
+            get
+            {
+                if (!_active || Phase == PushMapPhase.Prepare)
+                {
+                    return 0f;
+                }
+
+                var end = _outcomeSettled ? _combatEndRealtime : Time.realtimeSinceStartup;
+                return Mathf.Max(0f, end - _combatStartRealtime);
+            }
+        }
+
+        public IReadOnlyDictionary<string, int> CaptureLootLedger => _captureLootLedger;
 
         /// <summary>Current uncaptured objective order; 0 = not started / none / all captured.</summary>
         public int CurrentObjectiveOrder => _currentObjectiveOrder;
@@ -98,6 +125,12 @@ namespace Gravedigger2026.Core.PushMap
             _shieldCap = 0;
             _outcomeSettled = false;
             _pendingBossCount = 0;
+            _combatStartRealtime = 0f;
+            _combatEndRealtime = 0f;
+            _monstersKilled = 0;
+            _isVictory = false;
+            _stageExpCredited = 0;
+            _captureLootLedger.Clear();
             _lockedLossOfControlDegree = 0f;
             _lockedLossOfControlTierId = 0;
             _lockedTierChance = 0f;
@@ -162,6 +195,12 @@ namespace Gravedigger2026.Core.PushMap
             Phase = PushMapPhase.Combat;
             PhaseChanged?.Invoke(Phase);
             ShieldChanged?.Invoke(_shield, _shieldCap);
+            _combatStartRealtime = Time.realtimeSinceStartup;
+            _combatEndRealtime = 0f;
+            _monstersKilled = 0;
+            _isVictory = false;
+            _stageExpCredited = 0;
+            _captureLootLedger.Clear();
             Debug.Log(
                 $"[PushMapSession] StartBattle Shield={_shield} Deployed={deployedSoldierCount} " +
                 $"Degree={_lockedLossOfControlDegree:0.###} Tier={_lockedLossOfControlTierId} " +
@@ -573,7 +612,10 @@ namespace Gravedigger2026.Core.PushMap
                 IsPermanentDead = false,
                 IsRebel = false,
                 RaceId = warrior.RaceId ?? string.Empty,
-                GemIds = warrior.GemIds != null ? new List<string>(warrior.GemIds) : new List<string>()
+                GemIds = warrior.GemIds != null ? new List<string>(warrior.GemIds) : new List<string>(),
+                SoldierSkills = warrior.SoldierSkills != null
+                    ? new List<SoldierSkillEntry>(warrior.SoldierSkills)
+                    : new List<SoldierSkillEntry>()
             };
 
             _warriors[warrior.Id] = state;
@@ -746,7 +788,8 @@ namespace Gravedigger2026.Core.PushMap
             if (monster.RemainingHp <= 0f)
             {
                 monster.IsAlive = false;
-                Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
+                _monstersKilled++;
+                Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) kills={_monstersKilled}");
                 MonsterKilled?.Invoke(monsterRuntimeId, warrior.WarriorId);
             }
 
@@ -774,6 +817,77 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             WarriorCombatDead?.Invoke(warrior.WarriorId);
+            TryEvaluateLoyalWipe();
+        }
+
+        /// <summary>Sync View rebel roll into rules state; may trigger loyal wipe LevelFailure.</summary>
+        public void SetWarriorRebel(string warriorId, bool isRebel)
+        {
+            if (!_active || Phase != PushMapPhase.Combat || string.IsNullOrEmpty(warriorId))
+            {
+                return;
+            }
+
+            if (!_warriors.TryGetValue(warriorId, out var state) || state == null)
+            {
+                return;
+            }
+
+            state.IsRebel = isRebel;
+            if (isRebel)
+            {
+                TryEvaluateLoyalWipe();
+            }
+        }
+
+        /// <summary>
+        /// LevelFailure when ≥1 warrior registered and no living loyal remains
+        /// (!IsRebel && !IsCombatDead && RemainingHp&gt;0).
+        /// </summary>
+        public void TryEvaluateLoyalWipe()
+        {
+            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled || _warriors.Count < 1)
+            {
+                return;
+            }
+
+            foreach (var pair in _warriors)
+            {
+                var w = pair.Value;
+                if (w != null && !w.IsRebel && !w.IsCombatDead && !w.IsPermanentDead && w.RemainingHp > 0f)
+                {
+                    return;
+                }
+            }
+
+            RequestLevelFailure("我方士兵全灭");
+        }
+
+        /// <summary>Accumulate CaptureLoot entries already credited to Warehouse (display only).</summary>
+        public void RecordCaptureLoot(IReadOnlyList<LootDropEntry> entries)
+        {
+            if (entries == null || entries.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var e = entries[i];
+                if (string.IsNullOrEmpty(e.Id) || e.Count < 1)
+                {
+                    continue;
+                }
+
+                if (_captureLootLedger.TryGetValue(e.Id, out var existing))
+                {
+                    _captureLootLedger[e.Id] = existing + e.Count;
+                }
+                else
+                {
+                    _captureLootLedger[e.Id] = e.Count;
+                }
+            }
         }
 
         private void EnterVictory()
@@ -784,14 +898,19 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             _outcomeSettled = true;
+            _isVictory = true;
+            _combatEndRealtime = Time.realtimeSinceStartup;
             Phase = PushMapPhase.Ended;
             PhaseChanged?.Invoke(Phase);
             var exp = Config != null ? Math.Max(0, Config.StageExpReward) : 0;
-            Debug.Log($"[PushMapSession] VictorySettled StageExpReward=+{exp} (Boss clear) — credit via presentation.");
+            _stageExpCredited = exp;
+            Debug.Log(
+                $"[PushMapSession] VictorySettled StageExpReward=+{exp} kills={_monstersKilled} " +
+                $"elapsed={CombatElapsedSeconds:0.##}s (Boss clear) — credit via presentation.");
             VictorySettled?.Invoke(exp);
         }
 
-        /// <summary>Shield ≤ 0 → LevelFailure (no stage Exp; §3.14 / §3.12).</summary>
+        /// <summary>Shield ≤ 0 or loyal wipe → LevelFailure (no stage Exp; §3.14 / §3.12).</summary>
         public void RequestLevelFailure(string reason = null)
         {
             if (!_active || _outcomeSettled)
@@ -800,10 +919,14 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             _outcomeSettled = true;
+            _isVictory = false;
+            _stageExpCredited = 0;
+            _combatEndRealtime = Time.realtimeSinceStartup;
             Phase = PushMapPhase.Ended;
             PhaseChanged?.Invoke(Phase);
             Debug.LogWarning(
-                $"[PushMapSession] LevelFailure{(string.IsNullOrEmpty(reason) ? string.Empty : ": " + reason)} — abort Level, no stage Exp (VictorySettled not fired).");
+                $"[PushMapSession] LevelFailure{(string.IsNullOrEmpty(reason) ? string.Empty : ": " + reason)} " +
+                $"kills={_monstersKilled} elapsed={CombatElapsedSeconds:0.##}s — abort Level, no stage Exp.");
             LevelFailureRequested?.Invoke();
         }
     }

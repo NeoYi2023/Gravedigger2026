@@ -34,6 +34,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public float BodyLife;
         public string[] SourceItemIds = Array.Empty<string>();
         public float SourceSpiritCost;
+        public SoldierSkillEntry[] SoldierSkills = Array.Empty<SoldierSkillEntry>();
     }
 
     [Serializable]

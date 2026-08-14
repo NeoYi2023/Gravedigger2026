@@ -278,7 +278,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 EquipStats = w.EquipStats,
                 BodyLife = w.BodyLife,
                 SourceItemIds = ToArray(w.SourceItemIds),
-                SourceSpiritCost = w.SourceSpiritCost
+                SourceSpiritCost = w.SourceSpiritCost,
+                SoldierSkills = ToSkillArray(w.SoldierSkills)
             };
         }
 
@@ -306,6 +307,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             CopyIds(dto.LockedEquipIds, w.LockedEquipIds);
             CopyIds(dto.GemIds, w.GemIds);
             CopyIds(dto.SourceItemIds, w.SourceItemIds);
+            CopySkills(dto.SoldierSkills, w.SoldierSkills);
             return w;
         }
 
@@ -334,6 +336,77 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                     dest.Add(source[i]);
                 }
             }
+        }
+
+        private static SoldierSkillEntry[] ToSkillArray(List<SoldierSkillEntry> list)
+        {
+            if (list == null || list.Count == 0)
+            {
+                return Array.Empty<SoldierSkillEntry>();
+            }
+
+            var count = 0;
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (IsPersistableSkill(list[i]))
+                {
+                    count++;
+                }
+            }
+
+            if (count == 0)
+            {
+                return Array.Empty<SoldierSkillEntry>();
+            }
+
+            var result = new SoldierSkillEntry[count];
+            var n = 0;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var entry = list[i];
+                if (!IsPersistableSkill(entry))
+                {
+                    continue;
+                }
+
+                result[n++] = CloneSkill(entry);
+            }
+
+            return result;
+        }
+
+        private static void CopySkills(SoldierSkillEntry[] source, List<SoldierSkillEntry> dest)
+        {
+            dest.Clear();
+            if (source == null || source.Length == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < source.Length; i++)
+            {
+                var entry = source[i];
+                if (!IsPersistableSkill(entry))
+                {
+                    continue;
+                }
+
+                dest.Add(CloneSkill(entry));
+            }
+        }
+
+        private static bool IsPersistableSkill(SoldierSkillEntry entry)
+        {
+            return entry != null && !string.IsNullOrEmpty(entry.SkillId);
+        }
+
+        private static SoldierSkillEntry CloneSkill(SoldierSkillEntry entry)
+        {
+            return new SoldierSkillEntry
+            {
+                SkillId = entry.SkillId,
+                SkillLevel = entry.SkillLevel
+            };
         }
     }
 }

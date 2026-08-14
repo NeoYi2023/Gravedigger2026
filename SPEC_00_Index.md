@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.2
-**最后更新 / Last Updated:** 2026-08-13  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058）  
+**文档版本 / Document Version:** v0.82.25
+**最后更新 / Last Updated:** 2026-08-14  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -30,7 +30,7 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | 总索引、变更日志（本文件） |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | 三阶段开发流程与协作约定 |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | 游戏概述、平台与定位 |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战框架） |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战 / 自动制造 / 主角装备） |
 | 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | 技术规范、Demo 边界、配置表字段与工程约定（§14） |
 
 **建议阅读顺序：** 01 → 02 → 03 → 04。
@@ -42,7 +42,7 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | Master index, changelog |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | Three-phase workflow |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | Game overview |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree / PushMap framework) |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree / PushMap / AutoManufacture / ProtagonistEquipment) |
 | 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | Technical standards, Demo boundary, config tables + engineering rules (§14) |
 
 ---
@@ -65,6 +65,27 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-14 | v0.82.25 | `MonsterConfig.MonsterType`（怪物类型）：CSV `1`=普通 / `2`=精英 / `3`=BOSS；缺列/空→`Normal`；非法→加载失败；与 `PushMapSpawnConfig.IsBoss` 解耦（通关仍看刷怪行）；本批不驱动技能判定；Mode1+Mode2 样例 `Monster_01`–`10`=`1`、`Monster_11`=`3`；同步 SPEC_03 术语、SPEC_04 §9.19、CONTEXT |
+| 2026-08-14 | v0.82.24 | 魔法书职业进阶（方案 A）：扩展 `ForceClass`（必填 `ClassId`；可选 `RequireClassId` 精确匹配、`Chance`∈[0,1] 缺省=1 真正 roll）；四本 `MagicBook_*Advance`（战士/射手/法师/盗贼，`IsUnique=1` `IsProbabilistic=1` `Chance=0.25`）；Mode2 钩子落地并钩后重取 `classRow`；D-063；手验 Tools「增加魔法书」；同步 SPEC_03 §3.8/§3.15、SPEC_04 §6/§9.24、CONTEXT |
+| 2026-08-14 | v0.82.23 | 魔法书表增列 `IsProbabilistic`（概率型，`0\|1`）：`1`=概率触发标记，供后续判定读取；本轮不驱动效果；现有样例行均为 `0`；Mode1+Mode2 Excel/CSV + `MagicBookConfigRow` 加载；同步 SPEC_03 §3.15、SPEC_04 §9.24、CONTEXT |
+| 2026-08-14 | v0.82.22 | `ClassConfig.BaseClass`（基础职业）：CSV 中文 `战士\|射手\|法师\|盗贼` → 枚举；空/非法→`Unspecified`（Warning）；预留后续魔法书等条件，本片不驱动玩法；Mode1+Mode2 样例按主属性/盗贼系填满；同步 SPEC_03 §3.11、SPEC_04 §9.9b、CONTEXT |
+| 2026-08-14 | v0.82.21 | 士兵技能 SS-04：Mode2 AutoManufacture 第一次 `SoldierManufacture` 钩子返回后按最终 `ClassId` 授予 `DefaultSkillIds`@Lv1，再二次扫描 `SoldierSkillLevelAdd`（槽左→右；只升已有技能；钳制 SkillConfig 最小/最大级）；样例书 `MagicBook_SoldierSkillLevel`；手验复用 Tools「增加魔法书」（D-061）；D-062 **完成**；同步 SPEC_03 §3.8/§3.15、SPEC_04 §6/§9.9/§9.24 |
+| 2026-08-14 | v0.82.20 | 士兵技能 SS-03：Mode1 `TryManufacture`/`TryRemanufacture` 在 `ClassId` 定稿后由 `SoldierSkillGrant` 写入 `DefaultSkillIds`@Lv1；失控 `ΣSkillBonus` 按实例 `SoldierSkills` 查 `SkillConfig.LossOfControlChanceBonus`（灵魂/宝石 `Skills` 仍 TBD）；Mode2 授予仍待 SS-04；同步 SPEC_03 §3.8 D-062、SPEC_04 §6/§9.9/§9.9b |
+| 2026-08-14 | v0.82.19 | 士兵技能 SS-02：`WarriorInstance.SoldierSkills` + WarriorPool JSON 往返（`SoldierSkillEntry[]` / JsonUtility）；旧档缺字段=空列表；`RepairMissingStatSnapshots` 不清空技能；制造授予仍待 SS-03/04；同步 SPEC_03 §3.8 D-062、SPEC_04 §6/§9.9 |
+| 2026-08-14 | v0.82.18 | 士兵技能 SS-01：§3.8 增 D-062（P1 垂直待实现）；Mode1+Mode2 `Combat_SkillConfig` 加 `IconAssetId`、补 `Skill_01` Lv2；`ClassConfig.DefaultSkillIds` 样例仅战士=`Skill_01`；`SkillConfigRow` + `ConfigCsvRepository.LoadSkills` 复合主键；issues `.scratch/soldier-skills/`；同步 SPEC_03 §3.8 |
+| 2026-08-14 | v0.82.17 | ToolsPanel Demo GM（D-061 / UI-019）：「增加主角装备」「增加魔法书」打开 `GmGrantListPanel`；装备按 EquipId 去重点一次 `TryAcquire`；魔法书全表点一次 `TryEquip`（无仓库）；Dig HUD GM 保留；issues `.scratch/tools-panel-gm-grant/`（TP-00～02；方案 A）；同步 SPEC_03 §3.5/§3.6/§3.8、SPEC_04 §6、CONTEXT |
+| 2026-08-14 | v0.82.16 | 士兵技能体系规则录入：`SkillConfig` 为士兵技能权威表（复合主键 + IconAssetId；对齐磁盘列并补 §9.21b）；`ClassConfig.DefaultSkillIds`；实例 `SoldierSkills` 制造烘进、PermanentDeath 删除；Mode2 `SoldierSkillLevelAdd` 只升已有技能；Mode1 不读魔法书升技能；无经验升级；Demo 仍不施放；同步 SPEC_03 §3.1/§3.11/§3.12/§3.15、SPEC_04 §6/§9.9/§9.9b/§9.21/§9.21b/§9.24/§14、CONTEXT、spec-map |
+| 2026-08-14 | v0.82.15 | FormationClassZone 改为 WalkSurface 同形 IsoDiamond（方案 A）：废止 IsoTileYaw/OBB/`RotationYDegrees`；作者 MeshCollider；Play 关闭 Collider；Contains/螺旋走菱形数学；issues `.scratch/formation-class-zone-isodiamond/`（FZ-00～02）；同步 SPEC_03 §3.8 D-052/§3.15、SPEC_04 §6/§13、CONTEXT |
+| 2026-08-14 | v0.82.14 | 主角装备矿灯 `Equip_MinerLamp`：5 级；每级 Q4/Q5/Q6 生成权重累计 +10（缺席视为 0）；升下一级/转化经验均为 1；Dig HUD GM「获得矿灯」「划入矿灯升级」；D-060（PE-05～PE-08；方案 A）；同步 SPEC_03 §3.8/§3.10/§3.16、SPEC_04 §6/§9.6/§9.17/§9.25、CONTEXT |
+| 2026-08-14 | v0.82.11 | `ClassConfig.ClassLevel`（等级，仅展示）：UI-016 士兵卡职业名下显示 `Lv.N`；Mode1/Mode2 CSV 加列占位 0；同步 SPEC_03/04、CONTEXT |
+| 2026-08-14 | v0.82.10 | D-056 补齐亡灵基础外观 `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`：From-Art Prefab（根+Visual）+ Defend/UM Catalog 绑定；对应 Mode2 `Class_*_0` DefaultAppearanceId；未调用 GenerateAll |
+| 2026-08-14 | v0.82.9 | 主角装备 PE-04：Dig HUD GM「获得挖坟圈装备」「装备公共经验+50」「划入挖坟圈升级」；`DebugGrantCommonExp`；D-059 完成 |
+| 2026-08-14 | v0.82.8 | 主角装备 PE-03：`TechTreeService` Dig caps = 科技 AttributeModifiers + 仓内 Dig 域 EquipEffect（按键加法）；订阅装备 Changed；Dig 会话中刷新光标 |
+| 2026-08-14 | v0.82.7 | 主角装备 PE-02：`ProtagonistEquipmentService`（Acquire/连升/满级转公共池/SpendCommonExp）+ PlayerPrefs 键；MetaShell 进档 Bind / 回档 Clear / 删档双模式清键 |
+| 2026-08-14 | v0.82.6 | 主角装备 PE-01：§3.8 增 D-059；Mode1+Mode2 落地 `Protagonist_ProtagonistEquipmentConfig`（样例 `Equip_DigRing` L1～3）；`ProtagonistEquipmentConfigRow` + `ConfigCsvRepository` 复合主键加载 |
+| 2026-08-14 | v0.82.5 | 主角装备规则录入（§3.16）：装备仓库 / 同 Id 转化 / EquipCommonExp / 等级；Dig 效果与科技加法叠加；表 `ProtagonistEquipmentConfig`（§9.25）；并行于 MagicBook；获取来源与制造·战斗 Token TBD；同步 SPEC_03/04、CONTEXT、spec-map |
+| 2026-08-14 | v0.82.4 | Dig：不生成地图 Digger；障碍仅 Grave；HUD 左上 60×60 头像框；DigReward 飞向头像框；同步 SPEC_03 §3.10、SPEC_04 §6/§9.2、CONTEXT |
+| 2026-08-14 | v0.82.3 | PushMap 结算完善：忠诚全灭失败；战斗耗时/击杀统计；UI-017 战斗结算 + UI-018 奖励弹窗（Exp+CaptureLoot）；胜负 Continue → LevelSelect；同步 SPEC_03 §3.9/§3.14、SPEC_04 §6/§9.22、CONTEXT |
 | 2026-08-13 | v0.82.2 | Mode2 推图战关卡 2/3 地图接线：`PushMap_02/03` → `PushMap_Demo_02/03`；运行时须 `DefendPrefabCatalog.Maps` 绑定（不扫文件夹）；`CatalogExtraMapIds` 含 Demo_01–03 防 GenerateAll 冲掉；同步 SPEC_04 §9.22、CONTEXT |
 | 2026-08-13 | v0.82.1 | `CameraFollowPath` Bake 改为相邻作者路点世界 XZ 直线按间距采样（难度 2，方案 A）：不再用 NavMesh/轴对齐格心 A*；拐弯由作者路点表达；直线可穿 AirWall；倾斜走廊与路点共线；同步 SPEC_03 §3.14、SPEC_04 §9.22、CONTEXT |
 | 2026-08-13 | v0.82.0 | 魔法书「战士强化」（难度 2，方案 A）：扩展 `StatMul`（可选 `ClassId`、`Stat=Primary`）；Mode2 表行 `MagicBook_WarriorEnhance` 可叠；`Primary` 按躯体 Σ StatBonus(职业主属性)×(Mul−1) 加算写入 Base；落地 handler + Dig HUD GM；D-058；同步 SPEC_03 §3.8/§3.10/§3.15、SPEC_04 §6/§9.24、CONTEXT |
@@ -268,6 +289,27 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-14 | v0.82.25 | `MonsterConfig.MonsterType`: CSV `1`=Normal / `2`=Elite / `3`=Boss; missing/empty → `Normal`; illegal → load fail; decoupled from `PushMapSpawnConfig.IsBoss` (clear still uses spawn row); this slice does not drive skill filters; Mode1+Mode2 samples `Monster_01`–`10`=`1`, `Monster_11`=`3`; synced SPEC_03 glossary, SPEC_04 §9.19, CONTEXT |
+| 2026-08-14 | v0.82.24 | MagicBook class-advance (Approach A): extend `ForceClass` (required `ClassId`; optional exact `RequireClassId`, `Chance`∈[0,1] default 1 actually rolls); four `MagicBook_*Advance` books (Warrior/Archer/Mage/Rogue, `IsUnique=1` `IsProbabilistic=1` `Chance=0.25`); Mode2 hook lands and re-resolves `classRow` after hook; D-063; hand-check Tools Grant MagicBook; synced SPEC_03 §3.8/§3.15, SPEC_04 §6/§9.24, CONTEXT |
+| 2026-08-14 | v0.82.23 | MagicBookConfig adds `IsProbabilistic` (ZH 概率型, `0\|1`): `1` = chance-trigger marker for later judgment; this round does not drive effects; existing sample rows are `0`; Mode1+Mode2 Excel/CSV + `MagicBookConfigRow` load; synced SPEC_03 §3.15, SPEC_04 §9.24, CONTEXT |
+| 2026-08-14 | v0.82.22 | `ClassConfig.BaseClass`: CSV Chinese `战士\|射手\|法师\|盗贼` → enum; empty/illegal → `Unspecified` (Warning); reserved for future MagicBook conditions; this slice does not drive gameplay; Mode1+Mode2 samples filled by PrimaryStat / rogue-line; synced SPEC_03 §3.11, SPEC_04 §9.9b, CONTEXT |
+| 2026-08-14 | v0.82.21 | Soldier-skill SS-04: Mode2 AutoManufacture grants `DefaultSkillIds`@Lv1 from final `ClassId` after the first `SoldierManufacture` hook returns, then second-pass `SoldierSkillLevelAdd` (slots left→right; existing skills only; clamp to SkillConfig min/max); sample book `MagicBook_SoldierSkillLevel`; hand-check via Tools Grant MagicBook (D-061); D-062 **done**; synced SPEC_03 §3.8/§3.15, SPEC_04 §6/§9.9/§9.24 |
+| 2026-08-14 | v0.82.20 | Soldier-skill SS-03: Mode1 `TryManufacture`/`TryRemanufacture` grants `DefaultSkillIds`@Lv1 via `SoldierSkillGrant` after `ClassId` is final; LossOfControl `ΣSkillBonus` sums `SkillConfig.LossOfControlChanceBonus` from instance `SoldierSkills` (Soul/Gem `Skills` still TBD); Mode2 grant still SS-04; synced SPEC_03 §3.8 D-062, SPEC_04 §6/§9.9/§9.9b |
+| 2026-08-14 | v0.82.19 | Soldier-skill SS-02: `WarriorInstance.SoldierSkills` + WarriorPool JSON roundtrip (`SoldierSkillEntry[]` / JsonUtility); missing field on old saves → empty list; `RepairMissingStatSnapshots` does not clear skills; manufacture grant still SS-03/04; synced SPEC_03 §3.8 D-062, SPEC_04 §6/§9.9 |
+| 2026-08-14 | v0.82.18 | Soldier-skill SS-01: §3.8 adds D-062 (P1 vertical pending); Mode1+Mode2 `Combat_SkillConfig` `IconAssetId` + `Skill_01` Lv2; `ClassConfig.DefaultSkillIds` sample Warrior=`Skill_01` only; `SkillConfigRow` + `ConfigCsvRepository.LoadSkills` composite PK; issues `.scratch/soldier-skills/`; synced SPEC_03 §3.8 |
+| 2026-08-14 | v0.82.17 | ToolsPanel Demo GM (D-061 / UI-019): "Grant Protagonist Equipment" / "Grant MagicBook" open `GmGrantListPanel`; distinct EquipId → `TryAcquire`; MagicBook table → `TryEquip` (no warehouse); Dig HUD GM kept; issues `.scratch/tools-panel-gm-grant/` (TP-00–02; Approach A); synced SPEC_03 §3.5/§3.6/§3.8, SPEC_04 §6, CONTEXT |
+| 2026-08-14 | v0.82.16 | Soldier-skill rules: `SkillConfig` is soldier-skill authority (composite PK + IconAssetId; align on-disk columns + §9.21b); `ClassConfig.DefaultSkillIds`; instance `SoldierSkills` baked at manufacture, dropped on PermanentDeath; Mode2 `SoldierSkillLevelAdd` only raises existing skills; Mode1 ignores MagicBook skill level-up; no exp upgrade; Demo still no cast; synced SPEC_03 §3.1/§3.11/§3.12/§3.15, SPEC_04 §6/§9.9/§9.9b/§9.21/§9.21b/§9.24/§14, CONTEXT, spec-map |
+| 2026-08-14 | v0.82.15 | FormationClassZone → WalkSurface-matching IsoDiamond (Approach A): drop IsoTileYaw/OBB/`RotationYDegrees`; authoring MeshCollider; Collider off in Play; Contains/spiral use diamond math; issues `.scratch/formation-class-zone-isodiamond/` (FZ-00–02); synced SPEC_03 §3.8 D-052/§3.15, SPEC_04 §6/§13, CONTEXT |
+| 2026-08-14 | v0.82.14 | ProtagonistEquipment Miner Lamp `Equip_MinerLamp`: 5 levels; Q4/Q5/Q6 spawn-weight cumulative +10 per level (absent=0); ExpToNext/ConvertExp=1; Dig HUD GM "Grant Miner Lamp" / "Spend Into Miner Lamp"; D-060 (PE-05–PE-08; Approach A); synced SPEC_03 §3.8/§3.10/§3.16, SPEC_04 §6/§9.6/§9.17/§9.25, CONTEXT |
+| 2026-08-14 | v0.82.11 | `ClassConfig.ClassLevel` (display-only grade): UI-016 soldier card shows `Lv.N` under class name; Mode1/Mode2 CSV column placeholder 0; synced SPEC_03/04, CONTEXT |
+| 2026-08-14 | v0.82.10 | D-056 add Undead base visuals `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`: From-Art Prefabs (root+Visual) + Defend/UM catalog binds; Mode2 `Class_*_0` DefaultAppearanceId; did not call GenerateAll |
+| 2026-08-14 | v0.82.9 | ProtagonistEquipment PE-04: Dig HUD GM grant Dig Ring / EquipCommonExp+50 / spend into Dig Ring; `DebugGrantCommonExp`; D-059 done |
+| 2026-08-14 | v0.82.8 | ProtagonistEquipment PE-03: `TechTreeService` Dig caps = tech AttributeModifiers + owned Dig-domain EquipEffect (additive per key); subscribe equipment Changed; refresh Dig cursor mid-session |
+| 2026-08-14 | v0.82.7 | ProtagonistEquipment PE-02: `ProtagonistEquipmentService` (Acquire / chain level-up / maxed→EquipCommonExp / SpendCommonExp) + PlayerPrefs keys; MetaShell Bind/Clear/Delete both modes |
+| 2026-08-14 | v0.82.6 | ProtagonistEquipment PE-01: §3.8 D-059; Mode1+Mode2 `Protagonist_ProtagonistEquipmentConfig` (sample `Equip_DigRing` L1–3); `ProtagonistEquipmentConfigRow` + `ConfigCsvRepository` composite-PK load |
+| 2026-08-14 | v0.82.5 | ProtagonistEquipment rules (§3.16): equipment warehouse / same-Id convert / EquipCommonExp / levels; Dig effects additive with tech; table `ProtagonistEquipmentConfig` (§9.25); parallel to MagicBook; acquire sources & Manufacture/Combat tokens TBD; synced SPEC_03/04, CONTEXT, spec-map |
+| 2026-08-14 | v0.82.4 | Dig: no map Digger; obstacles Graves only; HUD top-left 60×60 portrait; DigReward flies to portrait; synced SPEC_03 §3.10, SPEC_04 §6/§9.2, CONTEXT |
+| 2026-08-14 | v0.82.3 | PushMap settlement: loyal wipe fail; combat time/kill stats; UI-017 settlement + UI-018 reward (Exp+CaptureLoot); Continue → LevelSelect; synced SPEC_03 §3.9/§3.14, SPEC_04 §6/§9.22, CONTEXT |
 | 2026-08-13 | v0.82.2 | Mode2 PushMap Level 2/3 map wiring: `PushMap_02/03` → `PushMap_Demo_02/03`; runtime requires `DefendPrefabCatalog.Maps` bind (no folder scan); `CatalogExtraMapIds` includes Demo_01–03 so GenerateAll does not drop them; synced SPEC_04 §9.22, CONTEXT |
 | 2026-08-13 | v0.82.1 | `CameraFollowPath` Bake = world-XZ straight samples between author waypoints (diff 2, Approach A): drop NavMesh/axis-aligned cell-center A*; turns are author waypoints; straight may cross AirWall; tilted corridors stay collinear with waypoints; synced SPEC_03 §3.14, SPEC_04 §9.22, CONTEXT |
 | 2026-08-13 | v0.82.0 | MagicBook Warrior Enhance (diff 2, Approach A): extend `StatMul` (optional `ClassId`, `Stat=Primary`); Mode2 row `MagicBook_WarriorEnhance` stackable; `Primary` adds (Mul−1)×Σ body StatBonus(class PrimaryStat) into Base; handler + Dig HUD GM; D-058; synced SPEC_03 §3.8/§3.10/§3.15, SPEC_04 §6/§9.24, CONTEXT |

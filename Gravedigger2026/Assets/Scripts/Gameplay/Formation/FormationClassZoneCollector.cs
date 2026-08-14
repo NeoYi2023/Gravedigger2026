@@ -8,7 +8,7 @@ namespace Gravedigger2026.Gameplay.Formation
 {
     /// <summary>
     /// Briefly Instantiates BattleMap Prefab, snapshots FormationClassZone markers
-    /// into map-center-relative data, then destroys (SPEC_03 §3.15 AM-06).
+    /// into map-center-relative IsoDiamond data, then destroys (SPEC_03 §3.15 AM-06 / FZ-01).
     /// </summary>
     public static class FormationClassZoneCollector
     {
@@ -77,8 +77,7 @@ namespace Gravedigger2026.Gameplay.Formation
                     world.x - mapCenter.x,
                     world.z - mapCenter.z,
                     half.x,
-                    half.y,
-                    zone.transform.eulerAngles.y));
+                    half.y));
             }
         }
     }

@@ -14,6 +14,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         [SerializeField] private Image _background;
         [SerializeField] private Text _questionMark;
         [SerializeField] private Text _className;
+        [SerializeField] private Text _classLevel;
         [SerializeField] private Image _idleThumbnail;
         [SerializeField] private Text _amplifyLabel;
 
@@ -27,24 +28,33 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             Image background,
             Text questionMark,
             Text className,
+            Text classLevel,
             Image idleThumbnail,
             Text amplifyLabel)
         {
             _background = background;
             _questionMark = questionMark;
             _className = className;
+            _classLevel = classLevel;
             _idleThumbnail = idleThumbnail;
             _amplifyLabel = amplifyLabel;
             _rect = transform as RectTransform;
         }
 
-        public void BindMystery(string warriorId, string className)
+        public void BindMystery(string warriorId, string className, int classLevel)
         {
             _warriorId = warriorId ?? string.Empty;
             if (_className != null)
             {
                 _className.text = className ?? string.Empty;
                 _className.gameObject.SetActive(true);
+            }
+
+            if (_classLevel != null)
+            {
+                var level = classLevel < 0 ? 0 : classLevel;
+                _classLevel.text = "Lv." + level;
+                _classLevel.gameObject.SetActive(true);
             }
 
             if (_questionMark != null)

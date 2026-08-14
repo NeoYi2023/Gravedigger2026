@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.Globalization;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Tech
 {
     /// <summary>
-    /// Save-scoped TechTree learn / DigProtagonistCapabilities recalc (SPEC_03 §3.13 / Approach A).
+    /// Save-scoped TechTree learn / DigProtagonistCapabilities recalc
+    /// (SPEC_03 §3.13 / §3.16 — tech + Dig-domain protagonist gear, Approach A / PE-03).
     /// </summary>
     public sealed class TechTreeService
     {
@@ -20,6 +22,7 @@ namespace Gravedigger2026.Core.Tech
 
         private ConfigCsvRepository _configs;
         private ProtagonistProgressService _progress;
+        private ProtagonistEquipmentService _equipment;
         private DigProtagonistCapabilities _capabilities = new DigProtagonistCapabilities();
 
         public DigProtagonistCapabilities Capabilities => _capabilities;
@@ -32,6 +35,26 @@ namespace Gravedigger2026.Core.Tech
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _progress = progress ?? throw new ArgumentNullException(nameof(progress));
+        }
+
+        /// <summary>
+        /// Optional Dig-domain gear source for caps merge (SPEC_03 §3.16). Subscribe to warehouse Changed.
+        /// </summary>
+        public void BindEquipment(ProtagonistEquipmentService equipment)
+        {
+            if (_equipment != null)
+            {
+                _equipment.Changed -= HandleEquipmentChanged;
+            }
+
+            _equipment = equipment;
+            if (_equipment != null)
+            {
+                _equipment.Changed += HandleEquipmentChanged;
+            }
+
+            RecalcCapabilities();
+            Changed?.Invoke();
         }
 
         public void ResetForNewSave()
@@ -206,6 +229,12 @@ namespace Gravedigger2026.Core.Tech
             return false;
         }
 
+        private void HandleEquipmentChanged()
+        {
+            RecalcCapabilities();
+            Changed?.Invoke();
+        }
+
         private void RecalcCapabilities()
         {
             var sums = new Dictionary<string, float>(StringComparer.Ordinal);
@@ -221,11 +250,111 @@ namespace Gravedigger2026.Core.Tech
 
                     AccumulateModifiers(effect.AttributeModifiers, sums);
                 }
+
+                AccumulateOwnedDigEquipEffects(sums);
             }
 
-            _capabilities = DigProtagonistCapabilities.FromAttributeSums(
+            var next = DigProtagonistCapabilities.FromAttributeSums(
                 sums,
                 _configs != null ? _configs.GetAllGraveQualityIds() : null);
+            // Mutate in place so DigSession holding Capabilities reference stays live (PE-03).
+            CopyCapabilities(next, _capabilities);
+        }
+
+        private void AccumulateOwnedDigEquipEffects(Dictionary<string, float> sums)
+        {
+            if (_equipment == null || _configs == null)
+            {
+                return;
+            }
+
+            var owned = _equipment.OwnedEquips;
+            for (var i = 0; i < owned.Count; i++)
+            {
+                var piece = owned[i];
+                if (piece == null || string.IsNullOrEmpty(piece.EquipId))
+                {
+                    continue;
+                }
+
+                if (!_configs.TryGetProtagonistEquipment(piece.EquipId, piece.Level, out var row)
+                    || row == null)
+                {
+                    continue;
+                }
+
+                if (!EffectDomainIncludesDig(row.EffectDomain))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(row.EquipEffect))
+                {
+                    continue;
+                }
+
+                AccumulateModifiers(row.EquipEffect, sums);
+            }
+        }
+
+        private static bool EffectDomainIncludesDig(string effectDomain)
+        {
+            if (string.IsNullOrEmpty(effectDomain))
+            {
+                return false;
+            }
+
+            var segments = effectDomain.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < segments.Length; i++)
+            {
+                if (string.Equals(segments[i].Trim(), "Dig", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void CopyCapabilities(DigProtagonistCapabilities source, DigProtagonistCapabilities dest)
+        {
+            if (source == null || dest == null)
+            {
+                return;
+            }
+
+            dest.DigDamage = source.DigDamage;
+            dest.DigDurationReductionSum = source.DigDurationReductionSum;
+            dest.DigCursorRadius = source.DigCursorRadius;
+            dest.DigStageDurationBonus = source.DigStageDurationBonus;
+            dest.DiggableQualityIds.Clear();
+            foreach (var id in source.DiggableQualityIds)
+            {
+                if (!string.IsNullOrEmpty(id))
+                {
+                    dest.DiggableQualityIds.Add(id);
+                }
+            }
+
+            if (dest.GraveSpawnWeightBonus == null)
+            {
+                dest.GraveSpawnWeightBonus = new Dictionary<string, float>(StringComparer.Ordinal);
+            }
+            else
+            {
+                dest.GraveSpawnWeightBonus.Clear();
+            }
+
+            if (source.GraveSpawnWeightBonus != null)
+            {
+                foreach (var kv in source.GraveSpawnWeightBonus)
+                {
+                    if (!string.IsNullOrEmpty(kv.Key))
+                    {
+                        dest.GraveSpawnWeightBonus[kv.Key] = kv.Value;
+                    }
+                }
+            }
         }
 
         private static void AccumulateModifiers(string encoded, Dictionary<string, float> sums)

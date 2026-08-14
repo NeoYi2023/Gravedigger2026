@@ -4,15 +4,19 @@ using System.Collections.Generic;
 namespace Gravedigger2026.Core.Dig
 {
     /// <summary>
-    /// SPEC_03 §3.10 / SPEC_04 §9.6 — derived from TechEffect AttributeModifiers (Approach A / UI-012).
+    /// SPEC_03 §3.10 / §3.16 / SPEC_04 §9.6 — tech AttributeModifiers + Dig-domain EquipEffect (additive).
     /// </summary>
     public sealed class DigProtagonistCapabilities
     {
+        public const string GraveSpawnWeightBonusPrefix = "GraveSpawnWeightBonus_";
+
         public float DigDamage;
         public float DigDurationReductionSum;
         public float DigCursorRadius;
         public HashSet<string> DiggableQualityIds = new HashSet<string>(StringComparer.Ordinal);
         public float DigStageDurationBonus;
+        public Dictionary<string, float> GraveSpawnWeightBonus =
+            new Dictionary<string, float>(StringComparer.Ordinal);
 
         public float DigActionDuration => Math.Max(0.1f, 0.8f - DigDurationReductionSum);
 
@@ -54,10 +58,35 @@ namespace Gravedigger2026.Core.Dig
                 {
                     caps.DigStageDurationBonus = stageBonus;
                 }
+
+                foreach (var kv in sums)
+                {
+                    if (string.IsNullOrEmpty(kv.Key)
+                        || !kv.Key.StartsWith(GraveSpawnWeightBonusPrefix, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var qualityId = kv.Key.Substring(GraveSpawnWeightBonusPrefix.Length);
+                    if (!string.IsNullOrEmpty(qualityId))
+                    {
+                        caps.GraveSpawnWeightBonus[qualityId] = kv.Value;
+                    }
+                }
             }
 
             FillDiggableQualities(caps, allQualityIds);
             return caps;
+        }
+
+        public float GetGraveSpawnWeightBonus(string qualityId)
+        {
+            if (string.IsNullOrEmpty(qualityId) || GraveSpawnWeightBonus == null)
+            {
+                return 0f;
+            }
+
+            return GraveSpawnWeightBonus.TryGetValue(qualityId, out var value) ? value : 0f;
         }
 
         private static void FillDiggableQualities(DigProtagonistCapabilities caps, IEnumerable<string> allQualityIds)

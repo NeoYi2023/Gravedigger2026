@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.PushMap;
 using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
@@ -50,6 +52,7 @@ namespace Gravedigger2026.Meta
         private readonly AutoManufacturePresentationFlags _autoMfgPresentationFlags =
             new AutoManufacturePresentationFlags();
         private SpecialEquipSlotsService _specialEquipSlots;
+        private ProtagonistEquipmentService _protagonistEquipment;
         private readonly AutoManufactureBatchRecordService _autoManufactureBatchRecord =
             new AutoManufactureBatchRecordService();
         private BattleFormationService _formation;
@@ -65,6 +68,7 @@ namespace Gravedigger2026.Meta
         public WarriorPoolService WarriorPool => _warriorPool;
         public BattleFormationService Formation => _formation;
         public SpecialEquipSlotsService SpecialEquipSlots => _specialEquipSlots;
+        public ProtagonistEquipmentService ProtagonistEquipment => _protagonistEquipment;
         public AutoManufactureBatchRecordService AutoManufactureBatchRecord => _autoManufactureBatchRecord;
 
         private void Awake()
@@ -75,6 +79,8 @@ namespace Gravedigger2026.Meta
             _formation = new BattleFormationService(_warriorPool);
             _manufacture = new ManufactureService(_configs, _warehouse, _warriorPool);
             _specialEquipSlots = new SpecialEquipSlotsService(_configs);
+            _protagonistEquipment = new ProtagonistEquipmentService(_configs);
+            _techTree.BindEquipment(_protagonistEquipment);
             var magicBookHook = new SoldierManufactureMagicBookHook(_specialEquipSlots, _configs);
             _autoManufacture = new AutoManufactureService(
                 _configs, _warehouse, _tempWarriorWarehouse, _warriorPool, magicBookHook);
@@ -107,7 +113,8 @@ namespace Gravedigger2026.Meta
                         _techTree,
                         HandleDigSummaryConfirmed,
                         SetStagePresentationActive,
-                        _specialEquipSlots));
+                        _specialEquipSlots,
+                        _protagonistEquipment));
             }
             else
             {
@@ -172,8 +179,8 @@ namespace Gravedigger2026.Meta
                         _formation,
                         _warehouse,
                         _dungeonUnlocks,
-                        HandleDefendVictory,
-                        HandleDefendLevelFailure,
+                        HandlePushMapVictoryContinue,
+                        HandlePushMapFailureContinue,
                         SetStagePresentationActive));
             }
             else
@@ -200,7 +207,10 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.DebugAdvanceStageRequested += HandleDebugAdvanceStage;
                 _inSaveShellView.SettingsRequested += HandleSettings;
                 _inSaveShellView.LevelRequested += HandleLevel;
+                _inSaveShellView.GrantProtagonistEquipmentRequested += HandleGrantProtagonistEquipment;
+                _inSaveShellView.GrantMagicBookRequested += HandleGrantMagicBook;
                 _inSaveShellView.LevelSelectPicked += HandleLevelSelectPicked;
+                _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
             }
 
             if (_techTreeCanvasView != null)
@@ -238,6 +248,7 @@ namespace Gravedigger2026.Meta
             _warriorPool.ClearBound();
             _dungeonUnlocks.ClearBound();
             _specialEquipSlots?.ClearBound();
+            _protagonistEquipment?.ClearBound();
             _autoManufactureBatchRecord.ClearBound();
             _campaignMode.Clear();
             SetStagePresentationActive(false);
@@ -268,6 +279,7 @@ namespace Gravedigger2026.Meta
             _formation?.BindSlot(slotIndex, mode);
             _dungeonUnlocks.BindSlot(slotIndex, mode);
             _specialEquipSlots?.BindSlot(slotIndex, mode);
+            _protagonistEquipment?.BindSlot(slotIndex, mode);
             _autoManufactureBatchRecord.BindSlot(slotIndex, mode);
             if (!_configs.TryLoadAll(mode))
             {
@@ -383,6 +395,7 @@ namespace Gravedigger2026.Meta
             BattleFormationService.DeleteSlotData(slotIndex);
             DungeonUnlockService.DeleteSlotData(slotIndex);
             SpecialEquipSlotsService.DeleteSlotData(slotIndex);
+            ProtagonistEquipmentService.DeleteSlotData(slotIndex);
             AutoManufactureBatchRecordService.DeleteSlotData(slotIndex);
             if (_saveSelectView != null)
             {
@@ -482,6 +495,60 @@ namespace Gravedigger2026.Meta
             AdvanceStageFromGameplay();
         }
 
+        private void HandlePushMapVictoryContinue()
+        {
+            if (_levelDriver != null)
+            {
+                _levelDriver.CompleteLevelAfterBattleSettlement();
+            }
+
+            OpenLevelSelectPanel();
+        }
+
+        private void HandlePushMapFailureContinue(string reason)
+        {
+            if (_levelDriver != null)
+            {
+                _levelDriver.AbortLevelAsFailure(reason);
+            }
+
+            OpenLevelSelectPanel();
+        }
+
+        private void OpenLevelSelectPanel()
+        {
+            if (!_configs.IsLoaded)
+            {
+                _configs.TryLoadAll();
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.HideToolsPanel();
+                _inSaveShellView.HideGmGrantListPanel();
+            }
+
+            var levelIds = _configs.GetDistinctLevelIds();
+            if (levelIds.Count == 0)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("当前模式无可用关卡");
+                }
+
+                return;
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.ShowLevelSelectPanel(levelIds);
+            }
+            else if (_toastView != null)
+            {
+                _toastView.Show("关卡列表 Prefab 未绑定");
+            }
+        }
+
         private void HandlePushMapModeConfirmed(string gameplayConfigId)
         {
             if (_levelDriver == null)
@@ -561,6 +628,7 @@ namespace Gravedigger2026.Meta
                 if (_inSaveShellView != null)
                 {
                     _inSaveShellView.HideToolsPanel();
+                    _inSaveShellView.HideGmGrantListPanel();
                 }
 
                 return;
@@ -582,6 +650,29 @@ namespace Gravedigger2026.Meta
 
         private void HandleLevel()
         {
+            OpenLevelSelectPanel();
+        }
+
+        private enum GmGrantKind
+        {
+            Equip,
+            MagicBook
+        }
+
+        private GmGrantKind _gmGrantKind;
+
+        private void HandleGrantProtagonistEquipment()
+        {
+            OpenGmGrantList(GmGrantKind.Equip);
+        }
+
+        private void HandleGrantMagicBook()
+        {
+            OpenGmGrantList(GmGrantKind.MagicBook);
+        }
+
+        private void OpenGmGrantList(GmGrantKind kind)
+        {
             if (!_configs.IsLoaded)
             {
                 _configs.TryLoadAll();
@@ -590,26 +681,150 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.HideToolsPanel();
+                _inSaveShellView.HideLevelSelectPanel();
             }
 
-            var levelIds = _configs.GetDistinctLevelIds();
-            if (levelIds.Count == 0)
+            _gmGrantKind = kind;
+            var title = kind == GmGrantKind.Equip ? "增加主角装备" : "增加魔法书";
+            var items = kind == GmGrantKind.Equip
+                ? BuildProtagonistEquipmentGrantItems()
+                : BuildMagicBookGrantItems();
+
+            if (items.Count == 0)
             {
                 if (_toastView != null)
                 {
-                    _toastView.Show("当前模式无可用关卡");
+                    _toastView.Show(kind == GmGrantKind.Equip
+                        ? "当前模式无主角装备"
+                        : "当前模式无魔法书");
                 }
 
                 return;
             }
 
-            if (_inSaveShellView != null)
+            if (_inSaveShellView != null && _inSaveShellView.HasGmGrantListPanel)
             {
-                _inSaveShellView.ShowLevelSelectPanel(levelIds);
+                _inSaveShellView.ShowGmGrantListPanel(title, items);
             }
             else if (_toastView != null)
             {
-                _toastView.Show("关卡列表 Prefab 未绑定");
+                _toastView.Show("发放列表 Prefab 未绑定");
+            }
+        }
+
+        private List<GmGrantListItem> BuildProtagonistEquipmentGrantItems()
+        {
+            var byId = new Dictionary<string, GmGrantListItem>(System.StringComparer.Ordinal);
+            var order = new List<string>();
+            foreach (var row in _configs.ProtagonistEquipmentRows)
+            {
+                if (row == null || string.IsNullOrEmpty(row.EquipId))
+                {
+                    continue;
+                }
+
+                var id = row.EquipId.Trim();
+                if (id.Length == 0)
+                {
+                    continue;
+                }
+
+                var label = string.IsNullOrEmpty(row.DisplayName) ? id : row.DisplayName;
+                if (!byId.ContainsKey(id))
+                {
+                    byId[id] = new GmGrantListItem(id, label);
+                    order.Add(id);
+                    continue;
+                }
+
+                if (row.EquipLevel == 1)
+                {
+                    byId[id] = new GmGrantListItem(id, label);
+                }
+            }
+
+            var items = new List<GmGrantListItem>(order.Count);
+            for (var i = 0; i < order.Count; i++)
+            {
+                items.Add(byId[order[i]]);
+            }
+
+            return items;
+        }
+
+        private List<GmGrantListItem> BuildMagicBookGrantItems()
+        {
+            var items = new List<GmGrantListItem>();
+            foreach (var row in _configs.MagicBooks)
+            {
+                if (row == null || string.IsNullOrEmpty(row.MagicBookId))
+                {
+                    continue;
+                }
+
+                var id = row.MagicBookId.Trim();
+                if (id.Length == 0)
+                {
+                    continue;
+                }
+
+                var label = string.IsNullOrEmpty(row.DisplayName) ? id : row.DisplayName;
+                items.Add(new GmGrantListItem(id, label));
+            }
+
+            return items;
+        }
+
+        private void HandleGmGrantItemPicked(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return;
+            }
+
+            if (_gmGrantKind == GmGrantKind.Equip)
+            {
+                if (_protagonistEquipment == null)
+                {
+                    return;
+                }
+
+                if (!_protagonistEquipment.TryAcquire(id, out var error))
+                {
+                    if (_toastView != null)
+                    {
+                        _toastView.Show(string.IsNullOrEmpty(error) ? "获得装备失败" : error);
+                    }
+
+                    return;
+                }
+
+                if (_toastView != null)
+                {
+                    _toastView.Show($"已获得装备 {id}");
+                }
+
+                return;
+            }
+
+            if (_specialEquipSlots == null)
+            {
+                return;
+            }
+
+            if (!_specialEquipSlots.TryEquip(id, out var equipError))
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show(string.IsNullOrEmpty(equipError) ? "装备魔法书失败" : equipError);
+                }
+
+                return;
+            }
+
+            if (_toastView != null)
+            {
+                _toastView.Show($"已装备魔法书 {id}");
             }
         }
 
@@ -646,6 +861,7 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.HideLevelSelectPanel();
+                _inSaveShellView.HideGmGrantListPanel();
                 _inSaveShellView.HideToolsPanel();
             }
 

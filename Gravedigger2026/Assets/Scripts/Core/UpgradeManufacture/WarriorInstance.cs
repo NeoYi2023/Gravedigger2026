@@ -32,5 +32,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
         /// <summary>Spirit cost paid at manufacture (recipe gate for remake).</summary>
         public float SourceSpiritCost;
+
+        /// <summary>
+        /// Baked soldier skills (SPEC_04 §9.9). Mode1/Mode2 grant DefaultSkillIds @ Lv1;
+        /// Mode2 may then SoldierSkillLevelAdd (SS-04).
+        /// </summary>
+        public readonly List<SoldierSkillEntry> SoldierSkills = new List<SoldierSkillEntry>();
     }
 }

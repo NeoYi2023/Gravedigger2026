@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.UpgradeManufacture;
 
 namespace Gravedigger2026.Core.AutoManufacture
 {
@@ -27,5 +28,9 @@ namespace Gravedigger2026.Core.AutoManufacture
         public string SoulId;
         public readonly List<string> ConsumedBodyPartIds = new List<string>();
         public readonly List<float> BodyLevels = new List<float>();
+        /// <summary>
+        /// DefaultSkillIds @ Lv1 after ClassId is final; Mode2 may SoldierSkillLevelAdd (SS-04).
+        /// </summary>
+        public readonly List<SoldierSkillEntry> SoldierSkills = new List<SoldierSkillEntry>();
     }
 }

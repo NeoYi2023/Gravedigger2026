@@ -75,6 +75,14 @@ MonoBehaviour:
     Prefab: {fileID: 5571087911832153802, guid: 32607818f01d5254a9b95f017004bc84, type: 3}
   - AppearanceId: App_99
     Prefab: {fileID: 5571087911832153802, guid: 96e393b6f2dee0945816140228b632f0, type: 3}
+  - AppearanceId: App_0_00
+    Prefab: {fileID: 3927253789114556784, guid: cc40d9452a5c4a818c4f4bcca8bead4c, type: 3}
+  - AppearanceId: App_0_10
+    Prefab: {fileID: 3927253789114556784, guid: fffc64525f004c269e5a367162309a39, type: 3}
+  - AppearanceId: App_0_20
+    Prefab: {fileID: 3927253789114556784, guid: 6c28d35d28b14ac39838a7b1df81e194, type: 3}
+  - AppearanceId: App_0_30
+    Prefab: {fileID: 3927253789114556784, guid: 19d25f2d80e04360a28f99ba5ea41d8f, type: 3}
   - AppearanceId: App_0_01
     Prefab: {fileID: 3927253789114556784, guid: 59ec2efb82a833e07e3e8ba68bbecbef, type: 3}
   - AppearanceId: App_0_02

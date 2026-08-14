@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
-    /// <summary>Simple DigReward flyer: lerp to digger then invoke credit callback.</summary>
+    /// <summary>Simple DigReward flyer: lerp to HUD portrait world target then invoke credit callback.</summary>
     public sealed class DigRewardFlyerView : MonoBehaviour
     {
         [SerializeField] private float _flySeconds = 0.45f;

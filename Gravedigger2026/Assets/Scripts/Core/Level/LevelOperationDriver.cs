@@ -140,6 +140,26 @@ namespace Gravedigger2026.Core.Level
         }
 
         /// <summary>
+        /// PushMap Demo: end Level after settlement UI without VictorySettlement placeholder toast.
+        /// </summary>
+        public void CompleteLevelAfterBattleSettlement()
+        {
+            if (!IsRunning && string.IsNullOrEmpty(ActiveLevelId))
+            {
+                return;
+            }
+
+            var levelId = ActiveLevelId;
+            ExitCurrentModule();
+            ActiveLevelId = null;
+            _stages = new List<LevelOperationConfigRow>();
+            _stageIndex = -1;
+            _currentContext = null;
+            Debug.Log($"[LevelOperationDriver] PushMap settlement complete — Level {levelId} ended (no VictorySettlement toast).");
+            StageChanged?.Invoke(null);
+        }
+
+        /// <summary>
         /// LevelFailure abort: exit current stage, end Level without VictorySettlement (SPEC_03 §3.9 / D-043).
         /// </summary>
         public void AbortLevelAsFailure(string reason)

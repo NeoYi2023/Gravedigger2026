@@ -30,8 +30,7 @@ namespace Gravedigger2026.Core.Dig
         private float _spawnInterval;
         private int _spawnCountPerInterval;
         private float _spawnAccumulator;
-        private float _diggerObstacleRadius = 0.8f;
-        private Vector3 _diggerPosition;
+        private Vector3 _mapCenter;
         private Vector2 _placeableHalfExtents = new Vector2(5f, 2.5f);
         private int _nextGraveId = 1;
         private bool _active;
@@ -74,20 +73,18 @@ namespace Gravedigger2026.Core.Dig
         public DigProtagonistCapabilities Capabilities => _caps;
         public DigStageRewardLedger Ledger => _ledger;
         public WarehouseService Warehouse => _warehouse;
-        public Vector3 DiggerPosition => _diggerPosition;
+        public Vector3 MapCenter => _mapCenter;
         public IReadOnlyList<DigGraveRuntime> Graves => _graves;
         public bool HasBusyGrave => _activeDigRemainingById.Count > 0;
 
         public void Begin(
             DigGameplayConfigRow config,
-            Vector3 diggerWorldPosition,
-            float diggerObstacleRadius,
+            Vector3 mapCenterWorldPosition,
             Vector2 placeableHalfExtents)
         {
             Stop();
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            _diggerPosition = diggerWorldPosition;
-            _diggerObstacleRadius = Mathf.Max(0.05f, diggerObstacleRadius);
+            _mapCenter = mapCenterWorldPosition;
             _placeableHalfExtents = new Vector2(
                 Mathf.Max(0.5f, placeableHalfExtents.x),
                 Mathf.Max(0.5f, placeableHalfExtents.y));
@@ -212,7 +209,7 @@ namespace Gravedigger2026.Core.Dig
             WarehouseChanged?.Invoke();
         }
 
-        /// <summary>Called by View when DigReward flyer arrives at digger.</summary>
+        /// <summary>Called by View when DigReward flyer arrives at HUD portrait.</summary>
         public void CreditPendingLoot(string lootDropEncoded)
         {
             if (string.IsNullOrEmpty(lootDropEncoded))
@@ -487,7 +484,10 @@ namespace Gravedigger2026.Core.Dig
 
         private bool TrySpawnOneGrave()
         {
-            var qualityId = WeightedFieldParser.PickWeighted(_spawnWeights, _rng);
+            var effective = WeightedFieldParser.OverlaySpawnWeightBonuses(
+                _spawnWeights,
+                _caps != null ? _caps.GraveSpawnWeightBonus : null);
+            var qualityId = WeightedFieldParser.PickWeighted(effective, _rng);
             if (string.IsNullOrEmpty(qualityId))
             {
                 return false;
@@ -525,20 +525,15 @@ namespace Gravedigger2026.Core.Dig
         private bool TrySamplePlaceablePosition(out Vector3 position, out float graveRadius)
         {
             graveRadius = 0.55f;
-            position = _diggerPosition;
+            position = _mapCenter;
 
             for (var attempt = 0; attempt < PlacementMaxRetries; attempt++)
             {
                 var x = (float)((_rng.NextDouble() * 2.0 - 1.0) * _placeableHalfExtents.x);
                 var z = (float)((_rng.NextDouble() * 2.0 - 1.0) * _placeableHalfExtents.y);
-                var candidate = new Vector3(_diggerPosition.x + x, _diggerPosition.y, _diggerPosition.z + z);
+                var candidate = new Vector3(_mapCenter.x + x, _mapCenter.y, _mapCenter.z + z);
 
-                if (!MapFootprintMath.ContainsXZ(_diggerPosition, _placeableHalfExtents, candidate))
-                {
-                    continue;
-                }
-
-                if (CirclesOverlap(candidate, graveRadius, _diggerPosition, _diggerObstacleRadius))
+                if (!MapFootprintMath.ContainsXZ(_mapCenter, _placeableHalfExtents, candidate))
                 {
                     continue;
                 }

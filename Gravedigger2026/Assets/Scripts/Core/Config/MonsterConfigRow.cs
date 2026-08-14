@@ -19,6 +19,8 @@ namespace Gravedigger2026.Core.Config
         public string DisplayName;
         public TargetSelect TargetSelect;
         public AttackMode AttackMode;
+        /// <summary>1=Normal / 2=Elite / 3=Boss; default Normal (SPEC_04 §9.19).</summary>
+        public MonsterType MonsterType;
         public AggroMode AggroMode;
         public float AlertRadius;
         public float BodyRadius;

@@ -20,6 +20,7 @@ namespace Gravedigger2026.Editor.Meta
         private const string RootPrefabPath = PrefabMetaDir + "/MetaShellRoot.prefab";
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
+        private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -44,6 +45,13 @@ namespace Gravedigger2026.Editor.Meta
                 {
                     EnsureLevelSelectPanelOnExistingPrefab();
                     EditorPrefs.SetBool(RegenPrefsKey, true);
+                }
+
+                var needsGmGrantRegen = !EditorPrefs.GetBool(GmGrantRegenPrefsKey, false);
+                if (needsGmGrantRegen)
+                {
+                    EnsureGmGrantListPanelOnExistingPrefab();
+                    EditorPrefs.SetBool(GmGrantRegenPrefsKey, true);
                 }
             };
         }
@@ -110,7 +118,82 @@ namespace Gravedigger2026.Editor.Meta
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("Gravedigger2026/Meta/Generate Meta Shell Prefabs + Boot Scene")]
+        [MenuItem("Gravedigger2026/Meta/Ensure GmGrantListPanel (UI-019)")]
+        public static void EnsureGmGrantListPanelMenu()
+        {
+            EnsureGmGrantListPanelOnExistingPrefab();
+            EditorPrefs.SetBool(GmGrantRegenPrefsKey, true);
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureGmGrantListPanelBatch</summary>
+        public static void EnsureGmGrantListPanelBatch()
+        {
+            EnsureGmGrantListPanelMenu();
+        }
+
+        /// <summary>
+        /// Surgical patch: ToolsPanel GM entries + GmGrantListPanel under InSaveShell.
+        /// </summary>
+        public static void EnsureGmGrantListPanelOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                var tools = inSave.GetComponentInChildren<ToolsPanelView>(true);
+                if (tools != null)
+                {
+                    PatchToolsPanelGrantButtons(tools);
+                }
+
+                var so = new SerializedObject(inSave);
+                var panelProp = so.FindProperty("_gmGrantListPanel");
+                GmGrantListPanelView grantPanel = null;
+                if (panelProp != null && panelProp.objectReferenceValue != null)
+                {
+                    grantPanel = panelProp.objectReferenceValue as GmGrantListPanelView;
+                }
+
+                if (grantPanel == null)
+                {
+                    var existing = inSave.transform.Find("GmGrantListPanel");
+                    if (existing != null)
+                    {
+                        Object.DestroyImmediate(existing.gameObject);
+                    }
+
+                    grantPanel = BuildGmGrantListPanel(inSave.transform);
+                    if (panelProp != null)
+                    {
+                        panelProp.objectReferenceValue = grantPanel;
+                        so.ApplyModifiedPropertiesWithoutUndo();
+                    }
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] GmGrantListPanel + ToolsPanel GM buttons patched onto MetaShellRoot.");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
         public static void GenerateAll()
         {
             EnsureFolders();
@@ -334,6 +417,7 @@ namespace Gravedigger2026.Editor.Meta
 
             var toolsPanel = BuildToolsPanel(root.transform);
             var levelSelect = BuildLevelSelectPanel(root.transform);
+            var gmGrant = BuildGmGrantListPanel(root.transform);
 
             var view = root.AddComponent<InSaveShellView>();
             var so = new SerializedObject(view);
@@ -346,6 +430,7 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_debugAdvanceStageButton").objectReferenceValue = advanceBtn.GetComponent<Button>();
             so.FindProperty("_toolsPanel").objectReferenceValue = toolsPanel;
             so.FindProperty("_levelSelectPanel").objectReferenceValue = levelSelect;
+            so.FindProperty("_gmGrantListPanel").objectReferenceValue = gmGrant;
             so.FindProperty("_placeholderView").objectReferenceValue = placeholder;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -446,28 +531,194 @@ namespace Gravedigger2026.Editor.Meta
         private static ToolsPanelView BuildToolsPanel(Transform parent)
         {
             var go = CreatePanel(parent, "ToolsPanel", new Color(0.08f, 0.09f, 0.12f, 0.95f));
-            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 220f));
+            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 380f));
 
             var title = CreateText(go.transform, "Title", "工具面板", 24, TextAnchor.UpperCenter);
             Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(240f, 36f));
 
             var settings = CreateButton(go.transform, "SettingsButton", "设置", new Color(0.30f, 0.40f, 0.55f, 1f));
-            Place(settings.GetComponent<RectTransform>(), new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.55f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(200f, 44f));
+            Place(settings.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -60f), new Vector2(200f, 44f));
 
             var level = CreateButton(go.transform, "LevelButton", "关卡", new Color(0.30f, 0.40f, 0.55f, 1f));
-            Place(level.GetComponent<RectTransform>(), new Vector2(0.5f, 0.32f), new Vector2(0.5f, 0.32f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(200f, 44f));
+            Place(level.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(200f, 44f));
+
+            var grantEquip = CreateButton(go.transform, "GrantProtagonistEquipmentButton", "增加主角装备", new Color(0.30f, 0.48f, 0.42f, 1f));
+            Place(grantEquip.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -164f), new Vector2(200f, 44f));
+
+            var grantBook = CreateButton(go.transform, "GrantMagicBookButton", "增加魔法书", new Color(0.38f, 0.36f, 0.52f, 1f));
+            Place(grantBook.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -216f), new Vector2(200f, 44f));
 
             var close = CreateButton(go.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
-            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.12f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(200f, 40f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -272f), new Vector2(200f, 40f));
 
             var view = go.AddComponent<ToolsPanelView>();
-            var so = new SerializedObject(view);
-            so.FindProperty("_root").objectReferenceValue = go;
-            so.FindProperty("_settingsButton").objectReferenceValue = settings.GetComponent<Button>();
-            so.FindProperty("_levelButton").objectReferenceValue = level.GetComponent<Button>();
-            so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
-            so.ApplyModifiedPropertiesWithoutUndo();
+            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, close);
             go.SetActive(false);
+            return view;
+        }
+
+        private static void PatchToolsPanelGrantButtons(ToolsPanelView view)
+        {
+            var go = view.gameObject;
+            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 380f));
+
+            var settings = go.transform.Find("SettingsButton")?.gameObject;
+            var level = go.transform.Find("LevelButton")?.gameObject;
+            var close = go.transform.Find("CloseButton")?.gameObject;
+            var grantEquip = go.transform.Find("GrantProtagonistEquipmentButton")?.gameObject;
+            var grantBook = go.transform.Find("GrantMagicBookButton")?.gameObject;
+
+            if (settings != null)
+            {
+                Place(settings.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -60f), new Vector2(200f, 44f));
+            }
+
+            if (level != null)
+            {
+                Place(level.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(200f, 44f));
+            }
+
+            if (grantEquip == null)
+            {
+                grantEquip = CreateButton(go.transform, "GrantProtagonistEquipmentButton", "增加主角装备", new Color(0.30f, 0.48f, 0.42f, 1f));
+            }
+
+            Place(grantEquip.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -164f), new Vector2(200f, 44f));
+
+            if (grantBook == null)
+            {
+                grantBook = CreateButton(go.transform, "GrantMagicBookButton", "增加魔法书", new Color(0.38f, 0.36f, 0.52f, 1f));
+            }
+
+            Place(grantBook.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -216f), new Vector2(200f, 44f));
+
+            if (close != null)
+            {
+                Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -272f), new Vector2(200f, 40f));
+            }
+
+            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, close);
+        }
+
+        private static void WireToolsPanelView(
+            ToolsPanelView view,
+            GameObject root,
+            GameObject settings,
+            GameObject level,
+            GameObject grantEquip,
+            GameObject grantBook,
+            GameObject close)
+        {
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            if (settings != null)
+            {
+                so.FindProperty("_settingsButton").objectReferenceValue = settings.GetComponent<Button>();
+            }
+
+            if (level != null)
+            {
+                so.FindProperty("_levelButton").objectReferenceValue = level.GetComponent<Button>();
+            }
+
+            var grantEquipProp = so.FindProperty("_grantProtagonistEquipmentButton");
+            if (grantEquipProp != null && grantEquip != null)
+            {
+                grantEquipProp.objectReferenceValue = grantEquip.GetComponent<Button>();
+            }
+
+            var grantBookProp = so.FindProperty("_grantMagicBookButton");
+            if (grantBookProp != null && grantBook != null)
+            {
+                grantBookProp.objectReferenceValue = grantBook.GetComponent<Button>();
+            }
+
+            if (close != null)
+            {
+                so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static GmGrantListPanelView BuildGmGrantListPanel(Transform parent)
+        {
+            var root = CreatePanel(parent, "GmGrantListPanel", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(root.GetComponent<RectTransform>());
+
+            var box = CreatePanel(root.transform, "Box", new Color(0.16f, 0.18f, 0.22f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 560f));
+
+            var title = CreateText(box.transform, "Title", "发放", 28, TextAnchor.MiddleCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(460f, 40f));
+
+            var scrollGo = new GameObject("GrantScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollGo.transform.SetParent(box.transform, false);
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            Place(scrollRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(460f, 400f));
+            scrollGo.GetComponent<Image>().color = new Color(0.10f, 0.11f, 0.14f, 1f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRt = content.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = new Vector2(0f, 0f);
+            var vlg = content.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(12, 12, 12, 12);
+            vlg.spacing = 10f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRt;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var rowTemplate = CreateButton(content.transform, "GrantRowTemplate", "Item", new Color(0.28f, 0.38f, 0.52f, 1f));
+            var rowLe = rowTemplate.GetComponent<LayoutElement>();
+            if (rowLe == null)
+            {
+                rowLe = rowTemplate.AddComponent<LayoutElement>();
+            }
+
+            rowLe.minHeight = 48f;
+            rowLe.preferredHeight = 48f;
+            rowTemplate.SetActive(false);
+
+            var emptyHint = CreateText(box.transform, "EmptyHint", "当前模式无可用项", 22, TextAnchor.MiddleCenter);
+            Place(emptyHint.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(420f, 60f));
+            emptyHint.gameObject.SetActive(false);
+
+            var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(180f, 44f));
+
+            var view = root.AddComponent<GmGrantListPanelView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_titleText").objectReferenceValue = title;
+            so.FindProperty("_listContent").objectReferenceValue = content.transform;
+            so.FindProperty("_rowTemplate").objectReferenceValue = rowTemplate;
+            so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
+            so.FindProperty("_emptyHintText").objectReferenceValue = emptyHint;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            root.SetActive(false);
             return view;
         }
 

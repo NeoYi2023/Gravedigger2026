@@ -26,7 +26,8 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// settles via scheme-D HitConfirm → MonsterDamageSettled (red popup/flash + provoke) /
     /// MonsterKilled(runtimeId, killerWarriorId). PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
     /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
-    /// VictorySettled → AddExperience → advance;
+    /// VictorySettled → AddExperience → settlement UI (UI-017) → reward (UI-018) → LevelSelect;
+    /// LevelFailure (Shield≤0 / loyal wipe) → settlement → LevelSelect; no Exp.
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
     /// PM-08: StartBattle NavMesh bake injects AirWall Not Walkable boxes (incl. 45°).
     /// MP-04: Bake AirWall → StaticBoxWalkableMask + FlowField Rebuild; advance via MassMoveScheduler
@@ -59,6 +60,9 @@ namespace Gravedigger2026.Gameplay.PushMap
         private DungeonUnlockService _dungeonUnlocks;
         private Action _onVictoryAdvance;
         private Action<string> _onLevelFailure;
+        private PushMapBattleSettlementView _settlementView;
+        private PushMapRewardPopupView _rewardView;
+        private string _pendingFailureReason;
 
         private PushMapSessionService _session;
         private GameObject _mapInstance;
@@ -181,6 +185,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.WarriorDamageSettled += HandleWarriorDamageSettled;
             _session.BeginPrepare(context.PushMapConfig);
 
+            PushMapBattleResultUiFactory.Ensure(transform, out _settlementView, out _rewardView);
+            _pendingFailureReason = null;
+
             if (_hudView != null)
             {
                 _hudView.StartBattleRequested += HandleStartBattleRequested;
@@ -188,7 +195,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _hudView.SetPrepareVisible(false);
                 _hudView.SetCombatVisible(false);
                 _hudView.SetPhaseText("推图战 — Prepare");
-                _hudView.SetHint("布阵后点击「开战」；击杀 BOSS 通关入账经验；护盾归零失败不入账");
+                _hudView.SetHint("布阵后点击「开战」；击杀 BOSS 通关入账经验；护盾归零/士兵全灭失败不入账");
             }
 
             OpenFormationEditor();
@@ -356,6 +363,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
                 var raceBonus = 0f;
                 var gemBonus = 0f;
+                var skillBonus = SoldierSkillGrant.SumLossOfControlChanceBonus(warrior.SoldierSkills, _configs);
                 if (_configs != null)
                 {
                     if (!string.IsNullOrEmpty(warrior.RaceId)
@@ -378,7 +386,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 var chance = LossOfControlMath.ComputeFinalLossChance(
-                    _session.LockedTierChance, raceBonus, gemBonus, skillBonusSum: 0f);
+                    _session.LockedTierChance, raceBonus, gemBonus, skillBonus);
                 var roll = UnityEngine.Random.value;
                 var rebel = roll < chance;
                 if (rebel)
@@ -388,10 +396,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                     {
                         advance.SetRebel(true);
                     }
+
+                    _session.SetWarriorRebel(warrior.Id, true);
                 }
                 Debug.Log(
                     $"[PushMapSession] RebelRoll {warrior.Id} chance={chance:0.###} roll={roll:0.###} " +
-                    $"→ {(rebel ? "REBEL" : "loyal")} (Tier={_session.LockedTierChance:0.###} Race={raceBonus:0.###} Gem={gemBonus:0.###})");
+                    $"→ {(rebel ? "REBEL" : "loyal")} (Tier={_session.LockedTierChance:0.###} Race={raceBonus:0.###} " +
+                    $"Gem={gemBonus:0.###} Skill={skillBonus:0.###})");
             }
         }
 
@@ -1358,6 +1369,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                         (id, count) => Debug.Log($"[PushMapStage] CaptureLoot material +{count} {id}"),
                         spirit => Debug.Log($"[PushMapStage] CaptureLoot Spirit +{spirit}"));
                 }
+
+                _session?.RecordCaptureLoot(entries);
             }
 
             _dungeonUnlocks?.UnlockEncoded(unlockIds);
@@ -1398,12 +1411,112 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_hudView != null)
             {
                 _hudView.SetPhaseText("推图战 — Ended");
-                _hudView.SetHint($"BOSS 通关：+{stageExp} Exp（{before}→{after}）升{levels}级 → 推进阶段");
+                _hudView.SetHint($"BOSS 通关：+{stageExp} Exp（{before}→{after}）升{levels}级 → 战斗结算");
             }
 
             Debug.Log(
                 $"[PushMapStage] Victory Exp +{stageExp} Lifetime={after} Level={_progress?.Level} (+{levels})");
 
+            ShowSettlementPanel(isVictory: true);
+        }
+
+        private void HandleLevelFailureRequested()
+        {
+            if (!_running && _driverOutcomeDispatched)
+            {
+                return;
+            }
+
+            _running = false;
+            DisableCameraFollow();
+            _pendingFailureReason = "PushMap LevelFailure";
+            if (_hudView != null)
+            {
+                _hudView.SetPhaseText("推图战 — Ended");
+                _hudView.SetHint("LevelFailure — 不入账本阶段经验 → 战斗结算");
+            }
+
+            Debug.LogWarning("[PushMapStage] LevelFailure — no stage Exp credited; show settlement.");
+            ShowSettlementPanel(isVictory: false);
+        }
+
+        private void ShowSettlementPanel(bool isVictory)
+        {
+            if (_settlementView == null)
+            {
+                PushMapBattleResultUiFactory.Ensure(transform, out _settlementView, out _rewardView);
+            }
+
+            var elapsed = _session != null ? _session.CombatElapsedSeconds : 0f;
+            var kills = _session != null ? _session.MonstersKilled : 0;
+            if (_settlementView != null)
+            {
+                _settlementView.Show(isVictory, elapsed, kills, () => HandleSettlementContinue(isVictory));
+            }
+            else
+            {
+                HandleSettlementContinue(isVictory);
+            }
+        }
+
+        private void HandleSettlementContinue(bool isVictory)
+        {
+            if (isVictory)
+            {
+                ShowRewardPopupThenComplete();
+                return;
+            }
+
+            DispatchFailureToDriver();
+        }
+
+        private void ShowRewardPopupThenComplete()
+        {
+            if (_rewardView == null)
+            {
+                PushMapBattleResultUiFactory.Ensure(transform, out _settlementView, out _rewardView);
+            }
+
+            var body = BuildRewardBodyText();
+            if (_rewardView != null)
+            {
+                _rewardView.Show(body, DispatchVictoryToDriver);
+            }
+            else
+            {
+                DispatchVictoryToDriver();
+            }
+        }
+
+        private string BuildRewardBodyText()
+        {
+            var sb = new System.Text.StringBuilder();
+            var exp = _session != null ? _session.StageExpCredited : 0L;
+            sb.AppendLine($"经验 × {exp}");
+            if (_session != null && _session.CaptureLootLedger != null && _session.CaptureLootLedger.Count > 0)
+            {
+                foreach (var pair in _session.CaptureLootLedger)
+                {
+                    if (string.Equals(pair.Key, LootDropParser.SpiritId, StringComparison.Ordinal))
+                    {
+                        sb.AppendLine($"精魂 × {pair.Value}");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"{pair.Key} × {pair.Value}");
+                    }
+                }
+            }
+            else
+            {
+                sb.AppendLine("（无占领掉落）");
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        private void DispatchVictoryToDriver()
+        {
             if (_driverOutcomeDispatched)
             {
                 return;
@@ -1411,6 +1524,18 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _driverOutcomeDispatched = true;
             _onVictoryAdvance?.Invoke();
+        }
+
+        private void DispatchFailureToDriver()
+        {
+            if (_driverOutcomeDispatched)
+            {
+                return;
+            }
+
+            _driverOutcomeDispatched = true;
+            _onLevelFailure?.Invoke(
+                string.IsNullOrEmpty(_pendingFailureReason) ? "PushMap LevelFailure" : _pendingFailureReason);
         }
 
         private void WriteDungeonUnlocksOnClear()
@@ -1423,32 +1548,6 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             Debug.Log($"[PushMapStage] Boss-clear DungeonUnlockIds='{unlockIds}'");
             _dungeonUnlocks?.UnlockEncoded(unlockIds);
-        }
-
-        private void HandleLevelFailureRequested()
-        {
-            if (!_running && _driverOutcomeDispatched)
-            {
-                return;
-            }
-
-            _running = false;
-            DisableCameraFollow();
-            if (_hudView != null)
-            {
-                _hudView.SetPhaseText("推图战 — Ended");
-                _hudView.SetHint("LevelFailure：护盾归零 — 不入账本阶段经验，关卡中止");
-            }
-
-            Debug.LogWarning("[PushMapStage] LevelFailure — no stage Exp credited.");
-
-            if (_driverOutcomeDispatched)
-            {
-                return;
-            }
-
-            _driverOutcomeDispatched = true;
-            _onLevelFailure?.Invoke("PushMap 护盾归零");
         }
 
         private void OpenFormationEditor()

@@ -413,7 +413,28 @@ namespace Gravedigger2026.Editor.Dig
 
             var warehouse = CreateUiText(hudRoot.transform, "Warehouse", "精魂 0", 22, TextAnchor.UpperLeft);
             Place(warehouse.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(24f, -70f), new Vector2(900f, 36f));
+                new Vector2(24f, -90f), new Vector2(900f, 36f));
+
+            var portrait = CreateUiPanel(hudRoot.transform, "ProtagonistPortrait", new Color(0.12f, 0.14f, 0.18f, 0.95f));
+            Place(portrait.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(16f, -16f), new Vector2(60f, 60f));
+            var portraitRaycast = portrait.GetComponent<Image>();
+            if (portraitRaycast != null)
+            {
+                portraitRaycast.raycastTarget = false;
+            }
+
+            var portraitIcon = CreateUiPanel(portrait.transform, "Icon", new Color(0.55f, 0.62f, 0.78f, 1f));
+            var iconRt = portraitIcon.GetComponent<RectTransform>();
+            iconRt.anchorMin = Vector2.zero;
+            iconRt.anchorMax = Vector2.one;
+            iconRt.offsetMin = new Vector2(4f, 4f);
+            iconRt.offsetMax = new Vector2(-4f, -4f);
+            var iconImg = portraitIcon.GetComponent<Image>();
+            if (iconImg != null)
+            {
+                iconImg.raycastTarget = false;
+            }
 
             var addGravesBtn = CreateUiButton(hudRoot.transform, "GmAddGravesButton", "增加坟墓",
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
@@ -424,6 +445,31 @@ namespace Gravedigger2026.Editor.Dig
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
             Place(addBodyPartsBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-24f, -138f), new Vector2(180f, 40f));
+
+            var acquireDigRingBtn = CreateUiButton(hudRoot.transform, "GmAcquireDigRingButton", "获得铁铲",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(acquireDigRingBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -242f), new Vector2(180f, 40f));
+
+            var grantEquipCommonExpBtn = CreateUiButton(hudRoot.transform, "GmGrantEquipCommonExpButton", "装备公共经验+50",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(grantEquipCommonExpBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -294f), new Vector2(180f, 40f));
+
+            var spendDigRingCommonExpBtn = CreateUiButton(hudRoot.transform, "GmSpendDigRingCommonExpButton", "划入铁铲升级",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(spendDigRingCommonExpBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -346f), new Vector2(180f, 40f));
+
+            var acquireMinerLampBtn = CreateUiButton(hudRoot.transform, "GmAcquireMinerLampButton", "获得矿灯",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(acquireMinerLampBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -398f), new Vector2(180f, 40f));
+
+            var spendMinerLampCommonExpBtn = CreateUiButton(hudRoot.transform, "GmSpendMinerLampCommonExpButton", "划入矿灯升级",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(spendMinerLampCommonExpBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -450f), new Vector2(180f, 40f));
 
             // Transparent HUD panel must not eat mouse for Dig cursor / Meta buttons.
             var hudImage = hudRoot.GetComponent<Image>();
@@ -439,6 +485,11 @@ namespace Gravedigger2026.Editor.Dig
             hso.FindProperty("_warehouseText").objectReferenceValue = warehouse;
             hso.FindProperty("_addGravesButton").objectReferenceValue = addGravesBtn.GetComponent<Button>();
             hso.FindProperty("_addBodyPartsButton").objectReferenceValue = addBodyPartsBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireDigRingButton").objectReferenceValue = acquireDigRingBtn.GetComponent<Button>();
+            hso.FindProperty("_grantEquipCommonExpButton").objectReferenceValue = grantEquipCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_spendDigRingCommonExpButton").objectReferenceValue = spendDigRingCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_portraitFrame").objectReferenceValue = portrait.GetComponent<RectTransform>();
+            hso.FindProperty("_portraitImage").objectReferenceValue = iconImg;
             hso.ApplyModifiedPropertiesWithoutUndo();
             hudRoot.SetActive(false);
 

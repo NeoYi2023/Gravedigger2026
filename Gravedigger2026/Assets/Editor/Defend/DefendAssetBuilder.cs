@@ -255,23 +255,16 @@ namespace Gravedigger2026.Editor.Defend
         }
 
         /// <summary>
-        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / D-057). Idempotent by ClassId child name.
-        /// Existing zones keep Transform + HalfExtents. Missing zones are created (Y=25°).
-        /// Layout: front melee / mid servants / back ranged + second front/back rows (map-center-relative XZ).
+        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / D-057 / FZ-02). Idempotent by ClassId child name.
+        /// Existing zones keep world XZ + HalfExtents. Parent/children localRotation = identity (IsoDiamond).
+        /// Layout: front melee / mid servants / back ranged + second front/back rows (map-center-relative world XZ).
         /// </summary>
         private static void EnsureFormationClassZones(Transform mapRoot, Vector3 mapCenter)
         {
-            var root = mapRoot.Find("FormationClassZones");
-            if (root == null)
-            {
-                var go = new GameObject("FormationClassZones");
-                go.transform.SetParent(mapRoot, false);
-                go.transform.position = mapCenter;
-                root = go.transform;
-            }
-
+            var root = ResolveFormationClassZonesRoot(mapRoot, mapCenter);
+            ApplyIdentityAuthoringFrame(root, mapCenter);
             var half = ResolveSampleHalfExtents(root);
-            // relX, relZ — front = −Z, back = +Z
+            // relX, relZ — front = −Z, back = +Z (world XZ; Approach B keeps these world centers)
             EnsureOneClassZone(root, mapCenter, "Class_Warrior", -2.0f, -1.2f, half);
             EnsureOneClassZone(root, mapCenter, "Class_Knight", -1.0f, -1.2f, half);
             EnsureOneClassZone(root, mapCenter, "Class_Paladin", 0.0f, -1.2f, half);
@@ -293,6 +286,135 @@ namespace Gravedigger2026.Editor.Defend
             EnsureOneClassZone(root, mapCenter, "Class_IceMage", 0.0f, 1.7f, half);
             EnsureOneClassZone(root, mapCenter, "Class_FireMage", 1.0f, 1.7f, half);
             EnsureOneClassZone(root, mapCenter, "Class_DarkMage", 2.0f, 1.7f, half);
+            FinalizeClassZoneMeshes(root);
+        }
+
+        private static Transform ResolveFormationClassZonesRoot(Transform mapRoot, Vector3 mapCenter)
+        {
+            Transform preferred = null;
+            var extras = new List<Transform>();
+            var all = mapRoot.GetComponentsInChildren<Transform>(true);
+            for (var i = 0; i < all.Length; i++)
+            {
+                var tf = all[i];
+                if (tf == null || tf.name != "FormationClassZones")
+                {
+                    continue;
+                }
+
+                if (tf.parent == mapRoot && preferred == null)
+                {
+                    preferred = tf;
+                }
+                else
+                {
+                    extras.Add(tf);
+                }
+            }
+
+            if (preferred == null)
+            {
+                if (extras.Count > 0)
+                {
+                    extras.Sort((a, b) => b.childCount.CompareTo(a.childCount));
+                    preferred = extras[0];
+                    extras.RemoveAt(0);
+                    preferred.SetParent(mapRoot, true);
+                    preferred.position = mapCenter;
+                }
+                else
+                {
+                    var go = new GameObject("FormationClassZones");
+                    go.transform.SetParent(mapRoot, false);
+                    go.transform.position = mapCenter;
+                    preferred = go.transform;
+                }
+            }
+
+            for (var e = 0; e < extras.Count; e++)
+            {
+                var extra = extras[e];
+                if (extra == null)
+                {
+                    continue;
+                }
+
+                var toMove = new List<Transform>(extra.childCount);
+                for (var c = 0; c < extra.childCount; c++)
+                {
+                    toMove.Add(extra.GetChild(c));
+                }
+
+                for (var c = 0; c < toMove.Count; c++)
+                {
+                    var child = toMove[c];
+                    if (child == null)
+                    {
+                        continue;
+                    }
+
+                    if (preferred.Find(child.name) == null)
+                    {
+                        child.SetParent(preferred, true);
+                    }
+                }
+
+                UnityEngine.Object.DestroyImmediate(extra.gameObject);
+            }
+
+            if (preferred.GetComponent<FormationClassZonesRoot>() == null)
+            {
+                preferred.gameObject.AddComponent<FormationClassZonesRoot>();
+            }
+
+            return preferred;
+        }
+
+        private static void ApplyIdentityAuthoringFrame(Transform zonesRoot, Vector3 mapCenter)
+        {
+            var root = zonesRoot.GetComponent<FormationClassZonesRoot>();
+            if (root != null)
+            {
+                root.ApplyIdentityAuthoringFrame();
+            }
+
+            var childCount = zonesRoot.childCount;
+            var worldPos = new Vector3[childCount];
+            for (var i = 0; i < childCount; i++)
+            {
+                worldPos[i] = zonesRoot.GetChild(i).position;
+            }
+
+            zonesRoot.position = mapCenter;
+            zonesRoot.localRotation = Quaternion.identity;
+            zonesRoot.localScale = Vector3.one;
+
+            for (var i = 0; i < childCount; i++)
+            {
+                var child = zonesRoot.GetChild(i);
+                child.position = worldPos[i];
+                child.localRotation = Quaternion.identity;
+                child.localScale = Vector3.one;
+            }
+        }
+
+        private static void FinalizeClassZoneMeshes(Transform zonesRoot)
+        {
+            var zones = zonesRoot.GetComponentsInChildren<FormationClassZone>(true);
+            for (var i = 0; i < zones.Length; i++)
+            {
+                var zone = zones[i];
+                if (zone == null)
+                {
+                    continue;
+                }
+
+                zone.EnsureMeshComponents();
+                zone.RebuildMesh();
+                EditorUtility.SetDirty(zone);
+            }
+
+            EditorUtility.SetDirty(zonesRoot.gameObject);
         }
 
         private static Vector2 ResolveSampleHalfExtents(Transform zonesRoot)
@@ -334,6 +456,9 @@ namespace Gravedigger2026.Editor.Defend
                     EditorUtility.SetDirty(existing);
                 }
 
+                existing.EnsureMeshComponents();
+                existing.RebuildMesh();
+                EditorUtility.SetDirty(existing);
                 return;
             }
 
@@ -341,8 +466,7 @@ namespace Gravedigger2026.Editor.Defend
             go.transform.SetParent(zonesRoot, false);
             child = go.transform;
             child.position = new Vector3(mapCenter.x + relX, mapCenter.y + 0.05f, mapCenter.z + relZ);
-            // Demo sample OBB orientation (SPEC_03 §3.15 / SPEC_04 §13).
-            child.localEulerAngles = new Vector3(0f, 25f, 0f);
+            child.localRotation = Quaternion.identity;
             var zone = go.AddComponent<FormationClassZone>();
             zone.EditorSet(classId, halfExtents);
             EditorUtility.SetDirty(zone);

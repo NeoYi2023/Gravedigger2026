@@ -270,7 +270,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 card.gameObject.SetActive(true);
                 card.gameObject.name = "SoldierCard_" + i;
                 var className = ResolveClassName(id);
-                card.BindMystery(id, className);
+                var classLevel = ResolveClassLevel(id);
+                card.BindMystery(id, className, classLevel);
                 _cards.Add(card);
             }
 
@@ -294,6 +295,21 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             return warrior.ClassId ?? string.Empty;
+        }
+
+        private int ResolveClassLevel(string warriorId)
+        {
+            if (_warriorPool == null || !_warriorPool.TryGet(warriorId, out var warrior) || warrior == null)
+            {
+                return 0;
+            }
+
+            if (_configs != null && _configs.TryGetClass(warrior.ClassId, out var row) && row != null)
+            {
+                return row.ClassLevel < 0 ? 0 : row.ClassLevel;
+            }
+
+            return 0;
         }
 
         private Sprite ResolveIdleSprite(string warriorId)
@@ -520,10 +536,17 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
             var className = CreateText(go.transform, "ClassName", string.Empty, 32, TextAnchor.MiddleCenter);
             var cRt = className.GetComponent<RectTransform>();
-            cRt.anchorMin = new Vector2(0.05f, 0.05f);
+            cRt.anchorMin = new Vector2(0.05f, 0.16f);
             cRt.anchorMax = new Vector2(0.95f, 0.32f);
             cRt.offsetMin = Vector2.zero;
             cRt.offsetMax = Vector2.zero;
+
+            var classLevel = CreateText(go.transform, "ClassLevel", "Lv.0", 24, TextAnchor.MiddleCenter);
+            var lRt = classLevel.GetComponent<RectTransform>();
+            lRt.anchorMin = new Vector2(0.05f, 0.02f);
+            lRt.anchorMax = new Vector2(0.95f, 0.16f);
+            lRt.offsetMin = Vector2.zero;
+            lRt.offsetMax = Vector2.zero;
 
             var amplify = CreateText(go.transform, "Amplify", "加强", 28, TextAnchor.UpperCenter);
             amplify.color = new Color(1f, 0.85f, 0.35f, 1f);
@@ -535,7 +558,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             amplify.gameObject.SetActive(false);
 
             var view = go.AddComponent<AutoMfgSoldierCardView>();
-            view.RuntimeWire(go.GetComponent<Image>(), q, className, thumb, amplify);
+            view.RuntimeWire(go.GetComponent<Image>(), q, className, classLevel, thumb, amplify);
             return view;
         }
 

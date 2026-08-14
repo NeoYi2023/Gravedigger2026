@@ -220,6 +220,7 @@ namespace Gravedigger2026.Core.Defend
 
                 float raceBonus = 0f;
                 float gemBonus = 0f;
+                var skillBonus = SoldierSkillGrant.SumLossOfControlChanceBonus(state.SoldierSkills, configs);
                 if (configs != null)
                 {
                     if (!string.IsNullOrEmpty(state.RaceId)
@@ -245,13 +246,14 @@ namespace Gravedigger2026.Core.Defend
                     _lockedTierChance,
                     raceBonus,
                     gemBonus,
-                    skillBonusSum: 0f);
+                    skillBonus);
                 var roll = UnityEngine.Random.value;
                 var rebel = roll < chance;
                 state.IsRebel = rebel;
                 Debug.Log(
                     $"[DefendSession] RebelRoll {state.WarriorId} chance={chance:0.###} roll={roll:0.###} " +
-                    $"→ {(rebel ? "REBEL" : "loyal")} (Tier={_lockedTierChance:0.###} Race={raceBonus:0.###} Gem={gemBonus:0.###})");
+                    $"→ {(rebel ? "REBEL" : "loyal")} (Tier={_lockedTierChance:0.###} Race={raceBonus:0.###} " +
+                    $"Gem={gemBonus:0.###} Skill={skillBonus:0.###})");
                 WarriorCombatStateChanged?.Invoke(state.WarriorId);
             }
         }
@@ -311,7 +313,10 @@ namespace Gravedigger2026.Core.Defend
                 IsPermanentDead = false,
                 IsRebel = false,
                 RaceId = warrior.RaceId ?? string.Empty,
-                GemIds = warrior.GemIds != null ? new List<string>(warrior.GemIds) : new List<string>()
+                GemIds = warrior.GemIds != null ? new List<string>(warrior.GemIds) : new List<string>(),
+                SoldierSkills = warrior.SoldierSkills != null
+                    ? new List<SoldierSkillEntry>(warrior.SoldierSkills)
+                    : new List<SoldierSkillEntry>()
             };
 
             if (state.IsCombatDead && state.HasGems)
@@ -798,6 +803,7 @@ namespace Gravedigger2026.Core.Defend
         public bool IsRebel;
         public string RaceId;
         public List<string> GemIds;
+        public List<SoldierSkillEntry> SoldierSkills;
     }
 
     public sealed class DefendCombatMonsterState

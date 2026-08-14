@@ -6,6 +6,7 @@ using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Dig
@@ -15,6 +16,12 @@ namespace Gravedigger2026.Gameplay.Dig
     /// </summary>
     public sealed class DigStageController : MonoBehaviour
     {
+        public const string IronShovelEquipId = "Equip_IronShovel";
+        public const string MinerLampEquipId = "Equip_MinerLamp";
+        private const int GmEquipCommonExpAmount = 50;
+        private const int GmSpendIronShovelExpAmount = 1;
+        private const int GmSpendMinerLampExpAmount = 1;
+
         [SerializeField] private DigPrefabCatalog _catalog;
         [SerializeField] private Transform _worldRoot;
         [SerializeField] private Camera _digCamera;
@@ -25,11 +32,12 @@ namespace Gravedigger2026.Gameplay.Dig
         private DigSessionService _session;
         private ConfigCsvRepository _configs;
         private SpecialEquipSlotsService _specialEquipSlots;
+        private ProtagonistEquipmentService _protagonistEquipment;
         private Action _onSummaryConfirmed;
         private readonly Dictionary<int, DigGraveView> _graveViews = new Dictionary<int, DigGraveView>();
         private GameObject _mapInstance;
-        private DigDiggerView _diggerView;
         private Transform _gravesParent;
+        private float _mapPlaneY;
         private bool _running;
 
         public void ConfigureCatalog(DigPrefabCatalog catalog)
@@ -46,7 +54,8 @@ namespace Gravedigger2026.Gameplay.Dig
             WarehouseService warehouse,
             DigProtagonistCapabilities caps,
             Action onSummaryConfirmed,
-            SpecialEquipSlotsService specialEquipSlots = null)
+            SpecialEquipSlotsService specialEquipSlots = null,
+            ProtagonistEquipmentService protagonistEquipment = null)
         {
             EndInternal(destroyWorld: true);
 
@@ -65,6 +74,7 @@ namespace Gravedigger2026.Gameplay.Dig
             _onSummaryConfirmed = onSummaryConfirmed;
             _configs = configs;
             _specialEquipSlots = specialEquipSlots;
+            _protagonistEquipment = protagonistEquipment;
 
             if (!_catalog.TryGetMap(context.DigConfig.DigMapId, out var mapPrefab))
             {
@@ -80,24 +90,7 @@ namespace Gravedigger2026.Gameplay.Dig
             var half = bounds != null ? bounds.HalfExtents : new Vector2(5f, 2.5f);
             var center = bounds != null ? bounds.Center : _mapInstance.transform.position;
 
-            var diggerPrefab = _catalog.DiggerPrefab;
-            if (diggerPrefab == null)
-            {
-                Debug.LogError("[DigStageController] Digger prefab missing.");
-                return;
-            }
-
-            var diggerGo = Instantiate(diggerPrefab, _worldRoot);
-            diggerGo.transform.position = center;
-            _diggerView = diggerGo.GetComponent<DigDiggerView>();
-            if (_diggerView == null)
-            {
-                _diggerView = diggerGo.AddComponent<DigDiggerView>();
-            }
-
-            var diggerRadius = diggerGo.GetComponent<DigObstacleRadius>();
-            var diggerR = diggerRadius != null ? diggerRadius.Radius : 0.8f;
-
+            _mapPlaneY = center.y;
             _gravesParent = new GameObject("Graves").transform;
             _gravesParent.SetParent(_worldRoot, false);
 
@@ -125,14 +118,7 @@ namespace Gravedigger2026.Gameplay.Dig
             {
                 _cursorView.gameObject.SetActive(true);
                 _cursorView.SetUiRingPrefab(_catalog.UiDigCursorRingPrefab);
-                Canvas hudCanvas = null;
-                if (_hudView != null)
-                {
-                    hudCanvas = _hudView.GetComponentInParent<Canvas>();
-                }
-
-                _cursorView.Configure(_digCamera, caps.DigCursorRadius, center.y, hudCanvas);
-                Debug.Log($"[DigStageController] Cursor radius={caps.DigCursorRadius:0.###} camera ortho={_digCamera.orthographicSize:0.##} canvasScale={(hudCanvas != null ? hudCanvas.scaleFactor : -1f):0.###}");
+                ApplyCursorRadius(caps.DigCursorRadius);
             }
 
             _hudView?.Show();
@@ -145,9 +131,14 @@ namespace Gravedigger2026.Gameplay.Dig
                 _hudView.AddGravesRequested += HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested += HandleGmAddBodyParts;
                 _hudView.EquipWarriorEnhanceRequested += HandleGmEquipWarriorEnhance;
+                _hudView.AcquireDigRingRequested += HandleGmAcquireDigRing;
+                _hudView.GrantEquipCommonExpRequested += HandleGmGrantEquipCommonExp;
+                _hudView.SpendDigRingCommonExpRequested += HandleGmSpendDigRingCommonExp;
+                _hudView.AcquireMinerLampRequested += HandleGmAcquireMinerLamp;
+                _hudView.SpendMinerLampCommonExpRequested += HandleGmSpendMinerLampCommonExp;
             }
 
-            _session.Begin(context.DigConfig, center, diggerR, half);
+            _session.Begin(context.DigConfig, center, half);
             RefreshWarehouseHud();
             _running = true;
 
@@ -158,6 +149,39 @@ namespace Gravedigger2026.Gameplay.Dig
         public void End()
         {
             EndInternal(destroyWorld: true);
+        }
+
+        /// <summary>
+        /// Mid-session caps refresh after tech/gear recalc (PE-03). Session holds the same caps instance when mutated in place.
+        /// </summary>
+        public void RefreshCapabilities(DigProtagonistCapabilities caps)
+        {
+            if (!_running || caps == null)
+            {
+                return;
+            }
+
+            ApplyCursorRadius(caps.DigCursorRadius);
+            Debug.Log(
+                $"[DigStageController] Caps refreshed DigDamage={caps.DigDamage} Cursor={caps.DigCursorRadius:0.###} StageBonus={caps.DigStageDurationBonus}");
+        }
+
+        private void ApplyCursorRadius(float radius)
+        {
+            if (_cursorView == null)
+            {
+                return;
+            }
+
+            Canvas hudCanvas = null;
+            if (_hudView != null)
+            {
+                hudCanvas = _hudView.GetComponentInParent<Canvas>();
+            }
+
+            _cursorView.Configure(_digCamera, radius, _mapPlaneY, hudCanvas);
+            Debug.Log(
+                $"[DigStageController] Cursor radius={radius:0.###} camera ortho={(_digCamera != null ? _digCamera.orthographicSize : -1f):0.##} canvasScale={(hudCanvas != null ? hudCanvas.scaleFactor : -1f):0.###}");
         }
 
         private void Update()
@@ -189,7 +213,6 @@ namespace Gravedigger2026.Gameplay.Dig
             session.DigActionStarted += HandleDigStarted;
             session.DigActionEnded += HandleDigEnded;
             session.GraveClearedForReward += HandleGraveCleared;
-            session.DiggingPresenceChanged += HandleDiggingPresence;
             session.StageTimeUp += HandleTimeUp;
             session.WarehouseChanged += RefreshWarehouseHud;
         }
@@ -207,7 +230,6 @@ namespace Gravedigger2026.Gameplay.Dig
             session.DigActionStarted -= HandleDigStarted;
             session.DigActionEnded -= HandleDigEnded;
             session.GraveClearedForReward -= HandleGraveCleared;
-            session.DiggingPresenceChanged -= HandleDiggingPresence;
             session.StageTimeUp -= HandleTimeUp;
             session.WarehouseChanged -= RefreshWarehouseHud;
         }
@@ -297,7 +319,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void SpawnRewardFlyer(Vector3 from, string lootEncoded)
         {
-            var target = _diggerView != null ? _diggerView.transform.position : from;
+            var target = ResolvePortraitWorldTarget(from);
             var flyerPrefab = _catalog != null ? _catalog.RewardFlyerPrefab : null;
             if (flyerPrefab == null)
             {
@@ -313,15 +335,39 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             var label = string.IsNullOrEmpty(lootEncoded) ? "★" : lootEncoded.Split('|')[0];
-            flyer.Play(from + Vector3.up * 0.5f, target + Vector3.up * 0.5f, label, () =>
+            flyer.Play(from + Vector3.up * 0.5f, target, label, () =>
             {
                 _session?.CreditPendingLoot(lootEncoded);
             });
         }
 
-        private void HandleDiggingPresence(bool digging)
+        private Vector3 ResolvePortraitWorldTarget(Vector3 fallback)
         {
-            _diggerView?.SetDigging(digging);
+            if (_hudView == null || _digCamera == null)
+            {
+                return fallback + Vector3.up * 0.5f;
+            }
+
+            Canvas canvas = _hudView.GetComponentInParent<Canvas>();
+            Camera uiCam = null;
+            if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                uiCam = canvas.worldCamera;
+            }
+
+            if (!_hudView.TryGetPortraitScreenPoint(uiCam, out var screenPoint))
+            {
+                return fallback + Vector3.up * 0.5f;
+            }
+
+            var ray = _digCamera.ScreenPointToRay(screenPoint);
+            var plane = new Plane(Vector3.up, new Vector3(0f, _mapPlaneY, 0f));
+            if (plane.Raycast(ray, out var enter))
+            {
+                return ray.GetPoint(enter) + Vector3.up * 0.5f;
+            }
+
+            return fallback + Vector3.up * 0.5f;
         }
 
         private void HandleTimeUp()
@@ -405,6 +451,119 @@ namespace Gravedigger2026.Gameplay.Dig
             Debug.Log("[DigStageController] GM Equip Warrior Enhance → MagicBook_WarriorEnhance");
         }
 
+        private void HandleGmAcquireDigRing()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire Iron Shovel — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(IronShovelEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire Iron Shovel failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire Iron Shovel");
+        }
+
+        private void HandleGmGrantEquipCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Grant EquipCommonExp — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.DebugGrantCommonExp(GmEquipCommonExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Grant EquipCommonExp failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Grant EquipCommonExp +50");
+        }
+
+        private void HandleGmSpendDigRingCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend Iron Shovel — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(IronShovelEquipId, GmSpendIronShovelExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend Iron Shovel failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend Iron Shovel CommonExp");
+        }
+
+        private void HandleGmAcquireMinerLamp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire Miner Lamp — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(MinerLampEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire Miner Lamp failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire Miner Lamp");
+        }
+
+        private void HandleGmSpendMinerLampCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend Miner Lamp — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(MinerLampEquipId, GmSpendMinerLampExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend Miner Lamp failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend Miner Lamp CommonExp");
+        }
+
+        private void LogProtagonistEquipmentGmState(string action)
+        {
+            var caps = _session != null ? _session.Capabilities : null;
+            var cursor = caps != null ? caps.DigCursorRadius : -1f;
+            var q4 = caps != null ? caps.GetGraveSpawnWeightBonus("Q4") : 0f;
+            var q5 = caps != null ? caps.GetGraveSpawnWeightBonus("Q5") : 0f;
+            var q6 = caps != null ? caps.GetGraveSpawnWeightBonus("Q6") : 0f;
+            var common = _protagonistEquipment != null ? _protagonistEquipment.EquipCommonExp : -1;
+            var shovel = FormatOwnedSummary(IronShovelEquipId);
+            var lamp = FormatOwnedSummary(MinerLampEquipId);
+            Debug.Log(
+                $"[DigStageController] GM {action} → {shovel}; {lamp}; " +
+                $"EquipCommonExp={common} DigCursorRadius={cursor:0.###} " +
+                $"GraveSpawnWeightBonus Q4={q4:0.###} Q5={q5:0.###} Q6={q6:0.###}");
+        }
+
+        private string FormatOwnedSummary(string equipId)
+        {
+            if (_protagonistEquipment != null &&
+                _protagonistEquipment.TryGetOwned(equipId, out var owned) &&
+                owned != null)
+            {
+                return $"{equipId} L{owned.Level} Exp{owned.CurrentExp}";
+            }
+
+            return $"{equipId} (not owned)";
+        }
+
         private void EnsureWorldRoot()
         {
             if (_worldRoot == null)
@@ -443,6 +602,11 @@ namespace Gravedigger2026.Gameplay.Dig
                 _hudView.AddGravesRequested -= HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested -= HandleGmAddBodyParts;
                 _hudView.EquipWarriorEnhanceRequested -= HandleGmEquipWarriorEnhance;
+                _hudView.AcquireDigRingRequested -= HandleGmAcquireDigRing;
+                _hudView.GrantEquipCommonExpRequested -= HandleGmGrantEquipCommonExp;
+                _hudView.SpendDigRingCommonExpRequested -= HandleGmSpendDigRingCommonExp;
+                _hudView.AcquireMinerLampRequested -= HandleGmAcquireMinerLamp;
+                _hudView.SpendMinerLampCommonExpRequested -= HandleGmSpendMinerLampCommonExp;
             }
 
             UnsubscribeSession(_session);
@@ -472,10 +636,11 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             _mapInstance = null;
-            _diggerView = null;
             _gravesParent = null;
             _onSummaryConfirmed = null;
             _configs = null;
+            _specialEquipSlots = null;
+            _protagonistEquipment = null;
         }
     }
 }

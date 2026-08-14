@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Gravedigger2026.Core.AutoManufacture
 {
     /// <summary>
-    /// In-zone spiral/ring slot search with BodyRadius separation (SPEC_03 §3.15 AM-06 Approach A).
-    /// Operates in map-center-relative XZ; zone test is local OBB (RotationYDegrees).
+    /// In-zone spiral/ring slot search with BodyRadius separation (SPEC_03 §3.15 AM-06 / FZ-01).
+    /// Operates in map-center-relative XZ; zone test is IsoDiamond.
     /// </summary>
     public static class FormationZoneSpiralSearch
     {
@@ -29,7 +29,7 @@ namespace Gravedigger2026.Core.AutoManufacture
         }
 
         /// <summary>
-        /// Finds first free slot in zone; center must lie in OBB shrunk by bodyRadius.
+        /// Finds first free slot in zone; center must lie in IsoDiamond shrunk by bodyRadius.
         /// </summary>
         public static bool TryFindSlot(
             FormationClassZoneSnapshot zone,
@@ -80,7 +80,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             float radius,
             IReadOnlyList<Footprint> occupied)
         {
-            if (!IsCenterInsideSafeBox(zone, x, z, radius))
+            if (!IsCenterInsideSafeDiamond(zone, x, z, radius))
             {
                 return false;
             }
@@ -105,45 +105,26 @@ namespace Gravedigger2026.Core.AutoManufacture
             return true;
         }
 
-        private static bool IsCenterInsideSafeBox(
+        private static bool IsCenterInsideSafeDiamond(
             FormationClassZoneSnapshot zone,
             float x,
             float z,
             float radius)
         {
-            ToLocalXZ(zone, x, z, out var localX, out var localZ);
-
+            var dx = Mathf.Abs(x - zone.CenterRelX);
+            var dz = Mathf.Abs(z - zone.CenterRelZ);
             var hx = Mathf.Max(0f, zone.HalfExtentX - radius);
             var hz = Mathf.Max(0f, zone.HalfExtentZ - radius);
             if (hx < 1e-4f || hz < 1e-4f)
             {
-                // Zone too small to shrink — only allow exact center if it is inside raw OBB.
-                return Mathf.Abs(localX) <= zone.HalfExtentX
-                       && Mathf.Abs(localZ) <= zone.HalfExtentZ
-                       && Mathf.Abs(localX) < 1e-3f
-                       && Mathf.Abs(localZ) < 1e-3f;
+                var rawHx = Mathf.Max(1e-4f, zone.HalfExtentX);
+                var rawHz = Mathf.Max(1e-4f, zone.HalfExtentZ);
+                return dx / rawHx + dz / rawHz <= 1f
+                       && dx < 1e-3f
+                       && dz < 1e-3f;
             }
 
-            return Mathf.Abs(localX) <= hx && Mathf.Abs(localZ) <= hz;
-        }
-
-        /// <summary>
-        /// World/map-relative XZ → zone-local XZ (inverse of Unity Y euler).
-        /// </summary>
-        public static void ToLocalXZ(
-            FormationClassZoneSnapshot zone,
-            float x,
-            float z,
-            out float localX,
-            out float localZ)
-        {
-            var dx = x - zone.CenterRelX;
-            var dz = z - zone.CenterRelZ;
-            var rad = zone.RotationYDegrees * Mathf.Deg2Rad;
-            var cos = Mathf.Cos(rad);
-            var sin = Mathf.Sin(rad);
-            localX = dx * cos - dz * sin;
-            localZ = dx * sin + dz * cos;
+            return dx / hx + dz / hz <= 1f;
         }
     }
 }

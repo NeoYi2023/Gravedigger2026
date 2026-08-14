@@ -4,6 +4,7 @@ using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Gameplay.Dig;
 using UnityEngine;
@@ -12,7 +13,7 @@ namespace Gravedigger2026.Core.Level
 {
     /// <summary>
     /// Dig IStageModule (Approach A / D-020): Instantiate DigStageRoot + map by DigMapId.
-    /// Caps from TechTreeService (UI-012).
+    /// Caps from TechTreeService (tech + Dig-domain protagonist gear, PE-03).
     /// </summary>
     public sealed class DigStageModule : IStageModule
     {
@@ -22,6 +23,7 @@ namespace Gravedigger2026.Core.Level
         private readonly WarehouseService _warehouse;
         private readonly TechTreeService _techTree;
         private readonly SpecialEquipSlotsService _specialEquipSlots;
+        private readonly ProtagonistEquipmentService _protagonistEquipment;
         private readonly Action _onSummaryConfirmed;
         private readonly Action<bool> _onDigPresentationActive;
 
@@ -36,7 +38,8 @@ namespace Gravedigger2026.Core.Level
             TechTreeService techTree,
             Action onSummaryConfirmed,
             Action<bool> onDigPresentationActive = null,
-            SpecialEquipSlotsService specialEquipSlots = null)
+            SpecialEquipSlotsService specialEquipSlots = null,
+            ProtagonistEquipmentService protagonistEquipment = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -46,6 +49,7 @@ namespace Gravedigger2026.Core.Level
             _onSummaryConfirmed = onSummaryConfirmed;
             _onDigPresentationActive = onDigPresentationActive;
             _specialEquipSlots = specialEquipSlots;
+            _protagonistEquipment = protagonistEquipment;
         }
 
         public GameplayState HandledState => GameplayState.Dig;
@@ -89,7 +93,12 @@ namespace Gravedigger2026.Core.Level
             _controller.Begin(context, _configs, _warehouse, caps, () =>
             {
                 _onSummaryConfirmed?.Invoke();
-            }, _specialEquipSlots);
+            }, _specialEquipSlots, _protagonistEquipment);
+
+            if (_techTree != null)
+            {
+                _techTree.Changed += HandleCapsChanged;
+            }
 
             Debug.Log(
                 $"[Stage:Dig] Enter Level={context.LevelId} Stage={context.StageNumber} ConfigId={context.GameplayConfigId} MapId={context.ResolvedMapId} Prefab={context.ResolvedMapPrefabPath}");
@@ -97,6 +106,11 @@ namespace Gravedigger2026.Core.Level
 
         public void Exit(LevelStageContext context)
         {
+            if (_techTree != null)
+            {
+                _techTree.Changed -= HandleCapsChanged;
+            }
+
             if (_controller != null)
             {
                 _controller.End();
@@ -115,6 +129,16 @@ namespace Gravedigger2026.Core.Level
             {
                 Debug.Log($"[Stage:Dig] Exit Level={context.LevelId} Stage={context.StageNumber}");
             }
+        }
+
+        private void HandleCapsChanged()
+        {
+            if (_controller == null || _techTree == null)
+            {
+                return;
+            }
+
+            _controller.RefreshCapabilities(_techTree.Capabilities);
         }
     }
 }
