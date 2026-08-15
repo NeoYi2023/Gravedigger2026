@@ -385,10 +385,10 @@ namespace Gravedigger2026.Editor.Meta
             Place(slotLabel.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -20f), new Vector2(480f, 40f));
 
             var stateLabel = CreateText(root.transform, "StateLabel", "当前玩法：挖坟（Dig）", 26, TextAnchor.MiddleCenter);
-            Place(stateLabel.GetComponent<RectTransform>(), new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.78f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 40f));
+            Place(stateLabel.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(900f, 40f));
 
             var stageInfo = CreateText(root.transform, "StageInfoLabel", "关卡：未运行", 20, TextAnchor.MiddleCenter);
-            Place(stageInfo.GetComponent<RectTransform>(), new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.72f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1100f, 36f));
+            Place(stageInfo.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -52f), new Vector2(1100f, 36f));
 
             var dig = CreatePlaceholderPanel(root.transform, "DigPlaceholder", "挖坟占位（Dig）", new Color(0.20f, 0.35f, 0.28f, 0.9f));
             var um = CreatePlaceholderPanel(root.transform, "UpgradeManufacturePlaceholder", "升级与制造占位（UpgradeManufacture）", new Color(0.28f, 0.28f, 0.42f, 0.9f));

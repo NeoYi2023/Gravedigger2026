@@ -91,8 +91,10 @@
 | BaseStats | 基础属性 | HP/移速/力量/敏捷/智力；Σ StatBonus；经 StaticStat/FinalStat 派生攻/速/CD/血 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | StaticStat | 静态属性 | 制造/布阵：不含 SkillBuff 的终值 | [§3.11](SPEC_03_GameRules.md) |
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
-| BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×3) | [§3.11](SPEC_03_GameRules.md) |
-| NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（缺省 15；见 ClassConfig.CombatConvertCoeffs） | [§3.12](SPEC_03_GameRules.md) |
+| BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult) | [§3.11](SPEC_03_GameRules.md) |
+| NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（职业覆盖，否则 CombatConstantConfig；样例 15） | [§3.12](SPEC_03_GameRules.md) |
+| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| MaxHpStrengthMult | 血量力量系数 | 常量表键；MaxHP=ceil(BodyLife+Str×本值)；样例 3 | [§3.11](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |

@@ -1,0 +1,7 @@
+ConstantKey,ConstantKeyZh,Value,Comment,CommentZh
+NormalAttackPrimaryMult,普攻主属性倍率,15,NormalAttackPower = Primary x Mult,普通攻击伤害=主属性最终值×本系数；职业表CombatConvertCoeffs可覆盖
+AttackSpeedBase,攻击速度基础值,0.5,AttackSpeed constant term,"攻速=本值+AttackSpeedAgiDiv/max(敏捷,1)中的常数项"
+AttackSpeedAgiDiv,攻击速度敏捷除数,60,AttackSpeed Agility divisor,攻速公式中除以敏捷的分子；敏捷越高攻速越接近基础值
+SkillCdIntDiv,技能冷却智力除数,30,SkillCooldown Intelligence divisor,"技能CD=max(下限,基础CD−本值/max(智力,1))；Demo不施放"
+SkillCdFloor,技能冷却下限,0.1,SkillCooldown floor seconds,技能冷却最短秒数，防止智力过高使CD过低
+MaxHpStrengthMult,血量力量系数,3,MaxHP = ceil(BodyLife + Str x Mult),士兵最大生命=ceil(躯体生命+力量×本系数)

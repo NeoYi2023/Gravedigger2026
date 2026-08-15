@@ -561,7 +561,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 RaceAdjustCoeff = raceAdjust,
                 StaticStats = staticStats,
                 BodyLife = bodyLife,
-                StaticMaxHP = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength),
+                StaticMaxHP = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult()),
                 TotalSpiritCost = aggregate.SpiritCost,
                 ControlPowerCost = aggregate.ControlPowerCost,
                 TrialRaceId = raceId,
@@ -674,7 +674,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var staticStats = WarriorStatMath.ComputeStaticStats(
                 aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
             var bodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
-            var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength);
+            var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());
 
             var instance = new WarriorInstance
             {

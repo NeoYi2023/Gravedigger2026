@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.29
-**最后更新 / Last Updated:** 2026-08-14  
+**文档版本 / Document Version:** v0.82.34
+**最后更新 / Last Updated:** 2026-08-15  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,11 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-15 | v0.82.34 | InSaveShell `StateLabel`/`StageInfoLabel` 上移至顶栏水平居中（锚点顶中；y≈−16/−52）；同步 `MetaShellAssetBuilder` + `MetaShellRoot` Prefab；SPEC_04 §6 |
+| 2026-08-15 | v0.82.33 | 常量表增列 `ConstantKeyZh`（主键中文翻译）/`CommentZh`（备注中文解释）；六键样例中文补齐；Mode1+Mode2 CSV/Excel 同步；运行时仍不读这两列；SPEC_04 §9.20b |
+| 2026-08-15 | v0.82.32 | 补常量表 Excel：`通用_常量表_Combat_CombatConstantConfig.xlsx`（Mode1+Mode2）；CSV 仍为 `Combat_CombatConstantConfig.csv`；同步 SPEC_04 §9.20b |
+| 2026-08-15 | v0.82.31 | 新增战斗常量表 `CombatConstantConfig`（方案 A）：全局默认五键换算 + `MaxHpStrengthMult`；`ClassConfig.CombatConvertCoeffs` 仍可按职业覆盖；缺键/空串读常量表；纠正 Mult 文档默认 1.5→15；同步 SPEC_03 §3.11/§3.12、SPEC_04 §9.9b/§9.20b/§14、CONTEXT |
+| 2026-08-14 | v0.82.30 | Mode2 FormationClassZones 同步：`EnsureFormationClassZones` 以 Mode2 `Manufacture_ClassConfig` 为权威 ClassId（读 CSV；缺补/表外删）；已有区保留世界 XZ；样例 HalfExtents 锁定 `(3.85, 2)`；补 `Class_*_0` 等缺区；写回 `Ground_01`…`05`；未调用 GenerateAll；同步 SPEC_03 §3.8 D-057、SPEC_04 §6/§13 |
 | 2026-08-14 | v0.82.29 | Mode2 `BodyPartConfig`：`BP_Arm_Undead_*_0` 的 `ClassRestrict` 由进阶 `Class_*` 改为基础 `Class_*_0`（与 `ClassLevel`/`DefaultAppearanceId` 档位对齐；避免 UI 显示进阶 ClassName/Lv 却对应基础外观档） |
 | 2026-08-14 | v0.82.28 | 布阵士兵栏方格：`ClassName` 下方增加 `Lv.{ClassLevel}`（经 `ClassConfig`；缺行按 0）；同步 SPEC_03 §3.11、SPEC_04 §6 |
 | 2026-08-14 | v0.82.27 | 布阵士兵栏方格 `Label`：由展示 `WarriorId` 改为 `Manufacture_ClassConfig.ClassName`（经实例 `ClassId`；缺行回退 `ClassId`）；`FormationEditorController` 注入 `ConfigCsvRepository`；同步 SPEC_03 §3.11、SPEC_04 §6 |
@@ -77,6 +82,7 @@
 | 2026-08-14 | v0.82.20 | 士兵技能 SS-03：Mode1 `TryManufacture`/`TryRemanufacture` 在 `ClassId` 定稿后由 `SoldierSkillGrant` 写入 `DefaultSkillIds`@Lv1；失控 `ΣSkillBonus` 按实例 `SoldierSkills` 查 `SkillConfig.LossOfControlChanceBonus`（灵魂/宝石 `Skills` 仍 TBD）；Mode2 授予仍待 SS-04；同步 SPEC_03 §3.8 D-062、SPEC_04 §6/§9.9/§9.9b |
 | 2026-08-14 | v0.82.19 | 士兵技能 SS-02：`WarriorInstance.SoldierSkills` + WarriorPool JSON 往返（`SoldierSkillEntry[]` / JsonUtility）；旧档缺字段=空列表；`RepairMissingStatSnapshots` 不清空技能；制造授予仍待 SS-03/04；同步 SPEC_03 §3.8 D-062、SPEC_04 §6/§9.9 |
 | 2026-08-14 | v0.82.18 | 士兵技能 SS-01：§3.8 增 D-062（P1 垂直待实现）；Mode1+Mode2 `Combat_SkillConfig` 加 `IconAssetId`、补 `Skill_01` Lv2；`ClassConfig.DefaultSkillIds` 样例仅战士=`Skill_01`；`SkillConfigRow` + `ConfigCsvRepository.LoadSkills` 复合主键；issues `.scratch/soldier-skills/`；同步 SPEC_03 §3.8 |
+| 2026-08-14 | v0.82.18 | D-056 Catalog 补绑：Defend/UM `WarriorAppearances` 并入 Mode2 已有 Prefab 的 18 个 AppearanceId（`App_0_*`/`App_4_41`/`App_5_51`）；Art→Prefab 文件此前已齐；未调用 GenerateAll |
 | 2026-08-14 | v0.82.17 | ToolsPanel Demo GM（D-061 / UI-019）：「增加主角装备」「增加魔法书」打开 `GmGrantListPanel`；装备按 EquipId 去重点一次 `TryAcquire`；魔法书全表点一次 `TryEquip`（无仓库）；Dig HUD GM 保留；issues `.scratch/tools-panel-gm-grant/`（TP-00～02；方案 A）；同步 SPEC_03 §3.5/§3.6/§3.8、SPEC_04 §6、CONTEXT |
 | 2026-08-14 | v0.82.16 | 士兵技能体系规则录入：`SkillConfig` 为士兵技能权威表（复合主键 + IconAssetId；对齐磁盘列并补 §9.21b）；`ClassConfig.DefaultSkillIds`；实例 `SoldierSkills` 制造烘进、PermanentDeath 删除；Mode2 `SoldierSkillLevelAdd` 只升已有技能；Mode1 不读魔法书升技能；无经验升级；Demo 仍不施放；同步 SPEC_03 §3.1/§3.11/§3.12/§3.15、SPEC_04 §6/§9.9/§9.9b/§9.21/§9.21b/§9.24/§14、CONTEXT、spec-map |
 | 2026-08-14 | v0.82.15 | FormationClassZone 改为 WalkSurface 同形 IsoDiamond（方案 A）：废止 IsoTileYaw/OBB/`RotationYDegrees`；作者 MeshCollider；Play 关闭 Collider；Contains/螺旋走菱形数学；issues `.scratch/formation-class-zone-isodiamond/`（FZ-00～02）；同步 SPEC_03 §3.8 D-052/§3.15、SPEC_04 §6/§13、CONTEXT |
@@ -293,6 +299,11 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-15 | v0.82.34 | InSaveShell `StateLabel`/`StageInfoLabel` moved to top-center (top-middle anchors; y≈−16/−52); synced `MetaShellAssetBuilder` + `MetaShellRoot` prefab; SPEC_04 §6 |
+| 2026-08-15 | v0.82.33 | Constants table: add `ConstantKeyZh` / `CommentZh`; fill ZH for six sample keys; Mode1+Mode2 CSV/Excel synced; runtime still ignores both columns; SPEC_04 §9.20b |
+| 2026-08-15 | v0.82.32 | Added constants Excel: `通用_常量表_Combat_CombatConstantConfig.xlsx` (Mode1+Mode2); CSV remains `Combat_CombatConstantConfig.csv`; synced SPEC_04 §9.20b |
+| 2026-08-15 | v0.82.31 | Added `CombatConstantConfig` (Approach A): global five convert keys + `MaxHpStrengthMult`; Class `CombatConvertCoeffs` still overrides per class; missing/empty → constants table; doc Mult default 1.5→15; synced SPEC_03 §3.11/§3.12, SPEC_04 §9.9b/§9.20b/§14, CONTEXT |
+| 2026-08-14 | v0.82.30 | Mode2 FormationClassZones sync: `EnsureFormationClassZones` uses Mode2 `Manufacture_ClassConfig` as authoritative ClassId list (CSV; add missing / remove orphans); existing zones keep world XZ; sample HalfExtents locked to `(3.85, 2)`; add missing `Class_*_0` zones; write back `Ground_01`…`05`; no GenerateAll; synced SPEC_03 §3.8 D-057, SPEC_04 §6/§13 |
 | 2026-08-14 | v0.82.29 | Mode2 `BodyPartConfig`: `BP_Arm_Undead_*_0` `ClassRestrict` retargeted from advanced `Class_*` to base `Class_*_0` (align ClassLevel / DefaultAppearanceId tiers; avoid advanced ClassName/Lv with base appearance tier) |
 | 2026-08-14 | v0.82.28 | Formation soldier-bar cell: add `Lv.{ClassLevel}` under `ClassName` (via `ClassConfig`; missing row → 0); synced SPEC_03 §3.11, SPEC_04 §6 |
 | 2026-08-14 | v0.82.27 | Formation soldier-bar cell `Label`: show `Manufacture_ClassConfig.ClassName` (via instance `ClassId`; missing row → fallback `ClassId`) instead of `WarriorId`; `FormationEditorController` takes `ConfigCsvRepository`; synced SPEC_03 §3.11, SPEC_04 §6 |
@@ -305,6 +316,7 @@
 | 2026-08-14 | v0.82.20 | Soldier-skill SS-03: Mode1 `TryManufacture`/`TryRemanufacture` grants `DefaultSkillIds`@Lv1 via `SoldierSkillGrant` after `ClassId` is final; LossOfControl `ΣSkillBonus` sums `SkillConfig.LossOfControlChanceBonus` from instance `SoldierSkills` (Soul/Gem `Skills` still TBD); Mode2 grant still SS-04; synced SPEC_03 §3.8 D-062, SPEC_04 §6/§9.9/§9.9b |
 | 2026-08-14 | v0.82.19 | Soldier-skill SS-02: `WarriorInstance.SoldierSkills` + WarriorPool JSON roundtrip (`SoldierSkillEntry[]` / JsonUtility); missing field on old saves → empty list; `RepairMissingStatSnapshots` does not clear skills; manufacture grant still SS-03/04; synced SPEC_03 §3.8 D-062, SPEC_04 §6/§9.9 |
 | 2026-08-14 | v0.82.18 | Soldier-skill SS-01: §3.8 adds D-062 (P1 vertical pending); Mode1+Mode2 `Combat_SkillConfig` `IconAssetId` + `Skill_01` Lv2; `ClassConfig.DefaultSkillIds` sample Warrior=`Skill_01` only; `SkillConfigRow` + `ConfigCsvRepository.LoadSkills` composite PK; issues `.scratch/soldier-skills/`; synced SPEC_03 §3.8 |
+| 2026-08-14 | v0.82.18 | D-056 catalog bind-up: Defend/UM `WarriorAppearances` union Mode2 AppearanceIds that already have Prefabs (18× `App_0_*`/`App_4_41`/`App_5_51`); Art→Prefab files were already present; did not call GenerateAll |
 | 2026-08-14 | v0.82.17 | ToolsPanel Demo GM (D-061 / UI-019): "Grant Protagonist Equipment" / "Grant MagicBook" open `GmGrantListPanel`; distinct EquipId → `TryAcquire`; MagicBook table → `TryEquip` (no warehouse); Dig HUD GM kept; issues `.scratch/tools-panel-gm-grant/` (TP-00–02; Approach A); synced SPEC_03 §3.5/§3.6/§3.8, SPEC_04 §6, CONTEXT |
 | 2026-08-14 | v0.82.16 | Soldier-skill rules: `SkillConfig` is soldier-skill authority (composite PK + IconAssetId; align on-disk columns + §9.21b); `ClassConfig.DefaultSkillIds`; instance `SoldierSkills` baked at manufacture, dropped on PermanentDeath; Mode2 `SoldierSkillLevelAdd` only raises existing skills; Mode1 ignores MagicBook skill level-up; no exp upgrade; Demo still no cast; synced SPEC_03 §3.1/§3.11/§3.12/§3.15, SPEC_04 §6/§9.9/§9.9b/§9.21/§9.21b/§9.24/§14, CONTEXT, spec-map |
 | 2026-08-14 | v0.82.15 | FormationClassZone → WalkSurface-matching IsoDiamond (Approach A): drop IsoTileYaw/OBB/`RotationYDegrees`; authoring MeshCollider; Collider off in Play; Contains/spiral use diamond math; issues `.scratch/formation-class-zone-isodiamond/` (FZ-00–02); synced SPEC_03 §3.8 D-052/§3.15, SPEC_04 §6/§13, CONTEXT |

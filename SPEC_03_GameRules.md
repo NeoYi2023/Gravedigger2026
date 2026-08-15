@@ -98,8 +98,10 @@
 | SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 `(SkillId, SkillLevel)` → 名称/图标/描述/`SkillEffectId`/CD/失控加成等；怪物仍走 `MonsterConfig.Skills`；**Demo 不施放**（§3.11、§3.12，[SPEC_04 §9.21](SPEC_04_Technical.md)）。 |
 | SkillEffectConfig | 技能效果配置表 | `SkillEffectId` 主键；效果正文列仍骨架；被 `SkillConfig.SkillEffectId` 引用（[SPEC_04 §9.21b](SPEC_04_Technical.md)）。 |
 | BodyLife | 躯体生命 | `Base(MaxHP)+Equip(MaxHP)`；制造锁定；不含宝石/种族/Buff 对生命维放大；代入士兵 `MaxHP` 公式（§3.11）。 |
-| NormalAttackPower | 普通攻击值 | `Primary × 15`；命中后对怪物直接扣血（本批无护甲）（§3.12）。 |
-| AttackSpeed | 攻击速度 | 次/秒：`0.5+60/max(Agi,1)`；攻击开始间隔=`1/AttackSpeed`（§3.12）。 |
+| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值（`ConstantKey`→`Value`）；含 `NormalAttackPrimaryMult` 等与 `MaxHpStrengthMult`；职业 `CombatConvertCoeffs` 缺键回退本表（§3.11、§3.12，[SPEC_04 §9.20b](SPEC_04_Technical.md)）。 |
+| NormalAttackPower | 普通攻击值 | `Primary × NormalAttackPrimaryMult`（职业覆盖，否则常量表；样例默认 15）；命中后对怪物直接扣血（本批无护甲）（§3.12）。 |
+| AttackSpeed | 攻击速度 | 次/秒：`AttackSpeedBase+AttackSpeedAgiDiv/max(Agi,1)`（系数同上）；攻击开始间隔=`1/AttackSpeed`（§3.12）。 |
+| MaxHpStrengthMult | 血量力量系数 | 常量表键；`MaxHP=ceil(BodyLife+Str×本值)`；样例默认 **3**（§3.11）。 |
 | BodyAppearance | 躯体外观 | 预设整体外观造型；制造时按平均躯体等级+定稿种族+职业名选取（§3.11，[SPEC_04 §9.13](SPEC_04_Technical.md)）；资源为 Character Creator **烘焙整角** Prefab，见 [SPEC_04 §15](SPEC_04_Technical.md)。 |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → 外观等级/隶属种族/职业倾向/介绍/保底外形/`BodyRadius`（§3.11，[SPEC_04 §9.13](SPEC_04_Technical.md)）。 |
 | IsFallback | 保底外形 | 外观表字段；`1`=该种族保底外观；每种族至多一行；等级+种族命中但职业倾向无匹配时走保底；等级+种族候选集 A 为空时先改写为 `Race_Undead` 再选外观（§3.11）。 |
@@ -277,8 +279,10 @@
 | ClassLevel | Class level | `ClassConfig` display field (quality grade); UI-016 soldier card shows `Lv.{ClassLevel}` under class name; **not** used in combat/manufacture math ([SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | BaseClass | Base class | `ClassConfig` field; CSV Chinese Warrior/Archer/Mage/Thief literals; empty/illegal → `Unspecified`; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat ([SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | BodyLife | 躯体生命 | `Base(MaxHP)+Equip(MaxHP)`; locked at manufacture; no Gem/Race/Buff amplify on HP dim; feeds soldier MaxHP formula (§3.11). |
-| NormalAttackPower | 普通攻击值 | `Primary × 15`; on hit, subtract from monster HP directly (no armor this batch) (§3.12). |
-| AttackSpeed | 攻击速度 | Attacks/sec: `0.5+60/max(Agi,1)`; attack-start interval = `1/AttackSpeed` (§3.12). |
+| CombatConstantConfig | 战斗常量表 | Global combat-formula defaults (`ConstantKey`→`Value`); incl. `NormalAttackPrimaryMult` etc. and `MaxHpStrengthMult`; Class `CombatConvertCoeffs` missing keys fall back here (§3.11, §3.12, [SPEC_04 §9.20b](SPEC_04_Technical.md)). |
+| NormalAttackPower | 普通攻击值 | `Primary × NormalAttackPrimaryMult` (class override else constants table; sample default 15); on hit, subtract from monster HP directly (no armor this batch) (§3.12). |
+| AttackSpeed | 攻击速度 | Attacks/sec: `AttackSpeedBase+AttackSpeedAgiDiv/max(Agi,1)` (same coeff source); attack-start interval = `1/AttackSpeed` (§3.12). |
+| MaxHpStrengthMult | 血量力量系数 | Constants-table key; `MaxHP=ceil(BodyLife+Str×this)`; sample default **3** (§3.11). |
 | BodyAppearance | 躯体外观 | Preset overall look; picked by avg BodyLevel + finalized Race + class ClassName (§3.11, [SPEC_04 §9.13](SPEC_04_Technical.md)); assets are Character Creator **baked whole-character** Prefabs — [SPEC_04 §15](SPEC_04_Technical.md). |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → AppearanceLevel / RaceId / ClassAffinity / Description / IsFallback / `BodyRadius` (§3.11, [SPEC_04 §9.13](SPEC_04_Technical.md)). |
 | IsFallback | 保底外形 | Appearance field; `1` = race fallback; at most one per RaceId; used when level+race matches but class affinity does not; when set A (level+race) is empty, rewrite to `Race_Undead` then re-pick appearance (§3.11). |
@@ -637,7 +641,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-054 | Mode2 UM：布阵右侧「制造记录」打开只读弹窗；展示最近一批 AutoManufacture 士兵摘要（名字/种族/职业）；0 兵空态「本批无士兵」；下一批覆盖；同档再进仍可见；Mode1 无此按钮 | P1 | 已实现（方案 A：`AutoManufactureBatchRecordService` + Mode2 Modal；`UmAssetBuilder` Mode2 追加 / 运行时 Ensure） |
 | D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；Step2 逐兵加强/单槽脉冲套该书/Idle 揭示/每 3 兵加速；播完后按最终 ClassId 上阵再进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | **更新**（单槽节拍：`ApplyEquippedBookAtSlot` 于脉冲峰值；Deploy 延后） |
 | D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`、`App_0_01`…`App_0_33`、`App_4_41`、`App_5_51`） |
-| D-057 | 样例 `Ground_*` 的 `FormationClassZone` 覆盖当前模式 `ClassConfig` **全部** ClassId（缺区→自动上阵留池）；Mode2 须含 `Class_DarkMage`/`Class_Guardian` 等 | P1 | 已实现（WA-02：Ensure 补第二前/后排 8 区；不覆盖既有 11 区坐标；未调用 GenerateAll） |
+| D-057 | 样例 `Ground_*` 的 `FormationClassZone` 覆盖当前模式 `ClassConfig` **全部** ClassId（缺区→自动上阵留池）；Mode2 须含 `Class_DarkMage`/`Class_Guardian` 等 | P1 | 已实现（全量 ClassId 同步 + 样例 HalfExtents 锁定 `(3.85, 2)`：Ensure 读 Mode2 `Manufacture_ClassConfig`；已有区保留世界 XZ；缺补/表外删；未调用 GenerateAll） |
 | D-058 | Mode2 魔法书「战士强化」：装备 `MagicBook_WarriorEnhance` 后 AutoManufacture **Step2 该书槽脉冲**仅对 `Class_Warrior` 将主属性 Base 增加躯体该维 Σ StatBonus 的 15%（可叠；种族不过滤）；非战士不变；写入实例至彻底死亡；Dig HUD GM 可装备 | P1 | **更新**（生效点改为 Step2 单槽脉冲） |
 | D-059 | 主角装备 Dig 垂直：`ProtagonistEquipmentConfig` 表加载（Mode1+Mode2）+ 装备仓 Service/存档 + Dig caps 科技与装备加法合并 + Dig HUD GM 手验（发放 `Equip_IronShovel` / 公共经验）；正式装备 UI / 制造·战斗 Token **后置** | P1 | **完成**（PE-01～PE-04；方案 A；issues `.scratch/protagonist-equipment/`；Demo 装备=`Equip_IronShovel` 铁铲） |
 | D-060 | 主角装备「矿灯」`Equip_MinerLamp`：表 5 级（升下一级/转化经验均为 1）+ Q4/Q5/Q6 生成权重按当前行累计 +10（缺席视为 0）+ Dig HUD GM 发放/划入手验 | P1 | **完成**（PE-05～PE-08；方案 A；issues `.scratch/protagonist-equipment/`） |
@@ -689,7 +693,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-054 | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only popup; last AutoManufacture batch summaries (name/race/class); empty 「本批无士兵」; next batch overwrites; survives re-enter save; Mode1 has no button | P1 | Done (Approach A: `AutoManufactureBatchRecordService` + Mode2 Modal; `UmAssetBuilder` Mode2 append / runtime Ensure) |
 | D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; Step2 per-soldier amplify / per-slot pulse applies that book / Idle reveal / +25% speed every 3; then deploy by final ClassId → UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | **Updated** (per-slot beat: `ApplyEquippedBookAtSlot` at pulse peak; Deploy deferred) |
 | D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`, `App_0_01`…`App_0_33`, `App_4_41`, `App_5_51`) |
-| D-057 | Sample `Ground_*` `FormationClassZone` covers **every** current-mode `ClassConfig.ClassId` (no zone → auto-deploy stays in pool); Mode2 must include `Class_DarkMage`/`Class_Guardian` etc. | P1 | Done (WA-02: Ensure adds second front/back 8 zones; does not overwrite existing 11 coords; did not call GenerateAll) |
+| D-057 | Sample `Ground_*` `FormationClassZone` covers **every** current-mode `ClassConfig.ClassId` (no zone → auto-deploy stays in pool); Mode2 must include `Class_DarkMage`/`Class_Guardian` etc. | P1 | Done (full ClassId sync + sample HalfExtents locked `(3.85, 2)`: Ensure reads Mode2 `Manufacture_ClassConfig`; existing zones keep world XZ; add missing / remove orphans; no GenerateAll) |
 | D-058 | Mode2 MagicBook Warrior Enhance: equipped `MagicBook_WarriorEnhance` on AutoManufacture **Step2 that slot's pulse** adds 15% of body Σ StatBonus(class PrimaryStat) to Base for `Class_Warrior` only (stackable; no race filter); other classes unchanged; baked until PermanentDeath; Dig HUD GM can equip | P1 | **Updated** (apply point → Step2 per-slot pulse) |
 | D-059 | ProtagonistEquipment Dig vertical: load `ProtagonistEquipmentConfig` (Mode1+Mode2) + warehouse Service/persist + Dig caps tech+equip additive merge + Dig HUD GM handcheck (grant `Equip_IronShovel` / common Exp); formal equip UI / Manufacture·Combat tokens **deferred** | P1 | **Done** (PE-01–PE-04; Approach A; issues `.scratch/protagonist-equipment/`; Demo gear=`Equip_IronShovel` Iron Shovel) |
 | D-060 | ProtagonistEquipment Miner Lamp `Equip_MinerLamp`: 5-level table (ExpToNext/ConvertExp=1) + Q4/Q5/Q6 spawn-weight cumulative +10 at current row (absent treated as 0) + Dig HUD GM grant/spend handcheck | P1 | **Done** (PE-05–PE-08; Approach A; issues `.scratch/protagonist-equipment/`) |
@@ -1170,7 +1174,7 @@ EffectiveDigDuration countdown → 0
 
 ### 简体中文
 
-**状态：框架已关闭（规则库）；升级配置表结构、关卡失败经验边界、士兵属性构成（含宝石五维、种族、按项 FinalStat+下限、StaticStat 分层、职业 ClassId/ClassConfig（含 PrimaryStat、CombatConvertCoeffs 编码、AttackRange 等命中列、`DefaultSkillIds`）、士兵技能 `SoldierSkills`（职业默认 Lv1 烘进实例；Mode1 不读魔法书升技能；PermanentDeath 删除）、生命维例外 MaxHP=ceil(BodyLife+Str×3)）、士兵制造流程/槽位/命名、躯体材料表与 Base(S)=Σ StatBonus、躯体外观选取（含保底外形）、失控程度/四档/叛变判定与概率公式、士兵死亡分层（CombatDead / PermanentDeath / 宝石特例）已关闭；科技树框架见 §3.13；士兵战斗选敌/攻击距离/命中/普攻·攻速·技能CD 派生见 §3.12；躯体/外观/灵魂·职业·宝石·种族表具体数值 / 失控与技能效果表具体数值行仍 TBD。Mode2 士兵制造见 §3.15（自动制造）；本节为 Mode1 手动制造权威。**
+**状态：框架已关闭（规则库）；升级配置表结构、关卡失败经验边界、士兵属性构成（含宝石五维、种族、按项 FinalStat+下限、StaticStat 分层、职业 ClassId/ClassConfig（含 PrimaryStat、CombatConvertCoeffs 编码、AttackRange 等命中列、`DefaultSkillIds`）、士兵技能 `SoldierSkills`（职业默认 Lv1 烘进实例；Mode1 不读魔法书升技能；PermanentDeath 删除）、生命维例外 MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult)（系数见 `CombatConstantConfig`）、士兵制造流程/槽位/命名、躯体材料表与 Base(S)=Σ StatBonus、躯体外观选取（含保底外形）、失控程度/四档/叛变判定与概率公式、士兵死亡分层（CombatDead / PermanentDeath / 宝石特例）已关闭；科技树框架见 §3.13；士兵战斗选敌/攻击距离/命中/普攻·攻速·技能CD 派生见 §3.12（换算缺键回退常量表）；躯体/外观/灵魂·职业·宝石·种族表具体数值 / 失控与技能效果表具体数值行仍 TBD。Mode2 士兵制造见 §3.15（自动制造）；本节为 Mode1 手动制造权威。**
 
 **Mode2 差分（进入本阶段时）**
 
@@ -1343,7 +1347,7 @@ WarriorName = Prefix(es) + RaceDisplayName + ClassName + Suffix
 | 基础属性（BaseStats） | 由制造所用 **躯体部位** `StatBonus` 按维求和：`Base(S)=Σ StatBonus(S)`（见上）。固定五项：**生命值、移动速度、力量、敏捷、智力**。选敌/攻击距离/命中/死亡见 §3.12；普攻/攻速/技能CD/最终血量派生见下与 §3.12 |
 | 种族（Race） | 由躯体部位加权随机定稿（见上）；数据来自 **`RaceConfig`**（[SPEC_04 §9.11](SPEC_04_Technical.md)）。提供 **五维** `RaceAdjustCoeff`（缺省维 **0**；可正可负）。**不**单独计入 `ControlPowerCost` |
 | 灵魂（Soul） | 槽位 **可选**；数据来自 **`SoulConfig`**（[SPEC_04 §9.9](SPEC_04_Technical.md)）。有灵魂：消耗该行，写入其 `SoulId`/`ClassId`/`AttackMode`/技能/优先级/`MoveStyle`/SpiritCost/ControlPowerCost。无灵魂：不扣仓库；`SoulId=Soul_00`；其余灵魂侧字段读 `Soul_00`；**强制** `ClassId=Class_Servants`。`AttackMode ∈ { Melee, Ranged }`。**不**改写三维属性本身；**第一版 Demo 不施放技能**（见 §3.12） |
-| 职业（Class） | 由实例 `ClassId` 解析 **`ClassConfig`**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。提供：`ClassName`（命名与外观 `ClassAffinity`）、`BaseClass`（基础职业：`战士`/`射手`/`法师`/`盗贼`；**预留**后续魔法书等条件，**不**参与命名/外观/`PrimaryStat`/战斗派生）、`PrimaryStat ∈ { Strength, Agility, Intelligence }`、`CombatConvertCoeffs`（`键_数值|…`；缺键回退全局默认）、以及 `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`、`DefaultSkillIds`（制造默认士兵技能）。示例语义：战士→Strength、射手→Agility、法师→Intelligence、仆从（`Class_Servants`）→与战士同主属性样例（以 `PrimaryStat` 为准，非 ClassName 硬编码） |
+| 职业（Class） | 由实例 `ClassId` 解析 **`ClassConfig`**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。提供：`ClassName`（命名与外观 `ClassAffinity`）、`BaseClass`（基础职业：`战士`/`射手`/`法师`/`盗贼`；**预留**后续魔法书等条件，**不**参与命名/外观/`PrimaryStat`/战斗派生）、`PrimaryStat ∈ { Strength, Agility, Intelligence }`、`CombatConvertCoeffs`（`键_数值|…`；缺键/空串回退 **`CombatConstantConfig`**）、以及 `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`、`DefaultSkillIds`（制造默认士兵技能）。示例语义：战士→Strength、射手→Agility、法师→Intelligence、仆从（`Class_Servants`）→与战士同主属性样例（以 `PrimaryStat` 为准，非 ClassName 硬编码） |
 | 士兵技能（SoldierSkills） | 实例绑定列表 `{ SkillId, SkillLevel }[]`；权威表 **`SkillConfig`**（[SPEC_04 §9.21](SPEC_04_Technical.md)）。制造时由最终 `ClassId` 的 `DefaultSkillIds` 授予（见下）；**无**消耗经验升级。灵魂/宝石/外置 `Skills` **并行**（同 Id 合并 **TBD**）。**第一版 Demo 不施放**（§3.12） |
 | 额外装备属性 | 外置装备提供的同名平坦属性加成与/或额外技能；制造时写入实例并锁定；并提供 `NamePrefix` |
 | 宝石（Gem） | 可选；最多 6 颗（类型互斥）；数据来自 **`GemConfig`**（[SPEC_04 §9.10](SPEC_04_Technical.md)）。提供：**五维** `GemMult` + **额外技能**（各宝石技能集合并与灵魂技能 **并存**；冲突/覆盖 **TBD**）。无宝石时五维皆 **0**；多颗时实例各维 `GemMult(S) = Σ` 已镶嵌宝石的 `GemMult(S)` |
@@ -1407,16 +1411,17 @@ FinalStat(S) = max(0,
 
 ```
 BodyLife = Base(MaxHP) + Equip(MaxHP)
-MaxHP = ceil(BodyLife + Str × 3)
+MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 ```
 
 | 规则 | 说明 |
 |------|------|
 | BodyLife | 制造时锁定；**不含** GemMult / RaceAdjust / SkillBuff 对生命维的放大 |
 | Str | 静态展示用 `StaticStat(Strength)`；战斗运行时用 `FinalStat(Strength)` |
-| SkillBuff(MaxHP) | **本批不读**；Buff 改力量则经 `Str×3` 间接影响血量 |
+| MaxHpStrengthMult | 读 **`CombatConstantConfig`** 键 `MaxHpStrengthMult`（样例默认 **3**）；缺表键实现可 Warning + 兜底 3 |
+| SkillBuff(MaxHP) | **本批不读**；Buff 改力量则经 `Str×MaxHpStrengthMult` 间接影响血量 |
 | RemainingHP 上限 | 开战时算出的 `MaxHP`；若布阵已存 `RemainingHP` 超过新上限 → **钳制**为新上限 |
-| 静态展示 MaxHP | `ceil(BodyLife + StaticStat(Strength)×3)` |
+| 静态展示 MaxHP | `ceil(BodyLife + StaticStat(Strength)×MaxHpStrengthMult)` |
 
 **士兵实例静态快照（制造完成时写入；伪结构）：** 见 [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.10](SPEC_04_Technical.md) / [§9.11](SPEC_04_Technical.md)。
 
@@ -1500,7 +1505,7 @@ UpgradeManufacture stage
   → Formation: shared editor; BattleMap continuous coords; persist {WarriorId, Position, RemainingHP}
   → Deploy control: Cap = level-row ControlPowerCap (+ tech later); cost = instance ControlPowerCost; Degree = ΣCost/Cap − 1; tiers 1–4 + Rebel rolls (§3.11 / §3.12 / SPEC_04 §9.20); does not block StartBattle
   → Combat: StaticStat(S)=max(0, Base+Equip+Base×GemMult+Base×RaceAdjust); FinalStat adds Base×SkillBuff
-       → MaxHP=ceil(BodyLife+Str×3); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId (soul or Class_Servants) → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
+       → MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId (soul or Class_Servants) → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
        → RemainingHP clamp to MaxHP on StartBattle
   → On PermanentDeath: all GemIds → Warehouse; BodyParts/Soul/ExtraEquipment/other bound materials destroyed; SoldierSkills dropped with instance; clear formation slot
   → CombatDead (no gems): no material fate until PermanentDeath (§3.12)
@@ -1510,7 +1515,7 @@ UpgradeManufacture stage
 
 ### English
 
-**Status: Framework closed (rules library); upgrade table schema, LevelFailure Exp boundary, soldier attribute composition (incl. five-dim Gem, Race; per-stat FinalStat + floor; StaticStat layer; Class ClassId/ClassConfig (incl. PrimaryStat, CombatConvertCoeffs encoding, AttackRange hit columns, `DefaultSkillIds`); soldier skills `SoldierSkills` (class default Lv1 baked; Mode1 ignores MagicBook skill level-up; dropped on PermanentDeath); HP-dim exception MaxHP=ceil(BodyLife+Str×3)), soldier manufacture flow/slots/naming, BodyPartConfig + Base(S)=Σ StatBonus, BodyAppearance pick (incl. IsFallback), LossOfControlDegree / four tiers / Rebel rolls & chance formula, soldier death layers (CombatDead / PermanentDeath / gem exception) closed; TechTree framework in §3.13; WarriorCombat targeting / AttackRange / hit / NormalAttack·ASPD·SkillCD derives in §3.12; concrete Body/Appearance/Soul/Class/Gem/Race numbers / LossOfControl & skill-effect table concrete rows still TBD. Mode2 soldier manufacture is §3.15 (AutoManufacture); this section is Mode1 manual-manufacture authority.**
+**Status: Framework closed (rules library); upgrade table schema, LevelFailure Exp boundary, soldier attribute composition (incl. five-dim Gem, Race; per-stat FinalStat + floor; StaticStat layer; Class ClassId/ClassConfig (incl. PrimaryStat, CombatConvertCoeffs encoding, AttackRange hit columns, `DefaultSkillIds`); soldier skills `SoldierSkills` (class default Lv1 baked; Mode1 ignores MagicBook skill level-up; dropped on PermanentDeath); HP-dim exception MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult) (coeff from `CombatConstantConfig`)), soldier manufacture flow/slots/naming, BodyPartConfig + Base(S)=Σ StatBonus, BodyAppearance pick (incl. IsFallback), LossOfControlDegree / four tiers / Rebel rolls & chance formula, soldier death layers (CombatDead / PermanentDeath / gem exception) closed; TechTree framework in §3.13; WarriorCombat targeting / AttackRange / hit / NormalAttack·ASPD·SkillCD derives in §3.12 (missing convert keys → constants table); concrete Body/Appearance/Soul/Class/Gem/Race numbers / LossOfControl & skill-effect table concrete rows still TBD. Mode2 soldier manufacture is §3.15 (AutoManufacture); this section is Mode1 manual-manufacture authority.**
 
 **Mode2 diffs (when entering this stage)**
 
@@ -1683,7 +1688,7 @@ A soldier is composed of: **WarriorInfo**, **BaseStats**, **Race**, **Soul**, **
 | BaseStats | Sum of filled BodyPart `StatBonus` per dim: `Base(S)=Σ StatBonus(S)` (above). Fixed five: **HP, MoveSpeed, Strength, Agility, Intelligence**. Targeting / AttackRange / hit / death in §3.12; NormalAttack / ASPD / SkillCD / final MaxHP derives below and in §3.12 |
 | Race | Weighted pick from BodyParts (above); data from **`RaceConfig`** ([SPEC_04 §9.11](SPEC_04_Technical.md)). Five-dim `RaceAdjustCoeff` (missing dim = **0**; may be +/-). No separate ControlPowerCost term |
 | Soul | Slot **optional**; **`SoulConfig`** ([SPEC_04 §9.9](SPEC_04_Technical.md)). If filled: consume that row; write its SoulId/ClassId/AttackMode/skills/priority/MoveStyle/SpiritCost/ControlPowerCost. If empty: no warehouse consume; `SoulId=Soul_00`; other soul-side fields from `Soul_00`; **force** `ClassId=Class_Servants`. `AttackMode ∈ { Melee, Ranged }`. Does **not** rewrite the three dims; **Demo v1 does not cast skills** (see §3.12) |
-| Class | Resolved from instance `ClassId` via **`ClassConfig`** ([SPEC_04 §9.9b](SPEC_04_Technical.md)): `ClassName` (naming + appearance `ClassAffinity`), `BaseClass` (base class: Warrior/Archer/Mage/Thief; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat derives), `PrimaryStat ∈ { Strength, Agility, Intelligence }`, `CombatConvertCoeffs` (`Key_Value|…`; missing key → global defaults), plus `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`, `DefaultSkillIds` (default soldier skills at manufacture). Example semantics: Warrior→Strength, Archer→Agility, Mage→Intelligence, Servants (`Class_Servants`)→same PrimaryStat sample as Warrior (`PrimaryStat` wins; not ClassName hardcoding) |
+| Class | Resolved from instance `ClassId` via **`ClassConfig`** ([SPEC_04 §9.9b](SPEC_04_Technical.md)): `ClassName` (naming + appearance `ClassAffinity`), `BaseClass` (base class: Warrior/Archer/Mage/Thief; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat derives), `PrimaryStat ∈ { Strength, Agility, Intelligence }`, `CombatConvertCoeffs` (`Key_Value|…`; missing key / empty → **`CombatConstantConfig`**), plus `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`, `DefaultSkillIds` (default soldier skills at manufacture). Example semantics: Warrior→Strength, Archer→Agility, Mage→Intelligence, Servants (`Class_Servants`)→same PrimaryStat sample as Warrior (`PrimaryStat` wins; not ClassName hardcoding) |
 | SoldierSkills | Instance list `{ SkillId, SkillLevel }[]`; catalog **`SkillConfig`** ([SPEC_04 §9.21](SPEC_04_Technical.md)). Granted at manufacture from final `ClassId` `DefaultSkillIds` (below); **no** exp-spend upgrade. Soul/Gem/ExtraEquipment `Skills` remain **parallel** (same-Id merge **TBD**). **Demo v1 does not cast** (§3.12) |
 | ExtraEquipment stats | Flat same-named bonuses and/or extra skills; locked at manufacture; also supplies `NamePrefix` |
 | Gem | Optional; up to 6 (type-exclusive); **`GemConfig`** ([SPEC_04 §9.10](SPEC_04_Technical.md)): **five-dim** `GemMult` + extra skills (union with Soul skills; conflict **TBD**). No gems → all dims **0**; multi-gem → instance `GemMult(S) = Σ` socketed `GemMult(S)` |
@@ -1747,16 +1752,17 @@ Final soldier MaxHP does **not** use `FinalStat(MaxHP)`; use the derived formula
 
 ```
 BodyLife = Base(MaxHP) + Equip(MaxHP)
-MaxHP = ceil(BodyLife + Str × 3)
+MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 ```
 
 | Rule | Notes |
 |------|-------|
 | BodyLife | Locked at manufacture; **excludes** GemMult / RaceAdjust / SkillBuff amplify on the HP dim |
 | Str | Static UI uses `StaticStat(Strength)`; combat uses `FinalStat(Strength)` |
-| SkillBuff(MaxHP) | **Not read this batch**; Buffs that change Strength affect MaxHP via `Str×3` |
+| MaxHpStrengthMult | From **`CombatConstantConfig`** key `MaxHpStrengthMult` (sample default **3**); missing key → Warning + fallback 3 |
+| SkillBuff(MaxHP) | **Not read this batch**; Buffs that change Strength affect MaxHP via `Str×MaxHpStrengthMult` |
 | RemainingHP cap | Combat `MaxHP` at StartBattle; if persisted `RemainingHP` exceeds new cap → **clamp** to new cap |
-| Static MaxHP UI | `ceil(BodyLife + StaticStat(Strength)×3)` |
+| Static MaxHP UI | `ceil(BodyLife + StaticStat(Strength)×MaxHpStrengthMult)` |
 
 **Soldier instance static snapshot (written at manufacture):** see [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.10](SPEC_04_Technical.md) / [§9.11](SPEC_04_Technical.md).
 
@@ -1840,7 +1846,7 @@ UpgradeManufacture stage
   → Formation: shared editor; BattleMap continuous coords; persist {WarriorId, Position, RemainingHP}
   → Deploy control: Cap = level-row ControlPowerCap (+ tech later); cost = instance ControlPowerCost; Degree = ΣCost/Cap − 1; tiers 1–4 + Rebel rolls (§3.11 / §3.12 / SPEC_04 §9.20); does not block StartBattle
   → Combat: StaticStat(S)=max(0, Base+Equip+Base×GemMult+Base×RaceAdjust); FinalStat adds Base×SkillBuff
-       → MaxHP=ceil(BodyLife+Str×3); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId (soul or Class_Servants) → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
+       → MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult); BodyLife=Base(MaxHP)+Equip(MaxHP); ClassId (soul or Class_Servants) → ClassConfig.PrimaryStat → attack/ASPD/CD (§3.12)
        → RemainingHP clamp to MaxHP on StartBattle
   → On PermanentDeath: all GemIds → Warehouse; BodyParts/Soul/ExtraEquipment/other bound materials destroyed; SoldierSkills dropped with instance; clear formation slot
   → CombatDead (no gems): no material fate until PermanentDeath (§3.12)
@@ -2093,22 +2099,22 @@ UpgradeManufacture stage
 
 令 `Primary` = 士兵 `ClassId` → `ClassConfig.PrimaryStat` 对应维的属性值；`Str` / `Agi` / `Int` 分别为力量 / 敏捷 / 智力。制造/布阵静态展示取 §3.11 `StaticStat`；开战与战斗中取 `FinalStat`；Buff 变更时重算下列派生项。分母用 `max(·, 1)`。
 
-下列全局常量（如 `15` / `0.5` / `60` / `30` / `0.1`）为 **缺键回退默认**；正式系数取自 `ClassConfig.CombatConvertCoeffs`（编码见 [SPEC_04 §9.9b](SPEC_04_Technical.md)）。命中参数（`AttackRange` / 前摇 / 弹速 / 超时）取自同表独立列（怪物取 `MonsterConfig` 同名列）。
+下列系数取自 `ClassConfig.CombatConvertCoeffs`（有键覆盖）；**缺键 / 空串**回退 **`CombatConstantConfig`**（[SPEC_04 §9.20b](SPEC_04_Technical.md)）。样例常量表：`NormalAttackPrimaryMult=15`、`AttackSpeedBase=0.5`、`AttackSpeedAgiDiv=60`、`SkillCdIntDiv=30`、`SkillCdFloor=0.1`。命中参数（`AttackRange` / 前摇 / 弹速 / 超时）取自职业表独立列（怪物取 `MonsterConfig` 同名列）。
 
 ```
-NormalAttackPower = Primary × 15
+NormalAttackPower = Primary × NormalAttackPrimaryMult
 
-AttackSpeed = 0.5 + 60 / max(Agi, 1)
+AttackSpeed = AttackSpeedBase + AttackSpeedAgiDiv / max(Agi, 1)
   // 单位：次/秒；攻击开始间隔 = 1 / AttackSpeed
 
-SkillCooldown = max(0.1, SkillConfig.BaseCooldownSeconds - 30 / max(Int, 1))
+SkillCooldown = max(SkillCdFloor, SkillConfig.BaseCooldownSeconds - SkillCdIntDiv / max(Int, 1))
   // 单位：秒；SkillConfig 见 SPEC_04 §9.21；第一版 Demo 不施放技能，本式不驱动战斗
 ```
 
 | 派生项 | 静态展示 | 战斗运行时 |
 |--------|----------|------------|
 | Primary / Str / Agi / Int | `StaticStat` | `FinalStat` |
-| MaxHP | §3.11：`ceil(BodyLife + StaticStat(Strength)×3)` | `ceil(BodyLife + FinalStat(Strength)×3)`；`BodyLife` 不变 |
+| MaxHP | §3.11：`ceil(BodyLife + StaticStat(Strength)×MaxHpStrengthMult)` | `ceil(BodyLife + FinalStat(Strength)×MaxHpStrengthMult)`；`BodyLife` 不变 |
 | NormalAttackPower / AttackSpeed / SkillCooldown | 上式 + 静态属性 | 上式 + 战斗属性（Demo 不展示/不驱动 SkillCooldown 亦可） |
 
 士兵攻击状态机要点：
@@ -2150,7 +2156,7 @@ Defend stage
   → Spawn BattleProtagonist at BattleMap center
   → Shield = ProtagonistMaxHP (current level row)
   → RemainingCombatSeconds = CombatDurationSeconds
-  → Deploy soldiers at **current** formation positions; MaxHP=ceil(BodyLife+FinalStat(Str)×3); RemainingHP clamp to MaxHP
+  → Deploy soldiers at **current** formation positions; MaxHP=ceil(BodyLife+FinalStat(Str)×MaxHpStrengthMult); RemainingHP clamp to MaxHP
   → Lock LossOfControlDegree = ΣCost / Cap − 1 and Tier; if Degree > 0, each soldier rolls FinalLossChance once (§3.11)
   → Each whole second (and on StartBattle for matching Remaining):
        fire WaveSpawnConfig rows where SpawnRemainingSeconds == RemainingCombatSeconds
@@ -2166,7 +2172,7 @@ Defend stage
        candidates = living monsters inside EngageZone (outside not selectable)
        target = nearest candidate (AttackPriority unused this batch)
        if no candidate → NavMesh to FormationHome (StartBattle deploy pos); keep retargeting; abort return on new target
-       AttackMode from SoulConfig; Primary=FinalStat(ClassConfig.PrimaryStat via ClassId); NormalAttackPower=Primary×15
+       AttackMode from SoulConfig; Primary=FinalStat(ClassConfig.PrimaryStat via ClassId); NormalAttackPower=Primary×NormalAttackPrimaryMult
        AttackSpeed=0.5+60/max(Agi,1); interval=1/AttackSpeed; windup within interval
        // Demo: no skill cast; SkillCooldown formula retained but unused
        move into AttackRange → AttackWindup
@@ -2428,22 +2434,22 @@ Optional `CombatMoveMode` beside `GoalKind` (default derived from GoalKind). **E
 
 Let `Primary` = the attribute dim selected by soldier `ClassId` → `ClassConfig.PrimaryStat`; `Str` / `Agi` / `Int` = Strength / Agility / Intelligence. Manufacture / formation UI uses §3.11 `StaticStat`; StartBattle and combat use `FinalStat`; recalc derives when Buffs change. Denominators use `max(·, 1)`.
 
-Global constants below (e.g. `15` / `0.5` / `60` / `30` / `0.1`) are **missing-key defaults**; formal coeffs from `ClassConfig.CombatConvertCoeffs` (encoding: [SPEC_04 §9.9b](SPEC_04_Technical.md)). Hit params (`AttackRange` / windup / projectile / timeout) from the same table's separate columns (monsters: `MonsterConfig` same-named columns).
+Coeffs from `ClassConfig.CombatConvertCoeffs` (present keys override); **missing key / empty** fall back to **`CombatConstantConfig`** ([SPEC_04 §9.20b](SPEC_04_Technical.md)). Sample constants: `NormalAttackPrimaryMult=15`, `AttackSpeedBase=0.5`, `AttackSpeedAgiDiv=60`, `SkillCdIntDiv=30`, `SkillCdFloor=0.1`. Hit params (`AttackRange` / windup / projectile / timeout) from the same table's separate columns (monsters: `MonsterConfig` same-named columns).
 
 ```
-NormalAttackPower = Primary × 15
+NormalAttackPower = Primary × NormalAttackPrimaryMult
 
-AttackSpeed = 0.5 + 60 / max(Agi, 1)
+AttackSpeed = AttackSpeedBase + AttackSpeedAgiDiv / max(Agi, 1)
   // attacks per second; attack-start interval = 1 / AttackSpeed
 
-SkillCooldown = max(0.1, SkillConfig.BaseCooldownSeconds - 30 / max(Int, 1))
+SkillCooldown = max(SkillCdFloor, SkillConfig.BaseCooldownSeconds - SkillCdIntDiv / max(Int, 1))
   // seconds; SkillConfig in SPEC_04 §9.21; Demo v1 does not cast skills — unused in combat
 ```
 
 | Derive | Static UI | Combat runtime |
 |--------|-----------|----------------|
 | Primary / Str / Agi / Int | `StaticStat` | `FinalStat` |
-| MaxHP | §3.11: `ceil(BodyLife + StaticStat(Strength)×3)` | `ceil(BodyLife + FinalStat(Strength)×3)`; `BodyLife` unchanged |
+| MaxHP | §3.11: `ceil(BodyLife + StaticStat(Strength)×MaxHpStrengthMult)` | `ceil(BodyLife + FinalStat(Strength)×MaxHpStrengthMult)`; `BodyLife` unchanged |
 | NormalAttackPower / AttackSpeed / SkillCooldown | formulas + static attrs | formulas + combat attrs (Demo may omit SkillCooldown display/drive) |
 
 Soldier attack state machine (sketch):
@@ -2485,7 +2491,7 @@ Defend stage
   → Spawn BattleProtagonist at BattleMap center
   → Shield = ProtagonistMaxHP (current level row)
   → RemainingCombatSeconds = CombatDurationSeconds
-  → Deploy soldiers at **current** formation positions; MaxHP=ceil(BodyLife+FinalStat(Str)×3); RemainingHP clamp to MaxHP
+  → Deploy soldiers at **current** formation positions; MaxHP=ceil(BodyLife+FinalStat(Str)×MaxHpStrengthMult); RemainingHP clamp to MaxHP
   → Lock LossOfControlDegree = ΣCost / Cap − 1 and Tier; if Degree > 0, each soldier rolls FinalLossChance once (§3.11)
   → Each whole second (and on StartBattle for matching Remaining):
        fire WaveSpawnConfig rows where SpawnRemainingSeconds == RemainingCombatSeconds
@@ -2501,7 +2507,7 @@ Defend stage
        candidates = living monsters inside EngageZone (outside not selectable)
        target = nearest candidate (AttackPriority unused this batch)
        if no candidate → NavMesh to FormationHome (StartBattle deploy pos); keep retargeting; abort return on new target
-       AttackMode from SoulConfig; Primary=FinalStat(ClassConfig.PrimaryStat via ClassId); NormalAttackPower=Primary×15
+       AttackMode from SoulConfig; Primary=FinalStat(ClassConfig.PrimaryStat via ClassId); NormalAttackPower=Primary×NormalAttackPrimaryMult
        AttackSpeed=0.5+60/max(Agi,1); interval=1/AttackSpeed; windup within interval
        // Demo: no skill cast; SkillCooldown formula retained but unused
        move into AttackRange → AttackWindup
@@ -3527,7 +3533,7 @@ RecalcCaps
 - [x] 防守刷怪波次表、倒计时激活节奏与出现位置/方式（§3.12 / SPEC_04 §9.18）；**Demo 最小刷怪点/NavMesh 已关闭**；精确 OutsideMap 几何后置
 - [x] Demo 验收扩大：Meta 壳 + Dig→UM→Defend 流水线（SPEC_03 §3.8 D-001～D-043）；UM `GameplayConfigId`=忽略
 - [x] 怪物配置表与目标选择（§3.12 / SPEC_04 §9.19）；怪物对士兵：`AttackPower` 直接扣 HP（本批无护甲）；AttackRange 等命中列已锁
-- [x] 士兵战斗派生：ClassId→ClassConfig.PrimaryStat / NormalAttackPower / AttackSpeed / SkillCooldown / MaxHP=ceil(BodyLife+Str×3)；CombatConvertCoeffs 编码已锁（§3.11 / §3.12 / SPEC_04 §9.9b）
+- [x] 士兵战斗派生：ClassId→ClassConfig.PrimaryStat / NormalAttackPower / AttackSpeed / SkillCooldown / MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult)；CombatConvertCoeffs + CombatConstantConfig 已锁（§3.11 / §3.12 / SPEC_04 §9.9b / §9.20b）
 - [x] 士兵战斗（WarriorCombat）：EngageZone 最近选敌、AttackMode（SoulConfig）、AttackRange（ClassConfig）、命中方案 D、CombatDead / PermanentDeath / 宝石特例（§3.12）；**第一版 Demo 仅普攻**（士兵与怪物不施放技能；法师=远程+Intelligence，同射手通道）
 - [x] 护盾（Shield）：开战取 `ProtagonistMaxHP`；普通攻击命中 −1（含叛变士兵）；归零 LevelFailure（§3.12）
 - [x] 失控判定时机与叛变 AI（开战锁定 Degree；就近目标；技能二次完整率 roll——**Demo 无技能施放故不触发二次 roll**）（§3.11 / §3.12）
@@ -3604,7 +3610,7 @@ RecalcCaps
 - [x] Defend framework (§3.12)
 - [x] Defend wave spawn table, countdown activation, appear location/mode (§3.12 / SPEC_04 §9.18); **Demo-min spawn/NavMesh closed**; exact OutsideMap geometry deferred
 - [x] MonsterConfig + TargetSelect (§3.12 / SPEC_04 §9.19); monster vs soldier: `AttackPower` subtracts HP directly (no armor this batch); AttackRange hit columns locked
-- [x] Soldier combat derives: ClassId→ClassConfig.PrimaryStat / NormalAttackPower / AttackSpeed / SkillCooldown / MaxHP=ceil(BodyLife+Str×3); CombatConvertCoeffs encoding locked (§3.11 / §3.12 / SPEC_04 §9.9b)
+- [x] Soldier combat derives: ClassId→ClassConfig.PrimaryStat / NormalAttackPower / AttackSpeed / SkillCooldown / MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult); CombatConvertCoeffs + CombatConstantConfig locked (§3.11 / §3.12 / SPEC_04 §9.9b / §9.20b)
 - [x] WarriorCombat: EngageZone nearest target, AttackMode (SoulConfig), AttackRange (ClassConfig), hit scheme D, CombatDead / PermanentDeath / gem exception (§3.12); **Demo v1 normal attacks only** (soldiers & monsters; Mage = Ranged+Intelligence, same channel as Archer)
 - [x] Shield: init from `ProtagonistMaxHP`; normal hit −1 (incl. Rebel soldiers); Shield ≤ 0 → LevelFailure (§3.12)
 - [x] LossOfControl roll timing & Rebel AI (Degree locked at StartBattle; nearest target; skill-cast full-chance re-roll — **Demo does not cast skills so no secondary roll**) (§3.11 / §3.12)

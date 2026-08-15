@@ -36,11 +36,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         }
 
         /// <summary>
-        /// HP-dim exception: MaxHP = ceil(BodyLife + Str × 3); BodyLife = Base(MaxHP) + Equip(MaxHP).
+        /// HP-dim exception: MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult).
         /// </summary>
-        public static int ComputeMaxHP(float bodyLife, float strength)
+        public static int ComputeMaxHP(float bodyLife, float strength, float maxHpStrengthMult)
         {
-            return (int)Math.Ceiling(bodyLife + strength * 3f);
+            return (int)Math.Ceiling(bodyLife + strength * maxHpStrengthMult);
         }
 
         public static float ComputeBodyLife(in StatBlock baseStats, in StatBlock equip)

@@ -17,8 +17,3 @@ Class_FireMage,火法,法师,3,Intelligence,NormalAttackPrimaryMult_45|AttackSpe
 Class_Shadowblade,影刃,盗贼,3,Intelligence,NormalAttackPrimaryMult_45|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|30_30|0.1_0.1,0.35,0.5,0,0,2,Melee,2,App_0_33,
 Class_Paladin,圣骑士,战士,4,Strength,NormalAttackPrimaryMult_60|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|30_30|0.1_0.1,0.5,0.5,0,0,1.5,Melee,1,App_4_41,
 Class_DarkMage,暗黑法师,法师,4,Intelligence,NormalAttackPrimaryMult_60|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|30_30|0.1_0.1,0.8,0.5,14,1,0.5,Ranged,2,App_5_51,
-Class_Knight,骑士,战士,1,Strength,NormalAttackPrimaryMult_15|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,0.3,0.5,0,0,2,Melee,2,App_05,
-Class_Priest,牧师,法师,1,Intelligence,NormalAttackPrimaryMult_15|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,1.2,0.5,17,2,0.5,Ranged,10,App_09,
-Class_Ranger,游侠,射手,1,Agility,NormalAttackPrimaryMult_15|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,1.1,0.5,19,1,1,Ranged,7,App_03,
-Class_Warlock,术士,法师,1,Intelligence,NormalAttackPrimaryMult_15|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,0.9,0.5,20,1,1,Ranged,9,App_08,
-Class_Servants,仆从,战士,1,Strength,NormalAttackPrimaryMult_15|AttackSpeedBase_0.5|AttackSpeedAgiDiv_60|SkillCdIntDiv_30|SkillCdFloor_0.1,0.3,0.5,0,0,2.5,Melee,11,,

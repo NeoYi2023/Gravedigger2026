@@ -34,6 +34,7 @@ namespace Gravedigger2026.Core.Defend
         private float _lockedLossOfControlDegree;
         private int _lockedLossOfControlTierId;
         private float _lockedTierChance;
+        private ConfigCsvRepository _configs;
 
         public event Action<DefendPhase> PhaseChanged;
         public event Action<int, int> ShieldChanged;
@@ -121,6 +122,7 @@ namespace Gravedigger2026.Core.Defend
             _lockedLossOfControlDegree = 0f;
             _lockedLossOfControlTierId = 0;
             _lockedTierChance = 0f;
+            _configs = null;
         }
 
         public bool CanStartBattle(int deployedSoldierCount)
@@ -174,6 +176,7 @@ namespace Gravedigger2026.Core.Defend
             _lockedLossOfControlDegree = lossOfControlDegree;
             _lockedLossOfControlTierId = LossOfControlMath.MapTierId(lossOfControlDegree);
             _lockedTierChance = 0f;
+            _configs = configs;
             if (_lockedLossOfControlTierId > 0
                 && configs != null
                 && configs.TryGetLossOfControlTier(_lockedLossOfControlTierId, out var tierRow)
@@ -285,10 +288,18 @@ namespace Gravedigger2026.Core.Defend
             }
 
             var battleStats = WarriorCombatMath.ComputeBattleStats(warrior);
-            var coeffs = CombatConvertCoeffs.Parse(classRow != null ? classRow.CombatConvertCoeffs : null);
+            var coeffDefaults = _configs != null
+                ? _configs.GetCombatConvertCoeffDefaults()
+                : CombatConvertCoeffs.SafetyDefaults;
+            var coeffs = CombatConvertCoeffs.Parse(
+                classRow != null ? classRow.CombatConvertCoeffs : null,
+                coeffDefaults);
             var primaryKind = classRow != null ? classRow.PrimaryStat : StatKind.Strength;
             var primary = WarriorCombatMath.ResolvePrimary(battleStats, primaryKind);
-            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats);
+            var maxHpMult = _configs != null
+                ? _configs.GetMaxHpStrengthMult()
+                : CombatConvertCoeffs.SafetyMaxHpStrengthMult;
+            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats, maxHpMult);
             var remaining = Math.Min(Math.Max(0f, warrior.RemainingHP), maxHp);
             if (remaining <= 0f && maxHp > 0)
             {

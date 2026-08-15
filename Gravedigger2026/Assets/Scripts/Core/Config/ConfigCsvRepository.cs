@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Gravedigger2026.Core.Defend;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Config
@@ -53,6 +54,8 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, BodyAppearanceConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<int, LossOfControlConfigRow> _lossOfControlByTier =
             new Dictionary<int, LossOfControlConfigRow>();
+        private readonly Dictionary<string, float> _combatConstantByKey =
+            new Dictionary<string, float>(StringComparer.Ordinal);
         private readonly List<TechTreeConfigRow> _techTreeRows = new List<TechTreeConfigRow>();
         private readonly Dictionary<string, TechTreeConfigRow> _techTreeById =
             new Dictionary<string, TechTreeConfigRow>(StringComparer.Ordinal);
@@ -112,6 +115,7 @@ namespace Gravedigger2026.Core.Config
             _appearances.Clear();
             _appearanceById.Clear();
             _lossOfControlByTier.Clear();
+            _combatConstantByKey.Clear();
             _techTreeRows.Clear();
             _techTreeById.Clear();
             _techEffectById.Clear();
@@ -143,12 +147,13 @@ namespace Gravedigger2026.Core.Config
                 LoadGemSuffixNames();
                 LoadBodyAppearances();
                 LoadLossOfControl();
+                LoadCombatConstants();
                 LoadTechTree();
                 LoadTechEffects();
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -409,6 +414,56 @@ namespace Gravedigger2026.Core.Config
         public bool TryGetLossOfControlTier(int tierId, out LossOfControlConfigRow row)
         {
             return _lossOfControlByTier.TryGetValue(tierId, out row);
+        }
+
+        /// <summary>Combat_CombatConstantConfig lookup (SPEC_04 §9.20b).</summary>
+        public bool TryGetCombatConstant(string constantKey, out float value)
+        {
+            return _combatConstantByKey.TryGetValue(constantKey ?? string.Empty, out value);
+        }
+
+        /// <summary>
+        /// Five CombatConvertCoeffs defaults from the constants table.
+        /// Missing keys log Warning and use sample safety fallbacks (not business authority).
+        /// </summary>
+        public CombatConvertCoeffs GetCombatConvertCoeffDefaults()
+        {
+            return new CombatConvertCoeffs(
+                ResolveCombatConstantOrFallback(
+                    CombatConstantKeys.NormalAttackPrimaryMult,
+                    CombatConvertCoeffs.SafetyNormalAttackPrimaryMult),
+                ResolveCombatConstantOrFallback(
+                    CombatConstantKeys.AttackSpeedBase,
+                    CombatConvertCoeffs.SafetyAttackSpeedBase),
+                ResolveCombatConstantOrFallback(
+                    CombatConstantKeys.AttackSpeedAgiDiv,
+                    CombatConvertCoeffs.SafetyAttackSpeedAgiDiv),
+                ResolveCombatConstantOrFallback(
+                    CombatConstantKeys.SkillCdIntDiv,
+                    CombatConvertCoeffs.SafetySkillCdIntDiv),
+                ResolveCombatConstantOrFallback(
+                    CombatConstantKeys.SkillCdFloor,
+                    CombatConvertCoeffs.SafetySkillCdFloor));
+        }
+
+        /// <summary>MaxHP Strength mult from constants table (sample 3).</summary>
+        public float GetMaxHpStrengthMult()
+        {
+            return ResolveCombatConstantOrFallback(
+                CombatConstantKeys.MaxHpStrengthMult,
+                CombatConvertCoeffs.SafetyMaxHpStrengthMult);
+        }
+
+        private float ResolveCombatConstantOrFallback(string key, float safetyFallback)
+        {
+            if (TryGetCombatConstant(key, out var value))
+            {
+                return value;
+            }
+
+            Debug.LogWarning(
+                $"[ConfigCsvRepository] Missing CombatConstant '{key}' — using safety fallback {safetyFallback}.");
+            return safetyFallback;
         }
 
         public IReadOnlyList<TechTreeConfigRow> GetAllTechTreeRows()
@@ -1614,6 +1669,27 @@ namespace Gravedigger2026.Core.Config
                     Description = OptionalText(raw, "Description"),
                     LossOfControlChance = chance
                 };
+            }
+        }
+
+        private void LoadCombatConstants()
+        {
+            const string table = "Combat_CombatConstantConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var key = SimpleCsv.Require(raw, "ConstantKey", table, rowIndex);
+                if (_combatConstantByKey.ContainsKey(key))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate ConstantKey '{key}'.");
+                }
+
+                var value = RequireFloat(raw, "Value", table, rowIndex);
+                _combatConstantByKey[key] = value;
             }
         }
 

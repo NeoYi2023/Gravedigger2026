@@ -48,14 +48,17 @@ namespace Gravedigger2026.Core.Defend
             return coeffs.AttackSpeedBase + coeffs.AttackSpeedAgiDiv / Math.Max(agility, 1f);
         }
 
-        public static int ComputeBattleMaxHp(WarriorInstance warrior, in StatBlock battleStats)
+        public static int ComputeBattleMaxHp(
+            WarriorInstance warrior,
+            in StatBlock battleStats,
+            float maxHpStrengthMult)
         {
             var bodyLife = warrior != null
                 ? (warrior.BodyLife > 0f
                     ? warrior.BodyLife
                     : WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats))
                 : 0f;
-            return WarriorStatMath.ComputeMaxHP(bodyLife, battleStats.Strength);
+            return WarriorStatMath.ComputeMaxHP(bodyLife, battleStats.Strength, maxHpStrengthMult);
         }
     }
 }

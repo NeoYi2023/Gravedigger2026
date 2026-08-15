@@ -119,7 +119,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             var staticStats = WarriorStatMath.ComputeStaticStats(
                 warrior.BaseStats, warrior.EquipStats, warrior.GemMult, warrior.RaceAdjustCoeff);
             warrior.BodyLife = WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats);
-            var maxHp = WarriorStatMath.ComputeMaxHP(warrior.BodyLife, staticStats.Strength);
+            var maxHp = WarriorStatMath.ComputeMaxHP(warrior.BodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());
             warrior.RemainingHP = maxHp;
             warrior.WarriorName = BuildWarriorName(raceRow, warrior.RaceId, className);
         }
@@ -651,7 +651,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             var staticStats = WarriorStatMath.ComputeStaticStats(
                 draft.BaseStats, draft.EquipStats, draft.GemMult, draft.RaceAdjustCoeff);
             draft.BodyLife = WarriorStatMath.ComputeBodyLife(draft.BaseStats, draft.EquipStats);
-            draft.MaxHP = WarriorStatMath.ComputeMaxHP(draft.BodyLife, staticStats.Strength);
+            draft.MaxHP = WarriorStatMath.ComputeMaxHP(draft.BodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());
             draft.WarriorName = BuildWarriorName(raceRow, draft.RaceId, className);
         }
 

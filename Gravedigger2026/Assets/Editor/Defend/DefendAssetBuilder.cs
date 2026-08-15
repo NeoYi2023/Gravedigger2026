@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Editor.Art;
 using Gravedigger2026.Gameplay.Defend;
@@ -35,12 +36,48 @@ namespace Gravedigger2026.Editor.Defend
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
         private const string MonsterCsv = "Defend_MonsterConfig.csv";
+        private const string ClassConfigCsv = "Manufacture_ClassConfig.csv";
         private const string RegenPrefsKey = "Gravedigger2026.DefendAssets.Regen.v0774";
+
+        /// <summary>Sample FormationClassZone IsoDiamond half-extents (SPEC_04 §13 / D-057).</summary>
+        private static readonly Vector2 SampleClassZoneHalfExtents = new Vector2(3.85f, 2f);
 
         private static readonly string[] MapIds =
         {
             "Ground_01", "Ground_02", "Ground_03", "Ground_04", "Ground_05"
         };
+
+        /// <summary>
+        /// Default world-XZ offsets (relative to DigMapBounds center) for Mode2 ClassIds that need a new zone.
+        /// Existing zones keep their world positions; unknown future ClassIds fall back to a simple grid.
+        /// </summary>
+        private static readonly Dictionary<string, Vector2> NewClassZoneRelXZ =
+            new Dictionary<string, Vector2>(StringComparer.Ordinal)
+            {
+                { "Class_Warrior", new Vector2(-2.0f, -1.2f) },
+                { "Class_Knight", new Vector2(-1.0f, -1.2f) },
+                { "Class_Paladin", new Vector2(0.0f, -1.2f) },
+                { "Class_Berserker", new Vector2(1.0f, -1.2f) },
+                { "Class_Rogue", new Vector2(2.0f, -1.2f) },
+                { "Class_Servants", new Vector2(0.0f, -0.2f) },
+                { "Class_Archer", new Vector2(-2.0f, 1.0f) },
+                { "Class_Ranger", new Vector2(-1.0f, 1.0f) },
+                { "Class_Mage", new Vector2(0.0f, 1.0f) },
+                { "Class_Warlock", new Vector2(1.0f, 1.0f) },
+                { "Class_Priest", new Vector2(2.0f, 1.0f) },
+                { "Class_Guardian", new Vector2(-2.0f, -1.9f) },
+                { "Class_Brawler", new Vector2(0.0f, -1.9f) },
+                { "Class_Shadowblade", new Vector2(2.0f, -1.9f) },
+                { "Class_Longbowman", new Vector2(-2.0f, 1.7f) },
+                { "Class_BombMaster", new Vector2(-1.0f, 1.7f) },
+                { "Class_IceMage", new Vector2(0.0f, 1.7f) },
+                { "Class_FireMage", new Vector2(1.0f, 1.7f) },
+                { "Class_DarkMage", new Vector2(2.0f, 1.7f) },
+                { "Class_Warrior_0", new Vector2(-1.0f, -1.9f) },
+                { "Class_Rogue_0", new Vector2(1.0f, -1.9f) },
+                { "Class_Archer_0", new Vector2(-2.0f, 2.4f) },
+                { "Class_Mage_0", new Vector2(0.0f, 2.4f) },
+            };
 
         /// <summary>
         /// Bound into Catalog.Maps only (no Dig EngageZone/SpawnPoint ensure — PushMap has its own markers).
@@ -255,38 +292,122 @@ namespace Gravedigger2026.Editor.Defend
         }
 
         /// <summary>
-        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / D-057 / FZ-02). Idempotent by ClassId child name.
-        /// Existing zones keep world XZ + HalfExtents. Parent/children localRotation = identity (IsoDiamond).
-        /// Layout: front melee / mid servants / back ranged + second front/back rows (map-center-relative world XZ).
+        /// Demo sample class zones on Ground_* (SPEC_03 §3.15 / D-057 / FZ-02).
+        /// Authoritative ClassId list = Mode2 Manufacture_ClassConfig. Existing zones keep world XZ;
+        /// HalfExtents forced to SampleClassZoneHalfExtents; orphans removed. Parent/children identity.
         /// </summary>
         private static void EnsureFormationClassZones(Transform mapRoot, Vector3 mapCenter)
         {
             var root = ResolveFormationClassZonesRoot(mapRoot, mapCenter);
             ApplyIdentityAuthoringFrame(root, mapCenter);
-            var half = ResolveSampleHalfExtents(root);
-            // relX, relZ — front = −Z, back = +Z (world XZ; Approach B keeps these world centers)
-            EnsureOneClassZone(root, mapCenter, "Class_Warrior", -2.0f, -1.2f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Knight", -1.0f, -1.2f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Paladin", 0.0f, -1.2f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Berserker", 1.0f, -1.2f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Rogue", 2.0f, -1.2f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Servants", 0.0f, -0.2f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Archer", -2.0f, 1.0f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Ranger", -1.0f, 1.0f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Mage", 0.0f, 1.0f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Warlock", 1.0f, 1.0f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Priest", 2.0f, 1.0f, half);
-            // D-057 second front row z=−1.9
-            EnsureOneClassZone(root, mapCenter, "Class_Guardian", -2.0f, -1.9f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Brawler", 0.0f, -1.9f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_Shadowblade", 2.0f, -1.9f, half);
-            // D-057 second back row z=+1.7
-            EnsureOneClassZone(root, mapCenter, "Class_Longbowman", -2.0f, 1.7f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_BombMaster", -1.0f, 1.7f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_IceMage", 0.0f, 1.7f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_FireMage", 1.0f, 1.7f, half);
-            EnsureOneClassZone(root, mapCenter, "Class_DarkMage", 2.0f, 1.7f, half);
+            var classIds = LoadMode2ClassIds();
+            if (classIds.Count == 0)
+            {
+                Debug.LogWarning(
+                    "[DefendAssetBuilder] Mode2 Manufacture_ClassConfig empty or missing — FormationClassZones unchanged.");
+                return;
+            }
+
+            var half = SampleClassZoneHalfExtents;
+            var fallbackIndex = 0;
+            for (var i = 0; i < classIds.Count; i++)
+            {
+                var classId = classIds[i];
+                ResolveNewClassZoneRelXZ(classId, ref fallbackIndex, out var relX, out var relZ);
+                EnsureOneClassZone(root, mapCenter, classId, relX, relZ, half);
+            }
+
+            RemoveOrphanClassZones(root, classIds);
             FinalizeClassZoneMeshes(root);
+        }
+
+        private static List<string> LoadMode2ClassIds()
+        {
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var csvPath = CsvPathResolver.ResolveExistingFile(ClassConfigCsv, CampaignMode.Mode2);
+            if (csvPath == null)
+            {
+                Debug.LogWarning(
+                    $"[DefendAssetBuilder] {ClassConfigCsv} (Mode2) not found — cannot sync FormationClassZones.");
+                return result;
+            }
+
+            var rows = SimpleCsv.ReadRows(csvPath);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                if (!rows[i].TryGetValue("ClassId", out var classId) || string.IsNullOrWhiteSpace(classId))
+                {
+                    continue;
+                }
+
+                classId = classId.Trim();
+                if (!seen.Add(classId))
+                {
+                    continue;
+                }
+
+                result.Add(classId);
+            }
+
+            return result;
+        }
+
+        private static void ResolveNewClassZoneRelXZ(
+            string classId,
+            ref int fallbackIndex,
+            out float relX,
+            out float relZ)
+        {
+            if (NewClassZoneRelXZ.TryGetValue(classId, out var known))
+            {
+                relX = known.x;
+                relZ = known.y;
+                return;
+            }
+
+            var col = fallbackIndex % 5;
+            var row = fallbackIndex / 5;
+            fallbackIndex++;
+            relX = -2.0f + col * 1.0f;
+            relZ = 3.1f + row * 0.7f;
+        }
+
+        private static void RemoveOrphanClassZones(Transform zonesRoot, List<string> keepClassIds)
+        {
+            var keep = new HashSet<string>(keepClassIds, StringComparer.Ordinal);
+            var toDestroy = new List<GameObject>();
+            var childCount = zonesRoot.childCount;
+            for (var i = 0; i < childCount; i++)
+            {
+                var child = zonesRoot.GetChild(i);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                var zone = child.GetComponent<FormationClassZone>();
+                if (zone == null)
+                {
+                    continue;
+                }
+
+                var id = zone.ClassId;
+                if (string.IsNullOrEmpty(id))
+                {
+                    id = child.name;
+                }
+
+                if (!keep.Contains(id) && !keep.Contains(child.name))
+                {
+                    toDestroy.Add(child.gameObject);
+                }
+            }
+
+            for (var i = 0; i < toDestroy.Count; i++)
+            {
+                UnityEngine.Object.DestroyImmediate(toDestroy[i]);
+            }
         }
 
         private static Transform ResolveFormationClassZonesRoot(Transform mapRoot, Vector3 mapCenter)
@@ -417,26 +538,6 @@ namespace Gravedigger2026.Editor.Defend
             EditorUtility.SetDirty(zonesRoot.gameObject);
         }
 
-        private static Vector2 ResolveSampleHalfExtents(Transform zonesRoot)
-        {
-            var sample = zonesRoot.Find("Class_Paladin");
-            if (sample == null && zonesRoot.childCount > 0)
-            {
-                sample = zonesRoot.GetChild(0);
-            }
-
-            if (sample != null)
-            {
-                var zone = sample.GetComponent<FormationClassZone>();
-                if (zone != null)
-                {
-                    return zone.HalfExtents;
-                }
-            }
-
-            return new Vector2(0.45f, 0.35f);
-        }
-
         private static void EnsureOneClassZone(
             Transform zonesRoot,
             Vector3 mapCenter,
@@ -452,10 +553,10 @@ namespace Gravedigger2026.Editor.Defend
                 if (existing == null)
                 {
                     existing = child.gameObject.AddComponent<FormationClassZone>();
-                    existing.EditorSet(classId, halfExtents);
-                    EditorUtility.SetDirty(existing);
                 }
 
+                // Keep world position; force ClassId + sample HalfExtents (D-057).
+                existing.EditorSet(classId, halfExtents);
                 existing.EnsureMeshComponents();
                 existing.RebuildMesh();
                 EditorUtility.SetDirty(existing);

@@ -25,6 +25,7 @@ namespace Gravedigger2026.Core.PushMap
         private float _lockedLossOfControlDegree;
         private int _lockedLossOfControlTierId;
         private float _lockedTierChance;
+        private ConfigCsvRepository _configs;
         private int _pendingBossCount;
         private float _combatStartRealtime;
         private float _combatEndRealtime;
@@ -134,6 +135,7 @@ namespace Gravedigger2026.Core.PushMap
             _lockedLossOfControlDegree = 0f;
             _lockedLossOfControlTierId = 0;
             _lockedTierChance = 0f;
+            _configs = null;
             _objectiveOrders.Clear();
             _capturedObjectives.Clear();
             _currentObjectiveOrder = 0;
@@ -184,6 +186,7 @@ namespace Gravedigger2026.Core.PushMap
             _lockedLossOfControlDegree = lossOfControlDegree;
             _lockedLossOfControlTierId = LossOfControlMath.MapTierId(lossOfControlDegree);
             _lockedTierChance = 0f;
+            _configs = configs;
             if (_lockedLossOfControlTierId > 0
                 && configs != null
                 && configs.TryGetLossOfControlTier(_lockedLossOfControlTierId, out var tierRow)
@@ -584,10 +587,18 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             var battleStats = WarriorCombatMath.ComputeBattleStats(warrior);
-            var coeffs = CombatConvertCoeffs.Parse(classRow != null ? classRow.CombatConvertCoeffs : null);
+            var coeffDefaults = _configs != null
+                ? _configs.GetCombatConvertCoeffDefaults()
+                : CombatConvertCoeffs.SafetyDefaults;
+            var coeffs = CombatConvertCoeffs.Parse(
+                classRow != null ? classRow.CombatConvertCoeffs : null,
+                coeffDefaults);
             var primaryKind = classRow != null ? classRow.PrimaryStat : StatKind.Strength;
             var primary = WarriorCombatMath.ResolvePrimary(battleStats, primaryKind);
-            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats);
+            var maxHpMult = _configs != null
+                ? _configs.GetMaxHpStrengthMult()
+                : CombatConvertCoeffs.SafetyMaxHpStrengthMult;
+            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats, maxHpMult);
             var remaining = Math.Min(Math.Max(0f, warrior.RemainingHP), maxHp);
             if (remaining <= 0f && maxHp > 0)
             {
