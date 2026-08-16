@@ -257,6 +257,7 @@ namespace Gravedigger2026.Core.Tech
             var next = DigProtagonistCapabilities.FromAttributeSums(
                 sums,
                 _configs != null ? _configs.GetAllGraveQualityIds() : null);
+            _configs?.ApplyDigTimingConstants(next);
             // Mutate in place so DigSession holding Capabilities reference stays live (PE-03).
             CopyCapabilities(next, _capabilities);
         }
@@ -327,6 +328,8 @@ namespace Gravedigger2026.Core.Tech
             dest.DigDurationReductionSum = source.DigDurationReductionSum;
             dest.DigCursorRadius = source.DigCursorRadius;
             dest.DigStageDurationBonus = source.DigStageDurationBonus;
+            dest.BaseDigDuration = source.BaseDigDuration;
+            dest.DigActionDurationFloor = source.DigActionDurationFloor;
             dest.DiggableQualityIds.Clear();
             foreach (var id in source.DiggableQualityIds)
             {

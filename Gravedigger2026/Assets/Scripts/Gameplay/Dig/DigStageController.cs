@@ -101,12 +101,10 @@ namespace Gravedigger2026.Gameplay.Dig
             if (_digCamera != null)
             {
                 _digCamera.gameObject.SetActive(true);
-                _digCamera.transform.position = center + new Vector3(0f, 18f, 0f);
-                _digCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                _digCamera.orthographic = true;
-                _digCamera.orthographicSize = Mathf.Max(half.x, half.y) - 1.5f;
-                _digCamera.nearClipPlane = 0.1f;
-                _digCamera.farClipPlane = 100f;
+                var cam = _configs != null
+                    ? _configs.GetCameraPresentationConstants()
+                    : CameraPresentationConstants.SafetyDefaults;
+                cam.ApplyTopDownPose(_digCamera, center, cam.ResolveMapFitOrthoSize(half));
                 // Top-down: sort transparent Tilemap vs Sprite by view depth (higher Y draws in front).
                 _digCamera.transparencySortMode = TransparencySortMode.CustomAxis;
                 _digCamera.transparencySortAxis = Vector3.up;

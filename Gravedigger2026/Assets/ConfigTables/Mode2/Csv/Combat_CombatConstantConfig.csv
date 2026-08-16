@@ -1,7 +1,56 @@
 ConstantKey,ConstantKeyZh,Value,Comment,CommentZh
 NormalAttackPrimaryMult,普攻主属性倍率,15,NormalAttackPower = Primary x Mult,普通攻击伤害=主属性最终值×本系数；职业表CombatConvertCoeffs可覆盖
-AttackSpeedBase,攻击速度基础值,0.5,AttackSpeed constant term,"攻速=本值+AttackSpeedAgiDiv/max(敏捷,1)中的常数项"
+AttackSpeedBase,攻击速度基础值,0.5,AttackSpeed constant term,攻速=本值+敏捷相关项中的常数项
 AttackSpeedAgiDiv,攻击速度敏捷除数,60,AttackSpeed Agility divisor,攻速公式中除以敏捷的分子；敏捷越高攻速越接近基础值
 SkillCdIntDiv,技能冷却智力除数,30,SkillCooldown Intelligence divisor,"技能CD=max(下限,基础CD−本值/max(智力,1))；Demo不施放"
 SkillCdFloor,技能冷却下限,0.1,SkillCooldown floor seconds,技能冷却最短秒数，防止智力过高使CD过低
 MaxHpStrengthMult,血量力量系数,3,MaxHP = ceil(BodyLife + Str x Mult),士兵最大生命=ceil(躯体生命+力量×本系数)
+CameraHeightY,镜头高度,25,Top-down camera world Y above map center,俯视正交相机相对地图中心的世界Y高度；Dig/Defend/布阵/PushMap共用
+CameraOrthoSizeMargin,地图适配Size余量,1.5,orthoSize = max(halfExtents) - margin,Dig/Defend/布阵：正交Size=地图半幅较大边减去本余量
+PushMapCameraOrthoSize,推图开战默认Size,2,PushMap combat default orthographicSize,PushMap开战默认正交Size（异于Defend的地图适配公式）
+CameraNearClip,镜头近裁剪面,0.1,Camera nearClipPlane,正交相机近裁剪面
+CameraFarClip,镜头远裁剪面,100,Camera farClipPlane,正交相机远裁剪面
+CameraFollowDeadzone,跟随死区半径,0.15,PushMap Auto follow deadzone world-XZ,PushMap Auto跟随：目标在死区内则镜头XZ不移动
+CameraFollowSmoothTime,跟随平滑时间,0.25,PushMap Auto SmoothDamp time,PushMap Auto跟随：超出死区后XZ SmoothDamp时间（秒）
+CameraZoomStepPerNotch,滚轮缩放步进,0.5,Scroll wheel orthographicSize step,PushMap滚轮每格改变的正交Size
+CameraOrthoSizeMin,正交Size下限,0.5,Min orthographicSize clamp,正交Size下限（含Dig/Defend适配结果钳制与PushMap缩放）
+CameraOrthoSizeMax,正交Size上限,20,Max orthographicSize clamp,PushMap滚轮缩放上限
+CameraDragThresholdPixels,拖拽启动像素阈值,4,LMB drag arm threshold in screen px,PushMap手动拖镜头：累计位移超过本像素才开始平移
+PushMapCameraIntroSpeed,推图镜头预览速度,12,PushMap StartBattle Intro rail speed world-XZ units/sec,PushMap开战镜头预览沿CameraFollowPath的世界XZ恒速（单位/秒）
+PushMapCameraIntroWaypointDwellSeconds,推图镜头预览路点停留,0.5,PushMap Intro dwell seconds at each author WP,PushMap开战镜头预览在每个作者路点（含起终点）的停留秒数
+DigTriggerDwellSeconds,挖坟触发停留,0.2,Cursor dwell before DigAction starts,光标与可挖坟相交并停留达到本秒数后触发DigAction
+BaseDigDuration,挖坟基础时长,0.8,BaseDigDuration seconds,DigActionDuration=max(下限
+DigActionDurationFloor,挖坟最短时长,0.1,Min DigActionDuration seconds,单次挖坟最短秒数（公式地板）
+AttackSlotMeleeCount,近战攻击位数量,12,Melee AttackSlot ring slot count,近战单位围绕目标可占用的攻击位数量
+AttackSlotRangedCount,远程攻击位数量,8,Ranged AttackSlot ring slot count,远程单位围绕目标可占用的攻击位数量
+AttackSlotMargin,攻击位环半径余量,0.05,Ring radius = reach sum - margin,攻击位环半径计算时从可达距离减去的余量
+AttackSlotMinRingRadius,攻击位环最小半径,0.05,Min AttackSlot ring radius,攻击位环半径下限
+AttackSlotReclaimMoveThreshold,攻击位重算位移阈值,0.5,Target move distance to recompute slots,目标移动超过本距离时重算攻击位
+AttackSlotDefaultTargetBodyRadius,默认目标体半径,0.35,Fallback target BodyRadius,缺体外观/怪物半径时的默认目标体半径
+HitConfirmSlack,命中确认松弛距离,0.05,HitConfirm range slack,前摇结束命中确认时在攻击距离上额外允许的松弛
+SurroundGapDegrees,包围缺口角度,60,Surround gap sector degrees,近战多打一时攻击位环上预留的缺口扇区角度
+StuckDetectWindowSeconds,卡死检测窗口,0.5,StuckHold detect window seconds,有移动意图但位移不足时的检测窗口秒数
+StuckDisplacementEpsilon,卡死位移阈值,0.2,StuckHold displacement epsilon,检测窗口内XZ位移小于本值则判定卡住
+StuckHoldSeconds,卡死停顿时长,1,StuckHold force-Idle seconds,判定卡住后强制Idle的秒数
+ProjectileDefaultHitRadius,投射物默认命中半径,0.55,Default projectile soft-hit radius,远程投射物默认软命中半径（表缺列时兜底）
+DefendVictoryStageExp,防守胜利阶段经验,100,Defend victory Demo stage Exp,Defend清场胜利结算时入账的阶段经验
+FlowFieldDefaultCellSize,流场默认格宽,0.5,FlowField default cell size,共享目标流场默认格子边长
+FlowFieldMinCellSize,流场最小格宽,0.25,FlowField min cell size,流场格宽下限（性能降级时可抬高）
+FlowFieldMaxCellSize,流场最大格宽,0.5,FlowField max cell size,流场格宽上限
+MassMoveMaxRecalcPerFrame,群体移动每帧重算上限,50,MassMove/AttackSlot refresh budget per frame,每帧最多重算路径/攻击位的单位数
+MassMoveDefaultAgentRadius,群体移动默认体半径,0.1,Default mass-move agent radius,群体移动登记时的默认体半径
+MassMoveArriveEpsilon,群体移动到达阈值,0.08,Arrive epsilon for DesiredDestination,到达期望点判定的距离阈值
+MassMoveDefaultObjectiveArriveRadius,目标到达默认半径,2,Default Objective arrive radius,目标点到达半径默认值（可被CaptureZone覆盖）
+MassMoveAttackSlotSeparationScale,攻击位软分离系数,0.35,LocalDetour separation scale in AttackSlot,处于攻击位气泡时LocalDetour软分离缩放
+SoftCollisionMaxCorrectionSpeed,软碰撞最大修正速度,2,Soft collision max correction speed,软碰撞位置修正速度上限（单位/秒）
+LocalDetourProbeLength,本地绕行探测长度,1,LocalDetour L/R probe length,左右绕行探测射线长度
+LocalDetourSoftSeparationStrength,本地绕行软分离强度,0.15,LocalDetour soft separation strength,友军软分离推力强度
+LocalDetourDetourBias,本地绕行偏置,0.85,LocalDetour L/R bias blend,绕行方向与原期望方向的混合偏置
+LocalDetourForwardConeHalfAngleDeg,本地绕行前向锥半角,50,Forward block cone half-angle degrees,判定前方友军阻挡的圆锥半角（度）
+BossAdvanceArriveRadius,Boss推进到达半径,0.35,BossPoint advance arrive radius,目标链耗尽后推进Boss点的到达半径
+EngageStickHysteresisMargin,接战粘滞余量,0.15,Engage sticky retarget hysteresis,接战粘滞：新目标需更近超过本余量才换目标
+PushMapSpawnMinSampleDistance,刷怪散布最小采样距,0.75,PushMap spawn min sample distance,刷怪散布环形采样的最小间距
+PushMapSpawnSampleDistanceBodyMul,刷怪散布体半径倍数,2.5,Spawn sample distance = max(min,r*mul)
+PushMapSpawnLeashSlack,刷怪拴绳松弛,0.35,NavMesh sample leash slack,刷怪SamplePosition相对基点的拴绳松弛
+PushMapSpawnAbsoluteLeashFloor,刷怪绝对拴绳下限,3,Absolute leash floor,刷怪绝对拴绳距离下限
+PushMapSpawnAbsoluteLeashBodyMul,刷怪绝对拴绳体倍数,10,Absolute leash = max(floor,r*mul)

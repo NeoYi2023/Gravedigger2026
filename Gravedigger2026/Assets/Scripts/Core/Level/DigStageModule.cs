@@ -87,6 +87,7 @@ namespace Gravedigger2026.Core.Level
             var caps = _techTree != null
                 ? _techTree.Capabilities
                 : DigProtagonistCapabilities.CreateDemoDefaults(_configs.GetAllGraveQualityIds());
+            _configs?.ApplyDigTimingConstants(caps);
             Debug.Log(
                 $"[Stage:Dig] Caps DigDamage={caps.DigDamage} DigActionDuration={caps.DigActionDuration} Cursor={caps.DigCursorRadius} StageBonus={caps.DigStageDurationBonus}");
             _onDigPresentationActive?.Invoke(true);

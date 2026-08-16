@@ -25,10 +25,10 @@ namespace Gravedigger2026.Core.Pathing
         public const int DefaultMeasureFrames = 120;
         public const float SimDt = 1f / 60f;
         public const float MoveSpeed = 2.5f;
-        public const float AgentRadius = MassMoveScheduler.DefaultAgentRadius;
+        public const float AgentRadius = CombatConstantKeys.Safety.MassMoveDefaultAgentRadius;
         public const float AttackRange = 1.2f;
         public const int DummyTargetCount = 8;
-        public const float CellSize = FlowFieldService.DefaultCellSize;
+        public const float CellSize = CombatConstantKeys.Safety.FlowFieldDefaultCellSize;
 
         /// <summary>Fallback knobs if over budget (SPEC_04 §9.7 order incl. SC-04 B+ items).</summary>
         public const string FallbackGuidance =

@@ -29,6 +29,8 @@ namespace Gravedigger2026.Core.PushMap
         private int _pendingBossCount;
         private float _combatStartRealtime;
         private float _combatEndRealtime;
+        private bool _combatIntroActive;
+        private bool _combatClockRunning;
         private int _monstersKilled;
         private bool _isVictory;
         private long _stageExpCredited;
@@ -82,12 +84,21 @@ namespace Gravedigger2026.Core.PushMap
         public int MonstersKilled => _monstersKilled;
         public long StageExpCredited => _stageExpCredited;
 
-        /// <summary>Seconds from StartBattle to Ended (0 if still in Combat).</summary>
+        /// <summary>True while StartBattle camera intro latch is running (SPEC_03 §3.14).</summary>
+        public bool IsCombatIntroActive => _active && Phase == PushMapPhase.Combat && _combatIntroActive;
+
+        /// <summary>
+        /// True when Combat gameplay may tick (not Prepare/Ended, not intro latch).
+        /// </summary>
+        public bool IsCombatGameplayActive =>
+            _active && Phase == PushMapPhase.Combat && !_combatIntroActive && !_outcomeSettled;
+
+        /// <summary>Seconds from EndCombatIntro (or immediate StartBattle if intro skipped) to Ended.</summary>
         public float CombatElapsedSeconds
         {
             get
             {
-                if (!_active || Phase == PushMapPhase.Prepare)
+                if (!_active || Phase == PushMapPhase.Prepare || !_combatClockRunning)
                 {
                     return 0f;
                 }
@@ -128,6 +139,8 @@ namespace Gravedigger2026.Core.PushMap
             _pendingBossCount = 0;
             _combatStartRealtime = 0f;
             _combatEndRealtime = 0f;
+            _combatIntroActive = false;
+            _combatClockRunning = false;
             _monstersKilled = 0;
             _isVictory = false;
             _stageExpCredited = 0;
@@ -198,7 +211,9 @@ namespace Gravedigger2026.Core.PushMap
             Phase = PushMapPhase.Combat;
             PhaseChanged?.Invoke(Phase);
             ShieldChanged?.Invoke(_shield, _shieldCap);
-            _combatStartRealtime = Time.realtimeSinceStartup;
+            _combatIntroActive = true;
+            _combatClockRunning = false;
+            _combatStartRealtime = 0f;
             _combatEndRealtime = 0f;
             _monstersKilled = 0;
             _isVictory = false;
@@ -207,10 +222,36 @@ namespace Gravedigger2026.Core.PushMap
             Debug.Log(
                 $"[PushMapSession] StartBattle Shield={_shield} Deployed={deployedSoldierCount} " +
                 $"Degree={_lockedLossOfControlDegree:0.###} Tier={_lockedLossOfControlTierId} " +
-                $"TierChance={_lockedTierChance:0.###}");
+                $"TierChance={_lockedTierChance:0.###} IntroActive=true");
 
             LoadSpawnRows(configs);
             return true;
+        }
+
+        /// <summary>
+        /// Ends StartBattle camera intro: starts combat clock and allows gameplay ticks.
+        /// Safe to call when intro was skipped (idempotent if already ended).
+        /// </summary>
+        public void EndCombatIntro()
+        {
+            if (!_active || Phase != PushMapPhase.Combat)
+            {
+                return;
+            }
+
+            if (!_combatIntroActive && _combatClockRunning)
+            {
+                return;
+            }
+
+            _combatIntroActive = false;
+            if (!_combatClockRunning)
+            {
+                _combatStartRealtime = Time.realtimeSinceStartup;
+                _combatClockRunning = true;
+            }
+
+            Debug.Log("[PushMapSession] EndCombatIntro — combat clock started.");
         }
 
         /// <summary>
@@ -696,7 +737,7 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>IProjectileCombatSession: gates ProjectileView flight/settlement.</summary>
         public bool IsProjectileCombatActive(string warriorId)
         {
-            return _active && Phase == PushMapPhase.Combat && IsWarriorCombatActive(warriorId);
+            return IsCombatGameplayActive && IsWarriorCombatActive(warriorId);
         }
 
         /// <summary>
@@ -705,7 +746,7 @@ namespace Gravedigger2026.Core.PushMap
         /// </summary>
         public bool TryConfirmMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange)
         {
-            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled || !stillInRange)
+            if (!IsCombatGameplayActive || !stillInRange)
             {
                 return false;
             }
@@ -729,7 +770,7 @@ namespace Gravedigger2026.Core.PushMap
         /// </summary>
         public bool TryConfirmRangedHit(string warriorId, string monsterRuntimeId)
         {
-            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled)
+            if (!IsCombatGameplayActive)
             {
                 return false;
             }
@@ -753,7 +794,7 @@ namespace Gravedigger2026.Core.PushMap
         /// </summary>
         public bool TryApplyMonsterDamageToWarrior(string monsterRuntimeId, string warriorId, float attackPower)
         {
-            if (!_active || Phase != PushMapPhase.Combat || _outcomeSettled)
+            if (!IsCombatGameplayActive)
             {
                 return false;
             }

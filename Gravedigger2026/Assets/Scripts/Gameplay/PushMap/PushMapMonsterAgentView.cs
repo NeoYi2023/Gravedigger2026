@@ -47,6 +47,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Vector3 _deathKnockOrigin;
         private Vector3 _deathKnockTarget;
         private float _deathKnockStartedAt;
+        private bool _combatGameplayEnabled = true;
 
         public string MonsterId => _config != null ? _config.MonsterId : string.Empty;
         public string RuntimeTargetId => _attackerId;
@@ -67,6 +68,11 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// <summary>Passive stances stay idle until provoked (SPEC_03 §3.14).</summary>
         public bool IsPassive => _config != null &&
             (_config.AggroMode == AggroMode.PassiveChase || _config.AggroMode == AggroMode.StationaryPassive);
+
+        public void SetCombatGameplayEnabled(bool enabled)
+        {
+            _combatGameplayEnabled = enabled;
+        }
 
         public void Bind(
             MonsterConfigRow config,
@@ -95,6 +101,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _isBoss = false;
             _deathKnockActive = false;
             _attackerId = gameObject.name;
+            _combatGameplayEnabled = true;
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -369,7 +376,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             TickDeathKnockback();
 
-            if (!_alive || _config == null)
+            if (!_alive || _config == null || !_combatGameplayEnabled)
             {
                 return;
             }
@@ -440,6 +447,11 @@ namespace Gravedigger2026.Gameplay.PushMap
         private void LateUpdate()
         {
             _lastSteerDirXZ = Vector3.zero;
+
+            if (!_combatGameplayEnabled)
+            {
+                return;
+            }
 
             if (_alive && !IsStationary && _agent != null && _scheduler != null && _moveId != 0)
             {

@@ -1,3 +1,4 @@
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Pathing
@@ -10,8 +11,8 @@ namespace Gravedigger2026.Core.Pathing
     /// </summary>
     public static class CombatReach
     {
-        /// <summary>HitConfirm / windup re-check slack (matches prior +0.05f). </summary>
-        public const float HitConfirmSlack = 0.05f;
+        /// <summary>HitConfirm / windup re-check slack (CombatConstantConfig HitConfirmSlack).</summary>
+        public static float HitConfirmSlack => CombatRuntimeTuning.HitConfirmSlack;
 
         /// <summary>Max center distance still considered in AttackRange.</summary>
         public static float MaxCenterDistance(

@@ -1,3 +1,5 @@
+using Gravedigger2026.Core.Config;
+
 namespace Gravedigger2026.Core.Pathing
 {
     /// <summary>
@@ -25,8 +27,8 @@ namespace Gravedigger2026.Core.Pathing
     /// </summary>
     public struct SurroundParams
     {
-        /// <summary>Demo default gap width (SPEC_04 §9.7): 60°.</summary>
-        public const float DefaultGapDegrees = 60f;
+        /// <summary>Demo default gap width ← CombatConstantConfig SurroundGapDegrees.</summary>
+        public static float DefaultGapDegrees => CombatRuntimeTuning.SurroundGapDegrees;
 
         public SurroundGapDirection GapDir;
         public float GapDegrees;

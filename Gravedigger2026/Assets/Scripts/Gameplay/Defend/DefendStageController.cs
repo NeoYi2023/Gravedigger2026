@@ -151,12 +151,11 @@ namespace Gravedigger2026.Gameplay.Defend
             if (_defendCamera != null)
             {
                 _defendCamera.gameObject.SetActive(true);
-                _defendCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
-                _defendCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                _defendCamera.orthographic = true;
-                _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
-                _defendCamera.nearClipPlane = 0.1f;
-                _defendCamera.farClipPlane = 100f;
+                var cam = _configs.GetCameraPresentationConstants();
+                cam.ApplyTopDownPose(
+                    _defendCamera,
+                    _mapCenter,
+                    cam.ResolveMapFitOrthoSize(_mapHalfExtents));
                 // SPEC_04 §15.2: same-order character sprites draw far-to-near along
                 // world +Z — lower on screen (smaller Z) occludes higher.
                 _defendCamera.transparencySortMode = TransparencySortMode.CustomAxis;
@@ -366,10 +365,11 @@ namespace Gravedigger2026.Gameplay.Defend
             if (_defendCamera != null)
             {
                 _defendCamera.gameObject.SetActive(true);
-                _defendCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
-                _defendCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-                _defendCamera.orthographic = true;
-                _defendCamera.orthographicSize = Mathf.Max(_mapHalfExtents.x, _mapHalfExtents.y) - 1.5f;
+                var cam = _configs.GetCameraPresentationConstants();
+                cam.ApplyTopDownPose(
+                    _defendCamera,
+                    _mapCenter,
+                    cam.ResolveMapFitOrthoSize(_mapHalfExtents));
                 // SPEC_04 §15.2: same-order character sprites draw far-to-near along
                 // world +Z — lower on screen (smaller Z) occludes higher.
                 _defendCamera.transparencySortMode = TransparencySortMode.CustomAxis;

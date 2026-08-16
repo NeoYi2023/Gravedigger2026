@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Pathing
@@ -17,12 +18,14 @@ namespace Gravedigger2026.Core.Pathing
     /// </summary>
     public sealed class MassMoveScheduler
     {
-        public const int MaxRecalcPerFrame = 50;
-        public const float DefaultAgentRadius = 0.1f;
-        public const float ArriveEpsilon = 0.08f;
+        public static int MaxRecalcPerFrame => CombatRuntimeTuning.MassMoveMaxRecalcPerFrame;
+        public static float DefaultAgentRadius => CombatRuntimeTuning.MassMoveDefaultAgentRadius;
+        public static float ArriveEpsilon => CombatRuntimeTuning.MassMoveArriveEpsilon;
         /// <summary>Default = CaptureZone radius (SPEC_03 §3.14). Stage overrides from current zone.</summary>
-        public const float DefaultObjectiveArriveRadius = 2f;
-        public const float AttackSlotSeparationScale = 0.35f;
+        public static float DefaultObjectiveArriveRadius =>
+            CombatRuntimeTuning.MassMoveDefaultObjectiveArriveRadius;
+        public static float AttackSlotSeparationScale =>
+            CombatRuntimeTuning.MassMoveAttackSlotSeparationScale;
         public const int DetourGroupLoyal = 0;
         public const int DetourGroupMonster = 1;
 
@@ -35,7 +38,7 @@ namespace Gravedigger2026.Core.Pathing
         private readonly List<SpatialHashEntry> _neighborBuffer = new List<SpatialHashEntry>(32);
         private readonly List<SpatialHashEntry> _friendlyBuffer = new List<SpatialHashEntry>(32);
         private int _recalcCursor;
-        private float _objectiveArriveRadius = DefaultObjectiveArriveRadius;
+        private float _objectiveArriveRadius = CombatConstantKeys.Safety.MassMoveDefaultObjectiveArriveRadius;
 
         public int AgentCount => _agents.Count;
         public int LastFrameRecalcCount { get; private set; }
@@ -82,11 +85,16 @@ namespace Gravedigger2026.Core.Pathing
 
         public void Register(
             int id,
-            float radius = DefaultAgentRadius,
+            float radius = CombatConstantKeys.Safety.MassMoveDefaultAgentRadius,
             int detourGroup = DetourGroupLoyal,
             float pushCoefficient = SoftCollisionService.DefaultPushCoefficient,
             float repulsionScale = SoftCollisionService.DefaultRepulsionScale)
         {
+            if (radius <= 0f)
+            {
+                radius = DefaultAgentRadius;
+            }
+
             if (_indexById.ContainsKey(id))
             {
                 return;

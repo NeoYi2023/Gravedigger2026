@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -7,12 +9,13 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PushMap Combat camera follow (PM-09 Approach B / SPEC_03 §3.14 v0.81.0).
+    /// PushMap Combat camera follow (PM-09 Approach B / SPEC_03 §3.14).
+    /// Intro: reverse author-waypoint sweep WP_End→WP_Start before Auto.
     /// Auto: look-at CameraFollowPath at max living-loyal projection s; SmoothDamp retreat
     /// when the lead drops; freeze when none. Missing path falls back to closest loyal.
     /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto.
     /// Manual: LMB drag pans XZ mirrored to screen delta (grab-map); ResumeFollow returns to Auto.
-    /// Scroll wheel zooms orthographicSize in [0.5, 20] (forward zoom-in).
+    /// Scroll wheel zooms orthographicSize (forward zoom-in); clamp from CombatConstantConfig.
     /// </summary>
     public sealed class PushMapCameraFollowController : MonoBehaviour
     {
@@ -20,14 +23,18 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             Auto = 0,
             Manual = 1,
+            Intro = 2,
         }
 
-        private const float DragThresholdPixels = 4f;
-        private const float ZoomStepPerNotch = 0.5f;
-        private const float OrthoSizeMin = 0.5f;
-        private const float OrthoSizeMax = 20f;
-        private const float FollowDeadzone = 0.15f;
-        private const float FollowSmoothTime = 0.25f;
+        private float _dragThresholdPixels = CombatConstantKeys.Safety.CameraDragThresholdPixels;
+        private float _zoomStepPerNotch = CombatConstantKeys.Safety.CameraZoomStepPerNotch;
+        private float _orthoSizeMin = CombatConstantKeys.Safety.CameraOrthoSizeMin;
+        private float _orthoSizeMax = CombatConstantKeys.Safety.CameraOrthoSizeMax;
+        private float _followDeadzone = CombatConstantKeys.Safety.CameraFollowDeadzone;
+        private float _followSmoothTime = CombatConstantKeys.Safety.CameraFollowSmoothTime;
+        private float _introSpeed = CombatConstantKeys.Safety.PushMapCameraIntroSpeed;
+        private float _introWaypointDwell =
+            CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds;
 
         private Camera _camera;
         private IReadOnlyList<PushMapAdvanceView> _advanceViews;
@@ -42,10 +49,25 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _dragAccumPixels;
         private Vector3 _smoothVelocity;
         private bool _loggedMissingPath;
+        private Coroutine _introRoutine;
+        private Action _introComplete;
+        private readonly List<float> _introWaypointProgress = new List<float>(8);
 
         public Mode CurrentMode => _mode;
 
         public event Action<Mode> ModeChanged;
+
+        public void ApplyPresentationConstants(CameraPresentationConstants cam)
+        {
+            _dragThresholdPixels = Mathf.Max(0f, cam.DragThresholdPixels);
+            _zoomStepPerNotch = Mathf.Max(0.01f, cam.ZoomStepPerNotch);
+            _orthoSizeMin = Mathf.Max(0.01f, cam.OrthoSizeMin);
+            _orthoSizeMax = Mathf.Max(_orthoSizeMin, cam.OrthoSizeMax);
+            _followDeadzone = Mathf.Max(0f, cam.FollowDeadzone);
+            _followSmoothTime = Mathf.Max(0.01f, cam.FollowSmoothTime);
+            _introSpeed = Mathf.Max(0.01f, cam.PushMapIntroSpeed);
+            _introWaypointDwell = Mathf.Max(0f, cam.PushMapIntroWaypointDwellSeconds);
+        }
 
         public void Bind(
             Camera camera,
@@ -77,8 +99,54 @@ namespace Gravedigger2026.Gameplay.PushMap
             RefreshResumeButtonVisibility();
         }
 
+        /// <summary>
+        /// Play StartBattle rail intro (WP_End → WP_Start). Invokes onComplete when done or skipped.
+        /// Returns false if intro cannot run (onComplete still invoked synchronously).
+        /// </summary>
+        public bool TryPlayCombatIntro(Action onComplete)
+        {
+            StopIntroRoutine();
+            _introComplete = onComplete;
+            _combatActive = true;
+            _dragArmed = false;
+            _dragAccumPixels = 0f;
+
+            if (_followPath != null && !_followPath.HasBakedPath)
+            {
+                if (!_followPath.TryBake(out var error) && !_loggedMissingPath)
+                {
+                    Debug.LogWarning(
+                        $"[PushMapCameraFollow] CameraFollowPath bake empty at Intro: {error}.");
+                    _loggedMissingPath = true;
+                }
+            }
+
+            if (_followPath == null ||
+                !_followPath.HasBakedPath ||
+                !_followPath.TryBuildAuthorWaypointProgresses(_introWaypointProgress))
+            {
+                if (!_loggedMissingPath)
+                {
+                    Debug.LogWarning(
+                        "[PushMapCameraFollow] Intro skipped — missing CameraFollowPath or <2 author waypoints.");
+                    _loggedMissingPath = true;
+                }
+
+                CompleteIntro(skipped: true);
+                return false;
+            }
+
+            _mode = Mode.Intro;
+            _smoothVelocity = Vector3.zero;
+            RefreshResumeButtonVisibility();
+            ModeChanged?.Invoke(_mode);
+            _introRoutine = StartCoroutine(IntroRoutine());
+            return true;
+        }
+
         public void EnableForCombat()
         {
+            StopIntroRoutine();
             _combatActive = true;
             _dragArmed = false;
             _dragAccumPixels = 0f;
@@ -105,10 +173,12 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         public void Disable()
         {
+            StopIntroRoutine();
             _combatActive = false;
             _dragArmed = false;
             _mode = Mode.Auto;
             _smoothVelocity = Vector3.zero;
+            _introComplete = null;
             RefreshResumeButtonVisibility();
         }
 
@@ -130,7 +200,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void EnterManual()
         {
-            if (_mode == Mode.Manual)
+            if (_mode == Mode.Manual || _mode == Mode.Intro)
             {
                 return;
             }
@@ -143,6 +213,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void OnDisable()
         {
+            StopIntroRoutine();
             if (_resumeButton != null)
             {
                 _resumeButton.onClick.RemoveListener(HandleResumeClicked);
@@ -153,6 +224,12 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             if (!_combatActive || _camera == null)
             {
+                return;
+            }
+
+            if (_mode == Mode.Intro)
+            {
+                HandleScrollZoom();
                 return;
             }
 
@@ -173,7 +250,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             var dx = lookAt.x - p.x;
             var dz = lookAt.z - p.z;
             var distSq = dx * dx + dz * dz;
-            if (distSq <= FollowDeadzone * FollowDeadzone)
+            if (distSq <= _followDeadzone * _followDeadzone)
             {
                 _smoothVelocity = Vector3.zero;
                 return;
@@ -184,9 +261,99 @@ namespace Gravedigger2026.Gameplay.PushMap
                 p,
                 desired,
                 ref _smoothVelocity,
-                FollowSmoothTime);
+                _followSmoothTime);
             _smoothVelocity.y = 0f;
             _camera.transform.position = new Vector3(next.x, p.y, next.z);
+        }
+
+        private IEnumerator IntroRoutine()
+        {
+            var path = _followPath;
+            var progresses = _introWaypointProgress;
+            var totalLength = Mathf.Max(1e-4f, path.TotalLength);
+            var speed = Mathf.Max(0.01f, _introSpeed);
+            var dwell = Mathf.Max(0f, _introWaypointDwell);
+
+            // progresses: ascending WP_Start..WP_End; traverse reverse.
+            var index = progresses.Count - 1;
+            SnapCameraToProgress(path, progresses[index]);
+            if (dwell > 0f)
+            {
+                yield return new WaitForSeconds(dwell);
+            }
+
+            while (index > 0)
+            {
+                var fromS = progresses[index];
+                var toS = progresses[index - 1];
+                var distance = Mathf.Abs(fromS - toS) * totalLength;
+                var duration = distance / speed;
+                if (duration <= 1e-4f)
+                {
+                    SnapCameraToProgress(path, toS);
+                }
+                else
+                {
+                    var elapsed = 0f;
+                    while (elapsed < duration)
+                    {
+                        elapsed += Time.deltaTime;
+                        var t = Mathf.Clamp01(elapsed / duration);
+                        var s = Mathf.Lerp(fromS, toS, t);
+                        SnapCameraToProgress(path, s);
+                        yield return null;
+                    }
+
+                    SnapCameraToProgress(path, toS);
+                }
+
+                index--;
+                if (dwell > 0f)
+                {
+                    yield return new WaitForSeconds(dwell);
+                }
+            }
+
+            _introRoutine = null;
+            CompleteIntro(skipped: false);
+        }
+
+        private void SnapCameraToProgress(PushMapCameraPath path, float s)
+        {
+            if (_camera == null || path == null || !path.TryEvaluate(s, out var lookAt))
+            {
+                return;
+            }
+
+            var p = _camera.transform.position;
+            _camera.transform.position = new Vector3(lookAt.x, p.y, lookAt.z);
+            _smoothVelocity = Vector3.zero;
+        }
+
+        private void CompleteIntro(bool skipped)
+        {
+            var cb = _introComplete;
+            _introComplete = null;
+            _introRoutine = null;
+            if (skipped)
+            {
+                Debug.Log("[PushMapCameraFollow] Combat intro skipped.");
+            }
+            else
+            {
+                Debug.Log("[PushMapCameraFollow] Combat intro complete.");
+            }
+
+            cb?.Invoke();
+        }
+
+        private void StopIntroRoutine()
+        {
+            if (_introRoutine != null)
+            {
+                StopCoroutine(_introRoutine);
+                _introRoutine = null;
+            }
         }
 
         private void SnapFollowToLookAt()
@@ -305,8 +472,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var size = _camera.orthographicSize - scroll * ZoomStepPerNotch;
-            _camera.orthographicSize = Mathf.Clamp(size, OrthoSizeMin, OrthoSizeMax);
+            var size = _camera.orthographicSize - scroll * _zoomStepPerNotch;
+            _camera.orthographicSize = Mathf.Clamp(size, _orthoSizeMin, _orthoSizeMax);
         }
 
         private void HandleDragInput()
@@ -347,7 +514,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _lastMousePosition = mouse;
             _dragAccumPixels += screenDelta.magnitude;
 
-            if (_dragAccumPixels < DragThresholdPixels && _mode != Mode.Manual)
+            if (_dragAccumPixels < _dragThresholdPixels && _mode != Mode.Manual)
             {
                 return;
             }
@@ -384,7 +551,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void HandleResumeClicked()
         {
-            if (!_combatActive)
+            if (!_combatActive || _mode == Mode.Intro)
             {
                 return;
             }

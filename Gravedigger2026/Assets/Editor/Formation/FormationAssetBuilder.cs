@@ -18,7 +18,7 @@ namespace Gravedigger2026.Editor.Formation
         private const string EditorRootPath = PrefabDir + "/FormationEditorRoot.prefab";
         private const string EditorRootMode2Path = PrefabDir + "/FormationEditorRoot_Mode2.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v0791";
+        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v08238";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -87,6 +87,7 @@ namespace Gravedigger2026.Editor.Formation
             }
 
             EnsureMode2CompleteButton(contents);
+            EnsureMode2StartBattleAboveComplete(contents);
 
             PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
             PrefabUtility.UnloadPrefabContents(contents);
@@ -144,6 +145,28 @@ namespace Gravedigger2026.Editor.Formation
                 prop.objectReferenceValue = completeGo.GetComponent<Button>();
                 cso.ApplyModifiedPropertiesWithoutUndo();
             }
+        }
+
+        /// <summary>
+        /// Mode2 only: StartBattle stacked directly above Complete on bottom-right (SPEC_03 §3.11).
+        /// Complete at y=124 h=48; 8px gap → StartBattle y=180.
+        /// </summary>
+        private static void EnsureMode2StartBattleAboveComplete(GameObject editorRoot)
+        {
+            var start = FindDeep(editorRoot.transform, "StartBattleButton");
+            if (start == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] StartBattleButton missing on Mode2 EditorRoot.");
+                return;
+            }
+
+            Place(
+                start.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-24f, 180f),
+                new Vector2(140f, 48f));
         }
 
         private static Transform FindDeep(Transform root, string name)

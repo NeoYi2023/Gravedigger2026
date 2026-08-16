@@ -13,7 +13,8 @@ namespace Gravedigger2026.Core.Defend
     public sealed class DefendSessionService : IProjectileCombatSession
     {
         /// <summary>Demo fixed stage Exp credited on clear victory (SPEC_03 §3.12 / D-043).</summary>
-        public const long DemoStageExperienceReward = 100;
+        /// <summary>Defend victory Demo stage Exp ← CombatConstantConfig DefendVictoryStageExp.</summary>
+        public static long DemoStageExperienceReward => CombatRuntimeTuning.DefendVictoryStageExp;
 
         private DefendGameplayConfigRow _config;
         private IReadOnlyList<WaveSpawnConfigRow> _waveRows = Array.Empty<WaveSpawnConfigRow>();

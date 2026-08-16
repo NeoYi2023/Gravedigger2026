@@ -632,12 +632,10 @@ namespace Gravedigger2026.Gameplay.Formation
 
             _editorCamera.gameObject.SetActive(true);
             var half = _mapBounds != null ? _mapBounds.HalfExtents : new Vector2(5f, 2.5f);
-            _editorCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
-            _editorCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            _editorCamera.orthographic = true;
-            _editorCamera.orthographicSize = Mathf.Max(half.x, half.y) - 1.5f;
-            _editorCamera.nearClipPlane = 0.1f;
-            _editorCamera.farClipPlane = 100f;
+            var cam = _configs != null
+                ? _configs.GetCameraPresentationConstants()
+                : CameraPresentationConstants.SafetyDefaults;
+            cam.ApplyTopDownPose(_editorCamera, _mapCenter, cam.ResolveMapFitOrthoSize(half));
             _editorCamera.clearFlags = CameraClearFlags.SolidColor;
             _editorCamera.backgroundColor = new Color(0.12f, 0.14f, 0.18f, 1f);
             _editorCamera.depth = 30;

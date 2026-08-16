@@ -11,7 +11,12 @@ namespace Gravedigger2026.Core.Dig
     /// </summary>
     public sealed class DigSessionService
     {
-        public const float DigTriggerDwellSeconds = 0.2f;
+        /// <summary>
+        /// Cursor dwell before DigAction (CombatConstantConfig DigTriggerDwellSeconds).
+        /// </summary>
+        public float DigTriggerDwellSeconds { get; private set; } =
+            CombatConstantKeys.Safety.DigTriggerDwellSeconds;
+
         public const int PlacementMaxRetries = 32;
 
         private readonly ConfigCsvRepository _configs;
@@ -84,6 +89,9 @@ namespace Gravedigger2026.Core.Dig
         {
             Stop();
             _config = config ?? throw new ArgumentNullException(nameof(config));
+            DigTriggerDwellSeconds = _configs != null
+                ? _configs.GetDigTriggerDwellSeconds()
+                : CombatConstantKeys.Safety.DigTriggerDwellSeconds;
             _mapCenter = mapCenterWorldPosition;
             _placeableHalfExtents = new Vector2(
                 Mathf.Max(0.5f, placeableHalfExtents.x),

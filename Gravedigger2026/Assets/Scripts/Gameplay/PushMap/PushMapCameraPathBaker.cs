@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Pathing;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// </summary>
     public static class PushMapCameraPathBaker
     {
-        public const float SampleSpacing = FlowFieldService.DefaultCellSize;
+        public const float SampleSpacing = CombatConstantKeys.Safety.FlowFieldDefaultCellSize;
 
         public static bool TryBake(PushMapCameraPath path, out string error)
         {

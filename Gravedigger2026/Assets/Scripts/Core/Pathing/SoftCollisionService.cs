@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Pathing
@@ -24,11 +25,11 @@ namespace Gravedigger2026.Core.Pathing
         /// <summary>SPEC_04 §9.13/§9.19: PushCoefficient default 1.0.</summary>
         public const float DefaultPushCoefficient = 1.0f;
 
-        /// <summary>Impulse speed cap (units/sec) so correction stays a soft push, not a teleport.</summary>
-        public const float MaxCorrectionSpeed = 2.0f;
+        /// <summary>Impulse speed cap ← CombatConstantConfig SoftCollisionMaxCorrectionSpeed.</summary>
+        public static float MaxCorrectionSpeed => CombatRuntimeTuning.SoftCollisionMaxCorrectionSpeed;
 
-        /// <summary>SPEC_04 §9.7: budget aligned with MassMoveScheduler (≤50 round-robin).</summary>
-        public const int DefaultMaxBodiesPerFrame = MassMoveScheduler.MaxRecalcPerFrame;
+        /// <summary>SPEC_04 §9.7: budget aligned with MassMoveScheduler.</summary>
+        public static int DefaultMaxBodiesPerFrame => MassMoveScheduler.MaxRecalcPerFrame;
 
         private struct BodyState
         {
@@ -127,7 +128,7 @@ namespace Gravedigger2026.Core.Pathing
         /// Neighbor half-pen × other's PushCoefficient, then × <see cref="RepulsionScale"/> ×
         /// self factor; magnitude capped at <see cref="MaxCorrectionSpeed"/> · dt.
         /// </summary>
-        public void Tick(float dt, int maxBodiesPerFrame = DefaultMaxBodiesPerFrame)
+        public void Tick(float dt, int maxBodiesPerFrame = -1)
         {
             LastFrameResolvedCount = 0;
             if (_bodies.Count == 0)
@@ -154,6 +155,11 @@ namespace Gravedigger2026.Core.Pathing
                 b.CachedPos = b.GetPos();
                 _bodies[i] = b;
                 _hash.Insert(b.Id, b.CachedPos, b.Radius);
+            }
+
+            if (maxBodiesPerFrame < 1)
+            {
+                maxBodiesPerFrame = DefaultMaxBodiesPerFrame;
             }
 
             var budget = Mathf.Clamp(maxBodiesPerFrame, 1, _bodies.Count);

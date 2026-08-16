@@ -40,7 +40,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// than this margin to steal the claim — dense packs + soft-collision jostle
         /// otherwise flip-flop the strictly-nearest target and starve the kill engage clock.
         /// </summary>
-        private const float EngageStickHysteresisMargin = 0.15f;
+        private float _engageStickHysteresisMargin = CombatConstantKeys.Safety.EngageStickHysteresisMargin;
 
         private Func<IReadOnlyList<PushMapMonsterAgentView>> _monstersProvider;
         private MassMoveScheduler _scheduler;
@@ -147,6 +147,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _attackerId = string.IsNullOrEmpty(attackerId) ? gameObject.name : attackerId;
             _attackSlots = attackSlots;
             _session = session;
+            _engageStickHysteresisMargin = CombatRuntimeTuning.EngageStickHysteresisMargin;
             _projectilePrefab = projectilePrefab;
             _projectileParent = projectileParent;
             _bodyRadius = Mathf.Max(0.05f, bodyRadius);
@@ -278,7 +279,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// Nearest living monster inside Demo engage detect (MP-05: enter AttackSlot, leave
         /// Objective field). v0.74.10 sticky hysteresis (SPEC_03 §3.14): while the claimed
         /// target is alive and still inside its detect radius, a rival steals the claim only
-        /// when closer by more than <see cref="EngageStickHysteresisMargin"/>.
+        /// when closer by more than engage stick hysteresis (CombatConstantConfig).
         /// </summary>
         public bool TryGetEngageMonster(out PushMapMonsterAgentView monster)
         {
@@ -339,7 +340,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (claimed != null)
             {
                 var stolen = best != null && best != claimed &&
-                             bestDist < claimedDist - EngageStickHysteresisMargin;
+                             bestDist < claimedDist - _engageStickHysteresisMargin;
                 monster = stolen ? best : claimed;
             }
             else
@@ -376,6 +377,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (!IsCombatActive)
             {
                 EnterCombatDeadPresentation();
+                return;
+            }
+
+            // StartBattle camera intro: keep Idle, no attack / engage.
+            if (_session != null && !_session.IsCombatGameplayActive)
+            {
+                TickAnimPresentation();
                 return;
             }
 
@@ -710,6 +718,13 @@ namespace Gravedigger2026.Gameplay.PushMap
         private void LateUpdate()
         {
             if (_isRebel || _agent == null || _scheduler == null || !IsCombatActive)
+            {
+                _lastSteerDirXZ = Vector3.zero;
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
+                return;
+            }
+
+            if (_session != null && !_session.IsCombatGameplayActive)
             {
                 _lastSteerDirXZ = Vector3.zero;
                 _stuckHold.Tick(false, transform.position, Time.deltaTime);

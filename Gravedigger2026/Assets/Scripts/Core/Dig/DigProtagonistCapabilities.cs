@@ -18,7 +18,18 @@ namespace Gravedigger2026.Core.Dig
         public Dictionary<string, float> GraveSpawnWeightBonus =
             new Dictionary<string, float>(StringComparer.Ordinal);
 
-        public float DigActionDuration => Math.Max(0.1f, 0.8f - DigDurationReductionSum);
+        /// <summary>
+        /// From CombatConstantConfig <c>BaseDigDuration</c> (safety 0.8 when unset).
+        /// </summary>
+        public float BaseDigDuration = 0.8f;
+
+        /// <summary>
+        /// From CombatConstantConfig <c>DigActionDurationFloor</c> (safety 0.1 when unset).
+        /// </summary>
+        public float DigActionDurationFloor = 0.1f;
+
+        public float DigActionDuration =>
+            Math.Max(DigActionDurationFloor, BaseDigDuration - DigDurationReductionSum);
 
         public static DigProtagonistCapabilities CreateDemoDefaults(IEnumerable<string> allQualityIds)
         {

@@ -1,4 +1,5 @@
 using System;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using UnityEngine;
 
@@ -28,7 +29,7 @@ namespace Gravedigger2026.Gameplay.Defend
             Func<string, Transform> resolveTarget,
             float speed,
             float timeoutSeconds,
-            float hitRadius = 0.55f)
+            float hitRadius = -1f)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
@@ -36,7 +37,9 @@ namespace Gravedigger2026.Gameplay.Defend
             _resolveTarget = resolveTarget ?? throw new ArgumentNullException(nameof(resolveTarget));
             _speed = Mathf.Max(0.1f, speed);
             _timeoutRemaining = Mathf.Max(0.05f, timeoutSeconds);
-            _hitRadius = Mathf.Max(0.05f, hitRadius);
+            _hitRadius = Mathf.Max(
+                0.05f,
+                hitRadius < 0f ? CombatRuntimeTuning.ProjectileDefaultHitRadius : hitRadius);
             _settled = false;
 
             var target = _resolveTarget(_targetRuntimeId);

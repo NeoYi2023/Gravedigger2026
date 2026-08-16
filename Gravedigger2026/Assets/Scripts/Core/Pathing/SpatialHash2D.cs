@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Pathing
@@ -9,7 +10,7 @@ namespace Gravedigger2026.Core.Pathing
     /// </summary>
     public sealed class SpatialHash2D
     {
-        public const float DefaultCellSize = 0.5f;
+        public static float DefaultCellSize => CombatRuntimeTuning.FlowFieldDefaultCellSize;
 
         private readonly float _cellSize;
         private readonly float _invCellSize;
@@ -20,7 +21,7 @@ namespace Gravedigger2026.Core.Pathing
         private int _count;
         private int _lastQueryBucketsVisited;
 
-        public SpatialHash2D(float cellSize = DefaultCellSize)
+        public SpatialHash2D(float cellSize = CombatConstantKeys.Safety.FlowFieldDefaultCellSize)
         {
             _cellSize = cellSize > 1e-4f ? cellSize : DefaultCellSize;
             _invCellSize = 1f / _cellSize;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -14,13 +15,14 @@ namespace Gravedigger2026.Gameplay.PushMap
     {
         private const float MinRadius = 0.05f;
         private const float OverlapEpsilon = 0.02f;
-        private const float MinSampleDistance = 0.75f;
-        private const float SampleDistanceBodyMul = 2.5f;
-        private const float LeashSlack = 0.35f;
-        private const float AbsoluteLeashFloor = 3f;
-        private const float AbsoluteLeashBodyMul = 10f;
         private const int MaxSpiralSteps = 24;
         private const int ShrinkAttempts = 6;
+
+        private static float MinSampleDistance => CombatRuntimeTuning.PushMapSpawnMinSampleDistance;
+        private static float SampleDistanceBodyMul => CombatRuntimeTuning.PushMapSpawnSampleDistanceBodyMul;
+        private static float LeashSlack => CombatRuntimeTuning.PushMapSpawnLeashSlack;
+        private static float AbsoluteLeashFloor => CombatRuntimeTuning.PushMapSpawnAbsoluteLeashFloor;
+        private static float AbsoluteLeashBodyMul => CombatRuntimeTuning.PushMapSpawnAbsoluteLeashBodyMul;
 
         public readonly struct Footprint
         {

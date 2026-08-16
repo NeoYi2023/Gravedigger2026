@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.PushMap
@@ -20,6 +21,16 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         public int BakedPointCount => _bakedPoints != null ? _bakedPoints.Length : 0;
 
+        /// <summary>World-XZ arc length of the baked polyline (local XZ distances).</summary>
+        public float TotalLength
+        {
+            get
+            {
+                EnsureLengthCache();
+                return _totalLength;
+            }
+        }
+
         public void SetBakedPoints(Vector3[] localPoints)
         {
             _bakedPoints = localPoints ?? Array.Empty<Vector3>();
@@ -36,6 +47,63 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             Array.Sort(found, CompareWaypoints);
             return found;
+        }
+
+        /// <summary>
+        /// Author waypoint progress values s∈[0,1] in Order ascending (WP_Start → WP_End).
+        /// Returns false when fewer than 2 valid projected waypoints.
+        /// </summary>
+        public bool TryBuildAuthorWaypointProgresses(List<float> dest)
+        {
+            if (dest == null)
+            {
+                return false;
+            }
+
+            dest.Clear();
+            if (!HasBakedPath)
+            {
+                return false;
+            }
+
+            var waypoints = CollectWaypoints();
+            if (waypoints == null || waypoints.Length < 2)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < waypoints.Length; i++)
+            {
+                var wp = waypoints[i];
+                if (wp == null)
+                {
+                    continue;
+                }
+
+                if (!TryProjectProgress(wp.transform.position, out var s))
+                {
+                    continue;
+                }
+
+                // Keep monotonic non-decreasing s along author order (degenerate projections ok).
+                if (dest.Count > 0 && s < dest[dest.Count - 1])
+                {
+                    s = dest[dest.Count - 1];
+                }
+
+                dest.Add(Mathf.Clamp01(s));
+            }
+
+            if (dest.Count < 2)
+            {
+                dest.Clear();
+                return false;
+            }
+
+            // Force ends to polyline ends for a clean StartBattle sweep.
+            dest[0] = 0f;
+            dest[dest.Count - 1] = 1f;
+            return true;
         }
 
         public bool TryBake()

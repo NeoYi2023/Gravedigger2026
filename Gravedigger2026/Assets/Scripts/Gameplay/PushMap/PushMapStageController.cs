@@ -33,7 +33,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// MP-04: Bake AirWall → StaticBoxWalkableMask + FlowField Rebuild; advance via MassMoveScheduler
     /// (shared field + LocalDetour; no per-soldier SetDestination(Objective)).
     /// MP-05: engage/chase → AttackSlot claim + LocalDetour; slot refresh ≤50/frame; no per-frame CalculatePath.
-    /// Combat camera: Runtime Ensure PushMapCamera (ortho top-down; Size=2).
+    /// Combat camera: Runtime Ensure PushMapCamera (ortho top-down; Size from CombatConstantConfig).
     /// PM-09 Approach B: PushMapCameraFollowController follows CameraFollowPath max projection.
     /// PM-10: BodyRadius spawn spread + NavMeshAgent.radius for RVO.
     /// v0.66: Bake → deploy → FireStartBattleSpawns; advance does not pause on capture probe.
@@ -89,7 +89,6 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// this radius, so soldiers enter engage detect (≈0.38 on current configs) and
         /// convert to AttackSlot instead of holding a CaptureZone-sized ring short of it.
         /// </summary>
-        private const float BossAdvanceArriveRadius = 0.35f;
 
         private FlowFieldService _flowField;
         private StaticBoxWalkableMask _flowWalkableMask;
@@ -318,11 +317,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             DeployCombatUnits();
-            TickMassCombatPathing();
             _session.FireStartBattleSpawns();
             ResolveStartBattleRebelRolls();
             _session.NotifyBossPointPresence(_bossPoint != null);
-            EnableCameraFollowForCombat();
+            SetCombatUnitsGameplayEnabled(false);
+            PauseAllMassMoves();
+            BeginCameraIntroOrStartGameplay();
 
             if (_hudView != null)
             {
@@ -336,7 +336,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             Debug.Log(
-                $"[PushMapStage] Combat entered — PendingBoss={_session.PendingBossCount} BossPoint={(_bossPoint != null ? "yes" : "no")}.");
+                $"[PushMapStage] Combat entered (intro latch) — PendingBoss={_session.PendingBossCount} " +
+                $"BossPoint={(_bossPoint != null ? "yes" : "no")}.");
         }
 
         private void ResolveStartBattleRebelRolls()
@@ -409,6 +410,11 @@ namespace Gravedigger2026.Gameplay.PushMap
         private void Update()
         {
             if (!_running || _session == null || _session.Phase != PushMapPhase.Combat)
+            {
+                return;
+            }
+
+            if (_session.IsCombatIntroActive)
             {
                 return;
             }
@@ -881,6 +887,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 _monsters.Add(view);
+                view.SetCombatGameplayEnabled(_session == null || _session.IsCombatGameplayActive);
             }
 
             Debug.Log(
@@ -1215,7 +1222,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 zone != null
                     ? zone.Radius
                     : IsBossGuidanceActive
-                        ? BossAdvanceArriveRadius
+                        ? CombatRuntimeTuning.BossAdvanceArriveRadius
                         : MassMoveScheduler.DefaultObjectiveArriveRadius);
 
             TickAttackSlotGoals();
@@ -1637,8 +1644,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             _pushMapCamera.clearFlags = CameraClearFlags.SolidColor;
             _pushMapCamera.backgroundColor = new Color(0.12f, 0.14f, 0.16f, 1f);
             _pushMapCamera.depth = 5;
-            _pushMapCamera.nearClipPlane = 0.1f;
-            _pushMapCamera.farClipPlane = 100f;
+            var cam = _configs != null
+                ? _configs.GetCameraPresentationConstants()
+                : CameraPresentationConstants.SafetyDefaults;
+            _pushMapCamera.nearClipPlane = cam.NearClip;
+            _pushMapCamera.farClipPlane = cam.FarClip;
             EnsureCameraFollowComponent();
         }
 
@@ -1653,6 +1663,111 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_cameraFollow == null)
             {
                 _cameraFollow = _pushMapCamera.gameObject.AddComponent<PushMapCameraFollowController>();
+            }
+        }
+
+        private void BeginCameraIntroOrStartGameplay()
+        {
+            EnsurePushMapCamera();
+            EnsureResumeFollowButton();
+            if (_cameraFollow == null)
+            {
+                FinishCombatIntroAndEnableGameplay();
+                return;
+            }
+
+            var cameraPath = _mapInstance != null
+                ? _mapInstance.GetComponentInChildren<PushMapCameraPath>(true)
+                : null;
+            if (cameraPath != null && !cameraPath.HasBakedPath)
+            {
+                if (!cameraPath.TryBake(out var bakeError))
+                {
+                    Debug.LogWarning($"[PushMapStage] CameraFollowPath bake failed: {bakeError}");
+                }
+            }
+
+            _cameraFollow.Bind(_pushMapCamera, _advanceViews, ResolveCurrentObjective, cameraPath);
+            _cameraFollow.ApplyPresentationConstants(
+                _configs != null
+                    ? _configs.GetCameraPresentationConstants()
+                    : CameraPresentationConstants.SafetyDefaults);
+
+            // TryPlayCombatIntro invokes callback even when skipped (synchronously).
+            _cameraFollow.TryPlayCombatIntro(FinishCombatIntroAndEnableGameplay);
+        }
+
+        private void FinishCombatIntroAndEnableGameplay()
+        {
+            _session?.EndCombatIntro();
+            SetCombatUnitsGameplayEnabled(true);
+            ResumeAllMassMoves();
+            EnableCameraFollowForCombat();
+            RefreshCombatHud();
+            Debug.Log("[PushMapStage] Combat intro finished — gameplay active.");
+        }
+
+        private void PauseAllMassMoves()
+        {
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var soldier = _advanceViews[i];
+                if (soldier != null && soldier.MoveId != 0)
+                {
+                    _moveScheduler.SetPaused(soldier.MoveId, true);
+                }
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster != null && monster.MoveId != 0)
+                {
+                    _moveScheduler.SetPaused(monster.MoveId, true);
+                }
+            }
+        }
+
+        private void ResumeAllMassMoves()
+        {
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var soldier = _advanceViews[i];
+                if (soldier == null || soldier.MoveId == 0 || soldier.IsRebel || !soldier.IsCombatActive)
+                {
+                    continue;
+                }
+
+                _moveScheduler.SetPaused(soldier.MoveId, false);
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || monster.MoveId == 0 || !monster.IsAlive || monster.IsStationary)
+                {
+                    continue;
+                }
+
+                _moveScheduler.SetPaused(monster.MoveId, false);
+            }
+        }
+
+        private void SetCombatUnitsGameplayEnabled(bool enabled)
+        {
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                _monsters[i]?.SetCombatGameplayEnabled(enabled);
             }
         }
 
@@ -1677,6 +1792,10 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _cameraFollow.Bind(_pushMapCamera, _advanceViews, ResolveCurrentObjective, cameraPath);
+            _cameraFollow.ApplyPresentationConstants(
+                _configs != null
+                    ? _configs.GetCameraPresentationConstants()
+                    : CameraPresentationConstants.SafetyDefaults);
             _cameraFollow.EnableForCombat();
         }
 
@@ -1755,7 +1874,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>
-        /// Orthographic top-down pose aligned with Defend angle/height; Size fixed to 2.
+        /// Orthographic top-down pose; Size from CombatConstantConfig PushMapCameraOrthoSize.
         /// </summary>
         private void ApplyPushMapCameraPose()
         {
@@ -1764,12 +1883,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            _pushMapCamera.transform.position = _mapCenter + new Vector3(0f, 18f, 0f);
-            _pushMapCamera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            _pushMapCamera.orthographic = true;
-            _pushMapCamera.orthographicSize = 2f;
-            _pushMapCamera.nearClipPlane = 0.1f;
-            _pushMapCamera.farClipPlane = 100f;
+            var cam = _configs != null
+                ? _configs.GetCameraPresentationConstants()
+                : CameraPresentationConstants.SafetyDefaults;
+            cam.ApplyTopDownPose(_pushMapCamera, _mapCenter, cam.PushMapOrthoSize);
             // SPEC_04 §15.2: same-order character sprites draw far-to-near along world
             // +Z — lower on screen (smaller Z) occludes higher.
             _pushMapCamera.transparencySortMode = TransparencySortMode.CustomAxis;

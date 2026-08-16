@@ -1,4 +1,5 @@
 using System;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Pathing
@@ -10,9 +11,9 @@ namespace Gravedigger2026.Core.Pathing
     /// </summary>
     public sealed class FlowFieldService
     {
-        public const float MinCellSize = 0.25f;
-        public const float MaxCellSize = 0.5f;
-        public const float DefaultCellSize = 0.5f;
+        public static float MinCellSize => CombatRuntimeTuning.FlowFieldMinCellSize;
+        public static float MaxCellSize => CombatRuntimeTuning.FlowFieldMaxCellSize;
+        public static float DefaultCellSize => CombatRuntimeTuning.FlowFieldDefaultCellSize;
 
         private const float CardinalCost = 1f;
         private const float DiagonalCost = 1.41421356f;
@@ -28,7 +29,7 @@ namespace Gravedigger2026.Core.Pathing
 
         private Vector3 _mapCenter;
         private Vector2 _halfExtents;
-        private float _cellSize = DefaultCellSize;
+        private float _cellSize = CombatConstantKeys.Safety.FlowFieldDefaultCellSize;
         private bool _configured;
 
         private int _cols;
@@ -61,7 +62,7 @@ namespace Gravedigger2026.Core.Pathing
         /// <summary>
         /// Cover IsoDiamond / DigMapBounds half-extents. Cell size clamped to Demo 0.25–0.5.
         /// </summary>
-        public void Configure(Vector3 mapCenter, Vector2 isoDiamondHalfExtents, float cellSize = DefaultCellSize)
+        public void Configure(Vector3 mapCenter, Vector2 isoDiamondHalfExtents, float cellSize = CombatConstantKeys.Safety.FlowFieldDefaultCellSize)
         {
             _mapCenter = mapCenter;
             _halfExtents = SanitizeHalfExtents(isoDiamondHalfExtents);

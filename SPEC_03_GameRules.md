@@ -150,9 +150,10 @@
 | AggroMode | 仇恨模式 | 怪物主动/被动 × 移动/原地四态；**异于** `AttackMode`（Melee/Ranged）；见 §3.14、[SPEC_04 §9.19](SPEC_04_Technical.md)。 |
 | AlertRadius | 警戒半径 | `AggroMode` 主动态用于发现我方士兵的半径；与 `AttackRange` 并列（§3.14）。 |
 | DungeonUnlock | 副本解锁 | PushMap 占领/通关配置的副本 ID 写入存档钩子；副本玩法正文 **TBD**（§3.14）。 |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat 表现层：`Auto`（沿 `CameraFollowPath` 最大投影进度）/ `Manual`（拖拽平移）；见 §3.14。 |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat 表现层：`Intro`（开战扫镜）/ `Auto`（沿 `CameraFollowPath` 最大投影进度）/ `Manual`（拖拽平移）；见 §3.14。 |
 | CameraFollowPath | 镜头跟随轨 | PushMap 地图 Prefab 上的虚拟推进折线；作者摆起点/拐弯/终点，相邻路点间按世界 XZ 直线按间距采样；镜头对准折线上的点，不对准士兵 Transform；见 §3.14。 |
 | CameraPathProgress | 镜头轨进度 | 折线弧长参数 `s∈[0,1]`；Auto 取存活忠诚兵投影最大值；领头失效则回退；见 §3.14。 |
+| IsCombatIntroActive | 开战镜头预览门闩 | PushMap Combat 内布尔门闩：单位已部署 Idle、计时冻结、镜头 Intro；结束后正常玩法；见 §3.14。 |
 | ResumeFollow | 恢复跟随 | PushMap 手动模式下底中按钮；点击回到 `Auto`；见 §3.14。 |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移；见 §3.14。 |
 | FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s；见 §3.14。 |
@@ -331,9 +332,10 @@
 | AggroMode | 仇恨模式 | Monster active/passive × chase/stationary; **not** AttackMode (Melee/Ranged); §3.14 / SPEC_04 §9.19. |
 | AlertRadius | 警戒半径 | AggroMode active detect radius; alongside AttackRange (§3.14). |
 | DungeonUnlock | 副本解锁 | Save-slot unlock hook from PushMap config; dungeon gameplay **TBD** (§3.14). |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat presentation: `Auto` (max projection on `CameraFollowPath`) / `Manual` (drag pan); §3.14. |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat presentation: `Intro` (StartBattle rail sweep) / `Auto` (max projection on `CameraFollowPath`) / `Manual` (drag pan); §3.14. |
 | CameraFollowPath | 镜头跟随轨 | Virtual advance polyline on the PushMap map Prefab; author start/turns/end, bake world-XZ straight samples between adjacent waypoints; camera looks at a point on the rail, not a soldier Transform; §3.14. |
 | CameraPathProgress | 镜头轨进度 | Polyline arc-length `s∈[0,1]`; Auto = max projection of living loyal soldiers; retreats if the lead drops; §3.14. |
+| IsCombatIntroActive | 开战镜头预览门闩 | PushMap Combat boolean latch: units deployed Idle, clock frozen, camera Intro; then normal gameplay; §3.14. |
 | ResumeFollow | 恢复跟随 | PushMap Manual-only bottom-center button → back to `Auto`; §3.14. |
 | FollowDeadzone | Follow deadzone | Auto world-XZ radius 0.15; ignore small target motion inside; §3.14. |
 | FollowSmoothTime | Follow smooth time | Auto XZ SmoothDamp time 0.25s when outside deadzone; §3.14. |
@@ -637,7 +639,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-050 | Mode2：样例关卡运作含 Dig → **AutoManufacture** → UpgradeManufacture；DigStageSummary 确认后进入自动制造；阶段无玩家确认、自动交还驱动 | P1 | 已实现（AM-03～08：`AutoManufactureStageModule` 自动 `TryAdvanceStage`；Mode2 `Level_01` Dig→AutoManufacture→UM→PushMap；Excel/CSV 对齐；0 兵 Tips「无士兵可制造」；手验清单 `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`） |
 | D-051 | Mode2 AutoManufacture：按最低配方（头+躯干+臂×2含主要手+腿×2）循环造兵入临时仓库；不计 Spirit/Control；职业由双手 ClassRestrict；余料留仓库 | P1 | 已实现（AM-03～06：选料/职业/属性→钩子→外观+命名→临时仓 flush→`WarriorPool`→清阵上阵；SoulId 空、Control=0、AttackMode←ClassConfig；手验见 AM-08） |
 | D-052 | Mode2：批结束后清空布阵，按 `PlacementOrder` + `FormationClassZone` 自动上阵（碰撞挤开）；再进 UM | P1 | 已实现（AM-06 方案 A：区内螺旋采样 + BodyRadius；`FormationClassZone` **IsoDiamond**（同 WalkSurface；废止 OBB/IsoTileYaw）；仅本批 Id；手验见 AM-08 / FZ-01～02） |
-| D-053 | Mode2 UM：隐藏手动制造；保留升级 Modal 与可编辑布阵；控制力 HUD 屏蔽；布阵内 `CompleteButton`（SoldierBar 上右，UM/Prepare 均显示；UM 接线结束阶段） | P1 | 已实现（方案 C：`UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`；Catalog 按 CampaignMode Resolve；手验见 AM-08；Complete 见 Mode2 差分） |
+| D-053 | Mode2 UM：隐藏手动制造；保留升级 Modal 与可编辑布阵；控制力 HUD 屏蔽；布阵内 `CompleteButton`（SoldierBar 上右，UM/Prepare 均显示；UM 接线结束阶段）；Prepare `StartBattleButton` 叠于 Complete 正上方 | P1 | 已实现（方案 C：`UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`；Catalog 按 CampaignMode Resolve；手验见 AM-08；Complete 见 Mode2 差分） |
 | D-054 | Mode2 UM：布阵右侧「制造记录」打开只读弹窗；展示最近一批 AutoManufacture 士兵摘要（名字/种族/职业）；0 兵空态「本批无士兵」；下一批覆盖；同档再进仍可见；Mode1 无此按钮 | P1 | 已实现（方案 A：`AutoManufactureBatchRecordService` + Mode2 Modal；`UmAssetBuilder` Mode2 追加 / 运行时 Ensure） |
 | D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；Step2 逐兵加强/单槽脉冲套该书/Idle 揭示/每 3 兵加速；播完后按最终 ClassId 上阵再进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | **更新**（单槽节拍：`ApplyEquippedBookAtSlot` 于脉冲峰值；Deploy 延后） |
 | D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`、`App_0_01`…`App_0_33`、`App_4_41`、`App_5_51`） |
@@ -689,7 +691,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-050 | Mode2: sample LevelOperation Dig → **AutoManufacture** → UpgradeManufacture; after DigStageSummary enter auto craft; stage ends without player confirm | P1 | Done (AM-03–08: `AutoManufactureStageModule` auto `TryAdvanceStage`; Mode2 `Level_01` Dig→AutoManufacture→UM→PushMap; Excel/CSV aligned; zero-craft Tips「无士兵可制造」; handcheck `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`) |
 | D-051 | Mode2 AutoManufacture: loop craft into temp warehouse with min recipe (Head+Torso+2Arm incl. PrimaryHand+2Leg); no Spirit/Control; class from hand ClassRestrict; leftovers stay in Warehouse | P1 | Done (AM-03–06: pick/class/base→hook→appearance+name→temp flush→`WarriorPool`→clear+deploy; empty SoulId, Control=0, AttackMode←ClassConfig; handcheck AM-08) |
 | D-052 | Mode2: after batch, clear formation; auto-deploy by `PlacementOrder` + `FormationClassZone` (separation); then enter UM | P1 | Done (AM-06 Approach A: in-zone spiral + BodyRadius; `FormationClassZone` **IsoDiamond** (same as WalkSurface; drop OBB/IsoTileYaw); batch Ids only; handcheck AM-08 / FZ-01–02) |
-| D-053 | Mode2 UM: hide manual manufacture; keep upgrade Modal + editable formation; hide ControlPower HUD; in-editor `CompleteButton` (above SoldierBar right; visible UM+Prepare; UM wires stage end) | P1 | Done (Approach C: `UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`; Catalog Resolve by CampaignMode; handcheck AM-08; Complete in Mode2 diffs) |
+| D-053 | Mode2 UM: hide manual manufacture; keep upgrade Modal + editable formation; hide ControlPower HUD; in-editor `CompleteButton` (above SoldierBar right; visible UM+Prepare; UM wires stage end); Prepare `StartBattleButton` stacked above Complete | P1 | Done (Approach C: `UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`; Catalog Resolve by CampaignMode; handcheck AM-08; Complete in Mode2 diffs) |
 | D-054 | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only popup; last AutoManufacture batch summaries (name/race/class); empty 「本批无士兵」; next batch overwrites; survives re-enter save; Mode1 has no button | P1 | Done (Approach A: `AutoManufactureBatchRecordService` + Mode2 Modal; `UmAssetBuilder` Mode2 append / runtime Ensure) |
 | D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; Step2 per-soldier amplify / per-slot pulse applies that book / Idle reveal / +25% speed every 3; then deploy by final ClassId → UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | **Updated** (per-slot beat: `ApplyEquippedBookAtSlot` at pulse peak; Deploy deferred) |
 | D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`, `App_0_01`…`App_0_33`, `App_4_41`, `App_5_51`) |
@@ -897,7 +899,7 @@ EnterLevel
 
 **单次挖掘时长（挖坟单次速度）：**
 
-`DigActionDuration = max(0.1, BaseDigDuration − DigDurationReductionSum)`，其中 `BaseDigDuration = 0.8`（秒）。最短挖坟时间不得小于 **0.1s**。
+`DigActionDuration = max(DigActionDurationFloor, BaseDigDuration − DigDurationReductionSum)`，其中 **`BaseDigDuration` / `DigActionDurationFloor` ← `CombatConstantConfig`**（样例 `0.8` / `0.1` 秒）。光标触发停留 **`DigTriggerDwellSeconds` ← 同表**（样例 `0.2s`）。
 
 （与「有效挖坟时长」不同：后者是阶段倒计时总长；本项是单次 DigAction 动画/结算时长。）
 
@@ -1074,7 +1076,7 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 
 **Dig action duration (dig speed):**
 
-`DigActionDuration = max(0.1, BaseDigDuration − DigDurationReductionSum)` where `BaseDigDuration = 0.8` (seconds). Minimum dig time is **0.1s**.
+`DigActionDuration = max(DigActionDurationFloor, BaseDigDuration − DigDurationReductionSum)` where **`BaseDigDuration` / `DigActionDurationFloor` ← `CombatConstantConfig`** (sample `0.8` / `0.1` s). Cursor dwell **`DigTriggerDwellSeconds` ← same table** (sample `0.2s`).
 
 (Distinct from Effective Dig duration: that is the stage countdown length; this is single DigAction anim/resolve duration.)
 
@@ -1185,6 +1187,7 @@ EffectiveDigDuration countdown → 0
 | 升级 | 保留「GM升级」Modal（与 Mode1 同） |
 | 布阵 | 保留「布阵」打开共享 FormationEditor；可再编辑自动上阵结果 |
 | 布阵内完成 | Mode2 `FormationEditorRoot_Mode2`：`SoldierBar` **上方右侧**近屏边常驻 `CompleteButton`（文案同主屏「完成 / 进入下一阶段」）；**UM / Defend·PushMap Prepare 均显示**；点击语义同主屏完成 → **结束本 UM 阶段**（仅 UM 宿主接线；Prepare 宿主不订阅，按钮仍可见） |
+| 布阵内开战位 | Mode2：`StartBattleButton`（开战）在同一右下角叠放于 `CompleteButton` **正上方**（Defend / PushMap Prepare 显示；UM 宿主可隐藏） |
 | 制造记录 | 「布阵」**右侧**「制造记录」打开只读 Modal（UI-015）；展示最近一批 AutoManufacture 士兵摘要；详见 §3.15 |
 | Spirit / Control | Mode2 **屏蔽**：制造不计 `SpiritCost`；布阵 HUD **不**显示控制力占用（失控专题另议；本轮不按 ControlPower 拦上阵） |
 | 灵魂 | 自动造兵路径 **不写** `SoulId`；灵魂手动装配 **后续需求**（§3.15） |
@@ -1473,7 +1476,7 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | 改位 / 下阵 | 已上阵可在战场再拖改位（`TrySetPosition`）；拖回士兵栏或松手在 **地图外**（`DigMapBounds` 外）→ `TryUndeploy` / 取消上阵并回栏，同时 **关闭** 该格变亮 |
 | 控制力 HUD | 画面左上角显示 `ΣControlPowerCost / ControlPowerCap` |
 | 离开 | UM：「返回」关编辑器回主屏；Defend：「开战」（UI-009，≥1）关编辑器进 Combat |
-| Mode2 完成钮 | 仅 `FormationEditorRoot_Mode2`：`SoldierBar` 上方右侧 `CompleteButton`（UM/Prepare **均显示**）；UM 宿主点击 = 关编辑器并触发与主屏相同的阶段结束；Mode1 Prefab **无**此钮 |
+| Mode2 完成钮 | 仅 `FormationEditorRoot_Mode2`：`SoldierBar` 上方右侧 `CompleteButton`（UM/Prepare **均显示**）；其**正上方**叠放 `StartBattleButton`（Prepare 开战）；UM 宿主点击 Complete = 关编辑器并触发与主屏相同的阶段结束；Mode1 Prefab **无** Complete 钮 |
 | 准备态可做 | 调整位置、上下阵（从已有士兵实例池选入/撤下）；**不可**在 Prepare 制造新士兵 |
 | 与防守关系 | `Prepare` 加载并允许改写布阵；开战瞬间按**当前**布阵部署（见 §3.12） |
 | 控制力 | 上下阵变更后立即重算控制力占用 / 失控档次 |
@@ -1526,6 +1529,7 @@ UpgradeManufacture stage
 | Upgrade | Keep "GM Upgrade" Modal (same as Mode1) |
 | Formation | Keep Formation button → shared FormationEditor; auto-deploy results remain editable |
 | Complete in editor | Mode2 `FormationEditorRoot_Mode2`: `CompleteButton` above `SoldierBar` on the **right**, near screen edge (same label as main Complete); **visible in UM and Defend/PushMap Prepare**; click = same as main Complete → **end UM stage** (only UM host wires it; Prepare hosts do not subscribe; button still visible) |
+| StartBattle placement | Mode2: `StartBattleButton` stacked **directly above** `CompleteButton` on the same bottom-right edge (shown in Defend/PushMap Prepare; UM host may hide) |
 | Manufacture record | "Manufacture Record" to the **right** of Formation opens read-only Modal (UI-015); last AutoManufacture batch summaries; see §3.15 |
 | Spirit / Control | Mode2 **shielded**: manufacture ignores `SpiritCost`; formation HUD **hides** ControlPower (LOC later; this round does not gate deploy by ControlPower) |
 | Soul | Auto-craft path writes **no** `SoulId`; manual soul attach is a **later** topic (§3.15) |
@@ -1814,7 +1818,7 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | Reposition / undeploy | Drag deployed units to move (`TrySetPosition`); drag back to bar or release **outside map** (`DigMapBounds`) → `TryUndeploy` / cancel and **clear** cell highlight |
 | ControlPower HUD | Top-left: `ΣControlPowerCost / ControlPowerCap` |
 | Leave | UM: Return closes editor; Defend: StartBattle (UI-009, ≥1) closes editor → Combat |
-| Mode2 Complete | `FormationEditorRoot_Mode2` only: `CompleteButton` above `SoldierBar` (right); **visible in UM and Prepare**; UM host click = close editor + same stage end as main Complete; Mode1 Prefab has **no** button |
+| Mode2 Complete | `FormationEditorRoot_Mode2` only: `CompleteButton` above `SoldierBar` (right); `StartBattleButton` stacked **directly above** it (Prepare StartBattle); **Complete visible in UM and Prepare**; UM host click Complete = close editor + same stage end as main Complete; Mode1 Prefab has **no** Complete button |
 | Prepare may | Positions + deploy/undeploy from instance pool; **no** manufacture |
 | Defend link | StartBattle deploys from **current** formation |
 | ControlPower | Recalculate immediately after deploy changes |
@@ -2708,14 +2712,14 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 士兵战斗 | 同 §3.12 WarriorCombat（EngageZone / AttackMode Melee\|Ranged / 命中方案 D）；**第一版仅普攻** |
 | 不复用 | Defend 倒计时刷怪（`WaveSpawnConfig` / `SpawnRemainingSeconds`）；清场胜利条件（刷怪行全触发+全灭） |
 | 表现机位 | 与 Defend **同为正交俯视**（`Euler(90,0,0)`）；Combat 须启用专用战斗相机，不得落到场景透视主相机（见 [SPEC_04 §6](SPEC_04_Technical.md)） |
-| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。`CameraFollowMode`：`Auto`（默认）= 跟随地图 **`CameraFollowPath`** 折线上的机位，**不**粘士兵 Transform。进度 `s∈[0,1]` = 场上**忠诚存活**（`!IsRebel` 且非 `CombatDead`）士兵把世界 XZ **投影到折线**后的**最大值**；领头兵死亡/叛变/失活 → `s` 变小 → `SmoothDamp` **回退**（不 Snap）。无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。缺 `CameraFollowPath` 或未烘焙折线 → warn + **回退**旧行为（粘随距 **CurrentObjective** 最近忠诚兵）。Auto 表现：世界 XZ 圆形死区 **`FollowDeadzone=0.15`** 内忽略目标小幅位移（镜头不动）；超出后以 **`FollowSmoothTime=0.25`** 对 XZ 做 `SmoothDamp` 缓动追赶（Y/旋转不变）；`EnterAuto` / 开战启用 → **立刻 Snap** 到**当时**的折线点（或回退士兵）XZ（清零 damp 速度）；进度回退**不** Snap。`Manual` = 左键拖动画布，镜头 XZ 平移；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度不变；开战默认 `orthographicSize=2`；Combat 滚轮缩放 Size，钳制 **`[0.5, 20]`**（前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
+| 镜头跟随 | Combat 专属（Prepare 仍用 FormationCamera）。开战进入 `Combat` 后先跑 **镜头预览（Intro）** 门闩（`IsCombatIntroActive`，**不**新增 `PushMapPhase`）：双方单位（含 StartBattle 刷怪）已部署并原地 **Idle**；`CombatElapsedSeconds` 保持 0；冻结占领 / MassMove / 攻击 / 陷阱 / 被动仇恨（**不用** `timeScale=0`，以免卡住 Idle）。镜头模式 `Intro`：Snap 到 `CameraFollowPath` 作者路点 **末点**（Order 最大 / `WP_End`），沿烘焙折线 **反向**移到 **起点**（`WP_Start`）；世界 XZ 恒速 **`PushMapCameraIntroSpeed` ← `CombatConstantConfig`**（样例 `1.5`）；每个作者路点（含起终点与中间转弯点）停留 **`PushMapCameraIntroWaypointDwellSeconds` ← 同表**（样例 `0.5`）；Intro 不可跳过；缺轨 / Bake 失败 / 作者路点 &lt; 2 → **跳过** Intro 并立刻开战。Intro 结束 → `EndCombatIntro`（启动计时）→ `CameraFollowMode`：`Auto`（默认）= 跟随地图 **`CameraFollowPath`** 折线上的机位，**不**粘士兵 Transform。进度 `s∈[0,1]` = 场上**忠诚存活**（`!IsRebel` 且非 `CombatDead`）士兵把世界 XZ **投影到折线**后的**最大值**；领头兵死亡/叛变/失活 → `s` 变小 → `SmoothDamp` **回退**（不 Snap）。无可跟随忠诚兵 → **定格**最后机位（不跟主角、不回地图中心）。缺 `CameraFollowPath` 或未烘焙折线 → warn + **回退**旧行为（粘随距 **CurrentObjective** 最近忠诚兵）。Auto 表现：世界 XZ 圆形死区 **`CameraFollowDeadzone` ← 同表**（样例 `0.15`）内忽略目标小幅位移（镜头不动）；超出后以 **`CameraFollowSmoothTime` ← 同表**（样例 `0.25`）对 XZ 做 `SmoothDamp` 缓动追赶（Y/旋转不变）；`EnterAuto` / Intro 结束后启用 → **立刻 Snap** 到**当时**的折线点（或回退士兵）XZ（清零 damp 速度）；进度回退**不** Snap。`Manual` = 左键拖动画布，镜头 XZ 平移（**Intro 禁用**）；底中「恢复跟随」（`ResumeFollow`）**仅手动态显示**，点击 → `Auto` 并隐藏。机位高度 **`CameraHeightY` ← 同表**；开战默认 `PushMapCameraOrthoSize` ← 同表（样例 `2`）；Combat 滚轮缩放 Size，钳制 **`[CameraOrthoSizeMin, CameraOrthoSizeMax]`**（样例 `[0.5, 20]`；前滚拉近变小、后滚拉远变大）；缩放不切换跟随模式；恢复跟随不重置 Size |
 
 **阶段内子状态（PushMapPhase）**
 
 | 子状态 | 说明 |
 |--------|------|
 | `Prepare` | 加载地图与布阵；可编辑布阵；含「开战」；不可制造 |
-| `Combat` | 部署单位；目标点推进；刷怪点/陷阱；AggroMode；护盾与失控运行中 |
+| `Combat` | 部署单位；可含开战镜头预览门闩（`IsCombatIntroActive`）；门闩结束后目标点推进；刷怪点/陷阱；AggroMode；护盾与失控运行中 |
 | `Ended` | BOSS 通关胜利，或 LevelFailure（护盾归零 / 无忠诚存活士兵） |
 
 **地图（MapId）**
@@ -2860,14 +2864,14 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | WarriorCombat | Same §3.12 (EngageZone / AttackMode Melee\|Ranged / hit scheme D); **v1 normal attacks only** |
 | Not reused | Defend countdown spawns (`WaveSpawnConfig` / `SpawnRemainingSeconds`); clear-all victory (all rows fired + all killed) |
 | Presentation camera | Same orthographic top-down as Defend (`Euler(90,0,0)`); Combat must enable a dedicated battle camera — must not fall back to scene perspective Main Camera (see [SPEC_04 §6](SPEC_04_Technical.md)) |
-| Camera follow | Combat only (Prepare keeps FormationCamera). `CameraFollowMode`: `Auto` (default) = follow a look-at on map **`CameraFollowPath`**, **not** a soldier Transform. Progress `s∈[0,1]` = **max** polyline projection of living **loyal** soldiers (`!IsRebel` and not `CombatDead`); lead death/rebel/inactive → `s` shrinks → `SmoothDamp` **retreats** (no Snap). No followable loyal → **freeze** last pose (not protagonist, not map center). Missing `CameraFollowPath` or empty bake → warn + **fallback** to sticky-follow closest loyal to **CurrentObjective**. Auto presentation: ignore small target motion inside world-XZ circular deadzone **`FollowDeadzone=0.15`** (camera holds); outside → XZ `SmoothDamp` with **`FollowSmoothTime=0.25`** (Y/rotation unchanged); `EnterAuto` / combat enable → **immediate Snap** to the **current** rail point (or fallback soldier) XZ (clear damp velocity); progress retreat does **not** Snap. `Manual` = LMB drag pans camera XZ; bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height unchanged; StartBattle default `orthographicSize=2`; Combat scroll-wheel zooms Size clamped **`[0.5, 20]`** (forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
+| Camera follow | Combat only (Prepare keeps FormationCamera). After StartBattle enters `Combat`, run a **camera intro** latch first (`IsCombatIntroActive`; **no** new `PushMapPhase`): both sides (incl. StartBattle spawns) are deployed and play **Idle** in place; `CombatElapsedSeconds` stays 0; freeze capture / MassMove / attacks / traps / passive aggro (**do not** use `timeScale=0`, so Idle anims keep playing). Camera mode `Intro`: Snap to author waypoint **end** (max Order / `WP_End`) on `CameraFollowPath`, then move **reverse** along the baked polyline to **start** (`WP_Start`); constant world-XZ speed **`PushMapCameraIntroSpeed` ← `CombatConstantConfig`** (sample `1.5`); dwell **`PushMapCameraIntroWaypointDwellSeconds` ← same table** (sample `0.5`) at every author waypoint (start, end, and turns); Intro is not skippable; missing path / bake failure / author waypoints &lt; 2 → **skip** Intro and start combat immediately. Intro ends → `EndCombatIntro` (start clock) → `CameraFollowMode`: `Auto` (default) = follow a look-at on map **`CameraFollowPath`**, **not** a soldier Transform. Progress `s∈[0,1]` = **max** polyline projection of living **loyal** soldiers (`!IsRebel` and not `CombatDead`); lead death/rebel/inactive → `s` shrinks → `SmoothDamp` **retreats** (no Snap). No followable loyal → **freeze** last pose (not protagonist, not map center). Missing `CameraFollowPath` or empty bake → warn + **fallback** to sticky-follow closest loyal to **CurrentObjective**. Auto presentation: ignore small target motion inside world-XZ circular deadzone **`CameraFollowDeadzone` ← same table** (sample `0.15`) (camera holds); outside → XZ `SmoothDamp` with **`CameraFollowSmoothTime` ← same table** (sample `0.25`) (Y/rotation unchanged); `EnterAuto` / after Intro → **immediate Snap** to the **current** rail point (or fallback soldier) XZ (clear damp velocity); progress retreat does **not** Snap. `Manual` = LMB drag pans camera XZ (**disabled during Intro**); bottom-center `ResumeFollow` **Manual-only**, click → `Auto` and hide. Height **`CameraHeightY` ← same table**; StartBattle default `PushMapCameraOrthoSize` ← same table (sample `2`); Combat scroll-wheel zooms Size clamped **`[CameraOrthoSizeMin, CameraOrthoSizeMax]`** (sample `[0.5, 20]`; forward zoom-in smaller / back zoom-out larger); zoom does not switch follow mode; ResumeFollow does not reset Size |
 
 **PushMapPhase**
 
 | Phase | Notes |
 |-------|-------|
 | `Prepare` | Load map + formation; editable formation; StartBattle; no manufacture |
-| `Combat` | Deploy; objective push; spawn/trap; AggroMode; Shield + LOC running |
+| `Combat` | Deploy units; may include StartBattle camera-intro latch (`IsCombatIntroActive`); after latch: objective push; spawn/trap; AggroMode; Shield + LOC running |
 | `Ended` | Boss-clear victory, or LevelFailure (Shield≤0 / no living loyal soldiers) |
 
 **Map (MapId)**

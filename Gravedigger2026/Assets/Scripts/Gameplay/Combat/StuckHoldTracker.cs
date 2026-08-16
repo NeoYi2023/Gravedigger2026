@@ -1,18 +1,15 @@
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Combat
 {
     /// <summary>
-    /// Presentation-only stuck hold (SPEC_04 §15.5 v0.75.30).
-    /// wantsMove for DetectWindowSeconds with XZ displacement &lt; DisplacementEpsilon
-    /// → IsHolding for HoldSeconds (force Idle); pathing/rules unchanged.
+    /// Presentation-only stuck hold (SPEC_04 §15.5).
+    /// wantsMove for StuckDetectWindowSeconds with XZ displacement &lt; StuckDisplacementEpsilon
+    /// → IsHolding for StuckHoldSeconds (force Idle); pathing/rules unchanged.
     /// </summary>
     public sealed class StuckHoldTracker
     {
-        public const float DetectWindowSeconds = 0.5f;
-        public const float DisplacementEpsilon = 0.2f;
-        public const float HoldSeconds = 1f;
-
         private Vector3 _windowStartPos;
         private float _windowTimer;
         private float _holdTimer;
@@ -43,7 +40,7 @@ namespace Gravedigger2026.Gameplay.Combat
             if (_holding)
             {
                 _holdTimer += dt;
-                if (_holdTimer >= HoldSeconds)
+                if (_holdTimer >= CombatRuntimeTuning.StuckHoldSeconds)
                 {
                     _holding = false;
                     _holdTimer = 0f;
@@ -71,7 +68,7 @@ namespace Gravedigger2026.Gameplay.Combat
             }
 
             _windowTimer += dt;
-            if (_windowTimer < DetectWindowSeconds)
+            if (_windowTimer < CombatRuntimeTuning.StuckDetectWindowSeconds)
             {
                 return;
             }
@@ -79,7 +76,7 @@ namespace Gravedigger2026.Gameplay.Combat
             var dx = worldPos.x - _windowStartPos.x;
             var dz = worldPos.z - _windowStartPos.z;
             var displacementSqr = dx * dx + dz * dz;
-            var epsilon = DisplacementEpsilon;
+            var epsilon = CombatRuntimeTuning.StuckDisplacementEpsilon;
             if (displacementSqr < epsilon * epsilon)
             {
                 _holding = true;

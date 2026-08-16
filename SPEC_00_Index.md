@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.34
+**文档版本 / Document Version:** v0.82.38
 **最后更新 / Last Updated:** 2026-08-15  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效）  
 
@@ -65,6 +65,10 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-15 | v0.82.38 | Mode2 布阵 Prepare：`StartBattleButton` 移至右下 `CompleteButton` 正上方（同锚点叠放）；同步 `FormationEditorRoot_Mode2` + `FormationAssetBuilder`；SPEC_03 §3.11、SPEC_04 §6 |
+| 2026-08-15 | v0.82.37 | PushMap 开战镜头预览（方案 A）：`IsCombatIntroActive` 门闩；双方部署 Idle；计时冻结；沿 `CameraFollowPath` 从 WP_End 反向扫到 WP_Start；常量表 `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds`；同步 SPEC_03 §3.14、SPEC_04 §9.20b、CONTEXT |
+| 2026-08-15 | v0.82.36 | 常量表 P1/P2：攻击位/命中松弛/包围缺口/卡死停顿/投射物命中半径/Defend胜场 Exp；流场格宽/群体重算预算/软碰撞与 LocalDetour/Boss 到达与接战粘滞/刷怪散布；`CombatRuntimeTuning` 加载后应用；Mode1+Mode2 CSV/Excel；同步 SPEC_04 §9.20b |
+| 2026-08-15 | v0.82.35 | 常量表 P0：镜头（高度/Size 余量/PushMap Size/近远裁/跟随死区与平滑/滚轮缩放钳制/拖拽阈值）与挖坟节奏（触发停留/基础时长/最短时长）写入 `CombatConstantConfig`；运行时 Dig/Defend/布阵/PushMap 读表；Mode1+Mode2 CSV/Excel + `ConstantKeyZh`/`CommentZh`；同步 SPEC_03 §3.10/§3.14、SPEC_04 §6/§9.20b |
 | 2026-08-15 | v0.82.34 | InSaveShell `StateLabel`/`StageInfoLabel` 上移至顶栏水平居中（锚点顶中；y≈−16/−52）；同步 `MetaShellAssetBuilder` + `MetaShellRoot` Prefab；SPEC_04 §6 |
 | 2026-08-15 | v0.82.33 | 常量表增列 `ConstantKeyZh`（主键中文翻译）/`CommentZh`（备注中文解释）；六键样例中文补齐；Mode1+Mode2 CSV/Excel 同步；运行时仍不读这两列；SPEC_04 §9.20b |
 | 2026-08-15 | v0.82.32 | 补常量表 Excel：`通用_常量表_Combat_CombatConstantConfig.xlsx`（Mode1+Mode2）；CSV 仍为 `Combat_CombatConstantConfig.csv`；同步 SPEC_04 §9.20b |
@@ -299,6 +303,10 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-15 | v0.82.38 | Mode2 formation Prepare: move `StartBattleButton` directly above bottom-right `CompleteButton` (same anchors, stacked); synced `FormationEditorRoot_Mode2` + `FormationAssetBuilder`; SPEC_03 §3.11, SPEC_04 §6 |
+| 2026-08-15 | v0.82.37 | PushMap StartBattle camera intro (Approach A): `IsCombatIntroActive` latch; both sides deploy Idle; clock frozen; reverse rail sweep WP_End→WP_Start; constants `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds`; synced SPEC_03 §3.14, SPEC_04 §9.20b, CONTEXT |
+| 2026-08-15 | v0.82.36 | Constants P1/P2: AttackSlot/HitConfirmSlack/surround gap/StuckHold/projectile hit radius/Defend victory Exp; FlowField cell/mass recalc/soft+LocalDetour/Boss arrive+engage hysteresis/spawn spread; `CombatRuntimeTuning` after load; Mode1+Mode2 CSV/Excel; synced SPEC_04 §9.20b |
+| 2026-08-15 | v0.82.35 | Constants P0: camera (height/Size margin/PushMap Size/near-far/follow deadzone+smooth/zoom clamp/drag threshold) and Dig timing (dwell/base/floor) into `CombatConstantConfig`; Dig/Defend/Formation/PushMap read table; Mode1+Mode2 CSV/Excel + ZH columns; synced SPEC_03 §3.10/§3.14, SPEC_04 §6/§9.20b |
 | 2026-08-15 | v0.82.34 | InSaveShell `StateLabel`/`StageInfoLabel` moved to top-center (top-middle anchors; y≈−16/−52); synced `MetaShellAssetBuilder` + `MetaShellRoot` prefab; SPEC_04 §6 |
 | 2026-08-15 | v0.82.33 | Constants table: add `ConstantKeyZh` / `CommentZh`; fill ZH for six sample keys; Mode1+Mode2 CSV/Excel synced; runtime still ignores both columns; SPEC_04 §9.20b |
 | 2026-08-15 | v0.82.32 | Added constants Excel: `通用_常量表_Combat_CombatConstantConfig.xlsx` (Mode1+Mode2); CSV remains `Combat_CombatConstantConfig.csv`; synced SPEC_04 §9.20b |

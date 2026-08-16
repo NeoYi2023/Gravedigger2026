@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Pathing
@@ -6,17 +7,16 @@ namespace Gravedigger2026.Core.Pathing
     /// <summary>
     /// Local L/R detour + soft separation (SPEC_03 §3.12 / SPEC_04 §9.7 Approach B).
     /// Pure C#: no Transform/Animator/NavMeshObstacle. Stage wiring is MP-04/05.
+    /// Tunables ← CombatConstantConfig (P2) via <see cref="CombatRuntimeTuning"/>.
     /// </summary>
     public sealed class LocalDetourSolver
     {
-        public const float ProbeLength = 1.0f;
-        public const float SoftSeparationStrength = 0.15f;
-        public const float DetourBias = 0.85f;
+        public static float ProbeLength => CombatRuntimeTuning.LocalDetourProbeLength;
+        public static float SoftSeparationStrength => CombatRuntimeTuning.LocalDetourSoftSeparationStrength;
+        public static float DetourBias => CombatRuntimeTuning.LocalDetourDetourBias;
+        public static float ForwardConeHalfAngleDeg => CombatRuntimeTuning.LocalDetourForwardConeHalfAngleDeg;
 
-        /// <summary>Forward half-angle (degrees). Cos cached for hot path.</summary>
-        public const float ForwardConeHalfAngleDeg = 50f;
-
-        private static readonly float ForwardConeCos =
+        private static float ForwardConeCos =>
             Mathf.Cos(ForwardConeHalfAngleDeg * Mathf.Deg2Rad);
 
         /// <summary>

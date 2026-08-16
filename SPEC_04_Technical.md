@@ -204,7 +204,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM 制造区（方案 A，D-031 → UI 重做 / Pool 再造）：** `ConfigCsvRepository` 追加加载 `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`。规则层纯 C# `ManufactureService` 持有 15 个严格槽位（头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1），按 Id 解析所属表自动路由到合法空槽，类型不符 / 同类型宝石重复 / 库存不足即拒绝；每次槽位变化重算预览（`Base(S)=Σ StatBonus`、`Equip`、`GemMult`、`RaceAdjust`、`StaticStat`、静态 `MaxHP=ceil(BodyLife+StaticStat(Str)×MaxHpStrengthMult)`、`TotalSpiritCost`、`ControlPowerCost`、试算种族与外观）。「制造」闸门 = 最低要求（躯干+臂2+腿2；**灵魂可选**）且 `SpiritEssence ≥ TotalSpiritCost`（头/灵魂/宝石/坐骑/翅膀对**提交**均可选）。无灵魂槽：实例 `SoulId=Soul_00`，灵魂侧费用/AttackMode 等读 `Soul_00`，**强制** `ClassId=Class_Servants`（不扣仓库灵魂）。制造成功写入 `WarriorInstance.SourceItemIds` + `SourceSpiritCost`；`TryRemanufacture(sourceWarriorId)` 按配方后台校验/扣料/再跑聚合与掷种族外观流水线并 `_pool.Add` **新实例**（不改 `_slots`）；材料不足 / 精魂不足错误码供 Tips。**躯体外观可视预览闸门**（表现层）：头+躯干+臂×2+腿×2+坐骑+翅膀已填（**灵魂与宝石不参与**）→ Instantiate 试算 `AppearanceId` Prefab 并 `WarriorAnimView` 播攻击再待机；否则静态占位图。`WarehouseService` 扩展同前；Debug「注入制造套件」同前。表现：`ManufacturePanelView` — PreviewPanel 左、中心环绕槽位方格（左：头/臂1/腿1/翅膀；右：躯干/臂2/腿2/坐骑；预览内底灵魂；下排半尺寸宝石×6）、PoolPanel 右为 **ScrollRect 士兵框列表**（`PoolSoldierFrameView`；选中显「再造1个」）、UmCanvas 中上部 Tips（1s：「材料不足」/「精魂不足」）、底栏库存方格横滑 + Input 拖拽入槽、三操作钮在库存下。布局权威：`UmAssetBuilder` 重建 StageRoot Prefab。外观资源：`UpgradeManufacturePrefabCatalog` 绑定 `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`。禁止运行时引用 `SmallScaleInt/`。
 
-**UM 布阵区（方案 A→拖拽编辑器，D-032；Mode2 差分方案 C / D-053）：** 纯 C# `BattleFormationService`（存档级，`BindSlot` + PlayerPrefs JSON）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`（Mode2 士兵 Cost 恒 0，且**不**按控制力拒上阵）。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（Mode1：士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）；Mode2 用 `FormationEditorRoot_Mode2.prefab`（控制力 HUD 默认关；`SoldierBar` 上方右侧常驻 `CompleteButton`（UM/Prepare 均显示）；`FormationEditorController.CompleteRequested`；UM 宿主关编辑器后走与主屏相同的阶段结束；Catalog `ResolveEditorRoot`）。士兵栏方格文案：上行为 `ClassName`（`FormationEditorController` 经 `ConfigCsvRepository.TryGetClass`；缺行回退 `ClassId`）、下行为 `Lv.{ClassLevel}`（缺行按 0）；**不**展示 `WarriorId`。UM 主屏 Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend / PushMap Prepare **共用**选型。禁止运行时引用 `SmallScaleInt/`。
+**UM 布阵区（方案 A→拖拽编辑器，D-032；Mode2 差分方案 C / D-053）：** 纯 C# `BattleFormationService`（存档级，`BindSlot` + PlayerPrefs JSON）持有 `{WarriorId, PositionX/Z, RemainingHP}`；`TryDeployAt` / `TrySetPosition` / `TryUndeploy`；控制力占用 = Σ `ControlPowerCost` vs `ControlPowerCap`（Mode2 士兵 Cost 恒 0，且**不**按控制力拒上阵）。表现：共享 Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab`（Mode1：士兵栏 80×80 横滑、拖拽上阵/改位/下阵、左上控制力 HUD、UM「返回」/ Defend「开战」）；Mode2 用 `FormationEditorRoot_Mode2.prefab`（控制力 HUD 默认关；`SoldierBar` 上方右侧常驻 `CompleteButton`（UM/Prepare 均显示）；其正上方叠放 `StartBattleButton`（Prepare 开战）；`FormationEditorController.CompleteRequested`；UM 宿主关编辑器后走与主屏相同的阶段结束；Catalog `ResolveEditorRoot`）。士兵栏方格文案：上行为 `ClassName`（`FormationEditorController` 经 `ConfigCsvRepository.TryGetClass`；缺行回退 `ClassId`）、下行为 `Lv.{ClassLevel}`（缺行按 0）；**不**展示 `WarriorId`。UM 主屏 Complete 右「布阵」打开编辑器；地图取关卡内下一 Defend 的 `BattleMapId`（缺省 `Ground_01`）。与 Defend / PushMap Prepare **共用**选型。禁止运行时引用 `SmallScaleInt/`。
 
 **战斗模式选关（方案 A，D-044）：** `DefendStageModule` Enter 先 Instantiate `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab`（或运行时等价 UI）；`DefendPhase=ModeSelect`；模式1「保卫战」列出全部 `DefendGameplayConfig`；运作表 `GameplayConfigId` 作 Recommended 默认高亮；确认后用所选行覆盖 `LevelStageContext.DefendConfig` 再进入现有 Prepare。模式2「推图战」列出全部 `PushMapGameplayConfig`；确认后调用 `LevelOperationDriver.TryHandoffModeSelectToPushMap(configId)`：`Exit` 当前 Defend 模块 → 保留 `LevelId`/`StageNumber` 改写 `GameplayType=PushMap` + `PushMapConfig` + 地图路径 → `SetState(PushMap)` → `PushMapStageModule.Enter` → `StageChanged`。禁止运行时引用 `SmallScaleInt/`。
 
@@ -220,7 +220,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **PushMap 配置表加载（方案 A，PM-02）：** `ConfigCsvRepository` 追加加载 `PushMap_PushMapGameplayConfig.csv` / `PushMap_PushMapSpawnConfig.csv`；`Defend_MonsterConfig` 解析 `AggroMode` / `AlertRadius`（缺省见 §9.19）。样例至少 1 个 `GameplayConfigId` + 多 Spawn 行（无陷阱/陷阱/BOSS）。StageModule / AI / 占领逻辑 **后置**（PM-03+）。禁止运行时引用 `SmallScaleInt/`。
 
-**PushMap Stage 接线（方案 A，PM-03 + D-044 Mode2）：** `LevelOperationDriver.TryBuildContext` 支持 `GameplayType=PushMap`：`GameplayConfigId` → `PushMapGameplayConfig` 主键（直查），`LevelStageContext.PushMapConfig` + `MapPrefabPaths` 允许 `PushMap_*`（同解析 `Assets/Prefabs/Maps/{MapId}.prefab`）。`PushMapStageModule`（`IStageModule`；无独立 ModeSelect）：`GameplayType=PushMap` 直进 `PushMapPhase=Prepare`；亦可由 Defend `BattleModeSelect` 模式2经 `TryHandoffModeSelectToPushMap` 进入同一模块。薄规则 `PushMapSessionService`（**独立但语义对齐 §3.12**：Prepare→Combat；开战 ≥1 上阵；`Shield=ProtagonistMaxHP`；`Shield≤0`→LevelFailure；开战锁定 Degree/Tier 并对上阵士兵按 `FinalLossChance` roll→Rebel 日志可观察）+ `PushMapStageController`（Instantiate `Maps/{MapId}`，复用共享 `FormationEditorRoot` 同一 BattleFormation）。**Combat 战斗相机：** Runtime Ensure 子物体 `PushMapCamera`（与 Defend 同俯视契约：正交、`Euler(90,0,0)`、高度 `mapCenter+(0,18,0)`、`near=0.1`/`far=100`、SolidColor/`depth=5`；开战默认 **`orthographicSize=2`**，异于 Defend 的 `max(halfExtents)-1.5`）；Prepare 关掉（用 FormationCamera），开战启用并重配；禁止开战落到 Boot 透视主相机。**PM-09 镜头跟随（方案 B / v0.81.0）：** `PushMapCameraFollowController` 挂于 `PushMapCamera`；Combat `CameraFollowMode=Auto|Manual`——Auto 跟随地图 `CameraFollowPath` 折线上存活忠诚兵的最大投影进度 `s∈[0,1]`（镜头对准折线点，不粘士兵；领头失效 SmoothDamp 回退不 Snap；全灭定格；缺轨/未烘焙 warn 并回退「距 CurrentObjective 最近忠诚兵」）；`EnterAuto`/开战启用 Snap 到当时折线点；左键拖拽（非 UI）切 Manual 并按正交像素→世界 XZ 平移；StageRoot 下 Runtime Ensure 底中「恢复跟随」按钮（锚点约 `(0.5,0.1)`，仅 Manual 显示）→ `EnterAuto`；滚轮缩放 Size（`mouseScrollDelta.y>0` 拉近变小；步进 `0.5`/档；钳制 `[0.5,20]`；指针在 UI 上跳过）；缩放不切换模式、恢复跟随不重置 Size；高度/旋转不变；规则层不参与。样例：`Level_LevelOperationConfig` `Level_01,4,PushMap,PushMap_01`（直进）与 Defend 阶段 Mode2 选 `PushMap_01`（handoff）等价进入 Prepare。禁止运行时引用 `SmallScaleInt/`。
+**PushMap Stage 接线（方案 A，PM-03 + D-044 Mode2）：** `LevelOperationDriver.TryBuildContext` 支持 `GameplayType=PushMap`：`GameplayConfigId` → `PushMapGameplayConfig` 主键（直查），`LevelStageContext.PushMapConfig` + `MapPrefabPaths` 允许 `PushMap_*`（同解析 `Assets/Prefabs/Maps/{MapId}.prefab`）。`PushMapStageModule`（`IStageModule`；无独立 ModeSelect）：`GameplayType=PushMap` 直进 `PushMapPhase=Prepare`；亦可由 Defend `BattleModeSelect` 模式2经 `TryHandoffModeSelectToPushMap` 进入同一模块。薄规则 `PushMapSessionService`（**独立但语义对齐 §3.12**：Prepare→Combat；开战 ≥1 上阵；`Shield=ProtagonistMaxHP`；`Shield≤0`→LevelFailure；开战锁定 Degree/Tier 并对上阵士兵按 `FinalLossChance` roll→Rebel 日志可观察）+ `PushMapStageController`（Instantiate `Maps/{MapId}`，复用共享 `FormationEditorRoot` 同一 BattleFormation）。**Combat 战斗相机：** Runtime Ensure 子物体 `PushMapCamera`（与 Defend 同俯视契约：正交、`Euler(90,0,0)`、高度/`near`/`far`/开战默认 Size ← **`CombatConstantConfig`**（样例高度 `18`、Size `2`；异于 Defend 的 `max(halfExtents)−CameraOrthoSizeMargin`）；SolidColor/`depth=5`）；Prepare 关掉（用 FormationCamera），开战启用并重配；禁止开战落到 Boot 透视主相机。**PM-09 镜头跟随（方案 B / v0.81.0）：** `PushMapCameraFollowController` 挂于 `PushMapCamera`；Combat `CameraFollowMode=Auto|Manual`——Auto 跟随地图 `CameraFollowPath` 折线上存活忠诚兵的最大投影进度 `s∈[0,1]`（镜头对准折线点，不粘士兵；领头失效 SmoothDamp 回退不 Snap；全灭定格；缺轨/未烘焙 warn 并回退「距 CurrentObjective 最近忠诚兵」）；`EnterAuto`/开战启用 Snap 到当时折线点；左键拖拽（非 UI）切 Manual 并按正交像素→世界 XZ 平移；StageRoot 下 Runtime Ensure 底中「恢复跟随」按钮（锚点约 `(0.5,0.1)`，仅 Manual 显示）→ `EnterAuto`；滚轮缩放 Size（`mouseScrollDelta.y>0` 拉近变小；步进 `0.5`/档；钳制 `[0.5,20]`；指针在 UI 上跳过）；缩放不切换模式、恢复跟随不重置 Size；高度/旋转不变；规则层不参与。样例：`Level_LevelOperationConfig` `Level_01,4,PushMap,PushMap_01`（直进）与 Defend 阶段 Mode2 选 `PushMap_01`（handoff）等价进入 Prepare。禁止运行时引用 `SmallScaleInt/`。
 
 **PushMap 刷怪与陷阱（方案 A，PM-05）：** `PushMapSessionService` 开战装载 `PushMapSpawnConfig` 行；表现层 **Bake NavMesh → 部署 → `FireStartBattleSpawns`**：无陷阱且关联目标未占 → `PushMapSpawnRequested` 事件（位置由 View 解析）；绑定 `TrapZoneId` 的点 → `TryNotifyTrapEnter` 首次触发；`ObjectiveCaptured` → 该关联点本场停刷（已刷保留）。`PushMapStageController` 收集 `SpawnPoint`/`TrapZone`，Instantiate 怪（含 Boss）入 `_monsters`（`PushMapMonsterAgentView`），Update 探测忠诚兵首次进圈。怪物 AI 暂用 Defend 默认追击语义；对主角扣盾经 `PushMapSessionService.ApplyShieldHit`。AggroMode 四态落地 **PM-06**；BOSS 通关结算后置（PM-07）；**不使用** `WaveSpawnConfig` 倒计时。运行时契约见 §9.23。样例 `TrapZoneId` 对齐为 `TZ_01`。禁止运行时引用 `SmallScaleInt/`。
 
@@ -275,7 +275,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **UM manufacture panel (Approach A, D-031 → UI redo / pool remake):** `ConfigCsvRepository` additionally loads `Manufacture_SoulConfig` / `ClassConfig` / `GemConfig` / `RaceConfig` / `BodyPartConfig` / `BodyAppearanceConfig` / `ExtraEquipmentConfig` / `GemSuffixNameConfig`. Rules: pure-C# `ManufactureService` owns the 15 strict slots (Head1/Torso1/Arm2/Leg2/Soul1/Gem6/Mount1/Wing1), routes an Id to a legal empty slot by resolving its source table, and rejects on type mismatch / duplicate `GemType` / insufficient stock; every slot change recomputes the preview (`Base(S)=Σ StatBonus`, `Equip`, `GemMult`, `RaceAdjust`, `StaticStat`, static `MaxHP=ceil(BodyLife+StaticStat(Str)×MaxHpStrengthMult)`, `TotalSpiritCost`, `ControlPowerCost`, trial Race + Appearance). Manufacture gate = min parts (Torso+2Arm+2Leg; **Soul optional**) and `SpiritEssence ≥ TotalSpiritCost` (Head/Soul/gems/Mount/Wing optional for **commit**). Empty Soul slot: instance `SoulId=Soul_00`, soul-side costs/AttackMode from `Soul_00`, **force** `ClassId=Class_Servants` (no warehouse Soul consume). On success write `WarriorInstance.SourceItemIds` + `SourceSpiritCost`; `TryRemanufacture(sourceWarriorId)` validates/consumes from recipe in background, re-runs aggregate + Race/Appearance roll, `_pool.Add` **new** instance (does not mutate `_slots`); material/Spirit shortage error codes feed Tips. **Visual BodyAppearance gate** (presentation): Head+Torso+Arm×2+Leg×2+Mount+Wing filled (**Soul and gems do not gate**) → Instantiate trial `AppearanceId` Prefab and drive `WarriorAnimView` attack-then-idle; else static placeholder. `WarehouseService` / Debug kit unchanged. Presentation: `ManufacturePanelView` — PreviewPanel left, center slot ring (left: Head/Arm1/Leg1/Wing; right: Torso/Arm2/Leg2/Mount; Soul inside preview bottom; half-size gems×6 below), PoolPanel right as **ScrollRect soldier-frame list** (`PoolSoldierFrameView`; selected shows「Remake×1」), upper-center Tips on UmCanvas (1s:「材料不足」/「精魂不足」), bottom inventory square bar + Input drag into slots, three action buttons under inventory. Layout authority: `UmAssetBuilder` rebuilds StageRoot Prefab. Appearance: `UpgradeManufacturePrefabCatalog` binds `AppearanceId → Assets/Prefabs/Defend/Warriors/{AppearanceId}.prefab`. Do not runtime-reference `SmallScaleInt/`.
 
-**UM formation panel (Approach A→drag editor, D-032; Mode2 diff Approach C / D-053):** Pure-C# `BattleFormationService` (save-scoped, `BindSlot` + PlayerPrefs JSON) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap` (Mode2 soldier Cost always 0; **no** ControlPower deploy gate). Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (Mode1: 80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle); Mode2 uses `FormationEditorRoot_Mode2.prefab` (ControlPower HUD off; `CompleteButton` above `SoldierBar` on the right, visible in UM and Prepare; `FormationEditorController.CompleteRequested`; UM host closes editor then same stage end as main Complete; Catalog `ResolveEditorRoot`). Soldier-bar cell text: upper line `ClassName` via `ConfigCsvRepository.TryGetClass` (missing row → fallback `ClassId`), lower line `Lv.{ClassLevel}` (missing row → 0); does **not** show `WarriorId`. UM main Complete + Formation opens editor; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared resolve with Defend / PushMap Prepare. Do not runtime-reference `SmallScaleInt/`.
+**UM formation panel (Approach A→drag editor, D-032; Mode2 diff Approach C / D-053):** Pure-C# `BattleFormationService` (save-scoped, `BindSlot` + PlayerPrefs JSON) holds `{WarriorId, PositionX/Z, RemainingHP}`; `TryDeployAt` / `TrySetPosition` / `TryUndeploy`; ControlPower = Σ `ControlPowerCost` vs `ControlPowerCap` (Mode2 soldier Cost always 0; **no** ControlPower deploy gate). Presentation: shared Prefab `Assets/Prefabs/Formation/FormationEditorRoot.prefab` (Mode1: 80×80 soldier bar scroll, drag deploy/reposition/undeploy, top-left ControlPower HUD, UM Return / Defend StartBattle); Mode2 uses `FormationEditorRoot_Mode2.prefab` (ControlPower HUD off; `CompleteButton` above `SoldierBar` on the right, visible in UM and Prepare; `StartBattleButton` stacked directly above Complete for Prepare; `FormationEditorController.CompleteRequested`; UM host closes editor then same stage end as main Complete; Catalog `ResolveEditorRoot`). Soldier-bar cell text: upper line `ClassName` via `ConfigCsvRepository.TryGetClass` (missing row → fallback `ClassId`), lower line `Lv.{ClassLevel}` (missing row → 0); does **not** show `WarriorId`. UM main Complete + Formation opens editor; map = next Defend `BattleMapId` in Level (fallback `Ground_01`). Shared resolve with Defend / PushMap Prepare. Do not runtime-reference `SmallScaleInt/`.
 
 **Battle ModeSelect (Approach A, D-044):** `DefendStageModule` Enter first instantiates `Assets/Prefabs/Defend/BattleModeSelectRoot.prefab` (or runtime-equivalent UI); `DefendPhase=ModeSelect`; Mode1「保卫战」lists all `DefendGameplayConfig`; LevelOperation `GameplayConfigId` = Recommended default highlight; on confirm overwrite `LevelStageContext.DefendConfig` then enter existing Prepare. Mode2「推图战」lists all `PushMapGameplayConfig`; on confirm call `LevelOperationDriver.TryHandoffModeSelectToPushMap(configId)`: `Exit` current Defend module → keep `LevelId`/`StageNumber`, rewrite `GameplayType=PushMap` + `PushMapConfig` + map path → `SetState(PushMap)` → `PushMapStageModule.Enter` → `StageChanged`. Do not runtime-reference `SmallScaleInt/`.
 
@@ -291,7 +291,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **PushMap config load (Approach A, PM-02):** `ConfigCsvRepository` additionally loads `PushMap_PushMapGameplayConfig.csv` / `PushMap_PushMapSpawnConfig.csv`; `Defend_MonsterConfig` parses `AggroMode` / `AlertRadius` (defaults §9.19). Sample ≥1 `GameplayConfigId` + spawn rows (non-trap / trap / BOSS). StageModule / AI / Capture **deferred** (PM-03+). Do not runtime-reference `SmallScaleInt/`.
 
-**PushMap stage wiring (Approach A, PM-03 + D-044 Mode2):** `LevelOperationDriver.TryBuildContext` supports `GameplayType=PushMap`: `GameplayConfigId` → `PushMapGameplayConfig` PK (direct lookup), `LevelStageContext.PushMapConfig`, and `MapPrefabPaths` accepts `PushMap_*` (same `Assets/Prefabs/Maps/{MapId}.prefab` resolve). `PushMapStageModule` (`IStageModule`; no in-stage ModeSelect): `GameplayType=PushMap` enters `PushMapPhase=Prepare` directly; also reachable from Defend `BattleModeSelect` Mode2 via `TryHandoffModeSelectToPushMap`. Thin rule `PushMapSessionService` (**separate but semantically aligned with §3.12**: Prepare→Combat; StartBattle ≥1 deployed; `Shield=ProtagonistMaxHP`; `Shield≤0`→LevelFailure; locks Degree/Tier at StartBattle and rolls each deployed soldier's `FinalLossChance`→Rebel, log-observable) + `PushMapStageController` (instantiates `Maps/{MapId}`, reuses shared `FormationEditorRoot` on the same BattleFormation). **Combat camera:** runtime Ensure child `PushMapCamera` (same top-down contract as Defend: orthographic, `Euler(90,0,0)`, height `mapCenter+(0,18,0)`, `near=0.1`/`far=100`, SolidColor/`depth=5`; StartBattle default **`orthographicSize=2`**, unlike Defend's `max(halfExtents)-1.5`); disable in Prepare (FormationCamera), enable+repose on StartBattle; must not fall back to Boot perspective Main Camera. **PM-09 camera follow (Approach B / v0.81.0):** `PushMapCameraFollowController` on `PushMapCamera`; Combat `CameraFollowMode=Auto|Manual` — Auto follows max projection `s∈[0,1]` of living loyal soldiers onto map `CameraFollowPath` (look-at is a rail point, not a soldier; lead drop → SmoothDamp retreat, no Snap; freeze when none; missing/empty path warns and falls back to closest loyal to CurrentObjective); `EnterAuto`/combat enable Snap to the current rail point; LMB drag (not over UI) → Manual with ortho pixel→world XZ pan; StageRoot runtime Ensure bottom-center ResumeFollow button (anchor ≈`(0.5,0.1)`, Manual-only) → `EnterAuto`; scroll-wheel zooms Size (`mouseScrollDelta.y>0` zoom-in smaller; step `0.5`/notch; clamp `[0.5,20]`; skip when pointer over UI); zoom does not switch mode; ResumeFollow does not reset Size; height/rotation unchanged; rules layer not involved. Sample: `Level_01,4,PushMap,PushMap_01` (direct) and Defend Mode2 pick `PushMap_01` (handoff) both enter Prepare. Do not runtime-reference `SmallScaleInt/`.
+**PushMap stage wiring (Approach A, PM-03 + D-044 Mode2):** `LevelOperationDriver.TryBuildContext` supports `GameplayType=PushMap`: `GameplayConfigId` → `PushMapGameplayConfig` PK (direct lookup), `LevelStageContext.PushMapConfig`, and `MapPrefabPaths` accepts `PushMap_*` (same `Assets/Prefabs/Maps/{MapId}.prefab` resolve). `PushMapStageModule` (`IStageModule`; no in-stage ModeSelect): `GameplayType=PushMap` enters `PushMapPhase=Prepare` directly; also reachable from Defend `BattleModeSelect` Mode2 via `TryHandoffModeSelectToPushMap`. Thin rule `PushMapSessionService` (**separate but semantically aligned with §3.12**: Prepare→Combat; StartBattle ≥1 deployed; `Shield=ProtagonistMaxHP`; `Shield≤0`→LevelFailure; locks Degree/Tier at StartBattle and rolls each deployed soldier's `FinalLossChance`→Rebel, log-observable) + `PushMapStageController` (instantiates `Maps/{MapId}`, reuses shared `FormationEditorRoot` on the same BattleFormation). **Combat camera:** runtime Ensure child `PushMapCamera` (same top-down contract as Defend: orthographic, `Euler(90,0,0)`, height/near/far/StartBattle Size ← **`CombatConstantConfig`** (sample height `18`, Size `2`; unlike Defend `max(halfExtents)−CameraOrthoSizeMargin`); SolidColor/`depth=5`); disable in Prepare (FormationCamera), enable+repose on StartBattle; must not fall back to Boot perspective Main Camera. **PM-09 camera follow (Approach B / v0.81.0):** `PushMapCameraFollowController` on `PushMapCamera`; Combat `CameraFollowMode=Auto|Manual` — Auto follows max projection `s∈[0,1]` of living loyal soldiers onto map `CameraFollowPath` (look-at is a rail point, not a soldier; lead drop → SmoothDamp retreat, no Snap; freeze when none; missing/empty path warns and falls back to closest loyal to CurrentObjective); `EnterAuto`/combat enable Snap to the current rail point; LMB drag (not over UI) → Manual with ortho pixel→world XZ pan; StageRoot runtime Ensure bottom-center ResumeFollow button (anchor ≈`(0.5,0.1)`, Manual-only) → `EnterAuto`; scroll-wheel zooms Size (`mouseScrollDelta.y>0` zoom-in smaller; step `0.5`/notch; clamp `[0.5,20]`; skip when pointer over UI); zoom does not switch mode; ResumeFollow does not reset Size; height/rotation unchanged; rules layer not involved. Sample: `Level_01,4,PushMap,PushMap_01` (direct) and Defend Mode2 pick `PushMap_01` (handoff) both enter Prepare. Do not runtime-reference `SmallScaleInt/`.
 
 **PushMap spawn & trap (Approach A, PM-05):** `PushMapSessionService` loads `PushMapSpawnConfig` rows at StartBattle; View order **Bake NavMesh → deploy → `FireStartBattleSpawns`**: non-trap rows with uncaptured linked objective → `PushMapSpawnRequested` (position resolved by View); trap-bound points → `TryNotifyTrapEnter` first-enter; `ObjectiveCaptured` → linked points stop spawning (living kept). `PushMapStageController` collects `SpawnPoint`/`TrapZone`, instantiates monsters (incl. Boss) into `_monsters` (`PushMapMonsterAgentView`), and polls loyal soldiers for first trap entry. Monster AI uses Defend default-chase semantics; protagonist shield via `PushMapSessionService.ApplyShieldHit`. AggroMode four-state lands in **PM-06**; Boss-clear settlement deferred (PM-07); **no** `WaveSpawnConfig` countdown. Runtime contract: §9.23. Sample `TrapZoneId` aligned to `TZ_01`. Do not runtime-reference `SmallScaleInt/`.
 
@@ -1293,7 +1293,7 @@ LossOfControlConfig {
 
 #### 9.20b 战斗常量表 `CombatConstantConfig`
 
-规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) 全局战斗公式默认。一行 = 一个常量键。职业 `CombatConvertCoeffs` **有键覆盖**、缺键/空串读本表；`MaxHP` 力量系数亦读本表。
+规则语义：[SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) 全局战斗公式默认；另承载 **P0 镜头 / 挖坟节奏** 调参（[§3.10](SPEC_03_GameRules.md) / [§3.14](SPEC_03_GameRules.md)）。一行 = 一个常量键。职业 `CombatConvertCoeffs` **有键覆盖**、缺键/空串读本表；`MaxHP` 力量系数亦读本表。镜头与 Dig 时长由各 Stage / `DigProtagonistCapabilities` 经 `ConfigCsvRepository.GetCombatConstantOrFallback` / `GetCameraPresentationConstants` / `ApplyDigTimingConstants` 读取。
 
 **磁盘名：**
 - **Excel：** `通用_常量表_Combat_CombatConstantConfig.xlsx`
@@ -1301,13 +1301,13 @@ LossOfControlConfig {
 
 | 字段 (EN) | 中文 | 类型（伪） | 说明 |
 |-----------|------|------------|------|
-| ConstantKey | 常量键 | `string` | 主键；与 `CombatConvertCoeffs` 键名对齐，另含 `MaxHpStrengthMult` |
+| ConstantKey | 常量键 | `string` | 主键；与 `CombatConvertCoeffs` 键名对齐，另含 `MaxHpStrengthMult` 与下表 P0 键 |
 | ConstantKeyZh | 主键中文翻译 | `string` | 可选；主键展示用中文名；**运行时不读** |
 | Value | 数值 | `float` | 该键默认值 |
 | Comment | 备注 | `string` | 可选；英文策划备注；**运行时不读** |
 | CommentZh | 备注中文解释 | `string` | 可选；中文策划说明；**运行时不读** |
 
-**首批必填键（Mode1/Mode2 样例）：**
+**战斗公式必填键（Mode1/Mode2 样例）：**
 
 | ConstantKey | ConstantKeyZh | Value | CommentZh（摘要） |
 |-------------|---------------|-------|-------------------|
@@ -1317,6 +1317,70 @@ LossOfControlConfig {
 | `SkillCdIntDiv` | 技能冷却智力除数 | `30` | 技能 CD 智力减项除数 |
 | `SkillCdFloor` | 技能冷却下限 | `0.1` | 技能 CD 最短秒数 |
 | `MaxHpStrengthMult` | 血量力量系数 | `3` | MaxHP = ceil(BodyLife + Str × 本值) |
+
+**P0 镜头 / 挖坟节奏必填键：**
+
+| ConstantKey | ConstantKeyZh | Value | CommentZh（摘要） |
+|-------------|---------------|-------|-------------------|
+| `CameraHeightY` | 镜头高度 | `18` | 俯视相机相对地图中心世界 Y |
+| `CameraOrthoSizeMargin` | 地图适配Size余量 | `1.5` | Dig/Defend/布阵：Size = max(半幅) − 本值 |
+| `PushMapCameraOrthoSize` | 推图开战默认Size | `2` | PushMap 开战默认正交 Size |
+| `CameraNearClip` | 镜头近裁剪面 | `0.1` | 近裁剪 |
+| `CameraFarClip` | 镜头远裁剪面 | `100` | 远裁剪 |
+| `CameraFollowDeadzone` | 跟随死区半径 | `0.15` | PushMap Auto 跟随世界 XZ 死区 |
+| `CameraFollowSmoothTime` | 跟随平滑时间 | `0.25` | PushMap Auto SmoothDamp 秒 |
+| `CameraZoomStepPerNotch` | 滚轮缩放步进 | `0.5` | 滚轮每格改变 Size |
+| `CameraOrthoSizeMin` | 正交Size下限 | `0.5` | Size 下限 |
+| `CameraOrthoSizeMax` | 正交Size上限 | `20` | PushMap 滚轮上限 |
+| `CameraDragThresholdPixels` | 拖拽启动像素阈值 | `4` | 手动拖镜头累计像素阈值 |
+| `PushMapCameraIntroSpeed` | 推图镜头预览速度 | `1.5` | PushMap 开战 Intro 沿轨世界 XZ 速度（单位/秒） |
+| `PushMapCameraIntroWaypointDwellSeconds` | 推图镜头预览路点停留 | `0.5` | PushMap Intro 每个作者 WP 停留秒 |
+| `DigTriggerDwellSeconds` | 挖坟触发停留 | `0.2` | 触发 DigAction 前光标停留秒 |
+| `BaseDigDuration` | 挖坟基础时长 | `0.8` | DigActionDuration 公式基数 |
+| `DigActionDurationFloor` | 挖坟最短时长 | `0.1` | DigActionDuration 地板 |
+
+**P1 战斗调参必填键：**
+
+| ConstantKey | ConstantKeyZh | Value | CommentZh（摘要） |
+|-------------|---------------|-------|-------------------|
+| `AttackSlotMeleeCount` | 近战攻击位数量 | `12` | 近战攻击位环槽位数 |
+| `AttackSlotRangedCount` | 远程攻击位数量 | `8` | 远程攻击位环槽位数 |
+| `AttackSlotMargin` | 攻击位环半径余量 | `0.05` | 环半径计算余量 |
+| `AttackSlotMinRingRadius` | 攻击位环最小半径 | `0.05` | 环半径下限 |
+| `AttackSlotReclaimMoveThreshold` | 攻击位重算位移阈值 | `0.5` | 目标移动重算阈值 |
+| `AttackSlotDefaultTargetBodyRadius` | 默认目标体半径 | `0.35` | 缺半径时默认 |
+| `HitConfirmSlack` | 命中确认松弛距离 | `0.05` | HitConfirm 距离松弛 |
+| `SurroundGapDegrees` | 包围缺口角度 | `60` | 近战包围缺口扇区 |
+| `StuckDetectWindowSeconds` | 卡死检测窗口 | `0.5` | StuckHold 检测窗 |
+| `StuckDisplacementEpsilon` | 卡死位移阈值 | `0.2` | 卡死位移 ε |
+| `StuckHoldSeconds` | 卡死停顿时长 | `1` | 卡住强制 Idle 秒 |
+| `ProjectileDefaultHitRadius` | 投射物默认命中半径 | `0.55` | 投射物软命中半径 |
+| `DefendVictoryStageExp` | 防守胜利阶段经验 | `100` | Defend 胜场阶段 Exp |
+
+**P2 寻路/性能必填键：**
+
+| ConstantKey | ConstantKeyZh | Value | CommentZh（摘要） |
+|-------------|---------------|-------|-------------------|
+| `FlowFieldDefaultCellSize` | 流场默认格宽 | `0.5` | 流场默认格宽 |
+| `FlowFieldMinCellSize` | 流场最小格宽 | `0.25` | 流场格宽下限 |
+| `FlowFieldMaxCellSize` | 流场最大格宽 | `0.5` | 流场格宽上限 |
+| `MassMoveMaxRecalcPerFrame` | 群体移动每帧重算上限 | `50` | 每帧重算预算 |
+| `MassMoveDefaultAgentRadius` | 群体移动默认体半径 | `0.1` | 默认体半径 |
+| `MassMoveArriveEpsilon` | 群体移动到达阈值 | `0.08` | 到达判定 ε |
+| `MassMoveDefaultObjectiveArriveRadius` | 目标到达默认半径 | `2` | 目标到达默认半径 |
+| `MassMoveAttackSlotSeparationScale` | 攻击位软分离系数 | `0.35` | 攻击位软分离缩放 |
+| `SoftCollisionMaxCorrectionSpeed` | 软碰撞最大修正速度 | `2` | 软碰撞修正速度上限 |
+| `LocalDetourProbeLength` | 本地绕行探测长度 | `1` | 绕行探测长 |
+| `LocalDetourSoftSeparationStrength` | 本地绕行软分离强度 | `0.15` | 软分离强度 |
+| `LocalDetourDetourBias` | 本地绕行偏置 | `0.85` | 绕行偏置 |
+| `LocalDetourForwardConeHalfAngleDeg` | 本地绕行前向锥半角 | `50` | 前向阻挡锥半角 |
+| `BossAdvanceArriveRadius` | Boss推进到达半径 | `0.35` | Boss 到达半径 |
+| `EngageStickHysteresisMargin` | 接战粘滞余量 | `0.15` | 换目标粘滞余量 |
+| `PushMapSpawnMinSampleDistance` | 刷怪散布最小采样距 | `0.75` | 刷怪最小采样距 |
+| `PushMapSpawnSampleDistanceBodyMul` | 刷怪散布体半径倍数 | `2.5` | 采样距体半径倍数 |
+| `PushMapSpawnLeashSlack` | 刷怪拴绳松弛 | `0.35` | Sample 拴绳松弛 |
+| `PushMapSpawnAbsoluteLeashFloor` | 刷怪绝对拴绳下限 | `3` | 绝对拴绳下限 |
+| `PushMapSpawnAbsoluteLeashBodyMul` | 刷怪绝对拴绳体倍数 | `10` | 绝对拴绳体倍数 |
 
 ```
 CombatConstantConfig {
@@ -1328,7 +1392,7 @@ CombatConstantConfig {
 }
 ```
 
-**解析：** `ConfigCsvRepository` 按当前 CampaignMode CSV 根加载；`TryGetCombatConstant(key)`；`GetCombatConvertCoeffDefaults()` 组装五键供 `CombatConvertCoeffs.Parse` 缺键回退。缺必填键 → Warning + 与上表样例同值的安全兜底（**非**业务权威）。Mode1/Mode2 各一份文件。
+**解析：** `ConfigCsvRepository` 按当前 CampaignMode CSV 根加载；`TryGetCombatConstant(key)`；`GetCombatConvertCoeffDefaults()` 组装五键供 `CombatConvertCoeffs.Parse` 缺键回退；`GetCameraPresentationConstants()` / `ApplyDigTimingConstants` / `GetDigTriggerDwellSeconds` 读 P0 键；**`CombatRuntimeTuning.ApplyFromRepository`** 在常量表加载末尾应用 P1/P2（及共享寻路）快照，AttackSlot / MassMove / FlowField / LocalDetour / SoftCollision / StuckHold / Projectile / Defend 胜场 Exp / PushMap 散布等读该快照。缺必填键 → Warning + 与上表样例同值的安全兜底（**非**业务权威）。Mode1/Mode2 各一份文件。
 
 #### 9.21 技能配置表 `SkillConfig`
 
@@ -2570,7 +2634,7 @@ LossOfControlConfig {
 
 #### 9.20b CombatConstantConfig
 
-Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) global combat-formula defaults. One row = one constant key. Class `CombatConvertCoeffs` **overrides when present**; missing key / empty string reads this table; MaxHP Strength mult also from here.
+Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) global combat-formula defaults; also hosts **P0 camera / Dig timing** tunables ([§3.10](SPEC_03_GameRules.md) / [§3.14](SPEC_03_GameRules.md)). One row = one constant key. Class `CombatConvertCoeffs` **overrides when present**; missing key / empty string reads this table; MaxHP Strength mult also from here. Camera and Dig duration via `GetCombatConstantOrFallback` / `GetCameraPresentationConstants` / `ApplyDigTimingConstants`.
 
 **Disk name:**
 - **Excel:** `通用_常量表_Combat_CombatConstantConfig.xlsx`
@@ -2578,13 +2642,13 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 
 | Field (EN) | ZH | Type (pseudo) | Notes |
 |------------|-----|---------------|-------|
-| ConstantKey | 常量键 | `string` | PK; aligned with `CombatConvertCoeffs` keys, plus `MaxHpStrengthMult` |
+| ConstantKey | 常量键 | `string` | PK; aligned with `CombatConvertCoeffs` keys, plus `MaxHpStrengthMult` and P0 keys below |
 | ConstantKeyZh | 主键中文翻译 | `string` | Optional; ZH display name for the key; **runtime ignores** |
 | Value | 数值 | `float` | Default value for the key |
 | Comment | 备注 | `string` | Optional; EN design note; **runtime ignores** |
 | CommentZh | 备注中文解释 | `string` | Optional; ZH design note; **runtime ignores** |
 
-**Required first-batch keys (Mode1/Mode2 samples):**
+**Required combat-formula keys (Mode1/Mode2 samples):**
 
 | ConstantKey | ConstantKeyZh | Value | CommentZh (summary) |
 |-------------|---------------|-------|---------------------|
@@ -2594,6 +2658,70 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `SkillCdIntDiv` | 技能冷却智力除数 | `30` | Skill CD Intelligence divisor |
 | `SkillCdFloor` | 技能冷却下限 | `0.1` | Skill CD floor (seconds) |
 | `MaxHpStrengthMult` | 血量力量系数 | `3` | MaxHP = ceil(BodyLife + Str × value) |
+
+**Required P0 camera / Dig timing keys:**
+
+| ConstantKey | ConstantKeyZh | Value | CommentZh (summary) |
+|-------------|---------------|-------|---------------------|
+| `CameraHeightY` | 镜头高度 | `18` | Top-down camera world Y above map center |
+| `CameraOrthoSizeMargin` | 地图适配Size余量 | `1.5` | Dig/Defend/Formation: Size = max(half) − margin |
+| `PushMapCameraOrthoSize` | 推图开战默认Size | `2` | PushMap combat default ortho Size |
+| `CameraNearClip` | 镜头近裁剪面 | `0.1` | nearClipPlane |
+| `CameraFarClip` | 镜头远裁剪面 | `100` | farClipPlane |
+| `CameraFollowDeadzone` | 跟随死区半径 | `0.15` | PushMap Auto follow world-XZ deadzone |
+| `CameraFollowSmoothTime` | 跟随平滑时间 | `0.25` | PushMap Auto SmoothDamp seconds |
+| `CameraZoomStepPerNotch` | 滚轮缩放步进 | `0.5` | Scroll wheel Size step |
+| `CameraOrthoSizeMin` | 正交Size下限 | `0.5` | Size floor |
+| `CameraOrthoSizeMax` | 正交Size上限 | `20` | PushMap zoom ceiling |
+| `CameraDragThresholdPixels` | 拖拽启动像素阈值 | `4` | Manual pan arm threshold (px) |
+| `PushMapCameraIntroSpeed` | 推图镜头预览速度 | `1.5` | PushMap StartBattle Intro rail speed (world XZ units/sec) |
+| `PushMapCameraIntroWaypointDwellSeconds` | 推图镜头预览路点停留 | `0.5` | PushMap Intro dwell seconds at each author WP |
+| `DigTriggerDwellSeconds` | 挖坟触发停留 | `0.2` | Cursor dwell before DigAction |
+| `BaseDigDuration` | 挖坟基础时长 | `0.8` | DigActionDuration base |
+| `DigActionDurationFloor` | 挖坟最短时长 | `0.1` | DigActionDuration floor |
+
+**Required P1 combat-tune keys:**
+
+| ConstantKey | ConstantKeyZh | Value | CommentZh (summary) |
+|-------------|---------------|-------|---------------------|
+| `AttackSlotMeleeCount` | 近战攻击位数量 | `12` | Melee AttackSlot count |
+| `AttackSlotRangedCount` | 远程攻击位数量 | `8` | Ranged AttackSlot count |
+| `AttackSlotMargin` | 攻击位环半径余量 | `0.05` | Ring radius margin |
+| `AttackSlotMinRingRadius` | 攻击位环最小半径 | `0.05` | Min ring radius |
+| `AttackSlotReclaimMoveThreshold` | 攻击位重算位移阈值 | `0.5` | Recompute move threshold |
+| `AttackSlotDefaultTargetBodyRadius` | 默认目标体半径 | `0.35` | Fallback target BodyRadius |
+| `HitConfirmSlack` | 命中确认松弛距离 | `0.05` | HitConfirm slack |
+| `SurroundGapDegrees` | 包围缺口角度 | `60` | Surround gap sector |
+| `StuckDetectWindowSeconds` | 卡死检测窗口 | `0.5` | StuckHold detect window |
+| `StuckDisplacementEpsilon` | 卡死位移阈值 | `0.2` | StuckHold displacement ε |
+| `StuckHoldSeconds` | 卡死停顿时长 | `1` | StuckHold Idle seconds |
+| `ProjectileDefaultHitRadius` | 投射物默认命中半径 | `0.55` | Projectile soft-hit radius |
+| `DefendVictoryStageExp` | 防守胜利阶段经验 | `100` | Defend victory stage Exp |
+
+**Required P2 pathing/perf keys:**
+
+| ConstantKey | ConstantKeyZh | Value | CommentZh (summary) |
+|-------------|---------------|-------|---------------------|
+| `FlowFieldDefaultCellSize` | 流场默认格宽 | `0.5` | FlowField default cell |
+| `FlowFieldMinCellSize` | 流场最小格宽 | `0.25` | FlowField min cell |
+| `FlowFieldMaxCellSize` | 流场最大格宽 | `0.5` | FlowField max cell |
+| `MassMoveMaxRecalcPerFrame` | 群体移动每帧重算上限 | `50` | Per-frame recalc budget |
+| `MassMoveDefaultAgentRadius` | 群体移动默认体半径 | `0.1` | Default agent radius |
+| `MassMoveArriveEpsilon` | 群体移动到达阈值 | `0.08` | Arrive epsilon |
+| `MassMoveDefaultObjectiveArriveRadius` | 目标到达默认半径 | `2` | Default objective arrive R |
+| `MassMoveAttackSlotSeparationScale` | 攻击位软分离系数 | `0.35` | AttackSlot separation scale |
+| `SoftCollisionMaxCorrectionSpeed` | 软碰撞最大修正速度 | `2` | Soft collision speed cap |
+| `LocalDetourProbeLength` | 本地绕行探测长度 | `1` | Detour probe length |
+| `LocalDetourSoftSeparationStrength` | 本地绕行软分离强度 | `0.15` | Soft separation strength |
+| `LocalDetourDetourBias` | 本地绕行偏置 | `0.85` | Detour bias |
+| `LocalDetourForwardConeHalfAngleDeg` | 本地绕行前向锥半角 | `50` | Forward cone half-angle |
+| `BossAdvanceArriveRadius` | Boss推进到达半径 | `0.35` | Boss advance arrive R |
+| `EngageStickHysteresisMargin` | 接战粘滞余量 | `0.15` | Engage sticky hysteresis |
+| `PushMapSpawnMinSampleDistance` | 刷怪散布最小采样距 | `0.75` | Spawn min sample distance |
+| `PushMapSpawnSampleDistanceBodyMul` | 刷怪散布体半径倍数 | `2.5` | Sample distance body mul |
+| `PushMapSpawnLeashSlack` | 刷怪拴绳松弛 | `0.35` | Sample leash slack |
+| `PushMapSpawnAbsoluteLeashFloor` | 刷怪绝对拴绳下限 | `3` | Absolute leash floor |
+| `PushMapSpawnAbsoluteLeashBodyMul` | 刷怪绝对拴绳体倍数 | `10` | Absolute leash body mul |
 
 ```
 CombatConstantConfig {
@@ -2605,7 +2733,7 @@ CombatConstantConfig {
 }
 ```
 
-**Resolve:** `ConfigCsvRepository` loads from current CampaignMode CSV root; `TryGetCombatConstant(key)`; `GetCombatConvertCoeffDefaults()` builds the five-key fallback for `CombatConvertCoeffs.Parse`. Missing required key → Warning + sample-value safety fallback (**not** business authority). Separate Mode1/Mode2 files.
+**Resolve:** `ConfigCsvRepository` loads from current CampaignMode CSV root; `TryGetCombatConstant(key)`; `GetCombatConvertCoeffDefaults()` builds the five-key fallback for `CombatConvertCoeffs.Parse`; `GetCameraPresentationConstants` / `ApplyDigTimingConstants` / `GetDigTriggerDwellSeconds` read P0 keys; **`CombatRuntimeTuning.ApplyFromRepository`** at end of constants load applies P1/P2 snapshot (AttackSlot / MassMove / FlowField / LocalDetour / SoftCollision / StuckHold / Projectile / Defend victory Exp / PushMap spawn spread). Missing required key → Warning + sample-value safety fallback (**not** business authority). Separate Mode1/Mode2 files.
 
 #### 9.21 SkillConfig
 

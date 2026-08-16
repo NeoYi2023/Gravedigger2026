@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.Dig;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Config
@@ -429,19 +430,19 @@ namespace Gravedigger2026.Core.Config
         public CombatConvertCoeffs GetCombatConvertCoeffDefaults()
         {
             return new CombatConvertCoeffs(
-                ResolveCombatConstantOrFallback(
+                GetCombatConstantOrFallback(
                     CombatConstantKeys.NormalAttackPrimaryMult,
                     CombatConvertCoeffs.SafetyNormalAttackPrimaryMult),
-                ResolveCombatConstantOrFallback(
+                GetCombatConstantOrFallback(
                     CombatConstantKeys.AttackSpeedBase,
                     CombatConvertCoeffs.SafetyAttackSpeedBase),
-                ResolveCombatConstantOrFallback(
+                GetCombatConstantOrFallback(
                     CombatConstantKeys.AttackSpeedAgiDiv,
                     CombatConvertCoeffs.SafetyAttackSpeedAgiDiv),
-                ResolveCombatConstantOrFallback(
+                GetCombatConstantOrFallback(
                     CombatConstantKeys.SkillCdIntDiv,
                     CombatConvertCoeffs.SafetySkillCdIntDiv),
-                ResolveCombatConstantOrFallback(
+                GetCombatConstantOrFallback(
                     CombatConstantKeys.SkillCdFloor,
                     CombatConvertCoeffs.SafetySkillCdFloor));
         }
@@ -449,12 +450,16 @@ namespace Gravedigger2026.Core.Config
         /// <summary>MaxHP Strength mult from constants table (sample 3).</summary>
         public float GetMaxHpStrengthMult()
         {
-            return ResolveCombatConstantOrFallback(
+            return GetCombatConstantOrFallback(
                 CombatConstantKeys.MaxHpStrengthMult,
                 CombatConvertCoeffs.SafetyMaxHpStrengthMult);
         }
 
-        private float ResolveCombatConstantOrFallback(string key, float safetyFallback)
+        /// <summary>
+        /// CombatConstantConfig lookup with Warning + safety fallback when key missing
+        /// (fallback is not business authority — SPEC_04 §9.20b).
+        /// </summary>
+        public float GetCombatConstantOrFallback(string key, float safetyFallback)
         {
             if (TryGetCombatConstant(key, out var value))
             {
@@ -464,6 +469,35 @@ namespace Gravedigger2026.Core.Config
             Debug.LogWarning(
                 $"[ConfigCsvRepository] Missing CombatConstant '{key}' — using safety fallback {safetyFallback}.");
             return safetyFallback;
+        }
+
+        /// <summary>Top-down camera / PushMap follow-zoom tunables from the constants table.</summary>
+        public CameraPresentationConstants GetCameraPresentationConstants()
+        {
+            return CameraPresentationConstants.FromRepository(this);
+        }
+
+        /// <summary>DigActionDuration = max(floor, base − DigDurationReductionSum).</summary>
+        public void ApplyDigTimingConstants(DigProtagonistCapabilities caps)
+        {
+            if (caps == null)
+            {
+                return;
+            }
+
+            caps.BaseDigDuration = GetCombatConstantOrFallback(
+                CombatConstantKeys.BaseDigDuration,
+                CombatConstantKeys.Safety.BaseDigDuration);
+            caps.DigActionDurationFloor = GetCombatConstantOrFallback(
+                CombatConstantKeys.DigActionDurationFloor,
+                CombatConstantKeys.Safety.DigActionDurationFloor);
+        }
+
+        public float GetDigTriggerDwellSeconds()
+        {
+            return GetCombatConstantOrFallback(
+                CombatConstantKeys.DigTriggerDwellSeconds,
+                CombatConstantKeys.Safety.DigTriggerDwellSeconds);
         }
 
         public IReadOnlyList<TechTreeConfigRow> GetAllTechTreeRows()
@@ -1691,6 +1725,8 @@ namespace Gravedigger2026.Core.Config
                 var value = RequireFloat(raw, "Value", table, rowIndex);
                 _combatConstantByKey[key] = value;
             }
+
+            CombatRuntimeTuning.ApplyFromRepository(this);
         }
 
         private void LoadTechTree()

@@ -15,12 +15,12 @@ namespace Gravedigger2026.Core.Pathing
     /// </summary>
     public sealed class AttackSlotService
     {
-        public const float SlotMargin = 0.05f;
-        public const float MinRingRadius = 0.05f;
-        public const float SlotReclaimMoveThreshold = 0.5f;
-        public const int MeleeSlotCount = 12;
-        public const int RangedSlotCount = 8;
-        public const float DefaultTargetBodyRadius = 0.35f;
+        public static float SlotMargin => CombatRuntimeTuning.AttackSlotMargin;
+        public static float MinRingRadius => CombatRuntimeTuning.AttackSlotMinRingRadius;
+        public static float SlotReclaimMoveThreshold => CombatRuntimeTuning.AttackSlotReclaimMoveThreshold;
+        public static int MeleeSlotCount => CombatRuntimeTuning.AttackSlotMeleeCount;
+        public static int RangedSlotCount => CombatRuntimeTuning.AttackSlotRangedCount;
+        public static float DefaultTargetBodyRadius => CombatRuntimeTuning.AttackSlotDefaultTargetBodyRadius;
 
         private readonly Dictionary<string, TargetSlotTable> _byTarget =
             new Dictionary<string, TargetSlotTable>();
@@ -75,7 +75,7 @@ namespace Gravedigger2026.Core.Pathing
             out Vector3 worldPos,
             AttackMode attackMode = AttackMode.Melee,
             Vector3 attackerPos = default,
-            float targetBodyRadius = DefaultTargetBodyRadius,
+            float targetBodyRadius = CombatConstantKeys.Safety.AttackSlotDefaultTargetBodyRadius,
             float attackerBodyRadius = 0f,
             SurroundParams? surround = null)
         {

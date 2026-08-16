@@ -153,8 +153,9 @@
 | AlertRadius | 警戒半径 | AggroMode 主动发现半径 | [§3.14](SPEC_03_GameRules.md) |
 | BodyRadius | 占地半径 | 单位 XZ 占地圆；怪物=`MonsterConfig`；士兵=`BodyAppearanceConfig`（按 AppearanceId，缺省 0.1）；PushMap 刷出散开与 NavMeshAgent/MassMove 避障 | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Intro`（开战扫镜）/ `Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowPath | 镜头跟随轨 | 地图 Prefab 虚拟推进折线；作者路点 + 相邻点世界 XZ 直线烘焙；镜头对准折线点 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| IsCombatIntroActive | 开战镜头预览门闩 | PushMap Combat 内标志：单位已部署 Idle、计时冻结、镜头 Intro；结束后正常玩法 | [§3.14](SPEC_03_GameRules.md) |
 | CameraPathProgress | 镜头轨进度 | 折线弧长 `s∈[0,1]`；Auto=存活忠诚兵投影最大值；领头失效回退 | [§3.14](SPEC_03_GameRules.md) |
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移 | [§3.14](SPEC_03_GameRules.md) |
