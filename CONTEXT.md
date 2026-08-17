@@ -19,8 +19,8 @@
 | ClassLevel | 职业等级 | ClassConfig 展示用品质等级；UI-016 士兵卡 `Lv.N`；不进战斗公式 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵螺旋落入 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
 | IsoTileYaw | 等距砖轴偏航 | `Y=-atan2(cellSize.y,cellSize.x)`，使 Transform 本地 +X 对齐 Isometric Grid 在 XZ 上的砖轴（Demo ≈ -26.57°）；**职业布阵区已废止此偏航**（改无旋转 IsoDiamond，同 WalkSurface） | [SPEC_04 §13](SPEC_04_Technical.md) |
-| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
-| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；命中时可竞争 `VisualStyle`；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/VisualStyleId/Priority/IntensityAdd/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；IsUnique 限制叠装 | [§3.15](SPEC_03_GameRules.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
@@ -97,6 +97,7 @@
 | MaxHpStrengthMult | 血量力量系数 | 常量表键；MaxHP=ceil(BodyLife+Str×本值)；样例 3 | [§3.11](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
+| VisualStyle | 特效外观 | 同一 AppearanceId Prefab 上的 AllIn1 材质预设；Mode2 魔法书 Token 命中后按优先级烘进；世界 Instantiate 换 `sharedMaterial`+MPB；新增预设步骤见 SPEC_04 §15.2 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md)/[§15.2](SPEC_04_Technical.md) |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；职业不匹配时走保底；A 空先改亡灵 | [§3.11](SPEC_03_GameRules.md) |
 | DefaultAppearanceId | 职业默认外形 | Mode2 ClassConfig 字段；B 空或亡灵改写后 A 仍空时优先于 IsFallback | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |

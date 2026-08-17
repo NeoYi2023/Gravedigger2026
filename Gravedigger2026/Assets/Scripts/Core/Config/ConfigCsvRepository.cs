@@ -1413,7 +1413,10 @@ namespace Gravedigger2026.Core.Config
                     EffectParams = OptionalText(raw, "EffectParams"),
                     IconAssetId = OptionalText(raw, "IconAssetId"),
                     DisplayName = OptionalText(raw, "DisplayName"),
-                    Description = OptionalText(raw, "Description")
+                    Description = OptionalText(raw, "Description"),
+                    VisualStyleId = OptionalText(raw, "VisualStyleId"),
+                    VisualPriority = ParseOptionalNonNegInt(raw, "VisualPriority", table, rowIndex),
+                    VisualIntensityAdd = ParseVisualIntensityAdd(raw)
                 };
             }
         }
@@ -1886,6 +1889,20 @@ namespace Gravedigger2026.Core.Config
             }
 
             return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0f;
+        }
+
+        /// <summary>Missing/empty VisualIntensityAdd → 1 (SPEC_04 §9.24).</summary>
+        private static float ParseVisualIntensityAdd(Dictionary<string, string> raw)
+        {
+            var text = OptionalText(raw, "VisualIntensityAdd");
+            if (text.Length == 0)
+            {
+                return 1f;
+            }
+
+            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                ? value
+                : 1f;
         }
 
         /// <summary>Missing/empty → 0; else must be 0 or 1.</summary>

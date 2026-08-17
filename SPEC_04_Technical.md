@@ -87,7 +87,7 @@ Gravedigger2026/Assets/
 │   └── UI/
 │       └── Skills/        # Demo 士兵技能图标按 SkillId 热加载（UI-021）；文件名 = SkillId
 ├── Materials/             # 运行时材质（含 AllIn1 Demo 特效材质，见 §15.2）
-│   └── AllIn1/            # 例：EvilMarine.mat
+│   └── AllIn1/            # VisualStyle 预设 Style_*.mat（§15.2）；含 EvilMarine
 ├── Settings/              # 非表型 ScriptableObject（单例调参、引用槽等）
 ├── SmallScaleInt/         # 第三方 Character Creator 工具源（仅创作；见 §15）
 └── ConfigTables/          # 配置表统一根（见 §14）
@@ -179,7 +179,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **持久化意图（轻量）：** 本地、按槽索引 `0..2` + **`CampaignMode`**。**Demo Meta 选型已锁定：`PlayerPrefs`**。键：
 - `Gravedigger2026.SaveSlot.{0|1|2}.Occupied`（`0`/`1`；**按槽共享**，与模式无关）
-- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.WarriorPool` — JSON：`NextSerial` + `WarriorInstance` 制造静态快照数组（含 `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife` / `SoldierSkills` 等；见 §9.9；**SS-02** JsonUtility 往返；**SS-03** Mode1 制造/再造授予 `DefaultSkillIds`@Lv1；**SS-04** Mode2 授予 + `SoldierSkillLevelAdd` 二次扫描）
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.WarriorPool` — JSON：`NextSerial` + `WarriorInstance` 制造静态快照数组（含 `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife` / `SoldierSkills` / `VisualStyleId` / `VisualPriority` / `VisualIntensity` 等；见 §9.9；**SS-02** JsonUtility 往返；**SS-03** Mode1 制造/再造授予 `DefaultSkillIds`@Lv1；**SS-04** Mode2 授予 + `SoldierSkillLevelAdd`；VisualStyle 仅 Mode2 书命中烘进）
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.BattleFormation` — JSON：`{WarriorId, PositionX, PositionZ, RemainingHP}[]`
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.DungeonUnlocks` — 管道分隔副本解锁 ID
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SpecialEquipSlots` — JSON：主角魔法书 6 槽（§9.24；**AM-04 已实现**读写 + `IsUnique` 装配闸门）
@@ -250,7 +250,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Persistence intent:** Local by slot index `0..2` + **`CampaignMode`**. **Demo Meta locked: `PlayerPrefs`**. Keys:
 - `Gravedigger2026.SaveSlot.{0|1|2}.Occupied` (`0`/`1`; **shared per slot**, mode-agnostic)
-- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.WarriorPool` — JSON: `NextSerial` + `WarriorInstance` manufacture snapshot array (incl. `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife` / `SoldierSkills`; see §9.9; **SS-02** JsonUtility roundtrip; **SS-03** Mode1 manufacture/remake grants `DefaultSkillIds`@Lv1; **SS-04** Mode2 grant + `SoldierSkillLevelAdd` second pass)
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.WarriorPool` — JSON: `NextSerial` + `WarriorInstance` manufacture snapshot array (incl. `SourceItemIds` / `SourceSpiritCost` / `EquipStats` / `BodyLife` / `SoldierSkills` / `VisualStyleId` / `VisualPriority` / `VisualIntensity`; see §9.9; **SS-02** JsonUtility roundtrip; **SS-03** Mode1 manufacture/remake grants `DefaultSkillIds`@Lv1; **SS-04** Mode2 grant + `SoldierSkillLevelAdd`; VisualStyle baked on Mode2 book hit only)
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.BattleFormation` — JSON: `{WarriorId, PositionX, PositionZ, RemainingHP}[]`
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.DungeonUnlocks` — pipe-separated dungeon unlock IDs
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SpecialEquipSlots` — JSON: protagonist MagicBook 6 slots (§9.24; **AM-04 implemented** read/write + `IsUnique` equip gate)
@@ -775,10 +775,13 @@ WarriorInstance {
     SkillId: Id                   // FK → SkillConfig.SkillId
     SkillLevel: int               // baked; lookup SkillConfig (SkillId, SkillLevel)
   }[]
+  VisualStyleId: Id | ""          // Mode2 AllIn1 preset; empty = Prefab default (§3.15 6b)
+  VisualPriority: int             // last winning book priority; 0 if none
+  VisualIntensity: number         // stack add of VisualIntensityAdd on winning style
 }
 ```
 
-**说明（存档）：** Demo 按槽将上述快照整段序列化进 `PlayerPrefs`（§6）；`NextSerial` 与池同键，保证再进档 Id 不冲突。`SoldierSkills` 经 `WarriorSaveDto.SoldierSkills`（`SoldierSkillEntry[]`，`[Serializable]` + **public 字段**，JsonUtility）与 `WarriorInstance` 往返；缺字段 / null / 空 → 空列表，不丢其它快照字段。`RepairMissingStatSnapshots` 只补 StatBlock/配方相关字段，**不得**清空已有 `SoldierSkills`。彻底死亡删整实例，技能随实例消失（不另迁技能）。Mode1 制造/再造：`ManufactureService.BuildWarriorFromAggregate` 在 `ResolveInstanceClassId` 之后调用 `SoldierSkillGrant.GrantDefaultSkillsAtLevel1`（Lv1；不读魔法书）。Mode2 AutoManufacture：造兵时按双手 `ClassId` 授予 `DefaultSkillIds`；UI-016 Step2 单槽脉冲时 `ApplyEquippedBookAtSlot`（含 `SoldierSkillLevelAdd` / `ForceClass` 命中重授）。
+**说明（存档）：** Demo 按槽将上述快照整段序列化进 `PlayerPrefs`（§6）；`NextSerial` 与池同键，保证再进档 Id 不冲突。`SoldierSkills` 经 `WarriorSaveDto.SoldierSkills`（`SoldierSkillEntry[]`，`[Serializable]` + **public 字段**，JsonUtility）与 `WarriorInstance` 往返；缺字段 / null / 空 → 空列表，不丢其它快照字段。`VisualStyleId` / `VisualPriority` / `VisualIntensity` 同键往返；旧档缺字段 → 空 style / 0 / 0（Prefab 默认材质）。`RepairMissingStatSnapshots` 只补 StatBlock/配方相关字段，**不得**清空已有 `SoldierSkills` 或 `VisualStyle*`。彻底死亡删整实例，技能与特效外观随实例消失（不另迁技能）。Mode1 制造/再造：`ManufactureService.BuildWarriorFromAggregate` 在 `ResolveInstanceClassId` 之后调用 `SoldierSkillGrant.GrantDefaultSkillsAtLevel1`（Lv1；不读魔法书；VisualStyle 空）。Mode2 AutoManufacture：造兵时按双手 `ClassId` 授予 `DefaultSkillIds`；UI-016 Step2 单槽脉冲时 `ApplyEquippedBookAtSlot`（含 `SoldierSkillLevelAdd` / `ForceClass` 命中重授；**Token 命中**才 `TryApplyVisualStyle`）。`RefinalizeInstance` 重选 `AppearanceId`，**不得**清空 `VisualStyle*`。
 **关联说明：**
 
 - 职业表见 **§9.9b**；躯体材料 / 躯体外观 / 额外装备 / 宝石后缀表见 **§9.12–§9.15**。
@@ -1667,6 +1670,9 @@ PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitPro
 | IconAssetId | 魔法书Icon | `string` 或 `int` | UI 图标资源 Id |
 | DisplayName | 魔法书名称 | `string` | 展示名；若启用 i18n 可为 Key |
 | Description | 魔法书介绍 | `string` | 展示文案 |
+| VisualStyleId | 特效外观ID | `string` 或空 | **不是 Token**。空=该书无特效外观。非空 → Catalog `WarriorVisualStyleCatalog` 的 StyleId（`Assets/Materials/AllIn1/` 预设材质）。仅当该书 `EffectPayload` **命中**才竞争烘进实例（skip/miss/无效不写）。**改 Excel 后 Bake Mode2 Tables**；勿只改 CSV。`ClassId` 含逗号时该格须加引号（Bake 会转义）。新增 Style 的材质/Catalog 步骤见 [§15.2](#152-项目落盘目录) |
+| VisualPriority | 特效优先级 | `int` | 缺/空=0。命中后：高于当前则覆盖 style 并重置 Intensity；同 StyleId 则累加 Intensity；更低则忽略。Demo：技能 10、强化 20、进阶 30 |
+| VisualIntensityAdd | 特效强度加算 | `float` | 缺/空=**1**。覆盖时写入；同 style 累加。表现层 MPB 乘到该预设登记的 float 属性 |
 
 **`EffectPhase` 编码（固定）：** `Phase` 或 `Phase|Phase|…`。本轮枚举至少：`SoldierManufacture` \| `Combat`（Combat 本轮不实现）。
 
@@ -1697,19 +1703,16 @@ PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitPro
 | `RaceWeightPick` | `SoldierManufacture` | （无；须空） | 「还原」：制造时按已选头/躯干/臂×2/腿×2 的 RaceId 各权重 1 加权随机定种族 |
 | `ForceRace` | `SoldierManufacture` | **必填** `RaceId`（`RaceConfig` 主键） | 强制定稿为该种族；**定稿前探测**；优先于 `RaceWeightPick`；多本按槽左→右后者覆盖；`RaceId` 缺/非法 → 该书无效并忽略 |
 | `ForceClass` | `SoldierManufacture` | **必填** `ClassId`（目标，`ClassConfig` 主键）；**可选** `RequireClassId`、`Chance` | 钩子按槽左→右。改写职业：`ClassId` + 重载 `ClassName` / `AttackMode`（`DefaultAppearanceId` / `PlacementOrder` 随新 ClassId 读取）。`RequireClassId`：有则仅当前 `draft.ClassId` 精确匹配才尝试（须在 `ClassConfig`；非法→该书无效）；不匹配→跳过（不当无效）。`Chance`：\[0,1\]；缺省=1；`Random.value < Chance` 才改写；非法/越界→该书无效。缺必填 `ClassId` / 目标非法 → 该书无效，保留当前职业 |
-| `StatMul` | `SoldierManufacture` | **必填** `Stat`、`Mul`；**可选** `ClassId` | 钩子按槽左→右。`Mul`≥0；缺/非法 → 该书无效。`Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`。可选 `ClassId`：有则仅 `draft.ClassId` 匹配才 apply（须在 `ClassConfig`；非法→该书无效）；缺省=全兵。五维或 `All`：`Base(S)*=Mul`（All=五维都乘）。`Stat=Primary`：`S`=当前 `ClassConfig.PrimaryStat`；`BodySum(S)=Σ` 已消耗躯体 `StatBonus(S)`（不含种族/宝石/装备，不用已被前书改过的 Base）；`Base(S)+=(Mul−1)×BodySum(S)`；可叠=各书对同一 BodySum 再加一次。写入 Base 后走 StaticStat；持续至 PermanentDeath |
+| `StatMul` | `SoldierManufacture` | **必填** `Stat`、`Mul`；**可选** `ClassId` | 钩子按槽左→右。`Mul`≥0；缺/非法 → 该书无效。`Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`。可选 `ClassId`：逗号分隔多个主键（OR）；有则仅 `draft.ClassId` **命中任一**才 apply（每个 Id 须在 `ClassConfig`；任一非法→该书无效）；缺省=全兵。五维或 `All`：`Base(S)*=Mul`（All=五维都乘）。`Stat=Primary`：`S`=当前 `ClassConfig.PrimaryStat`；`BodySum(S)=Σ` 已消耗躯体 `StatBonus(S)`（不含种族/宝石/装备，不用已被前书改过的 Base）；`Base(S)+=(Mul−1)×BodySum(S)`；可叠=各书对同一 BodySum 再加一次。写入 Base 后走 StaticStat；持续至 PermanentDeath |
 | `StatAdd` | `SoldierManufacture` | **必填** `Stat`、`Add` | 钩子：`Base(S) += Add`。`Stat`∈五维/`All`（**不含** `Primary`）。`Add` 须可解析为数（可负；随后 StaticStat 仍 `max(0,·)`）；缺/非法 → 该书无效 |
 | `QualityDelta` | `SoldierManufacture` | **必填** `Delta`（整数，可负） | 外观定稿：`AvgLevelInt = round(mean BodyLevel) + ΣDelta`；不重选料、不改 Base；多本 Delta 相加；`Delta` 缺/非整数 → 该书无效（贡献 0） |
 | `SoldierSkillLevelAdd` | `SoldierManufacture` | **必填** `SkillId`、`Delta`（整数，可负） | **二次扫描**（在 `ForceClass` 等第一次钩子与 `DefaultSkillIds` 授予 **之后**）：仅当实例 **已有** 该 `SkillId` 时 `SkillLevel += Delta`；钳制到 `SkillConfig` 中该 Id 存在的最小/最大 `SkillLevel`；无该技能则跳过（不新授）。多本按槽左→右。缺/非法 Key → 该书无效。Mode1 制造不跑本 Token |
 
 **已定义行（示例）：**
-- `MagicBook_Restore` | `IsUnique=1` | `IsProbabilistic=0` | `EffectPhase=SoldierManufacture` | `EffectPayload=RaceWeightPick` | `EffectParams` 空 | DisplayName=`还原`
-- `MagicBook_WarriorEnhance` | `IsUnique=0` | `IsProbabilistic=0` | `EffectPhase=SoldierManufacture` | `EffectPayload=StatMul` | `EffectParams=Stat=Primary\|Mul=1.15\|ClassId=Class_Warrior` | DisplayName=`战士强化`
-- `MagicBook_SoldierSkillLevel` | `IsUnique=0` | `IsProbabilistic=0` | `EffectPhase=SoldierManufacture` | `EffectPayload=SoldierSkillLevelAdd` | `EffectParams=SkillId=Skill_01\|Delta=1` | DisplayName=`士兵技能升级`
-- `MagicBook_WarriorAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Warrior\|RequireClassId=Class_Warrior_0\|Chance=0.25` | DisplayName=`战士进阶`
-- `MagicBook_ArcherAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Archer\|RequireClassId=Class_Archer_0\|Chance=0.25` | DisplayName=`射手进阶`
-- `MagicBook_MageAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Mage\|RequireClassId=Class_Mage_0\|Chance=0.25` | DisplayName=`法师进阶`
-- `MagicBook_RogueAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Rogue\|RequireClassId=Class_Rogue_0\|Chance=0.25` | DisplayName=`刺客进阶`
+- `MagicBook_Restore` | … | `VisualStyleId` 空 | DisplayName=`还原`
+- `MagicBook_WarriorEnhance` | `ClassId=Class_BaseWarrior,Class_Warrior` | `VisualStyleId=Style_WarriorGlow` | `VisualPriority=20` | `VisualIntensityAdd=1` | DisplayName=`战士强化`
+- `MagicBook_SoldierSkillLevel` | … | `VisualStyleId=Style_SkillAberration` | `VisualPriority=10` | `VisualIntensityAdd=1` | DisplayName=`士兵技能升级`
+- `MagicBook_WarriorAdvance` / `ArcherAdvance` / `MageAdvance` / `RogueAdvance` | … | `VisualStyleId=Style_AdvanceOutline` | `VisualPriority=30` | `VisualIntensityAdd=1`（仅 `ForceClass` **hit**）
 
 ```
 MagicBookConfig {
@@ -1722,6 +1725,9 @@ MagicBookConfig {
   IconAssetId: Id
   DisplayName: string
   Description: string
+  VisualStyleId: Id | ""          // AllIn1 preset; empty = no visual; not a token
+  VisualPriority: int             // default 0
+  VisualIntensityAdd: number      // default 1
 }
 ```
 
@@ -2138,10 +2144,13 @@ WarriorInstance {
   SourceItemIds: Id[]             // remake recipe
   SourceSpiritCost: number        // remake Spirit gate
   SoldierSkills: { SkillId, SkillLevel }[]  // DefaultSkillIds @ Lv1; Mode2 may SoldierSkillLevelAdd
+  VisualStyleId: Id | ""          // Mode2 AllIn1 preset; empty = Prefab default
+  VisualPriority: int
+  VisualIntensity: number
 }
 ```
 
-**Save note:** Demo serializes the full snapshot per slot into `PlayerPrefs` (§6); `NextSerial` shares the pool key so re-enter does not collide Ids. `SoldierSkills` round-trips via `WarriorSaveDto.SoldierSkills` (`SoldierSkillEntry[]`, `[Serializable]` + **public fields**, JsonUtility); missing field / null / empty → empty list without dropping other snapshot fields. `RepairMissingStatSnapshots` only rebuilds StatBlock/recipe fields and **must not** clear existing `SoldierSkills`. PermanentDeath deletes the whole instance (skills drop with it; no separate skill migrate). Mode1 manufacture/remake: `ManufactureService.BuildWarriorFromAggregate` calls `SoldierSkillGrant.GrantDefaultSkillsAtLevel1` after `ResolveInstanceClassId` (Lv1; no MagicBook). Mode2 AutoManufacture: grant `DefaultSkillIds` from hand ClassId at craft; UI-016 Step2 per-slot pulse `ApplyEquippedBookAtSlot` (incl. `SoldierSkillLevelAdd` / `ForceClass` hit re-grant).
+**Save note:** Demo serializes the full snapshot per slot into `PlayerPrefs` (§6); `NextSerial` shares the pool key so re-enter does not collide Ids. `SoldierSkills` round-trips via `WarriorSaveDto.SoldierSkills` (`SoldierSkillEntry[]`, `[Serializable]` + **public fields**, JsonUtility); missing field / null / empty → empty list without dropping other snapshot fields. `VisualStyleId` / `VisualPriority` / `VisualIntensity` round-trip on the same DTO; missing on old saves → empty style / 0 / 0 (Prefab default mat). `RepairMissingStatSnapshots` only rebuilds StatBlock/recipe fields and **must not** clear existing `SoldierSkills` or `VisualStyle*`. PermanentDeath deletes the whole instance (skills and visual style drop with it; no separate skill migrate). Mode1 manufacture/remake: `ManufactureService.BuildWarriorFromAggregate` calls `SoldierSkillGrant.GrantDefaultSkillsAtLevel1` after `ResolveInstanceClassId` (Lv1; no MagicBook; VisualStyle empty). Mode2 AutoManufacture: grant `DefaultSkillIds` from hand ClassId at craft; UI-016 Step2 per-slot pulse `ApplyEquippedBookAtSlot` (incl. `SoldierSkillLevelAdd` / `ForceClass` hit re-grant; `TryApplyVisualStyle` **only on token hit**). `RefinalizeInstance` may re-pick `AppearanceId` and **must not** clear `VisualStyle*`.
 **Related:**
 
 - Class schema: **§9.9b**; BodyPart / BodyAppearance / ExtraEquipment / GemSuffix schemas: **§9.12–§9.15**.
@@ -3001,6 +3010,9 @@ Rules: [SPEC_03 §3.15](SPEC_03_GameRules.md) MagicBook / SpecialEquipSlot / Eff
 | IconAssetId | 魔法书Icon | `string` or `int` | UI icon asset Id |
 | DisplayName | 魔法书名称 | `string` | Display name / i18n Key |
 | Description | 魔法书介绍 | `string` | Display copy |
+| VisualStyleId | 特效外观ID | `string` or empty | **Not a token.** Empty = no visual. Non-empty → `WarriorVisualStyleCatalog` StyleId (mats under `Assets/Materials/AllIn1/`). Competes only on `EffectPayload` **hit**. **Edit Excel then Bake Mode2 Tables**; do not edit CSV only. Quote the cell if `ClassId` contains commas (Bake escapes). New Style mats/Catalog: [§15.2](#152-项目落盘目录) |
+| VisualPriority | 特效优先级 | `int` | Missing/empty = 0. On hit: higher replaces style and resets Intensity; same StyleId adds Intensity; lower ignored. Demo: skill 10, enhance 20, advance 30 |
+| VisualIntensityAdd | 特效强度加算 | `float` | Missing/empty = **1**. Written on replace; added on same style. View MPB-multiplies registered float props |
 
 **`EffectPhase` encoding (fixed):** `Phase` or `Phase|Phase|…`. Enums at least: `SoldierManufacture` \| `Combat` (Combat not implemented this round).
 
@@ -3031,19 +3043,16 @@ Rules: [SPEC_03 §3.15](SPEC_03_GameRules.md) MagicBook / SpecialEquipSlot / Eff
 | `RaceWeightPick` | `SoldierManufacture` | (none; must be empty) | Restore: weight-1 RaceId pick among chosen Head/Torso/2×Arm/2×Leg |
 | `ForceRace` | `SoldierManufacture` | **required** `RaceId` (`RaceConfig` PK) | Force finalized race; **probe before finalize**; beats `RaceWeightPick`; multiple left→right last wins; missing/illegal `RaceId` → book invalid, skip |
 | `ForceClass` | `SoldierManufacture` | **required** `ClassId` (target, `ClassConfig` PK); **optional** `RequireClassId`, `Chance` | Hook left→right. Rewrites class: `ClassId` + reload `ClassName` / `AttackMode` (`DefaultAppearanceId` / `PlacementOrder` follow new ClassId). `RequireClassId`: if set, attempt only when current `draft.ClassId` exact-matches (must exist in `ClassConfig`; illegal → book invalid); mismatch → skip (not invalid). `Chance`: [0,1]; default 1; rewrite only if `Random.value < Chance`; illegal/out of range → book invalid. Missing/illegal target `ClassId` → book invalid, keep current class |
-| `StatMul` | `SoldierManufacture` | **required** `Stat`, `Mul`; **optional** `ClassId` | Hook left→right. `Mul`≥0; missing/illegal → book invalid. `Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`. Optional `ClassId`: if set, apply only when `draft.ClassId` matches (must exist in `ClassConfig`; illegal → book invalid); omit = all soldiers. Five-dim or `All`: `Base(S)*=Mul`. `Stat=Primary`: `S`=current `ClassConfig.PrimaryStat`; `BodySum(S)=Σ` consumed BodyPart `StatBonus(S)` (no race/gem/equip; not already-mutated Base); `Base(S)+=(Mul−1)×BodySum(S)`; stackable = each book adds once against the same BodySum. Baked into Base then StaticStat; lasts until PermanentDeath |
+| `StatMul` | `SoldierManufacture` | **required** `Stat`, `Mul`; **optional** `ClassId` | Hook left→right. `Mul`≥0; missing/illegal → book invalid. `Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`. Optional `ClassId`: comma-separated PKs (OR); if set, apply only when `draft.ClassId` **matches any** (each Id must exist in `ClassConfig`; any illegal → book invalid); omit = all soldiers. Five-dim or `All`: `Base(S)*=Mul`. `Stat=Primary`: `S`=current `ClassConfig.PrimaryStat`; `BodySum(S)=Σ` consumed BodyPart `StatBonus(S)` (no race/gem/equip; not already-mutated Base); `Base(S)+=(Mul−1)×BodySum(S)`; stackable = each book adds once against the same BodySum. Baked into Base then StaticStat; lasts until PermanentDeath |
 | `StatAdd` | `SoldierManufacture` | **required** `Stat`, `Add` | Hook: `Base(S) += Add`. `Stat`∈ five dims/`All` (**not** `Primary`). `Add` must parse as a number (may be negative; StaticStat still `max(0,·)`); missing/illegal → book invalid |
 | `QualityDelta` | `SoldierManufacture` | **required** `Delta` (int, may be negative) | Appearance: `AvgLevelInt = round(mean BodyLevel) + ΣDelta`; no re-pick, no Base change; Deltas sum; missing/non-int `Delta` → book invalid (contributes 0) |
 | `SoldierSkillLevelAdd` | `SoldierManufacture` | **required** `SkillId`, `Delta` (int, may be negative) | **Second pass** (after first hook incl. `ForceClass` and `DefaultSkillIds` grant): if the instance **already has** that `SkillId`, `SkillLevel += Delta`; clamp to min/max `SkillLevel` rows in `SkillConfig` for that Id; if missing, skip (no new grant). Multiple books left→right. Missing/illegal keys → book invalid. Mode1 manufacture does not run this token |
 
 **Defined rows (examples):**
-- `MagicBook_Restore` | `IsUnique=1` | `IsProbabilistic=0` | `EffectPhase=SoldierManufacture` | `EffectPayload=RaceWeightPick` | empty `EffectParams` | DisplayName=`还原`
-- `MagicBook_WarriorEnhance` | `IsUnique=0` | `IsProbabilistic=0` | `EffectPhase=SoldierManufacture` | `EffectPayload=StatMul` | `EffectParams=Stat=Primary\|Mul=1.15\|ClassId=Class_Warrior` | DisplayName=`战士强化`
-- `MagicBook_SoldierSkillLevel` | `IsUnique=0` | `IsProbabilistic=0` | `EffectPhase=SoldierManufacture` | `EffectPayload=SoldierSkillLevelAdd` | `EffectParams=SkillId=Skill_01\|Delta=1` | DisplayName=`士兵技能升级`
-- `MagicBook_WarriorAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Warrior\|RequireClassId=Class_Warrior_0\|Chance=0.25` | DisplayName=`战士进阶`
-- `MagicBook_ArcherAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Archer\|RequireClassId=Class_Archer_0\|Chance=0.25` | DisplayName=`射手进阶`
-- `MagicBook_MageAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Mage\|RequireClassId=Class_Mage_0\|Chance=0.25` | DisplayName=`法师进阶`
-- `MagicBook_RogueAdvance` | `IsUnique=1` | `IsProbabilistic=1` | `EffectPhase=SoldierManufacture` | `EffectPayload=ForceClass` | `EffectParams=ClassId=Class_Rogue\|RequireClassId=Class_Rogue_0\|Chance=0.25` | DisplayName=`刺客进阶`
+- `MagicBook_Restore` | … | empty `VisualStyleId` | DisplayName=`还原`
+- `MagicBook_WarriorEnhance` | `ClassId=Class_BaseWarrior,Class_Warrior` | `VisualStyleId=Style_WarriorGlow` | `VisualPriority=20` | `VisualIntensityAdd=1` | DisplayName=`战士强化`
+- `MagicBook_SoldierSkillLevel` | … | `VisualStyleId=Style_SkillAberration` | `VisualPriority=10` | `VisualIntensityAdd=1` | DisplayName=`士兵技能升级`
+- `MagicBook_WarriorAdvance` / `ArcherAdvance` / `MageAdvance` / `RogueAdvance` | … | `VisualStyleId=Style_AdvanceOutline` | `VisualPriority=30` | `VisualIntensityAdd=1` (`ForceClass` **hit** only)
 
 ```
 MagicBookConfig {
@@ -3056,6 +3065,9 @@ MagicBookConfig {
   IconAssetId: Id
   DisplayName: string
   Description: string
+  VisualStyleId: Id | ""          // AllIn1 preset; empty = no visual; not a token
+  VisualPriority: int             // default 0
+  VisualIntensityAdd: number      // default 1
 }
 ```
 
@@ -3428,7 +3440,28 @@ Assets/Prefabs/Defend/Monsters/{ModelId}.prefab
 | 根 | 位移；士兵运行时挂 `WarriorAgentView` + `WarriorAnimView` + `NavMeshAgent`（可代码 Add；Demo `radius=0.1` / `height=0.1`）；Digger 根挂 `DigObstacleRadius` + `DigDiggerView` |
 | 子 `Visual` | `SpriteRenderer` + `Animator`（Controller 来自 Art 烘焙）；`localEulerAngles = (90, 0, 0)`，使 Sprite 朝 +Y，对齐 Dig/Defend/PushMap 俯视相机（相机 `Euler(90,0,0)`）；`sortingOrder` 高于地面 Tilemap（Demo ≥ 200） |
 
-- **可选 AllIn1 特效材质（Demo）：** Built-in 管线用 `AllIn1SpriteShader/AllIn1SpriteShader`；工程材质落 `Assets/Materials/AllIn1/`。例：`EvilMarine.mat`（红描边 + 轻 Glow；**不用** Demo 原版 ColorSwap/GlowTex/OutlineTex/OutlineDistort——那些贴图按整图 UV 设计，套到序列帧图集会花屏）。游戏 Prefab **允许**挂厂商 `AllIn1Shader`（Add Component 菜单名为 `AllIn1SpriteShader/AddAllIn1Shader`）与 `SetAtlasUvs`。序列帧要用 AllIn1 时须 `ATLAS_ON`，并由 **厂商 `SetAtlasUvs` 或项目 `AllIn1AtlasUvDriver`（二选一）** 写 `_Min/MaxX/YUV`。`AllIn1AtlasUvDriver` 走 MPB：`OnWillRenderObject` 写 UV，并 **`SetTexture(_MainTex, sprite.texture)`**（否则材质空 MainTex 时 `_MainTex_TexelSize` 按 1×1 计，描边偏移炸开成整格红块）。描边优先 `OUTBASEPIXELPERF`。厂商脚本带 `ExecuteInEditMode`，Prefab Mode Play 可能弹警告——**允许使用，不视为违规**。默认仍可用 `Sprites-Default`；Assembler 不得强行覆盖已指定的 AllIn1 材质。**当前 `App_0_00` Visual 不挂 `AllIn1AtlasUvDriver`。**
+- **可选 AllIn1 特效材质（Demo）：** Built-in 管线用 `AllIn1SpriteShader/AllIn1SpriteShader`；工程材质落 `Assets/Materials/AllIn1/`（含 `Style_WarriorGlow` / `Style_SkillAberration` / `Style_AdvanceOutline`；**不要**把游戏材质留在厂商 `AllIn1SpriteShader/Materials/`）。**不用** Demo 原版 ColorSwap/GlowTex/OutlineTex/OutlineDistort（整图 UV，套序列帧会花屏）。序列帧须 `ATLAS_ON`。**士兵 VisualStyle（§3.15 6b）：** `WarriorVisualStyleCatalog`（`Assets/Settings/Defend/`）绑 StyleId→Material；Instantiate 后赋 `sharedMaterial` + MPB 强度；禁止运行时 `new Material` / `EnableKeyword`。士兵 Visual **必须**用项目 `AllIn1AtlasUvDriver`（MPB 写 `_Min/MaxX/YUV` 并 **`SetTexture(_MainTex, sprite.texture)`**）；**禁止**厂商 `SetAtlasUvs` 写 `sharedMaterial`（同预制体多兵抢 UV）。缺 Driver 时 `WarriorAllIn1StyleView` 运行时补。厂商 `AllIn1Shader` 可留作编辑器工具（`ExecuteInEditMode` 警告为知情项），运行时不调用。描边优先 `OUTBASEPIXELPERF`。默认仍可用 `Sprites-Default`；Assembler 不得强行覆盖已指定的 AllIn1 材质。`App_0_00` Visual **挂** `AllIn1AtlasUvDriver`。UI-016 卡 / 布阵底栏缩略图本轮不套 AllIn1。
+
+**新增 VisualStyle 预设（操作流程）：** 日常只改两处——`MagicBookConfig` 定「谁在 Token **命中**后用哪套」；Catalog + `Assets/Materials/AllIn1/` 定「那套长什么样」。竞争 / 空列 / Mode1 见 [SPEC_03 §3.15 6b](SPEC_03_GameRules.md)。
+
+| 步 | 做什么 |
+|----|--------|
+| 1. 新建材质 | 在 `Assets/Materials/AllIn1/` **复制**最接近的 `Style_*.mat`，改名为新 `Style_YourEffect.mat`（`StyleId` 与文件名一致）。**禁止**直接引用或改厂商 `AllIn1SpriteShader/Materials/Visual*.mat`。也可在 Visual 上用厂商 `AllIn1Shader` 的 **Create New Material** / **Save Material To Folder**，保存路径必须是本目录 |
+| 2. 打开效果 | 用 AllIn1 材质面板在**编辑器**勾 keyword（禁止运行时 `EnableKeyword`）。**必开** Sprite inside an atlas? → `ATLAS_ON`。描边再开 Outline + Pixel Perfect（`OUTBASEPIXELPERF`）。**不要开** Color Swap / GlowTex / Outline Texture / Outline Distort。面板上的颜色/宽度/glow 即强度 1 的基准；运行时按 `VisualIntensity` 乘 Catalog 登记的 float |
+| 3. Catalog | 打开 `Assets/Settings/Defend/WarriorVisualStyleCatalog.asset`，加一行：`StyleId`、`Material`、可选 `IntensityFloatProperties`（空=只换预设、不叠加强度）。`DefendPrefabCatalog._visualStyleCatalog` 已绑本 SO，一般不必再绑 |
+| 4. 魔法书 | 改 Mode2 Excel `Manufacture_MagicBookConfig`：`VisualStyleId` / `VisualPriority` / `VisualIntensityAdd`（空 style=该书无特效；Priority 越大越优先；IntensityAdd 空=1）。然后 **Gravedigger2026 / Config / Bake Mode2 Tables**。`ClassId` 逗号 OR 时该格加引号 |
+| 5. Prefab / 手验 | 世界 Instantiate 后换 `sharedMaterial` + MPB；缺 `AllIn1AtlasUvDriver` 运行时补；**不要**挂厂商 `SetAtlasUvs`。须 **重新造兵**（旧池不补）。看布阵 / 守城 / 推图 3D 单位；士兵卡无 AllIn1。Console 命中应有 `VisualStyle=Style_…` |
+
+Demo Catalog 强度属性：
+
+| StyleId | IntensityFloatProperties |
+|---------|--------------------------|
+| `Style_WarriorGlow` | `_ColorRampBlend`、`_AlphaOutlineGlow`、`_InnerOutlineGlow` |
+| `Style_SkillAberration` | `_ChromAberrAmount`、`_ChromAberrAlpha` |
+| `Style_AdvanceOutline` | `_OutlineWidth`、`_OutlineGlow` |
+
+Demo 优先级：士兵技能 10、战士强化 20、职业进阶 30（进阶与强化同时命中 → 描边）。
+
 - View 层：`NavMeshAgent.updateRotation = false`（八向靠 Animator `DirIndex`，见 §15.5；士兵由 `WarriorAnimView` 驱动）。
 - **禁止**用 `GenericTopDownController` 作默认玩法控制器（见 §15.4）。
 - **Digger / BattleProtagonist** 已换为上述 `Visual` 结构（Art：`Protagonist/Digger`、`Protagonist/BattleProtagonist`）；**禁止** `DigAssetBuilder` / `DefendAssetBuilder` 再生成 Capsule/`Body` Mesh 占位覆盖这两 Prefab。
@@ -3529,7 +3562,28 @@ Same tree as ZH §15.2. Art holds bake outputs; runtime Instantiate uses `Prefab
 | Root | Translation; warriors get runtime `WarriorAgentView` + `WarriorAnimView` + `NavMeshAgent` (may AddComponent; Demo `radius=0.1` / `height=0.1`); Digger root keeps `DigObstacleRadius` + `DigDiggerView` |
 | Child `Visual` | `SpriteRenderer` + `Animator` (Controller from Art bake); `localEulerAngles = (90, 0, 0)` so the sprite faces +Y toward the Dig/Defend/PushMap top-down camera (`Euler(90,0,0)`); `sortingOrder` above ground Tilemap (Demo ≥ 200) |
 
-- **Optional AllIn1 effect materials (Demo):** Built-in pipeline uses `AllIn1SpriteShader/AllIn1SpriteShader`; project mats live under `Assets/Materials/AllIn1/`. Example mat: `EvilMarine.mat` (red outline + light Glow; **do not** use Demo ColorSwap/GlowTex/OutlineTex/OutlineDistort — those maps assume full-sprite UVs and glitch on spritesheets). Game Prefabs **may** mount vendor `AllIn1Shader` (Add Component menu: `AllIn1SpriteShader/AddAllIn1Shader`) and `SetAtlasUvs`. Spritesheets that use AllIn1 need `ATLAS_ON` plus **either vendor `SetAtlasUvs` or project `AllIn1AtlasUvDriver`** to write `_Min/MaxX/YUV`. `AllIn1AtlasUvDriver` uses MPB: `OnWillRenderObject` writes UVs and **`SetTexture(_MainTex, sprite.texture)`** (empty material MainTex makes `_MainTex_TexelSize` look like 1×1 and blows outline into a full-cell red fill). Prefer `OUTBASEPIXELPERF` for outline width. Vendor scripts use `ExecuteInEditMode` and may warn in Prefab Mode Play — **allowed, not a spec violation**. Default remains `Sprites-Default`; Assembler must not overwrite an authored AllIn1 material. **`App_0_00` Visual currently does not mount `AllIn1AtlasUvDriver`.**
+- **Optional AllIn1 effect materials (Demo):** Built-in pipeline uses `AllIn1SpriteShader/AllIn1SpriteShader`; project mats live under `Assets/Materials/AllIn1/` (`Style_WarriorGlow` / `Style_SkillAberration` / `Style_AdvanceOutline`; **do not** leave game mats in vendor `AllIn1SpriteShader/Materials/`). **Do not** use Demo ColorSwap/GlowTex/OutlineTex/OutlineDistort (full-sprite UVs glitch on spritesheets). Spritesheets need `ATLAS_ON`. **Soldier VisualStyle (§3.15 6b):** `WarriorVisualStyleCatalog` (`Assets/Settings/Defend/`) binds StyleId→Material; after Instantiate assign `sharedMaterial` + MPB intensity; no runtime `new Material` / `EnableKeyword`. Warrior Visual **must** use project `AllIn1AtlasUvDriver` (MPB `_Min/MaxX/YUV` and **`SetTexture(_MainTex, sprite.texture)`**); **forbid** vendor `SetAtlasUvs` writing `sharedMaterial`. `WarriorAllIn1StyleView` adds the driver if missing. Vendor `AllIn1Shader` may stay as an editor helper (`ExecuteInEditMode` warning is advisory) and is not called at runtime. Prefer `OUTBASEPIXELPERF`. Default remains `Sprites-Default`; Assembler must not overwrite an authored AllIn1 material. `App_0_00` Visual **mounts** `AllIn1AtlasUvDriver`. UI-016 cards / formation bar thumbs do not apply AllIn1 this round.
+
+**Adding a VisualStyle preset (procedure):** two places only — `MagicBookConfig` chooses which preset after a token **hit**; Catalog + `Assets/Materials/AllIn1/` defines how it looks. Compete / empty / Mode1 rules: [SPEC_03 §3.15 6b](SPEC_03_GameRules.md).
+
+| Step | Do this |
+|------|---------|
+| 1. New mat | **Duplicate** the closest `Style_*.mat` under `Assets/Materials/AllIn1/`, rename `Style_YourEffect.mat` (`StyleId` matches filename). **Do not** reference or edit vendor `AllIn1SpriteShader/Materials/Visual*.mat`. Or use vendor `AllIn1Shader` **Create New Material** / **Save Material To Folder** on Visual — save path **must** be this folder |
+| 2. Enable effects | Toggle keywords on the AllIn1 **material inspector** (no runtime `EnableKeyword`). **Required:** Sprite inside an atlas? → `ATLAS_ON`. For outline also Outline + Pixel Perfect (`OUTBASEPIXELPERF`). **Do not** enable Color Swap / GlowTex / Outline Texture / Outline Distort. Inspector color/width/glow are intensity=1 baselines; runtime multiplies Catalog float props by `VisualIntensity` |
+| 3. Catalog | Open `Assets/Settings/Defend/WarriorVisualStyleCatalog.asset`; add `StyleId`, `Material`, optional `IntensityFloatProperties` (empty = swap preset only, no intensity stack). `DefendPrefabCatalog._visualStyleCatalog` already points here |
+| 4. MagicBook | Edit Mode2 Excel `Manufacture_MagicBookConfig`: `VisualStyleId` / `VisualPriority` / `VisualIntensityAdd` (empty style = no visual from that book; higher Priority wins; IntensityAdd default 1). Then **Gravedigger2026 / Config / Bake Mode2 Tables**. Quote the cell when `ClassId` is comma-OR |
+| 5. Prefab / check | World Instantiate swaps `sharedMaterial` + MPB; missing `AllIn1AtlasUvDriver` is added at runtime; **do not** mount vendor `SetAtlasUvs`. **Re-craft** soldiers (old pool rows are not backfilled). Inspect 3D units on formation / Defend / PushMap; cards have no AllIn1. Console on hit: `VisualStyle=Style_…` |
+
+Demo Catalog intensity props:
+
+| StyleId | IntensityFloatProperties |
+|---------|--------------------------|
+| `Style_WarriorGlow` | `_ColorRampBlend`, `_AlphaOutlineGlow`, `_InnerOutlineGlow` |
+| `Style_SkillAberration` | `_ChromAberrAmount`, `_ChromAberrAlpha` |
+| `Style_AdvanceOutline` | `_OutlineWidth`, `_OutlineGlow` |
+
+Demo priorities: skill 10, warrior enhance 20, class advance 30 (advance + enhance both hit → outline).
+
 - View: `NavMeshAgent.updateRotation = false` (8-dir via Animator `DirIndex`, §15.5; soldiers driven by `WarriorAnimView`).
 - **Do not** use `GenericTopDownController` as the default gameplay controller (§15.4).
 - **Digger / BattleProtagonist** use the `Visual` layout above (Art: `Protagonist/Digger`, `Protagonist/BattleProtagonist`); **do not** let `DigAssetBuilder` / `DefendAssetBuilder` regenerate Capsule/`Body` Mesh over those Prefabs.

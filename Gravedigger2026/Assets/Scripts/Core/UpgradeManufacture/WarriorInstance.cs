@@ -38,5 +38,16 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         /// Mode2 may then SoldierSkillLevelAdd (SS-04).
         /// </summary>
         public readonly List<SoldierSkillEntry> SoldierSkills = new List<SoldierSkillEntry>();
+
+        /// <summary>
+        /// Mode2 AllIn1 preset baked on MagicBook token hit (SPEC_03 §3.15 6b). Empty = Prefab default.
+        /// </summary>
+        public string VisualStyleId;
+
+        /// <summary>Winning book's VisualPriority; 0 if none.</summary>
+        public int VisualPriority;
+
+        /// <summary>Stacked VisualIntensityAdd on the winning style.</summary>
+        public float VisualIntensity;
     }
 }

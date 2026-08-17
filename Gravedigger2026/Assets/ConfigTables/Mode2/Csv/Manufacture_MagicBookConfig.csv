@@ -1,8 +1,8 @@
-MagicBookId,IsUnique,IsProbabilistic,EffectPhase,EffectPayload,EffectParams,IconAssetId,DisplayName,Description
-MagicBook_Restore,1,0,SoldierManufacture,RaceWeightPick,,,还原,装备后制造时按部位 RaceId 加权随机定种族
-MagicBook_WarriorEnhance,0,0,SoldierManufacture,StatMul,Stat=Primary|Mul=1.15|ClassId=Class_Warrior,,战士强化,装备后，Mode2 制造的战士主属性增加躯体该维之和的 15%（可叠），至彻底死亡
-MagicBook_SoldierSkillLevel,0,0,SoldierManufacture,SoldierSkillLevelAdd,SkillId=Skill_01|Delta=1,,士兵技能升级,装备后，Mode2 制造时若士兵已有 Skill_01 则等级 +1（钳制到表内最大级）
-MagicBook_WarriorAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Warrior|RequireClassId=Class_Warrior_0|Chance=1,,战士进阶,装备后，Mode2 制造职业为 Class_Warrior_0 的士兵时，25% 概率变为 Class_Warrior
-MagicBook_ArcherAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Archer|RequireClassId=Class_Archer_0|Chance=0.25,,射手进阶,装备后，Mode2 制造职业为 Class_Archer_0 的士兵时，25% 概率变为 Class_Archer
-MagicBook_MageAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Mage|RequireClassId=Class_Mage_0|Chance=0.25,,法师进阶,装备后，Mode2 制造职业为 Class_Mage_0 的士兵时，25% 概率变为 Class_Mage
-MagicBook_RogueAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Rogue|RequireClassId=Class_Rogue_0|Chance=0.25,,刺客进阶,装备后，Mode2 制造职业为 Class_Rogue_0 的士兵时，25% 概率变为 Class_Rogue
+MagicBookId,IsUnique,IsProbabilistic,EffectPhase,EffectPayload,EffectParams,IconAssetId,DisplayName,Description,VisualStyleId,VisualPriority,VisualIntensityAdd
+MagicBook_Restore,1,0,SoldierManufacture,RaceWeightPick,,,还原,装备后制造时按部位 RaceId 加权随机定种族,,,
+MagicBook_WarriorEnhance,0,0,SoldierManufacture,StatMul,"Stat=Primary|Mul=1.15|ClassId=Class_BaseWarrior,Class_Warrior",,战士强化,装备后，Mode2 制造的枯骨战士/战士主属性增加躯体该维之和的 15%（可叠），至彻底死亡,Style_WarriorGlow,20,1
+MagicBook_SoldierSkillLevel,0,0,SoldierManufacture,SoldierSkillLevelAdd,SkillId=Skill_01|Delta=1,,士兵技能升级,装备后，Mode2 制造时若士兵已有 Skill_01 则等级 +1（钳制到表内最大级）,Style_SkillAberration,10,1
+MagicBook_WarriorAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Warrior|RequireClassId=Class_BaseWarrior|Chance=1,,战士进阶,装备后，Mode2 制造职业为 Class_BaseWarrior 的士兵时，变为 Class_Warrior,Style_AdvanceOutline,30,1
+MagicBook_ArcherAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Archer|RequireClassId=Class_BaseArcher|Chance=0.25,,射手进阶,装备后，Mode2 制造职业为 Class_BaseArcher 的士兵时，25% 概率变为 Class_Archer,Style_AdvanceOutline,30,1
+MagicBook_MageAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Mage|RequireClassId=Class_BaseMage|Chance=0.25,,法师进阶,装备后，Mode2 制造职业为 Class_BaseMage 的士兵时，25% 概率变为 Class_Mage,Style_AdvanceOutline,30,1
+MagicBook_RogueAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Rogue|RequireClassId=Class_BaseRogue|Chance=0.25,,刺客进阶,装备后，Mode2 制造职业为 Class_BaseRogue 的士兵时，25% 概率变为 Class_Rogue,Style_AdvanceOutline,30,1

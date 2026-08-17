@@ -38,6 +38,12 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _block ??= new MaterialPropertyBlock();
+            Refresh();
+        }
+
+        /// <summary>Clears the sprite cache and rewrites atlas UVs / MainTex on the MPB.</summary>
+        public void Refresh()
+        {
             _lastSprite = null;
             _lastTexture = null;
             Apply();

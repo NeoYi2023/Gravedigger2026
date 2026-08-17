@@ -996,6 +996,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     _mapCenter.x + entry.PositionX,
                     _mapCenter.y,
                     _mapCenter.z + entry.PositionZ);
+                WarriorAllIn1StyleView.ApplyTo(go, _catalog != null ? _catalog.VisualStyleCatalog : null, warrior);
 
                 ClassConfigRow classRow = null;
                 if (_configs != null && !string.IsNullOrEmpty(warrior.ClassId))

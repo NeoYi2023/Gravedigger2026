@@ -321,7 +321,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         /// Legacy save repair (SPEC_04 §6): warriors whose StatBlock fields were dropped by JsonUtility
         /// (BaseStats all-zero) but still have SourceItemIds — rebuild Base/Equip/GemMult/RaceAdjust/BodyLife
         /// and persist. Preserves Id / RaceId / AppearanceId / RemainingHP / ControlPowerCost / names /
-        /// SoldierSkills (must not clear baked skills).
+        /// SoldierSkills / VisualStyle* (must not clear baked skills or visual style).
         /// </summary>
         public int RepairMissingStatSnapshots()
         {
@@ -387,7 +387,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             warrior.GemMult = aggregate.GemMult;
             warrior.RaceAdjustCoeff = raceAdjust;
             warrior.BodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
-            // SoldierSkills: leave as loaded (SS-02). Repair must not clear baked skills.
+            // SoldierSkills / VisualStyle: leave as loaded. Repair must not clear baked skills or visual style.
 
             if (warrior.GemIds.Count == 0 && aggregate.GemIds.Count > 0)
             {

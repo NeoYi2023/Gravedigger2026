@@ -448,6 +448,24 @@ namespace Gravedigger2026.Gameplay.Formation
             if (prefab != null)
             {
                 _worldDragPreview = Instantiate(prefab, parent);
+                WarriorInstance warrior = null;
+                if (_pool != null)
+                {
+                    var warriors = _pool.Warriors;
+                    for (var i = 0; i < warriors.Count; i++)
+                    {
+                        if (string.Equals(warriors[i].Id, warriorId, StringComparison.Ordinal))
+                        {
+                            warrior = warriors[i];
+                            break;
+                        }
+                    }
+                }
+
+                WarriorAllIn1StyleView.ApplyTo(
+                    _worldDragPreview,
+                    _defendCatalog != null ? _defendCatalog.VisualStyleCatalog : null,
+                    warrior);
             }
             else
             {

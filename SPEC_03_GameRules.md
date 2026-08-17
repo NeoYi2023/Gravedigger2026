@@ -24,8 +24,9 @@
 | ApproxBodyLevel | 近似品质 | Mode2 选料：相对锚点 `|ΔBodyLevel| ≤ 1`；候选排序更高 → 相同 → 低 1 级（§3.15）。 |
 | PlacementOrder | 放置排序 | `ClassConfig` 字段（≥1）；AutoManufacture 自动上阵时按此升序先后放置各职业（§3.15，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | FormationClassZone | 职业布阵区 | 布阵地图 Prefab 上按职业标定的空间区域（**IsoDiamond**：`HalfExtents` 为菱形顶点到中心；与 WalkSurface 同形；无 Y 旋转）；自动上阵落入对应区并做碰撞挤开（§3.15，[SPEC_04 §13](SPEC_04_Technical.md)）。 |
-| MagicBook | 魔法书 | 主角特殊装备；效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发；含「还原」（`RaceWeightPick`）、「战士强化」（`StatMul`/`Primary`）、「士兵技能升级」（`SoldierSkillLevelAdd`）、「职业进阶」（`ForceClass`）等（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。**勿与** §3.16 `ProtagonistEquipment` 混淆。 |
-| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique、IsProbabilistic（概率型）、EffectPhase、EffectPayload、EffectParams、Icon、名称、介绍（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| MagicBook | 魔法书 | 主角特殊装备；效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发；含「还原」（`RaceWeightPick`）、「战士强化」（`StatMul`/`Primary`）、「士兵技能升级」（`SoldierSkillLevelAdd`）、「职业进阶」（`ForceClass`）等；命中时可竞争 `VisualStyle`（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。**勿与** §3.16 `ProtagonistEquipment` 混淆。 |
+| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique、IsProbabilistic、EffectPhase、EffectPayload、EffectParams、VisualStyleId/VisualPriority/VisualIntensityAdd、Icon、名称、介绍（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
+| VisualStyle | 特效外观 | 同一 `AppearanceId` Prefab 上的 AllIn1 材质预设；Mode2 魔法书 Token **命中**后按优先级烘进实例；世界单位 Instantiate 套用（§3.15，[SPEC_04 §15.2](SPEC_04_Technical.md)）。 |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 **6** 槽装配魔法书；同书默认可叠，`IsUnique=1` 不可（§3.15）。 |
 | ProtagonistEquipment | 主角装备 | 主角成长型装备；仓内拥有即按当前等级生效；同 Id 转化经验 / 公共经验升级；与 MagicBook、材料 Warehouse、士兵 ExtraEquipment **并行**（§3.16，[SPEC_04 §9.25](SPEC_04_Technical.md)）。 |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档级状态仓：存 `OwnedEquip[]`；不限种类总数；每种 `EquipId` 至多 1 件（§3.16）。 |
@@ -212,8 +213,9 @@
 | ApproxBodyLevel | 近似品质 | Mode2 pick: `|ΔBodyLevel| ≤ 1` vs anchor; sort higher → same → lower-by-1 (§3.15). |
 | PlacementOrder | 放置排序 | `ClassConfig` field (≥1); AutoManufacture deploys classes in ascending order (§3.15, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | FormationClassZone | 职业布阵区 | Authoring zone on formation map Prefab per ClassId (**IsoDiamond**: `HalfExtents` = vertex-to-center; same shape as WalkSurface; no Y rotation); auto-deploy lands there with separation (§3.15, [SPEC_04 §13](SPEC_04_Technical.md)). |
-| MagicBook | 魔法书 | Protagonist special equipment; Mode2 applies at UI-016 Step2 **per-slot pulse peak**; includes Restore (`RaceWeightPick`), Warrior Enhance (`StatMul`/`Primary`), Soldier skill level (`SoldierSkillLevelAdd`), class advance (`ForceClass`) (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). **Distinct from** §3.16 `ProtagonistEquipment`. |
-| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique, IsProbabilistic (chance-trigger marker), EffectPhase, EffectPayload, EffectParams, Icon, name, description (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| MagicBook | 魔法书 | Protagonist special equipment; Mode2 applies at UI-016 Step2 **per-slot pulse peak**; includes Restore (`RaceWeightPick`), Warrior Enhance (`StatMul`/`Primary`), Soldier skill level (`SoldierSkillLevelAdd`), class advance (`ForceClass`); a **hit** may compete for `VisualStyle` (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). **Distinct from** §3.16 `ProtagonistEquipment`. |
+| MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique, IsProbabilistic, EffectPhase, EffectPayload, EffectParams, VisualStyleId/VisualPriority/VisualIntensityAdd, Icon, name, description (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
+| VisualStyle | 特效外观 | AllIn1 material preset on the same `AppearanceId` Prefab; Mode2 bakes on MagicBook token **hit** by priority; applied at world Instantiate (§3.15, [SPEC_04 §15.2](SPEC_04_Technical.md)). |
 | SpecialEquipSlot | 特殊装备槽 | Default **6** protagonist slots for MagicBooks; same book stackable unless `IsUnique=1` (§3.15). |
 | ProtagonistEquipment | 主角装备 | Leveling protagonist gear; owned-in-warehouse applies at current level; same-Id convert Exp / common Exp upgrade; **parallel** to MagicBook, material Warehouse, soldier ExtraEquipment (§3.16, [SPEC_04 §9.25](SPEC_04_Technical.md)). |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | Save-scoped status warehouse of `OwnedEquip[]`; unlimited distinct kinds; at most one entry per `EquipId` (§3.16). |
@@ -652,7 +654,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；Step2 逐兵加强/单槽脉冲套该书/Idle 揭示/每 3 兵加速；播完后按最终 ClassId 上阵再进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | **更新**（单槽节拍：`ApplyEquippedBookAtSlot` 于脉冲峰值；Deploy 延后） |
 | D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`、`App_0_01`…`App_0_33`、`App_4_41`、`App_5_51`） |
 | D-057 | 样例 `Ground_*` 的 `FormationClassZone` 覆盖当前模式 `ClassConfig` **全部** ClassId（缺区→自动上阵留池）；Mode2 须含 `Class_DarkMage`/`Class_Guardian` 等 | P1 | 已实现（全量 ClassId 同步 + 样例 HalfExtents 锁定 `(3.85, 2)`：Ensure 读 Mode2 `Manufacture_ClassConfig`；已有区保留世界 XZ；缺补/表外删；未调用 GenerateAll） |
-| D-058 | Mode2 魔法书「战士强化」：装备 `MagicBook_WarriorEnhance` 后 AutoManufacture **Step2 该书槽脉冲**仅对 `Class_Warrior` 将主属性 Base 增加躯体该维 Σ StatBonus 的 15%（可叠；种族不过滤）；非战士不变；写入实例至彻底死亡；Dig HUD GM 可装备 | P1 | **更新**（生效点改为 Step2 单槽脉冲） |
+| D-058 | Mode2 魔法书「战士强化」：装备 `MagicBook_WarriorEnhance` 后 AutoManufacture **Step2 该书槽脉冲**仅对 `Class_BaseWarrior` / `Class_Warrior` 将主属性 Base 增加躯体该维 Σ StatBonus 的 15%（可叠；种族不过滤）；其它职业不变；写入实例至彻底死亡；Dig HUD GM 可装备 | P1 | **更新**（生效点改为 Step2 单槽脉冲；职业含枯骨战士） |
 | D-059 | 主角装备 Dig 垂直：`ProtagonistEquipmentConfig` 表加载（Mode1+Mode2）+ 装备仓 Service/存档 + Dig caps 科技与装备加法合并 + Dig HUD GM 手验（发放 `Equip_IronShovel` / 公共经验）；正式装备 UI / 制造·战斗 Token **后置** | P1 | **完成**（PE-01～PE-04；方案 A；issues `.scratch/protagonist-equipment/`；Demo 装备=`Equip_IronShovel` 铁铲） |
 | D-060 | 主角装备「矿灯」`Equip_MinerLamp`：表 5 级（升下一级/转化经验均为 1）+ Q4/Q5/Q6 生成权重按当前行累计 +10（缺席视为 0）+ Dig HUD GM 发放/划入手验 | P1 | **完成**（PE-05～PE-08；方案 A；issues `.scratch/protagonist-equipment/`） |
 | D-061 | ToolsPanel Demo GM：增加主角装备（当前模式表按 EquipId 去重，点一次 `TryAcquire`）+ 增加魔法书（MagicBookConfig 全表，点一次 `TryEquip`；唯一已装/槽满失败）；GmGrantListPanel（UI-019）；Dig HUD GM 保留；正式仓/装配 UI **后置** | P1 | **完成**（TP-00～02；方案 A；issues `.scratch/tools-panel-gm-grant/`） |
@@ -706,7 +708,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; Step2 per-soldier amplify / per-slot pulse applies that book / Idle reveal / +25% speed every 3; then deploy by final ClassId → UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | **Updated** (per-slot beat: `ApplyEquippedBookAtSlot` at pulse peak; Deploy deferred) |
 | D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`, `App_0_01`…`App_0_33`, `App_4_41`, `App_5_51`) |
 | D-057 | Sample `Ground_*` `FormationClassZone` covers **every** current-mode `ClassConfig.ClassId` (no zone → auto-deploy stays in pool); Mode2 must include `Class_DarkMage`/`Class_Guardian` etc. | P1 | Done (full ClassId sync + sample HalfExtents locked `(3.85, 2)`: Ensure reads Mode2 `Manufacture_ClassConfig`; existing zones keep world XZ; add missing / remove orphans; no GenerateAll) |
-| D-058 | Mode2 MagicBook Warrior Enhance: equipped `MagicBook_WarriorEnhance` on AutoManufacture **Step2 that slot's pulse** adds 15% of body Σ StatBonus(class PrimaryStat) to Base for `Class_Warrior` only (stackable; no race filter); other classes unchanged; baked until PermanentDeath; Dig HUD GM can equip | P1 | **Updated** (apply point → Step2 per-slot pulse) |
+| D-058 | Mode2 MagicBook Warrior Enhance: equipped `MagicBook_WarriorEnhance` on AutoManufacture **Step2 that slot's pulse** adds 15% of body Σ StatBonus(class PrimaryStat) to Base for `Class_BaseWarrior` / `Class_Warrior` only (stackable; no race filter); other classes unchanged; baked until PermanentDeath; Dig HUD GM can equip | P1 | **Updated** (apply point → Step2 per-slot pulse; includes bone warrior) |
 | D-059 | ProtagonistEquipment Dig vertical: load `ProtagonistEquipmentConfig` (Mode1+Mode2) + warehouse Service/persist + Dig caps tech+equip additive merge + Dig HUD GM handcheck (grant `Equip_IronShovel` / common Exp); formal equip UI / Manufacture·Combat tokens **deferred** | P1 | **Done** (PE-01–PE-04; Approach A; issues `.scratch/protagonist-equipment/`; Demo gear=`Equip_IronShovel` Iron Shovel) |
 | D-060 | ProtagonistEquipment Miner Lamp `Equip_MinerLamp`: 5-level table (ExpToNext/ConvertExp=1) + Q4/Q5/Q6 spawn-weight cumulative +10 at current row (absent treated as 0) + Dig HUD GM grant/spend handcheck | P1 | **Done** (PE-05–PE-08; Approach A; issues `.scratch/protagonist-equipment/`) |
 | D-061 | ToolsPanel Demo GM: Grant Protagonist Equipment (distinct EquipId, one click `TryAcquire`) + Grant MagicBook (full MagicBookConfig, one click `TryEquip`; unique already equipped / slots full fail); GmGrantListPanel (UI-019); Dig HUD GM kept; formal warehouse/equip UI **deferred** | P1 | **Done** (TP-00–02; Approach A; issues `.scratch/tools-panel-gm-grant/`) |
@@ -3069,15 +3071,16 @@ while 仓库满足最低配方:
 | 概率型 | `IsProbabilistic=1` 标记该书为概率触发魔法。`ForceClass` 的 `Chance` **真正 roll**；其它 Token 本轮仍不读本列。`0`=无概率 |
 | 触发 | **不在造兵循环内套书。** 本批 flush→池且造兵数>0 后，UI-016 Step2：聚焦该兵 → 6 槽自左→右伸缩（空槽照跳、无效果）；**仅当前缩放到峰值的那一槽**对聚焦兵执行其 `EffectPayload`（须 `EffectPhase` 含 `SoldierManufacture`）。表现层只回调槽索引，规则在钩子内解析 Token |
 | 「还原」 | `MagicBook_Restore`：`EffectPayload=RaceWeightPick`、`EffectParams` 空；**该书槽脉冲时**用实例 `SourceItemIds` 对应部位 `RaceId` 权重 **1** 重抽种族并重载 `RaceAdjustCoeff`；`IsUnique=1` |
-| 「战士强化」 | `MagicBook_WarriorEnhance`：`EffectPayload=StatMul`、`EffectParams=Stat=Primary\|Mul=1.15\|ClassId=Class_Warrior`；`IsUnique=0` 可叠；仅 Mode2；种族不过滤；职业须为战士；见下 `StatMul` / `Primary` |
+| 「战士强化」 | `MagicBook_WarriorEnhance`：`EffectPayload=StatMul`、`EffectParams=Stat=Primary\|Mul=1.15\|ClassId=Class_BaseWarrior,Class_Warrior`；`IsUnique=0` 可叠；仅 Mode2；种族不过滤；职业须为枯骨战士或战士（不含近卫/狂战等）；见下 `StatMul` / `Primary` |
 | 「士兵技能升级」 | `MagicBook_SoldierSkillLevel`：`EffectPayload=SoldierSkillLevelAdd`、`EffectParams=SkillId=Skill_01\|Delta=1`；`IsUnique=0` 可叠；**该书槽脉冲时**立刻升已有技能（无二次扫描）；见下 |
-| 「职业进阶」 | 四本 `IsUnique=1` `IsProbabilistic=1` `EffectPayload=ForceClass` `Chance=0.25`：`MagicBook_WarriorAdvance`（`RequireClassId=Class_Warrior_0`→`ClassId=Class_Warrior`）等。精确 ClassId；仅 Mode2 |
+| 「职业进阶」 | 四本 `IsUnique=1` `IsProbabilistic=1` `EffectPayload=ForceClass` `Chance=0.25`：`MagicBook_WarriorAdvance`（`RequireClassId=Class_BaseWarrior`→`ClassId=Class_Warrior`）等。精确 ClassId；仅 Mode2 |
 | 指定种族 | `ForceRace`：必填 `RaceId`；**该书槽脉冲时**改写种族（未实现 Token 仍空 apply） |
 | 指定职业 | `ForceClass`：必填 `ClassId`；可选 `RequireClassId` / `Chance`（语义同前）。**该书槽脉冲时**判定；命中则改写 `ClassId`/`AttackMode`，并 **Clear 后重授** 新职业 `DefaultSkillIds`@Lv1。若「技能升级」在「进阶」左边，进阶会清掉已加等级 |
 | 属性倍率 | `StatMul`：语义同前；`BodySum` 用实例 `SourceItemIds` 反查躯体 `StatBonus`；**该书槽脉冲时**写入 Base |
 | 属性加算 / 品质偏移 | `StatAdd` / `QualityDelta`：登记语义同前；未实现则空 apply |
 | 士兵技能升级 | `SoldierSkillLevelAdd`：必填 `SkillId`、`Delta`；**该书槽脉冲时**立刻 apply；仅当实例 **已有** 该 `SkillId` 时 `SkillLevel += Delta`（钳制 SkillConfig 最小/最大级）；无该技能则跳过（**不新授**）。**无**消耗经验升级 |
-| 每槽后定稿 | apply 后立刻重算 StaticStat / MaxHP / 外观 / 命名；`RemainingHP=MaxHP`；士兵卡立刻刷新职业名与 `Lv.N`；Idle 仍在该兵 6 槽全部结束后揭示 |
+| 每槽后定稿 | apply 后立刻重算 StaticStat / MaxHP / 造型外观 / 命名；`RemainingHP=MaxHP`；**不得清空**已烘进的 `VisualStyleId`；士兵卡立刻刷新职业名与 `Lv.N`；Idle 仍在该兵 6 槽全部结束后揭示 |
+| 特效外观 | 见下「6b. 特效外观定稿」；**不是** `EffectPayload` Token |
 | Fallback | 演出未能启动或阶段 `Exit` 中断 → 对未处理槽按左→右瞬时 apply 剩余书，再 persist + 上阵 |
 | 编码 | `EffectPayload` 须为 [SPEC_04 §9.24](SPEC_04_Technical.md) 已登记 Token；一书一 Token |
 | 其它书 | 未登记 / 未实现 Token 仍空 apply + 警告日志 |
@@ -3099,6 +3102,25 @@ while 仓库满足最低配方:
 7. 仍无 → 全表均匀随机
 
 （说明：A 空仍先亡灵改写，**改写前**不吃 `DefaultAppearanceId`；改写后 A 仍空或 B 空时用默认外形。避免混族 3 级兵因无「亡灵+该等级」行掉到 `App_94` 等保底。）
+
+**6b. 特效外观定稿（`VisualStyle`；与造型 `AppearanceId` 独立）**
+
+同一士兵 Prefab 上的 AllIn1 材质变体。Mode2 Step2 **仅当该书 `EffectPayload` 真正命中**（skip / miss / 无效 Token **不**竞争）才按 `MagicBookConfig.VisualStyleId` 竞争写入实例：
+
+| 规则 | 说明 |
+|------|------|
+| 空列 | `VisualStyleId` 空 → 该书无特效；实例三字段保持 |
+| 覆盖 | 实例尚无 style，**或** 该书 `VisualPriority` **大于** 当前 `VisualPriority` → 换成该书 style，`VisualIntensity = VisualIntensityAdd`（列空缺省 1） |
+| 同 Id 叠加 | 该书 style **等于** 当前 → `VisualIntensity += VisualIntensityAdd` |
+| 低优先 | 否则保留赢家（低优先书 **不**给赢家加强度） |
+| 造型重选 | `RefinalizeInstance` 可改 `AppearanceId`，**不得**清空 `VisualStyle*` |
+| 套用 | 保卫 / 推图 / 布阵场上预览 / 拖拽预览 Instantiate 后：Catalog 取材质赋 `sharedMaterial`（禁止 `new Material` / 运行时 `EnableKeyword`），MPB 写强度；缺 `AllIn1AtlasUvDriver` 则补 |
+| 不做 | UI-016 士兵卡 Idle 贴图、布阵底栏缩略图本轮 **不**套 AllIn1（仍采样 Sprite） |
+| Mode1 / GM 添加士兵 | 三字段空 → 保留 Prefab 默认材质 |
+
+Demo 样例：`MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1；四本 `*Advance`→`Style_AdvanceOutline` P30 Add1（仅 hit）；`MagicBook_SoldierSkillLevel`→`Style_SkillAberration` P10 Add1；`MagicBook_Restore` 空。
+
+新增 Style 的材质 / Catalog / Excel Bake 步骤见 [SPEC_04 §15.2](SPEC_04_Technical.md)「新增 VisualStyle 预设」。
 
 **7. 完成制造放入临时仓库**
 
@@ -3242,15 +3264,16 @@ Clear formation → (if crafted>0) UI-016 Step2 per-slot MagicBook apply → aut
 | Probabilistic | `IsProbabilistic=1` marks chance-trigger. `ForceClass` `Chance` **rolls**; other tokens ignore this column this round |
 | Trigger | **Not during the craft loop.** After flush→pool with crafted>0, UI-016 Step2: focus soldier → 6 slots pulse left→right (empty slots pulse, no effect); **only the slot at peak scale** applies its `EffectPayload` (`EffectPhase` must include `SoldierManufacture`). View callbacks slot index only; Core parses tokens |
 | Restore | `MagicBook_Restore`: `RaceWeightPick`; **on that slot's pulse**, weight-1 re-pick race from instance `SourceItemIds` part RaceIds and reload `RaceAdjustCoeff`; `IsUnique=1` |
-| Warrior Enhance | `MagicBook_WarriorEnhance`: `StatMul` / `Stat=Primary` / `ClassId=Class_Warrior`; stackable; Mode2 only |
+| Warrior Enhance | `MagicBook_WarriorEnhance`: `StatMul` / `Stat=Primary` / `ClassId=Class_BaseWarrior,Class_Warrior`; stackable; Mode2 only |
 | Soldier skill level | `MagicBook_SoldierSkillLevel`: `SoldierSkillLevelAdd`; **on that slot's pulse** immediately; no second pass |
-| Class advance | Four `ForceClass` books with `Chance=0.25`; Mode2 only |
+| Class advance | Four `ForceClass` books with `Chance=0.25`; `WarriorAdvance` `RequireClassId=Class_BaseWarrior`→`Class_Warrior`; Mode2 only |
 | Force race | `ForceRace`: required `RaceId`; apply **on that slot's pulse** (unimplemented → empty apply) |
 | Force class | `ForceClass`: on pulse; on hit rewrite class and **Clear then re-grant** new `DefaultSkillIds`@Lv1. Skill-level books left of advance are wiped by promotion |
 | Stat mul | `StatMul`: `BodySum` from `SourceItemIds`; apply on that slot's pulse |
 | Stat add / Quality | Registered; unimplemented → empty apply |
 | Soldier skill level | `SoldierSkillLevelAdd`: on pulse; only if instance already has `SkillId`; clamp to SkillConfig range; **no** new grant |
-| After each slot | Refinalize StaticStat / MaxHP / appearance / name; `RemainingHP=MaxHP`; card refreshes class name / `Lv.N`; Idle still after that soldier's 6 slots |
+| After each slot | Refinalize StaticStat / MaxHP / body appearance / name; `RemainingHP=MaxHP`; **must not** clear baked `VisualStyleId`; card refreshes class name / `Lv.N`; Idle still after that soldier's 6 slots |
+| Visual style | See **6b** below; **not** an `EffectPayload` token |
 | Fallback | Presentation fail or stage Exit → instant `ApplyRemaining` left→right, then persist + deploy |
 | Encoding | Registered `EffectPayload` tokens ([SPEC_04 §9.24](SPEC_04_Technical.md)) |
 | Other books | Unregistered / unimplemented → empty apply + warn |
@@ -3272,6 +3295,25 @@ In craft loop: grant `DefaultSkillIds` (Lv1) from hand `ClassId` → finalize St
 7. Else full-table uniform
 
 (Note: A-empty still rewrites to Undead first — do **not** eat `DefaultAppearanceId` before the rewrite; after rewrite, use default when A is still empty or B is empty. Prevents mixed-race Lv3 soldiers falling to `App_94` when no Undead+level row exists.)
+
+**6b. VisualStyle finalize (independent of `AppearanceId`)**
+
+AllIn1 material preset on the same soldier Prefab. Mode2 Step2 competes `MagicBookConfig.VisualStyleId` **only on a real token hit** (skip / miss / invalid do **not** compete):
+
+| Rule | Notes |
+|------|-------|
+| Empty | Empty `VisualStyleId` → no visual from that book |
+| Replace | No current style, **or** book `VisualPriority` **>** current → set style, `VisualIntensity = VisualIntensityAdd` (empty column defaults to 1) |
+| Same Id | Same style → `VisualIntensity += VisualIntensityAdd` |
+| Lower | Else keep winner (loser does **not** add intensity) |
+| Refinalize | May change `AppearanceId`; **must not** clear `VisualStyle*` |
+| Apply | After Defend / PushMap / formation battlefield / drag-preview Instantiate: Catalog `sharedMaterial` (no `new Material` / runtime `EnableKeyword`) + MPB intensity; add `AllIn1AtlasUvDriver` if missing |
+| Out of scope | UI-016 card Idle sprite and formation bar thumbnails **do not** apply AllIn1 this round |
+| Mode1 / GM grant | Empty fields → Prefab default material |
+
+Demo samples: `MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1; four `*Advance`→`Style_AdvanceOutline` P30 Add1 (hit only); `MagicBook_SoldierSkillLevel`→`Style_SkillAberration` P10 Add1; `MagicBook_Restore` empty.
+
+New Style mats / Catalog / Excel Bake: [SPEC_04 §15.2](SPEC_04_Technical.md) “Adding a VisualStyle preset”.
 
 **7. Temp warehouse**
 

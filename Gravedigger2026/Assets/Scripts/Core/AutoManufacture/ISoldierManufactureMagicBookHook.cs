@@ -98,7 +98,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             var payload = (row.EffectPayload ?? string.Empty).Trim();
             if (string.Equals(payload, RaceResolve.RaceWeightPickPayload, StringComparison.Ordinal))
             {
-                ApplyRaceWeightPick(warrior, magicBookId);
+                ApplyRaceWeightPick(warrior, magicBookId, row);
                 return;
             }
 
@@ -159,7 +159,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             return false;
         }
 
-        private void ApplyRaceWeightPick(WarriorInstance warrior, string magicBookId)
+        private void ApplyRaceWeightPick(WarriorInstance warrior, string magicBookId, MagicBookConfigRow row)
         {
             var candidates = CollectSourceRaceIds(warrior);
             if (candidates.Count == 0)
@@ -185,6 +185,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 warrior.RaceAdjustCoeff = default;
             }
 
+            WarriorVisualStyleBake.TryApply(warrior, row);
             Debug.Log(
                 $"[MagicBook] SoldierManufacture Restore (RaceWeightPick) book={magicBookId} " +
                 $"warrior={warrior.Id} Race={raceId}");
@@ -240,6 +241,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             entry.SkillLevel = next;
+            WarriorVisualStyleBake.TryApply(warrior, row);
             Debug.Log(
                 $"[MagicBook] SoldierSkillLevelAdd skill={skillId} {before}{delta:+0;-0;+0}→{next} " +
                 $"(clamp {minLevel}..{maxLevel}) book={magicBookId} warrior={warrior.Id} class={warrior.ClassId}");
@@ -330,6 +332,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             warrior.ClassId = targetRow.ClassId;
             warrior.AttackMode = targetRow.AttackMode;
             SoldierSkillGrant.GrantDefaultSkillsAtLevel1(warrior, _configs);
+            WarriorVisualStyleBake.TryApply(warrior, row);
             Debug.Log(
                 $"[MagicBook] ForceClass hit roll={roll:0.###} chance={chance} " +
                 $"book={magicBookId} warrior={warrior.Id} {fromClassId}→{warrior.ClassId} " +
@@ -355,27 +358,15 @@ namespace Gravedigger2026.Core.AutoManufacture
                 return;
             }
 
-            if (MagicBookEffectParams.TryGet(map, "ClassId", out var classFilter))
+            if (MagicBookEffectParams.TryGet(map, "ClassId", out var classFilter)
+                && !MatchesClassIdFilter(classFilter, warrior.ClassId, magicBookId, warrior.Id))
             {
-                if (!_configs.TryGetClass(classFilter, out _))
-                {
-                    Debug.LogWarning(
-                        $"[MagicBook] StatMul invalid ClassId='{classFilter}' book={magicBookId} warrior={warrior.Id}");
-                    return;
-                }
-
-                if (!string.Equals(warrior.ClassId, classFilter, StringComparison.Ordinal))
-                {
-                    Debug.Log(
-                        $"[MagicBook] StatMul skip class mismatch book={magicBookId} " +
-                        $"warrior={warrior.Id} class={warrior.ClassId} filter={classFilter}");
-                    return;
-                }
+                return;
             }
 
             if (string.Equals(statText, StatPrimary, StringComparison.Ordinal))
             {
-                ApplyPrimaryStatMul(warrior, magicBookId, mul);
+                ApplyPrimaryStatMul(warrior, magicBookId, mul, row);
                 return;
             }
 
@@ -384,6 +375,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 var block = warrior.BaseStats;
                 ScaleAll(ref block, mul);
                 warrior.BaseStats = block;
+                WarriorVisualStyleBake.TryApply(warrior, row);
                 Debug.Log(
                     $"[MagicBook] StatMul All *={mul} book={magicBookId} warrior={warrior.Id}");
                 return;
@@ -400,12 +392,17 @@ namespace Gravedigger2026.Core.AutoManufacture
             var stats = warrior.BaseStats;
             stats.Set(kind, stats.Get(kind) * mul);
             warrior.BaseStats = stats;
+            WarriorVisualStyleBake.TryApply(warrior, row);
             Debug.Log(
                 $"[MagicBook] StatMul {kind} *={mul} book={magicBookId} warrior={warrior.Id} " +
                 $"Base={stats.Get(kind)}");
         }
 
-        private void ApplyPrimaryStatMul(WarriorInstance warrior, string magicBookId, float mul)
+        private void ApplyPrimaryStatMul(
+            WarriorInstance warrior,
+            string magicBookId,
+            float mul,
+            MagicBookConfigRow row)
         {
             if (!_configs.TryGetClass(warrior.ClassId, out var classRow) || classRow == null)
             {
@@ -421,9 +418,60 @@ namespace Gravedigger2026.Core.AutoManufacture
             var stats = warrior.BaseStats;
             stats.Add(kind, delta);
             warrior.BaseStats = stats;
+            WarriorVisualStyleBake.TryApply(warrior, row);
             Debug.Log(
                 $"[MagicBook] StatMul Primary {kind} +=({mul}-1)*{bodySum}={delta} " +
-                $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} Base={stats.Get(kind)}");
+                $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} Base={stats.Get(kind)} " +
+                $"VisualStyle={warrior.VisualStyleId ?? ""}");
+        }
+
+        /// <summary>
+        /// Comma-separated ClassId OR list. Any illegal id → book invalid (false).
+        /// No match → skip (false, already logged).
+        /// </summary>
+        private bool MatchesClassIdFilter(string classFilter, string warriorClassId, string magicBookId, string warriorId)
+        {
+            var matched = false;
+            var any = false;
+            var parts = classFilter.Split(',');
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var id = parts[i] != null ? parts[i].Trim() : string.Empty;
+                if (id.Length == 0)
+                {
+                    continue;
+                }
+
+                if (!_configs.TryGetClass(id, out _))
+                {
+                    Debug.LogWarning(
+                        $"[MagicBook] StatMul invalid ClassId='{id}' book={magicBookId} warrior={warriorId}");
+                    return false;
+                }
+
+                any = true;
+                if (string.Equals(warriorClassId, id, StringComparison.Ordinal))
+                {
+                    matched = true;
+                }
+            }
+
+            if (!any)
+            {
+                Debug.LogWarning(
+                    $"[MagicBook] StatMul invalid ClassId='{classFilter}' book={magicBookId} warrior={warriorId}");
+                return false;
+            }
+
+            if (!matched)
+            {
+                Debug.Log(
+                    $"[MagicBook] StatMul skip class mismatch book={magicBookId} " +
+                    $"warrior={warriorId} class={warriorClassId} filter={classFilter}");
+                return false;
+            }
+
+            return true;
         }
 
         private float SumConsumedBodyStat(WarriorInstance warrior, StatKind kind)

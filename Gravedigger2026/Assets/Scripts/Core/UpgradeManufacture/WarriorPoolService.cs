@@ -279,7 +279,10 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 BodyLife = w.BodyLife,
                 SourceItemIds = ToArray(w.SourceItemIds),
                 SourceSpiritCost = w.SourceSpiritCost,
-                SoldierSkills = ToSkillArray(w.SoldierSkills)
+                SoldierSkills = ToSkillArray(w.SoldierSkills),
+                VisualStyleId = w.VisualStyleId,
+                VisualPriority = w.VisualPriority,
+                VisualIntensity = w.VisualIntensity
             };
         }
 
@@ -301,7 +304,10 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 ControlPowerCost = dto.ControlPowerCost,
                 EquipStats = dto.EquipStats,
                 BodyLife = dto.BodyLife,
-                SourceSpiritCost = dto.SourceSpiritCost
+                SourceSpiritCost = dto.SourceSpiritCost,
+                VisualStyleId = dto.VisualStyleId,
+                VisualPriority = dto.VisualPriority,
+                VisualIntensity = dto.VisualIntensity
             };
 
             CopyIds(dto.LockedEquipIds, w.LockedEquipIds);

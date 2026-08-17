@@ -821,6 +821,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     _mapCenter.y,
                     _mapCenter.z + entry.PositionZ);
                 go.transform.position = formationHome;
+                WarriorAllIn1StyleView.ApplyTo(go, _catalog != null ? _catalog.VisualStyleCatalog : null, warrior);
                 _deployedViews.Add(go);
 
                 var agent = go.GetComponent<WarriorAgentView>();

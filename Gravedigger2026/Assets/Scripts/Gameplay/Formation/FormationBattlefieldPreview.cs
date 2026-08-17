@@ -238,17 +238,18 @@ namespace Gravedigger2026.Gameplay.Formation
                 return null;
             }
 
-            string appearanceId = null;
+            WarriorInstance warrior = null;
             var warriors = pool.Warriors;
             for (var i = 0; i < warriors.Count; i++)
             {
                 if (string.Equals(warriors[i].Id, warriorId, StringComparison.Ordinal))
                 {
-                    appearanceId = warriors[i].AppearanceId;
+                    warrior = warriors[i];
                     break;
                 }
             }
 
+            var appearanceId = warrior != null ? warrior.AppearanceId : null;
             if (string.IsNullOrEmpty(appearanceId) || !_catalog.TryGetWarriorAppearance(appearanceId, out var prefab))
             {
                 var fallback = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -261,6 +262,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
             var go = Instantiate(prefab, _parent);
             go.name = $"FormationPreview_{warriorId}";
+            WarriorAllIn1StyleView.ApplyTo(go, _catalog != null ? _catalog.VisualStyleCatalog : null, warrior);
             PreparePreviewVisual(go);
             AttachMarker(go, warriorId);
             return go;

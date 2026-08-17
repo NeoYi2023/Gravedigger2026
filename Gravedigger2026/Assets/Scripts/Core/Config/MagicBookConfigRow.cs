@@ -19,5 +19,11 @@ namespace Gravedigger2026.Core.Config
         public string IconAssetId;
         public string DisplayName;
         public string Description;
+        /// <summary>AllIn1 preset Id; empty = no visual (not a token).</summary>
+        public string VisualStyleId;
+        /// <summary>Missing/empty CSV → 0.</summary>
+        public int VisualPriority;
+        /// <summary>Missing/empty CSV → 1.</summary>
+        public float VisualIntensityAdd;
     }
 }

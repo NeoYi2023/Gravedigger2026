@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.50
-**最后更新 / Last Updated:** 2026-08-17  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065）  
+**文档版本 / Document Version:** v0.82.53
+**最后更新 / Last Updated:** 2026-08-18  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065；Mode2 士兵 AllIn1 `VisualStyle` 方案 A）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,9 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-18 | v0.82.53 | 写入 AllIn1 `VisualStyle` 新增预设操作流程与规范（复制 `Style_*.mat`、编辑器开 `ATLAS_ON`、Catalog、Mode2 Excel+Bake、手验）；同步 SPEC_03 §3.15 6b、SPEC_04 §2/§9.24/§15.2、CONTEXT |
+| 2026-08-18 | v0.82.52 | 修复 Mode2「战士强化」VisualStyle 不生效：默认造兵为 `Class_BaseWarrior`（枯骨战士），书表仍滤 `Class_Warrior` 导致 StatMul skip、特效不烘。`StatMul.ClassId` 改为逗号 OR；Mode2 书行含 `Class_BaseWarrior,Class_Warrior`。进阶书 `RequireClassId` 从已删除的 `Class_*_0` 改为 `Class_Base*` |
+| 2026-08-18 | v0.82.51 | Mode2 士兵 AllIn1 特效外观（方案 A）：`MagicBookConfig` 增 `VisualStyleId`/`VisualPriority`/`VisualIntensityAdd`（非 Token）；仅 Token **命中**才竞争烘进实例；世界 Instantiate 换 Catalog 共享材质 + MPB 强度；UI 卡/底栏缩略图本轮不做 AllIn1；士兵 Visual 用 `AllIn1AtlasUvDriver`（禁 `SetAtlasUvs` 写共享材质）；同步 SPEC_03 §3.15、SPEC_04 §6/§9.9/§9.24/§15.2、CONTEXT |
 | 2026-08-17 | v0.82.50 | 解禁游戏 Prefab 挂厂商 `AllIn1Shader`（菜单名 `AddAllIn1Shader`）/`SetAtlasUvs`；序列帧 UV 可用厂商 `SetAtlasUvs` 或项目 `AllIn1AtlasUvDriver`；`ExecuteInEditMode` 警告改为知情项；同步 SPEC_04 §15.2 |
 | 2026-08-17 | v0.82.49 | 渲染明确为 Built-in RP；删除误导入且未被游戏引用的 `Assets/Vefects`（Pixel Craft VFX URP），消除 `Common.hlsl` include 编译错误；同步 SPEC_04 §1 |
 | 2026-08-17 | v0.82.48 | `App_0_00` Visual 去掉 `AllIn1AtlasUvDriver`；AllIn1 管线约定仍保留（序列帧要用时再挂）；同步 SPEC_04 §15.2 |
@@ -315,6 +318,9 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-18 | v0.82.53 | Document AllIn1 VisualStyle preset authoring (duplicate `Style_*.mat`, editor `ATLAS_ON`, Catalog, Mode2 Excel+Bake, hand-check); synced SPEC_03 §3.15 6b, SPEC_04 §2/§9.24/§15.2, CONTEXT |
+| 2026-08-18 | v0.82.52 | Fix Mode2 Warrior Enhance VisualStyle miss: default crafts are `Class_BaseWarrior`, book still filtered `Class_Warrior` so StatMul skipped and style never baked. `StatMul.ClassId` is comma-OR; Mode2 row is `Class_BaseWarrior,Class_Warrior`. Advance `RequireClassId` `Class_*_0` → `Class_Base*` |
+| 2026-08-18 | v0.82.51 | Mode2 soldier AllIn1 visual style (Approach A): `MagicBookConfig` adds `VisualStyleId`/`VisualPriority`/`VisualIntensityAdd` (not a token); bake only on token **hit**; world Instantiate swaps Catalog `sharedMaterial` + MPB intensity; UI cards/bar thumbs out of scope; warrior Visual uses `AllIn1AtlasUvDriver` (no `SetAtlasUvs` on shared mats); synced SPEC_03 §3.15, SPEC_04 §6/§9.9/§9.24/§15.2, CONTEXT |
 | 2026-08-17 | v0.82.50 | Unban vendor `AllIn1Shader` (menu `AddAllIn1Shader`) / `SetAtlasUvs` on game Prefabs; spritesheet UVs may use vendor `SetAtlasUvs` or project `AllIn1AtlasUvDriver`; `ExecuteInEditMode` warning is advisory; synced SPEC_04 §15.2 |
 | 2026-08-17 | v0.82.49 | Rendering is Built-in RP; removed unused imported `Assets/Vefects` (Pixel Craft VFX URP) that failed to include `Common.hlsl`; synced SPEC_04 §1 |
 | 2026-08-17 | v0.82.48 | `App_0_00` Visual no longer mounts `AllIn1AtlasUvDriver`; AllIn1 pipeline remains optional; synced SPEC_04 §15.2 |
