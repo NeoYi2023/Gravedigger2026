@@ -18,7 +18,7 @@ namespace Gravedigger2026.Editor.Formation
         private const string EditorRootPath = PrefabDir + "/FormationEditorRoot.prefab";
         private const string EditorRootMode2Path = PrefabDir + "/FormationEditorRoot_Mode2.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v08238";
+        private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v08247";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -72,6 +72,45 @@ namespace Gravedigger2026.Editor.Formation
                 "[FormationAssetBuilder] Generated FormationEditorRoot (Mode1+Mode2) + Catalog and wired MetaShellRoot.");
         }
 
+        [MenuItem("Gravedigger2026/Formation/Patch Return Button Bottom-Right (D-064)")]
+        public static void PatchReturnButtonBottomRightMenu()
+        {
+            PatchReturnButtonBottomRight();
+        }
+
+        public static void PatchReturnButtonBottomRight()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null)
+            {
+                GenerateAll();
+                return;
+            }
+
+            var mode1 = PrefabUtility.LoadPrefabContents(EditorRootPath);
+            EnsureMode1ReturnBottomRight(mode1);
+            PrefabUtility.SaveAsPrefabAsset(mode1, EditorRootPath);
+            PrefabUtility.UnloadPrefabContents(mode1);
+
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) != null)
+            {
+                var mode2 = PrefabUtility.LoadPrefabContents(EditorRootMode2Path);
+                EnsureMode2CompleteButton(mode2);
+                EnsureMode2StartBattleAboveComplete(mode2);
+                EnsureMode2ReturnAboveComplete(mode2);
+                EnsureMode2SoldierHoverTooltip(mode2);
+                PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
+                PrefabUtility.UnloadPrefabContents(mode2);
+            }
+            else
+            {
+                BuildAndSaveMode2EditorRoot();
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[FormationAssetBuilder] Patched ReturnButton bottom-right (D-064).");
+        }
+
         private static GameObject BuildAndSaveMode2EditorRoot()
         {
             var contents = PrefabUtility.LoadPrefabContents(EditorRootPath);
@@ -88,10 +127,107 @@ namespace Gravedigger2026.Editor.Formation
 
             EnsureMode2CompleteButton(contents);
             EnsureMode2StartBattleAboveComplete(contents);
+            EnsureMode2ReturnAboveComplete(contents);
+            EnsureMode2SoldierHoverTooltip(contents);
 
             PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
             PrefabUtility.UnloadPrefabContents(contents);
             return AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path);
+        }
+
+        [MenuItem("Gravedigger2026/Formation/Patch Mode2 Soldier Hover Tooltip (D-065)")]
+        public static void PatchMode2SoldierHoverTooltipMenu()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) == null)
+            {
+                GenerateAll();
+                return;
+            }
+
+            var mode2 = PrefabUtility.LoadPrefabContents(EditorRootMode2Path);
+            EnsureMode2SoldierHoverTooltip(mode2);
+            PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
+            PrefabUtility.UnloadPrefabContents(mode2);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[FormationAssetBuilder] Patched Mode2 SoldierHoverTooltip (D-065).");
+        }
+
+        /// <summary>
+        /// Mode2 only: hover tooltip on FormationCanvas (SPEC_03 UI-021 / D-065).
+        /// </summary>
+        private static void EnsureMode2SoldierHoverTooltip(GameObject editorRoot)
+        {
+            var canvas = FindDeep(editorRoot.transform, "FormationCanvas");
+            if (canvas == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationCanvas missing; cannot add SoldierHoverTooltip.");
+                return;
+            }
+
+            var existing = FindDeep(editorRoot.transform, "SoldierHoverTooltip");
+            GameObject tipGo;
+            if (existing != null)
+            {
+                tipGo = existing.gameObject;
+            }
+            else
+            {
+                tipGo = new GameObject(
+                    "SoldierHoverTooltip",
+                    typeof(RectTransform),
+                    typeof(Image),
+                    typeof(CanvasGroup),
+                    typeof(FormationSoldierHoverTooltipView));
+                tipGo.transform.SetParent(canvas, false);
+            }
+
+            var rt = tipGo.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.sizeDelta = new Vector2(300f, 236f);
+            rt.anchoredPosition = Vector2.zero;
+
+            var image = tipGo.GetComponent<Image>();
+            if (image == null)
+            {
+                image = tipGo.AddComponent<Image>();
+            }
+
+            image.color = Color.white;
+            image.raycastTarget = false;
+
+            var group = tipGo.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                group = tipGo.AddComponent<CanvasGroup>();
+            }
+
+            group.blocksRaycasts = false;
+            group.interactable = false;
+
+            if (tipGo.GetComponent<FormationSoldierHoverTooltipView>() == null)
+            {
+                tipGo.AddComponent<FormationSoldierHoverTooltipView>();
+            }
+
+            tipGo.SetActive(false);
+
+            var controller = editorRoot.GetComponent<FormationEditorController>();
+            if (controller == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationEditorController missing on Mode2 root.");
+                return;
+            }
+
+            var cso = new SerializedObject(controller);
+            var prop = cso.FindProperty("_hoverTooltip");
+            if (prop != null)
+            {
+                prop.objectReferenceValue = tipGo.GetComponent<FormationSoldierHoverTooltipView>();
+                cso.ApplyModifiedPropertiesWithoutUndo();
+            }
         }
 
         /// <summary>
@@ -166,6 +302,50 @@ namespace Gravedigger2026.Editor.Formation
                 new Vector2(1f, 0f),
                 new Vector2(1f, 0f),
                 new Vector2(-24f, 180f),
+                new Vector2(140f, 48f));
+        }
+
+        /// <summary>
+        /// Mode2: UM Return shares StartBattle slot above Complete (mutually exclusive by mode; D-064).
+        /// </summary>
+        private static void EnsureMode2ReturnAboveComplete(GameObject editorRoot)
+        {
+            var ret = FindDeep(editorRoot.transform, "ReturnButton");
+            if (ret == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] ReturnButton missing on Mode2 EditorRoot.");
+                return;
+            }
+
+            Place(
+                ret.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-24f, 180f),
+                new Vector2(140f, 48f));
+        }
+
+        /// <summary>Patch Mode1 Return/StartBattle to bottom-right above SoldierBar (D-064).</summary>
+        private static void EnsureMode1ReturnBottomRight(GameObject editorRoot)
+        {
+            PlaceBottomRightAboveBar(FindDeep(editorRoot.transform, "ReturnButton"), 124f);
+            PlaceBottomRightAboveBar(FindDeep(editorRoot.transform, "StartBattleButton"), 124f);
+        }
+
+        private static void PlaceBottomRightAboveBar(Transform t, float y)
+        {
+            if (t == null)
+            {
+                return;
+            }
+
+            Place(
+                t.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-24f, y),
                 new Vector2(140f, 48f));
         }
 
@@ -249,12 +429,13 @@ namespace Gravedigger2026.Editor.Formation
                 new Vector2(24f, -24f), new Vector2(360f, 48f));
 
             var returnBtn = CreateUiButton(canvasGo.transform, "ReturnButton", "返回", new Color(0.35f, 0.4f, 0.5f, 1f));
-            Place(returnBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -24f), new Vector2(140f, 48f));
+            // Bottom-right above SoldierBar (height 112). Mode2 bumps Return/StartBattle to y=180 above Complete.
+            Place(returnBtn.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-24f, 124f), new Vector2(140f, 48f));
 
             var startBtn = CreateUiButton(canvasGo.transform, "StartBattleButton", "开战", new Color(0.55f, 0.32f, 0.28f, 1f));
-            Place(startBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -24f), new Vector2(140f, 48f));
+            Place(startBtn.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-24f, 124f), new Vector2(140f, 48f));
 
             var barPanel = CreateUiPanel(canvasGo.transform, "SoldierBar", new Color(0.1f, 0.11f, 0.14f, 0.92f));
             var barRt = barPanel.GetComponent<RectTransform>();

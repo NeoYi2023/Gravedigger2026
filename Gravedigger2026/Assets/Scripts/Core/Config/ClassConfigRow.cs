@@ -16,10 +16,15 @@ namespace Gravedigger2026.Core.Config
         public string ClassId;
         public string ClassName;
         /// <summary>
-        /// Base class family (SPEC_04 §9.9b). CSV Chinese 战士/射手/法师/盗贼.
+        /// Base class family (SPEC_04 §9.9b). CSV Chinese 战士/射手/法师/刺客 (legacy 盗贼 accepted).
         /// Empty/illegal → Unspecified. Reserved; not used in naming/combat this slice.
         /// </summary>
         public BaseClassKind BaseClass;
+        /// <summary>
+        /// Optional promote-class text (SPEC_04 §9.9b). Empty = none.
+        /// Fillable this slice; not used in naming/combat; application TBD.
+        /// </summary>
+        public string PromoteClass;
         /// <summary>Display-only grade (UI-016 Lv.N). Missing → 0. Not used in combat math.</summary>
         public int ClassLevel;
         public StatKind PrimaryStat;

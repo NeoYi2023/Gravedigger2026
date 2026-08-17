@@ -5,4 +5,4 @@ MagicBook_SoldierSkillLevel,0,0,SoldierManufacture,SoldierSkillLevelAdd,SkillId=
 MagicBook_WarriorAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Warrior|RequireClassId=Class_Warrior_0|Chance=1,,战士进阶,装备后，Mode2 制造职业为 Class_Warrior_0 的士兵时，25% 概率变为 Class_Warrior
 MagicBook_ArcherAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Archer|RequireClassId=Class_Archer_0|Chance=0.25,,射手进阶,装备后，Mode2 制造职业为 Class_Archer_0 的士兵时，25% 概率变为 Class_Archer
 MagicBook_MageAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Mage|RequireClassId=Class_Mage_0|Chance=0.25,,法师进阶,装备后，Mode2 制造职业为 Class_Mage_0 的士兵时，25% 概率变为 Class_Mage
-MagicBook_RogueAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Rogue|RequireClassId=Class_Rogue_0|Chance=0.25,,盗贼进阶,装备后，Mode2 制造职业为 Class_Rogue_0 的士兵时，25% 概率变为 Class_Rogue
+MagicBook_RogueAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Rogue|RequireClassId=Class_Rogue_0|Chance=0.25,,刺客进阶,装备后，Mode2 制造职业为 Class_Rogue_0 的士兵时，25% 概率变为 Class_Rogue

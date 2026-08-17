@@ -1,30 +1,10 @@
 BodyPartId,DisplayName,BodyLevel,BodySlot,RaceId,ControlPowerCost,SpiritCost,StatBonus,AutoConvert,Description,ArtAssetId,IsPrimaryHand,ClassRestrict,BodyPrimaryStat
-BP_Head_Human,人类头部,1,Head,Race_Human,1,1,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,案例躯体材料 BP_Head_Human,Art_BP_Head_Human,0,,Intelligence
-BP_Torso_Human,人类躯干,1,Torso,Race_Human,1,1,MaxHP_25|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.2,1,案例躯体材料 BP_Torso_Human,Art_BP_Torso_Human,0,,Strength
-BP_Arm_Human,人类手臂,1,Arm,Race_Human,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,案例主要手 BP_Arm_Elf,Art_BP_Arm_Elf,1,Class_Warrior,Strength
-BP_Arm_Elf,精灵手臂,1,Arm,Race_Elf,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Archer,Agility
-BP_Arm_Orc,兽人手臂,1,Arm,Race_Orc,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Mage,Intelligence
-BP_Arm_Undead,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Knight,Strength
-BP_Arm_Dwarf,矮人手臂,1,Arm,Race_Dwarf,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Rogue,Agility
-BP_Arm_Goblin,地精手臂,1,Arm,Race_Goblin,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Priest,Intelligence
-BP_Arm_Demon,恶魔手臂,1,Arm,Race_Demon,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Berserker,Strength
-BP_Arm_Angel,天使手臂,1,Arm,Race_Angel,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Ranger,Agility
-BP_Arm_Beast,野兽手臂,1,Arm,Race_Beast,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Warlock,Intelligence
-BP_Arm_Construct,构装体手臂,1,Arm,Race_Construct,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,案例主要手 BP_Arm_Undead,Art_BP_Arm_Undead,1,Class_Paladin,Strength
-BP_Arm_Human,人类手臂,1,Arm,Race_Human,1,1,MaxHP_28|Strength_12|Agility_12|Intelligence_8|MoveSpeed_0.2,1,案例次要手 BP_Arm_Human,Art_BP_Arm_Human,0,Class_Archer|Class_Ranger|Class_Warrior,Strength
-BP_Arm_Orc,兽人手臂,1,Arm,Race_Orc,1,1,MaxHP_48|Strength_20|Agility_8|Intelligence_8|MoveSpeed_0.2,1,案例次要手 BP_Arm_Orc,Art_BP_Arm_Orc,0,Class_Mage|Class_Warlock|Class_Berserker,Strength
-BP_Leg_Elf,精灵腿部,1,Leg,Race_Elf,1,1,MaxHP_35|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.1,1,案例躯体材料 BP_Leg_Elf,Art_BP_Leg_Elf,0,,Agility
-BP_Head_Orc,兽人头部,1,Head,Race_Orc,1,1,MaxHP_40|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.2,1,案例躯体材料 BP_Head_Orc,Art_BP_Head_Orc,0,,Strength
-BP_Torso_Orc,兽人躯干,1,Torso,Race_Orc,1,1,MaxHP_45|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.3,1,案例躯体材料 BP_Torso_Orc,Art_BP_Torso_Orc,0,,Strength
-BP_Leg_Dwarf,矮人腿部,1,Leg,Race_Dwarf,1,1,MaxHP_55|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.2,1,案例躯体材料 BP_Leg_Dwarf,Art_BP_Leg_Dwarf,0,,Strength
-BP_Head_Demon,恶魔头部,1,Head,Race_Demon,1,1,MaxHP_60|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.3,1,案例躯体材料 BP_Head_Demon,Art_BP_Head_Demon,0,,Intelligence
-BP_Torso_Angel,天使躯干,1,Torso,Race_Angel,1,1,MaxHP_65|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.1,1,案例躯体材料 BP_Torso_Angel,Art_BP_Torso_Angel,0,,Agility
 BP_Head_Undead_0,亡灵头部,1,Head,Race_Undead,1,1,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,,Art_BP_Head_Undead_1,0,,Intelligence
 BP_Torso_Undead_0,亡灵躯干,1,Torso,Race_Undead,1,1,MaxHP_25|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.2,1,,Art_BP_Torso_Undead_1,0,,Strength
-BP_Arm_Undead_Warrior_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,战士,Art_BP_Arm_Undead_Warrior,1,Class_Warrior_0,Strength
-BP_Arm_Undead_Archer_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,射手,Art_BP_Arm_Undead_Archer,1,Class_Archer_0,Agility
-BP_Arm_Undead_Mage_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,法师,Art_BP_Arm_Undead_Mage,1,Class_Mage_0,Intelligence
-BP_Arm_Undead_Rogue_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,盗贼,Art_BP_Arm_Undead_Rogue,1,Class_Rogue_0,Agility
+BP_Arm_Undead_Warrior_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,战士,Art_BP_Arm_Undead_Warrior,1,Class_BaseWarrior,Strength
+BP_Arm_Undead_Archer_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,射手,Art_BP_Arm_Undead_Archer,1,Class_BaseArcher,Agility
+BP_Arm_Undead_Mage_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,法师,Art_BP_Arm_Undead_Mage,1,Class_BaseMage,Intelligence
+BP_Arm_Undead_Rogue_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,刺客,Art_BP_Arm_Undead_Rogue,1,Class_BaseRogue,Agility
 BP_Arm_Undead_0,亡灵手臂,1,Arm,Race_Undead,1,1,MaxHP_45|Strength_16|Agility_24|Intelligence_4|MoveSpeed_0.3,1,,Art_BP_Arm_Undead_1,0,,Agility
 BP_Leg_Undead_0,亡灵腿部,1,Leg,Race_Undead,1,1,MaxHP_55|Strength_4|Agility_8|Intelligence_16|MoveSpeed_0.2,1,,Art_BP_Leg_Undead_1,0,,Strength
 BP_Head_Undead_1,亡灵头部,2,Head,Race_Undead,1,1,MaxHP_20|Strength_8|Agility_16|Intelligence_24|MoveSpeed_0.1,1,,Art_BP_Head_Undead_1,0,,Intelligence
@@ -32,7 +12,7 @@ BP_Torso_Undead_1,亡灵躯干,2,Torso,Race_Undead,1,1,MaxHP_25|Strength_16|Agil
 BP_Arm_Undead_Warrior,亡灵手臂,2,Arm,Race_Undead,1,1,MaxHP_30|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.3,1,战士,Art_BP_Arm_Undead_Warrior,1,Class_Warrior,Strength
 BP_Arm_Undead_Archer,亡灵手臂,2,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,射手,Art_BP_Arm_Undead_Archer,1,Class_Archer,Agility
 BP_Arm_Undead_Mage,亡灵手臂,2,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,法师,Art_BP_Arm_Undead_Mage,1,Class_Mage,Intelligence
-BP_Arm_Undead_Rogue,亡灵手臂,2,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,盗贼,Art_BP_Arm_Undead_Rogue,1,Class_Rogue,Agility
+BP_Arm_Undead_Rogue,亡灵手臂,2,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,刺客,Art_BP_Arm_Undead_Rogue,1,Class_Rogue,Agility
 BP_Arm_Undead_Guardian,亡灵手臂,3,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,近卫,Art_BP_Arm_Undead_Guardian,1,Class_Guardian,Strength
 BP_Arm_Undead_BombMaster,亡灵手臂,3,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,炸弹师,Art_BP_Arm_Undead_BombMaster,1,Class_BombMaster,Agility
 BP_Arm_Undead_IceMage,亡灵手臂,3,Arm,Race_Undead,1,1,MaxHP_50|Strength_24|Agility_4|Intelligence_8|MoveSpeed_0.1,1,冰法,Art_BP_Arm_Undead_IceMage,1,Class_IceMage,Intelligence

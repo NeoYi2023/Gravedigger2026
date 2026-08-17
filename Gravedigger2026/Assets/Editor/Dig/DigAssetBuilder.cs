@@ -409,7 +409,7 @@ namespace Gravedigger2026.Editor.Dig
 
             var timer = CreateUiText(hudRoot.transform, "Timer", "Dig 剩余 --", 28, TextAnchor.UpperCenter);
             Place(timer.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -16f), new Vector2(640f, 40f));
+                new Vector2(450f, -16f), new Vector2(640f, 40f));
 
             var warehouse = CreateUiText(hudRoot.transform, "Warehouse", "精魂 0", 22, TextAnchor.UpperLeft);
             Place(warehouse.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),

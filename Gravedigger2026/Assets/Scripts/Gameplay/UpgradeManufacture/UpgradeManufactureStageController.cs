@@ -44,6 +44,23 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
         private FormationEditorController _editor;
         private bool _active;
 
+        public bool IsFormationEditorOpen => _editor != null && _editor.IsActive;
+
+        public bool TryCollectFormationClassZones(List<FormationClassZoneSnapshot> into)
+        {
+            if (_editor == null)
+            {
+                if (into != null)
+                {
+                    into.Clear();
+                }
+
+                return false;
+            }
+
+            return _editor.TryCollectClassZones(into);
+        }
+
         public void ConfigureCatalog(UpgradeManufacturePrefabCatalog catalog)
         {
             if (catalog != null)

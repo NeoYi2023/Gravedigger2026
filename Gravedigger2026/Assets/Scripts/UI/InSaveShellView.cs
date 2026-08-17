@@ -21,6 +21,7 @@ namespace Gravedigger2026.UI
         [SerializeField] private ToolsPanelView _toolsPanel;
         [SerializeField] private LevelSelectPanelView _levelSelectPanel;
         [SerializeField] private GmGrantListPanelView _gmGrantListPanel;
+        [SerializeField] private GmAddSoldierPanelView _gmAddSoldierPanel;
         [SerializeField] private GameplayStatePlaceholderView _placeholderView;
 
         private Color _backdropDefault = new Color(0.10f, 0.12f, 0.16f, 0.96f);
@@ -34,10 +35,13 @@ namespace Gravedigger2026.UI
         public event Action LevelRequested;
         public event Action GrantProtagonistEquipmentRequested;
         public event Action GrantMagicBookRequested;
+        public event Action GrantAddSoldierRequested;
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
         public event Action<string> GmGrantItemPicked;
         public event Action GmGrantListClosed;
+        public event Action GmAddSoldierAddClicked;
+        public event Action GmAddSoldierClosed;
 
         private void Awake()
         {
@@ -68,6 +72,7 @@ namespace Gravedigger2026.UI
 
             EnsureWarriorTaskLabelToggleButton();
             EnsureGmGrantListPanel();
+            EnsureGmAddSoldierPanel();
             if (_debugWarriorTaskLabelButton != null)
             {
                 _debugWarriorTaskLabelButton.onClick.AddListener(HandleWarriorTaskLabelToggleClicked);
@@ -83,6 +88,7 @@ namespace Gravedigger2026.UI
                 _toolsPanel.GrantProtagonistEquipmentClicked +=
                     () => GrantProtagonistEquipmentRequested?.Invoke();
                 _toolsPanel.GrantMagicBookClicked += () => GrantMagicBookRequested?.Invoke();
+                _toolsPanel.GrantAddSoldierClicked += () => GrantAddSoldierRequested?.Invoke();
             }
 
             if (_levelSelectPanel != null)
@@ -95,6 +101,12 @@ namespace Gravedigger2026.UI
             {
                 _gmGrantListPanel.ItemPicked += id => GmGrantItemPicked?.Invoke(id);
                 _gmGrantListPanel.Closed += () => GmGrantListClosed?.Invoke();
+            }
+
+            if (_gmAddSoldierPanel != null)
+            {
+                _gmAddSoldierPanel.AddClicked += () => GmAddSoldierAddClicked?.Invoke();
+                _gmAddSoldierPanel.Closed += () => GmAddSoldierClosed?.Invoke();
             }
         }
 
@@ -127,6 +139,7 @@ namespace Gravedigger2026.UI
 
             HideLevelSelectPanel();
             HideGmGrantListPanel();
+            HideGmAddSoldierPanel();
 
             if (_root != null)
             {
@@ -184,6 +197,41 @@ namespace Gravedigger2026.UI
 
         public bool HasGmGrantListPanel => _gmGrantListPanel != null;
 
+        public void ShowGmAddSoldierPanel(
+            IReadOnlyList<GmDropdownOption> classes,
+            IReadOnlyList<GmDropdownOption> races)
+        {
+            EnsureGmAddSoldierPanel();
+            if (_gmAddSoldierPanel != null)
+            {
+                _gmAddSoldierPanel.Show(classes, races);
+            }
+        }
+
+        public void HideGmAddSoldierPanel()
+        {
+            if (_gmAddSoldierPanel != null)
+            {
+                _gmAddSoldierPanel.Hide();
+            }
+        }
+
+        public bool HasGmAddSoldierPanel => _gmAddSoldierPanel != null;
+
+        public bool TryGetGmAddSoldierSelection(
+            out string classId,
+            out string raceId,
+            out int count,
+            out bool autoDeploy)
+        {
+            classId = null;
+            raceId = null;
+            count = 1;
+            autoDeploy = true;
+            return _gmAddSoldierPanel != null
+                   && _gmAddSoldierPanel.TryGetSelection(out classId, out raceId, out count, out autoDeploy);
+        }
+
         public void SetModePanelsSuppressed(bool suppressed)
         {
             if (_placeholderView != null)
@@ -191,7 +239,6 @@ namespace Gravedigger2026.UI
                 _placeholderView.SetModePanelsSuppressed(suppressed);
             }
 
-            // Dig camera needs a clear view through the shell panel.
             SetShellBackdropVisible(!suppressed);
         }
 
@@ -209,7 +256,6 @@ namespace Gravedigger2026.UI
             }
 
             _backdropImage.color = c;
-            // Hidden backdrop must not raycast (blocks Combat scroll-zoom / drag-pan).
             _backdropImage.raycastTarget = visible;
         }
 
@@ -273,7 +319,6 @@ namespace Gravedigger2026.UI
             var rect = clone.GetComponent<RectTransform>();
             if (rect != null)
             {
-                // Sit left of「推进阶段」(-240) with similar width.
                 rect.anchoredPosition = new Vector2(-460f, rect.anchoredPosition.y);
             }
 
@@ -328,6 +373,283 @@ namespace Gravedigger2026.UI
             var emptyHint = clone.transform.Find("Box/EmptyHint")?.GetComponent<Text>();
             view.BindRuntime(clone, title, content, rowTemplate, close, emptyHint);
             _gmGrantListPanel = view;
+        }
+
+        private void EnsureGmAddSoldierPanel()
+        {
+            if (_gmAddSoldierPanel != null)
+            {
+                return;
+            }
+
+            var parent = _toolsPanel != null ? _toolsPanel.transform.parent : transform;
+            var go = new GameObject("GmAddSoldierPanel", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rootRt = go.GetComponent<RectTransform>();
+            rootRt.anchorMin = new Vector2(0f, 0.5f);
+            rootRt.anchorMax = new Vector2(0f, 0.5f);
+            rootRt.pivot = new Vector2(0f, 0.5f);
+            rootRt.anchoredPosition = new Vector2(16f, 0f);
+            rootRt.sizeDelta = new Vector2(320f, 420f);
+            go.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.96f);
+
+            var title = CreateUiText(go.transform, "Title", "添加士兵", 26, TextAnchor.UpperCenter);
+            PlaceUi(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(280f, 36f));
+
+            CreateUiText(go.transform, "ClassLabel", "士兵职业", 18, TextAnchor.MiddleLeft);
+            PlaceUi(go.transform.Find("ClassLabel").GetComponent<RectTransform>(),
+                new Vector2(0.5f, 1f), new Vector2(0f, -64f), new Vector2(280f, 24f));
+            var classDd = CreateUiDropdown(go.transform, "ClassDropdown");
+            PlaceUi(classDd.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0f, -96f), new Vector2(280f, 36f));
+
+            CreateUiText(go.transform, "RaceLabel", "士兵种族", 18, TextAnchor.MiddleLeft);
+            PlaceUi(go.transform.Find("RaceLabel").GetComponent<RectTransform>(),
+                new Vector2(0.5f, 1f), new Vector2(0f, -148f), new Vector2(280f, 24f));
+            var raceDd = CreateUiDropdown(go.transform, "RaceDropdown");
+            PlaceUi(raceDd.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0f, -180f), new Vector2(280f, 36f));
+
+            CreateUiText(go.transform, "CountLabel", "增加数量", 18, TextAnchor.MiddleLeft);
+            PlaceUi(go.transform.Find("CountLabel").GetComponent<RectTransform>(),
+                new Vector2(0.5f, 1f), new Vector2(0f, -232f), new Vector2(280f, 24f));
+            var countInput = CreateUiInput(go.transform, "CountInput", "1");
+            PlaceUi(countInput.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0f, -264f), new Vector2(280f, 36f));
+
+            var autoToggle = CreateUiToggle(go.transform, "AutoDeployToggle", "自动上阵", true);
+            PlaceUi(autoToggle.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0f, -316f), new Vector2(280f, 32f));
+
+            var close = CreateUiButton(go.transform, "CloseButton", "关闭", new Color(0.92f, 0.92f, 0.92f, 1f));
+            PlaceUi(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(-70f, 24f), new Vector2(120f, 40f));
+            var add = CreateUiButton(go.transform, "AddButton", "添加", new Color(0.25f, 0.55f, 0.95f, 1f));
+            PlaceUi(add.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(70f, 24f), new Vector2(120f, 40f));
+
+            var view = go.AddComponent<GmAddSoldierPanelView>();
+            view.BindRuntime(
+                go,
+                classDd,
+                raceDd,
+                countInput,
+                autoToggle,
+                close.GetComponent<Button>(),
+                add.GetComponent<Button>());
+            go.SetActive(false);
+            _gmAddSoldierPanel = view;
+        }
+
+        private static Text CreateUiText(Transform parent, string name, string text, int size, TextAnchor anchor)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(parent, false);
+            var t = go.GetComponent<Text>();
+            t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            t.fontSize = size;
+            t.alignment = anchor;
+            t.color = Color.black;
+            t.text = text;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            return t;
+        }
+
+        private static Dropdown CreateUiDropdown(Transform parent, string name)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Dropdown));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = new Color(0.95f, 0.95f, 0.95f, 1f);
+            var dd = go.GetComponent<Dropdown>();
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            labelGo.transform.SetParent(go.transform, false);
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            Stretch(labelRt);
+            labelRt.offsetMin = new Vector2(10f, 2f);
+            labelRt.offsetMax = new Vector2(-28f, -2f);
+            var label = labelGo.GetComponent<Text>();
+            label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            label.fontSize = 18;
+            label.color = Color.black;
+            label.alignment = TextAnchor.MiddleLeft;
+
+            var arrowGo = new GameObject("Arrow", typeof(RectTransform), typeof(Text));
+            arrowGo.transform.SetParent(go.transform, false);
+            var arrowRt = arrowGo.GetComponent<RectTransform>();
+            arrowRt.anchorMin = new Vector2(1f, 0.5f);
+            arrowRt.anchorMax = new Vector2(1f, 0.5f);
+            arrowRt.pivot = new Vector2(1f, 0.5f);
+            arrowRt.anchoredPosition = new Vector2(-8f, 0f);
+            arrowRt.sizeDelta = new Vector2(20f, 20f);
+            var arrow = arrowGo.GetComponent<Text>();
+            arrow.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            arrow.fontSize = 16;
+            arrow.alignment = TextAnchor.MiddleCenter;
+            arrow.color = Color.black;
+            arrow.text = "▼";
+
+            var template = new GameObject("Template", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            template.transform.SetParent(go.transform, false);
+            var templateRt = template.GetComponent<RectTransform>();
+            templateRt.anchorMin = new Vector2(0f, 0f);
+            templateRt.anchorMax = new Vector2(1f, 0f);
+            templateRt.pivot = new Vector2(0.5f, 1f);
+            templateRt.anchoredPosition = new Vector2(0f, 2f);
+            templateRt.sizeDelta = new Vector2(0f, 150f);
+            template.GetComponent<Image>().color = Color.white;
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(template.transform, false);
+            Stretch(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = Color.white;
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRt = content.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.sizeDelta = new Vector2(0f, 28f);
+
+            var item = new GameObject("Item", typeof(RectTransform), typeof(Toggle));
+            item.transform.SetParent(content.transform, false);
+            var itemRt = item.GetComponent<RectTransform>();
+            itemRt.anchorMin = new Vector2(0f, 0.5f);
+            itemRt.anchorMax = new Vector2(1f, 0.5f);
+            itemRt.sizeDelta = new Vector2(0f, 28f);
+
+            var itemBg = new GameObject("Item Background", typeof(RectTransform), typeof(Image));
+            itemBg.transform.SetParent(item.transform, false);
+            Stretch(itemBg.GetComponent<RectTransform>());
+            itemBg.GetComponent<Image>().color = new Color(0.9f, 0.9f, 0.9f, 1f);
+
+            var itemCheck = new GameObject("Item Checkmark", typeof(RectTransform), typeof(Image));
+            itemCheck.transform.SetParent(item.transform, false);
+            var checkRt = itemCheck.GetComponent<RectTransform>();
+            checkRt.anchorMin = new Vector2(0f, 0.5f);
+            checkRt.anchorMax = new Vector2(0f, 0.5f);
+            checkRt.anchoredPosition = new Vector2(10f, 0f);
+            checkRt.sizeDelta = new Vector2(16f, 16f);
+            itemCheck.GetComponent<Image>().color = new Color(0.2f, 0.5f, 0.9f, 1f);
+
+            var itemLabel = new GameObject("Item Label", typeof(RectTransform), typeof(Text));
+            itemLabel.transform.SetParent(item.transform, false);
+            var itemLabelRt = itemLabel.GetComponent<RectTransform>();
+            Stretch(itemLabelRt);
+            itemLabelRt.offsetMin = new Vector2(28f, 1f);
+            itemLabelRt.offsetMax = new Vector2(-8f, -1f);
+            var itemLabelText = itemLabel.GetComponent<Text>();
+            itemLabelText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            itemLabelText.fontSize = 16;
+            itemLabelText.color = Color.black;
+            itemLabelText.alignment = TextAnchor.MiddleLeft;
+
+            var itemToggle = item.GetComponent<Toggle>();
+            itemToggle.targetGraphic = itemBg.GetComponent<Image>();
+            itemToggle.graphic = itemCheck.GetComponent<Image>();
+
+            var scroll = template.GetComponent<ScrollRect>();
+            scroll.content = contentRt;
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+
+            dd.targetGraphic = go.GetComponent<Image>();
+            dd.captionText = label;
+            dd.itemText = itemLabelText;
+            dd.template = templateRt;
+            template.SetActive(false);
+            return dd;
+        }
+
+        private static InputField CreateUiInput(Transform parent, string name, string text)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(InputField));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = Color.white;
+            var input = go.GetComponent<InputField>();
+
+            var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(go.transform, false);
+            var textRt = textGo.GetComponent<RectTransform>();
+            Stretch(textRt);
+            textRt.offsetMin = new Vector2(10f, 4f);
+            textRt.offsetMax = new Vector2(-10f, -4f);
+            var t = textGo.GetComponent<Text>();
+            t.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            t.fontSize = 18;
+            t.color = Color.black;
+            t.supportRichText = false;
+            input.textComponent = t;
+            input.contentType = InputField.ContentType.IntegerNumber;
+            input.text = text;
+            return input;
+        }
+
+        private static Toggle CreateUiToggle(Transform parent, string name, string label, bool on)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+            go.transform.SetParent(parent, false);
+            var toggle = go.GetComponent<Toggle>();
+
+            var bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            bg.transform.SetParent(go.transform, false);
+            var bgRt = bg.GetComponent<RectTransform>();
+            bgRt.anchorMin = new Vector2(0f, 0.5f);
+            bgRt.anchorMax = new Vector2(0f, 0.5f);
+            bgRt.anchoredPosition = new Vector2(16f, 0f);
+            bgRt.sizeDelta = new Vector2(24f, 24f);
+            bg.GetComponent<Image>().color = new Color(0.85f, 0.85f, 0.85f, 1f);
+
+            var check = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+            check.transform.SetParent(bg.transform, false);
+            Stretch(check.GetComponent<RectTransform>());
+            check.GetComponent<Image>().color = new Color(0.2f, 0.7f, 0.35f, 1f);
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            labelGo.transform.SetParent(go.transform, false);
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.anchorMin = new Vector2(0f, 0f);
+            labelRt.anchorMax = new Vector2(1f, 1f);
+            labelRt.offsetMin = new Vector2(48f, 0f);
+            labelRt.offsetMax = Vector2.zero;
+            var labelText = labelGo.GetComponent<Text>();
+            labelText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            labelText.fontSize = 18;
+            labelText.color = Color.black;
+            labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.text = label;
+
+            toggle.targetGraphic = bg.GetComponent<Image>();
+            toggle.graphic = check.GetComponent<Image>();
+            toggle.isOn = on;
+            return toggle;
+        }
+
+        private static GameObject CreateUiButton(Transform parent, string name, string label, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = color;
+            var text = CreateUiText(go.transform, "Text", label, 20, TextAnchor.MiddleCenter);
+            Stretch(text.rectTransform);
+            return go;
+        }
+
+        private static void PlaceUi(RectTransform rt, Vector2 anchor, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = Mathf.Approximately(anchor.y, 0f)
+                ? new Vector2(0.5f, 0f)
+                : new Vector2(0.5f, 1f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+        }
+
+        private static void Stretch(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
         }
     }
 }

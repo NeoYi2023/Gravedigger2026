@@ -21,6 +21,7 @@ namespace Gravedigger2026.Editor.Meta
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
         private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
+        private const string GmAddSoldierRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08239_gmAddSoldier";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -52,6 +53,13 @@ namespace Gravedigger2026.Editor.Meta
                 {
                     EnsureGmGrantListPanelOnExistingPrefab();
                     EditorPrefs.SetBool(GmGrantRegenPrefsKey, true);
+                }
+
+                var needsGmAddSoldierRegen = !EditorPrefs.GetBool(GmAddSoldierRegenPrefsKey, false);
+                if (needsGmAddSoldierRegen)
+                {
+                    EnsureGmAddSoldierPanelOnExistingPrefab();
+                    EditorPrefs.SetBool(GmAddSoldierRegenPrefsKey, true);
                 }
             };
         }
@@ -194,6 +202,59 @@ namespace Gravedigger2026.Editor.Meta
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure GmAddSoldierPanel (UI-020)")]
+        public static void EnsureGmAddSoldierPanelMenu()
+        {
+            EnsureGmAddSoldierPanelOnExistingPrefab();
+            EditorPrefs.SetBool(GmAddSoldierRegenPrefsKey, true);
+        }
+
+        public static void EnsureGmAddSoldierPanelOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                var tools = inSave.GetComponentInChildren<ToolsPanelView>(true);
+                if (tools != null)
+                {
+                    PatchToolsPanelGrantButtons(tools);
+                }
+
+                var so = new SerializedObject(inSave);
+                var panelProp = so.FindProperty("_gmAddSoldierPanel");
+                // Runtime EnsureGmAddSoldierPanel builds UI if missing; clear stale refs so Awake rebuilds.
+                if (panelProp != null && panelProp.objectReferenceValue == null)
+                {
+                    // leave null — InSaveShellView.EnsureGmAddSoldierPanel creates at runtime
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] ToolsPanel「添加士兵」patched onto MetaShellRoot (UI-020).");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
         public static void GenerateAll()
         {
             EnsureFolders();
@@ -531,7 +592,7 @@ namespace Gravedigger2026.Editor.Meta
         private static ToolsPanelView BuildToolsPanel(Transform parent)
         {
             var go = CreatePanel(parent, "ToolsPanel", new Color(0.08f, 0.09f, 0.12f, 0.95f));
-            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 380f));
+            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 430f));
 
             var title = CreateText(go.transform, "Title", "工具面板", 24, TextAnchor.UpperCenter);
             Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(240f, 36f));
@@ -548,11 +609,14 @@ namespace Gravedigger2026.Editor.Meta
             var grantBook = CreateButton(go.transform, "GrantMagicBookButton", "增加魔法书", new Color(0.38f, 0.36f, 0.52f, 1f));
             Place(grantBook.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -216f), new Vector2(200f, 44f));
 
+            var grantSoldier = CreateButton(go.transform, "GrantAddSoldierButton", "添加士兵", new Color(0.48f, 0.40f, 0.28f, 1f));
+            Place(grantSoldier.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -268f), new Vector2(200f, 44f));
+
             var close = CreateButton(go.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
-            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -272f), new Vector2(200f, 40f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -324f), new Vector2(200f, 40f));
 
             var view = go.AddComponent<ToolsPanelView>();
-            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, close);
+            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, grantSoldier, close);
             go.SetActive(false);
             return view;
         }
@@ -560,13 +624,14 @@ namespace Gravedigger2026.Editor.Meta
         private static void PatchToolsPanelGrantButtons(ToolsPanelView view)
         {
             var go = view.gameObject;
-            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 380f));
+            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 430f));
 
             var settings = go.transform.Find("SettingsButton")?.gameObject;
             var level = go.transform.Find("LevelButton")?.gameObject;
             var close = go.transform.Find("CloseButton")?.gameObject;
             var grantEquip = go.transform.Find("GrantProtagonistEquipmentButton")?.gameObject;
             var grantBook = go.transform.Find("GrantMagicBookButton")?.gameObject;
+            var grantSoldier = go.transform.Find("GrantAddSoldierButton")?.gameObject;
 
             if (settings != null)
             {
@@ -592,12 +657,19 @@ namespace Gravedigger2026.Editor.Meta
 
             Place(grantBook.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -216f), new Vector2(200f, 44f));
 
-            if (close != null)
+            if (grantSoldier == null)
             {
-                Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -272f), new Vector2(200f, 40f));
+                grantSoldier = CreateButton(go.transform, "GrantAddSoldierButton", "添加士兵", new Color(0.48f, 0.40f, 0.28f, 1f));
             }
 
-            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, close);
+            Place(grantSoldier.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -268f), new Vector2(200f, 44f));
+
+            if (close != null)
+            {
+                Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -324f), new Vector2(200f, 40f));
+            }
+
+            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, grantSoldier, close);
         }
 
         private static void WireToolsPanelView(
@@ -607,6 +679,7 @@ namespace Gravedigger2026.Editor.Meta
             GameObject level,
             GameObject grantEquip,
             GameObject grantBook,
+            GameObject grantSoldier,
             GameObject close)
         {
             var so = new SerializedObject(view);
@@ -631,6 +704,12 @@ namespace Gravedigger2026.Editor.Meta
             if (grantBookProp != null && grantBook != null)
             {
                 grantBookProp.objectReferenceValue = grantBook.GetComponent<Button>();
+            }
+
+            var grantSoldierProp = so.FindProperty("_grantAddSoldierButton");
+            if (grantSoldierProp != null && grantSoldier != null)
+            {
+                grantSoldierProp.objectReferenceValue = grantSoldier.GetComponent<Button>();
             }
 
             if (close != null)
@@ -785,7 +864,7 @@ namespace Gravedigger2026.Editor.Meta
         private static ToastView BuildToast(Transform parent)
         {
             var root = CreatePanel(parent, "Toast", new Color(0.05f, 0.05f, 0.08f, 0.88f));
-            Place(root.GetComponent<RectTransform>(), new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(640f, 56f));
+            Place(root.GetComponent<RectTransform>(), new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.08f), new Vector2(0.5f, 0.5f), new Vector2(0f, 828f), new Vector2(640f, 56f));
             var text = CreateText(root.transform, "Message", string.Empty, 22, TextAnchor.MiddleCenter);
 
             // Keep Toast GO active (CanvasGroup hides it). Inactive host cannot StartCoroutine.

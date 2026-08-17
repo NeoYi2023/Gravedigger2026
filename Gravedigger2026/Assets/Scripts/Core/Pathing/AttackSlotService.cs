@@ -12,6 +12,8 @@ namespace Gravedigger2026.Core.Pathing
     /// inside the gap sector (default = far side vs the attacker centroid), so
     /// melee multi-vs-one no longer packs a solid ring. Absent param → legacy
     /// full-ring behavior, MP-02 semantics unchanged.
+    /// Melee (N=12) and ranged (N=8) rings on the same target are independent
+    /// tables so mixed-mode TryClaim cannot rebuild and drop the other mode.
     /// </summary>
     public sealed class AttackSlotService
     {
@@ -27,6 +29,12 @@ namespace Gravedigger2026.Core.Pathing
 
         private readonly Dictionary<string, AttackerClaim> _byAttacker =
             new Dictionary<string, AttackerClaim>();
+        private readonly List<string> _tableKeyScratch = new List<string>(4);
+
+        private static string TableKey(string targetId, int slotCount)
+        {
+            return string.Concat(targetId, "\u001f", slotCount.ToString());
+        }
 
         private IAttackSlotWalkable _walkable = StubAttackSlotFullyWalkable.Instance;
 
@@ -89,28 +97,35 @@ namespace Gravedigger2026.Core.Pathing
             var slotCount = SlotCountFor(attackMode);
             var minDistFromCenter = Mathf.Max(0f, targetBodyRadius * 0.5f);
 
-            // Same target already claimed → refresh / move-threshold recompute, keep slot index.
+            // Same target + same ring (melee/ranged tables are independent) → keep slot.
             if (_byAttacker.TryGetValue(attackerId, out var existing) &&
                 existing.TargetId == targetId)
             {
-                var table = EnsureTable(targetId, slotCount, ringRadius, targetPos);
-                if (existing.SlotIndex >= 0 &&
-                    existing.SlotIndex < table.Slots.Length &&
-                    table.Slots[existing.SlotIndex].AttackerId == attackerId)
+                if (existing.SlotCount != slotCount)
                 {
-                    MaybeRecomputePositions(table, ringRadius, targetPos);
-                    UpdateClaimerPos(table, existing.SlotIndex, attackerPos, targetPos);
-                    var kept = table.Slots[existing.SlotIndex].WorldPos;
-                    if (IsAcceptableSlot(kept, targetPos, minDistFromCenter) &&
-                        !IsSlotInGap(table, kept, targetPos, surround, attackerPos))
+                    Release(attackerId);
+                }
+                else
+                {
+                    var table = EnsureTable(targetId, slotCount, ringRadius, targetPos);
+                    if (existing.SlotIndex >= 0 &&
+                        existing.SlotIndex < table.Slots.Length &&
+                        table.Slots[existing.SlotIndex].AttackerId == attackerId)
                     {
-                        worldPos = kept;
-                        return true;
-                    }
+                        MaybeRecomputePositions(table, ringRadius, targetPos);
+                        UpdateClaimerPos(table, existing.SlotIndex, attackerPos, targetPos);
+                        var kept = table.Slots[existing.SlotIndex].WorldPos;
+                        if (IsAcceptableSlot(kept, targetPos, minDistFromCenter) &&
+                            !IsSlotInGap(table, kept, targetPos, surround, attackerPos))
+                        {
+                            worldPos = kept;
+                            return true;
+                        }
 
-                    // Slot became illegal after move / fell into the gap — free and re-pick.
-                    ClearSlot(table, existing.SlotIndex);
-                    _byAttacker.Remove(attackerId);
+                        // Slot became illegal after move / fell into the gap — free and re-pick.
+                        ClearSlot(table, existing.SlotIndex);
+                        _byAttacker.Remove(attackerId);
+                    }
                 }
             }
             else if (_byAttacker.ContainsKey(attackerId))
@@ -169,7 +184,8 @@ namespace Gravedigger2026.Core.Pathing
             _byAttacker[attackerId] = new AttackerClaim
             {
                 TargetId = targetId,
-                SlotIndex = bestIndex
+                SlotIndex = bestIndex,
+                SlotCount = slotCount
             };
             return true;
         }
@@ -188,7 +204,7 @@ namespace Gravedigger2026.Core.Pathing
             }
 
             _byAttacker.Remove(attackerId);
-            if (!_byTarget.TryGetValue(claim.TargetId, out var table))
+            if (!TryGetTable(claim.TargetId, claim.SlotCount, out var table))
             {
                 return;
             }
@@ -202,34 +218,52 @@ namespace Gravedigger2026.Core.Pathing
 
             if (CountOccupied(table) == 0)
             {
-                _byTarget.Remove(claim.TargetId);
+                _byTarget.Remove(TableKey(claim.TargetId, claim.SlotCount));
             }
         }
 
-        /// <summary>Release every claim on a target (target death).</summary>
+        /// <summary>Release every claim on a target (target death), both melee and ranged rings.</summary>
         public void ReleaseAllForTarget(string targetId)
         {
-            if (string.IsNullOrEmpty(targetId) || !_byTarget.TryGetValue(targetId, out var table))
+            if (string.IsNullOrEmpty(targetId))
             {
                 return;
             }
 
-            for (var i = 0; i < table.Slots.Length; i++)
+            _tableKeyScratch.Clear();
+            foreach (var kv in _byTarget)
             {
-                var id = table.Slots[i].AttackerId;
-                if (id == null)
+                if (kv.Value != null && kv.Value.TargetId == targetId)
+                {
+                    _tableKeyScratch.Add(kv.Key);
+                }
+            }
+
+            for (var t = 0; t < _tableKeyScratch.Count; t++)
+            {
+                var key = _tableKeyScratch[t];
+                if (!_byTarget.TryGetValue(key, out var table) || table == null)
                 {
                     continue;
                 }
 
-                table.Slots[i].AttackerId = null;
-                if (_byAttacker.TryGetValue(id, out var claim) && claim.TargetId == targetId)
+                for (var i = 0; i < table.Slots.Length; i++)
                 {
-                    _byAttacker.Remove(id);
-                }
-            }
+                    var id = table.Slots[i].AttackerId;
+                    if (id == null)
+                    {
+                        continue;
+                    }
 
-            _byTarget.Remove(targetId);
+                    table.Slots[i].AttackerId = null;
+                    if (_byAttacker.TryGetValue(id, out var claim) && claim.TargetId == targetId)
+                    {
+                        _byAttacker.Remove(id);
+                    }
+                }
+
+                _byTarget.Remove(key);
+            }
         }
 
         public bool TryGetClaim(string attackerId, out Vector3 worldPos)
@@ -237,7 +271,7 @@ namespace Gravedigger2026.Core.Pathing
             worldPos = default;
             if (string.IsNullOrEmpty(attackerId) ||
                 !_byAttacker.TryGetValue(attackerId, out var claim) ||
-                !_byTarget.TryGetValue(claim.TargetId, out var table) ||
+                !TryGetTable(claim.TargetId, claim.SlotCount, out var table) ||
                 claim.SlotIndex < 0 ||
                 claim.SlotIndex >= table.Slots.Length)
             {
@@ -269,15 +303,24 @@ namespace Gravedigger2026.Core.Pathing
             return true;
         }
 
-        /// <summary>Occupied slot count for a target (0 if unknown).</summary>
+        /// <summary>Occupied slot count for a target across melee + ranged rings (0 if unknown).</summary>
         public int GetOccupiedCount(string targetId)
         {
-            if (string.IsNullOrEmpty(targetId) || !_byTarget.TryGetValue(targetId, out var table))
+            if (string.IsNullOrEmpty(targetId))
             {
                 return 0;
             }
 
-            return CountOccupied(table);
+            var n = 0;
+            foreach (var kv in _byTarget)
+            {
+                if (kv.Value != null && kv.Value.TargetId == targetId)
+                {
+                    n += CountOccupied(kv.Value);
+                }
+            }
+
+            return n;
         }
 
         /// <summary>Last ring-anchor position used for a target's slot table (for tests / debug).</summary>
@@ -285,7 +328,7 @@ namespace Gravedigger2026.Core.Pathing
         {
             anchorPos = default;
             ringRadius = 0f;
-            if (string.IsNullOrEmpty(targetId) || !_byTarget.TryGetValue(targetId, out var table))
+            if (!TryGetAnyTable(targetId, out var table))
             {
                 return false;
             }
@@ -301,37 +344,45 @@ namespace Gravedigger2026.Core.Pathing
             _byAttacker.Clear();
         }
 
+        private bool TryGetTable(string targetId, int slotCount, out TargetSlotTable table)
+        {
+            return _byTarget.TryGetValue(TableKey(targetId, slotCount), out table) && table != null;
+        }
+
+        private bool TryGetAnyTable(string targetId, out TargetSlotTable table)
+        {
+            table = null;
+            if (string.IsNullOrEmpty(targetId))
+            {
+                return false;
+            }
+
+            foreach (var kv in _byTarget)
+            {
+                if (kv.Value != null && kv.Value.TargetId == targetId)
+                {
+                    table = kv.Value;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private TargetSlotTable EnsureTable(
             string targetId,
             int slotCount,
             float ringRadius,
             Vector3 targetPos)
         {
-            if (_byTarget.TryGetValue(targetId, out var table))
+            var key = TableKey(targetId, slotCount);
+            if (_byTarget.TryGetValue(key, out var table) && table != null)
             {
-                if (table.Slots.Length != slotCount)
-                {
-                    // Capacity / mode change: drop claims on this target and rebuild ring.
-                    for (var i = 0; i < table.Slots.Length; i++)
-                    {
-                        var id = table.Slots[i].AttackerId;
-                        if (id != null &&
-                            _byAttacker.TryGetValue(id, out var c) &&
-                            c.TargetId == targetId)
-                        {
-                            _byAttacker.Remove(id);
-                        }
-                    }
-
-                    table = CreateTable(targetId, slotCount, ringRadius, targetPos);
-                    _byTarget[targetId] = table;
-                }
-
                 return table;
             }
 
             table = CreateTable(targetId, slotCount, ringRadius, targetPos);
-            _byTarget[targetId] = table;
+            _byTarget[key] = table;
             return table;
         }
 
@@ -520,7 +571,7 @@ namespace Gravedigger2026.Core.Pathing
         {
             centerDeg = 0f;
             if (string.IsNullOrEmpty(targetId) ||
-                !_byTarget.TryGetValue(targetId, out var table))
+                !TryGetAnyTable(targetId, out var table))
             {
                 return false;
             }
@@ -607,6 +658,7 @@ namespace Gravedigger2026.Core.Pathing
         {
             public string TargetId;
             public int SlotIndex;
+            public int SlotCount;
         }
 
         private sealed class TargetSlotTable

@@ -347,6 +347,8 @@ namespace Gravedigger2026.Core.Config
             return _classById.TryGetValue(classId ?? string.Empty, out row);
         }
 
+        public IEnumerable<ClassConfigRow> Classes => _classById.Values;
+
         /// <summary>Composite PK lookup (SPEC_04 §9.21): SkillId + SkillLevel.</summary>
         public bool TryGetSkill(string skillId, int skillLevel, out SkillConfigRow row)
         {
@@ -406,6 +408,8 @@ namespace Gravedigger2026.Core.Config
         {
             return _raceById.TryGetValue(raceId ?? string.Empty, out row);
         }
+
+        public IEnumerable<RaceConfigRow> Races => _raceById.Values;
 
         public bool TryGetGem(string gemId, out GemConfigRow row)
         {
@@ -1220,6 +1224,7 @@ namespace Gravedigger2026.Core.Config
                     ClassId = id,
                     ClassName = SimpleCsv.Require(raw, "ClassName", table, rowIndex),
                     BaseClass = ParseBaseClass(OptionalText(raw, "BaseClass"), table, rowIndex),
+                    PromoteClass = OptionalText(raw, "PromoteClass"),
                     ClassLevel = ParseOptionalNonNegInt(raw, "ClassLevel", table, rowIndex),
                     PrimaryStat = primary,
                     CombatConvertCoeffs = OptionalText(raw, "CombatConvertCoeffs"),
@@ -1326,7 +1331,8 @@ namespace Gravedigger2026.Core.Config
         }
 
         /// <summary>
-        /// Empty = Unspecified; CSV Chinese 战士/射手/法师/盗贼; illegal → Warning + Unspecified.
+        /// Empty = Unspecified; CSV Chinese 战士/射手/法师/刺客 (legacy 盗贼 still accepted);
+        /// illegal → Warning + Unspecified.
         /// </summary>
         private static BaseClassKind ParseBaseClass(string text, string table, int rowIndex)
         {
@@ -1343,12 +1349,13 @@ namespace Gravedigger2026.Core.Config
                     return BaseClassKind.Archer;
                 case "法师":
                     return BaseClassKind.Mage;
+                case "刺客":
                 case "盗贼":
                     return BaseClassKind.Thief;
                 default:
                     Debug.LogWarning(
                         $"[Config] {table} row {rowIndex}: illegal BaseClass '{text}' " +
-                        "(expect 战士|射手|法师|盗贼 or empty); using Unspecified.");
+                        "(expect 战士|射手|法师|刺客 or empty); using Unspecified.");
                     return BaseClassKind.Unspecified;
             }
         }

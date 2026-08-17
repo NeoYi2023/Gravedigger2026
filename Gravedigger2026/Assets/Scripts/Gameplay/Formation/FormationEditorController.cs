@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
@@ -32,6 +33,7 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Button _completeButton;
         [SerializeField] private RectTransform _dragGhost;
         [SerializeField] private Image _dragGhostImage;
+        [SerializeField] private FormationSoldierHoverTooltipView _hoverTooltip;
 
         private readonly List<string> _barIds = new List<string>();
         private readonly List<string> _barDisplayNames = new List<string>();
@@ -64,6 +66,26 @@ namespace Gravedigger2026.Gameplay.Formation
         public event Action ReturnRequested;
         public event Action StartBattleRequested;
         public event Action CompleteRequested;
+
+        public bool IsActive => _active;
+
+        public bool TryCollectClassZones(List<FormationClassZoneSnapshot> into)
+        {
+            if (into == null)
+            {
+                return false;
+            }
+
+            into.Clear();
+            var map = _ownedMapInstance != null ? _ownedMapInstance : _boundMap;
+            if (map == null)
+            {
+                return false;
+            }
+
+            FormationClassZoneCollector.CollectFromMapInstance(map, into);
+            return into.Count > 0 || map != null;
+        }
 
         public void Begin(
             FormationEditorMode mode,
@@ -143,6 +165,7 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_soldierBar != null)
             {
                 _soldierBar.SlotLiftStarted += HandleBarSlotLiftStarted;
+                _soldierBar.HoverChanged += HandleBarHoverChanged;
             }
 
             _formation.Changed += HandleFormationChanged;
@@ -156,6 +179,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 _progress.Changed += HandleFormationChanged;
             }
 
+            HideHoverTooltip();
             HideUiGhost();
             ClearWorldDragPreview();
             RefreshAll();
@@ -186,6 +210,7 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_soldierBar != null)
             {
                 _soldierBar.SlotLiftStarted -= HandleBarSlotLiftStarted;
+                _soldierBar.HoverChanged -= HandleBarHoverChanged;
             }
 
             if (_formation != null)
@@ -203,6 +228,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 _progress.Changed -= HandleFormationChanged;
             }
 
+            HideHoverTooltip();
             ClearWorldDragPreview();
             if (_battlefieldPreview != null)
             {
@@ -234,6 +260,11 @@ namespace Gravedigger2026.Gameplay.Formation
             if (!_active)
             {
                 return;
+            }
+
+            if (_dragKind != DragKind.None)
+            {
+                HideHoverTooltip();
             }
 
             if (_dragKind == DragKind.None)
@@ -275,6 +306,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
         private void HandleBarSlotLiftStarted(FormationSoldierSlotView slot)
         {
+            HideHoverTooltip();
             if (slot == null || string.IsNullOrEmpty(slot.WarriorId) || _formation == null)
             {
                 return;
@@ -521,6 +553,7 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             _soldierBar.SetSlots(_barIds, _barDisplayNames, _barClassLevels, _barSprites, _barHighlighted);
+            RefreshHoverTooltip();
         }
 
         private string ResolveClassName(WarriorInstance warrior)
@@ -554,6 +587,141 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             return 0;
+        }
+
+        private void HandleBarHoverChanged(FormationSoldierSlotView slot)
+        {
+            if (_dragKind != DragKind.None)
+            {
+                HideHoverTooltip();
+                return;
+            }
+
+            ShowHoverTooltip(slot);
+        }
+
+        private void RefreshHoverTooltip()
+        {
+            if (_hoverTooltip == null || _soldierBar == null)
+            {
+                return;
+            }
+
+            if (_dragKind != DragKind.None)
+            {
+                HideHoverTooltip();
+                return;
+            }
+
+            ShowHoverTooltip(_soldierBar.HoveredSlot);
+        }
+
+        private void ShowHoverTooltip(FormationSoldierSlotView slot)
+        {
+            if (_hoverTooltip == null)
+            {
+                return;
+            }
+
+            if (slot == null || string.IsNullOrEmpty(slot.WarriorId) || _pool == null || _configs == null)
+            {
+                HideHoverTooltip();
+                return;
+            }
+
+            if (!_pool.TryGet(slot.WarriorId, out var warrior) || warrior == null)
+            {
+                HideHoverTooltip();
+                return;
+            }
+
+            _configs.TryGetClass(warrior.ClassId, out var classRow);
+            var content = new FormationSoldierHoverTooltipView.Content
+            {
+                ClassName = ResolveClassName(warrior),
+                ClassLevel = classRow != null ? (classRow.ClassLevel < 0 ? 0 : classRow.ClassLevel) : 0,
+                RaceDisplayName = ResolveRaceDisplayName(warrior.RaceId),
+                BaseClassDisplay = classRow != null ? FormatBaseClass(classRow.BaseClass) : string.Empty,
+                PromoteClass = classRow != null ? classRow.PromoteClass : string.Empty,
+                PrimaryStat = classRow != null ? classRow.PrimaryStat : StatKind.Strength
+            };
+
+            var staticStats = WarriorStatMath.ComputeStaticStats(
+                warrior.BaseStats,
+                warrior.EquipStats,
+                warrior.GemMult,
+                warrior.RaceAdjustCoeff);
+            content.MaxHp = WarriorStatMath.ComputeMaxHP(
+                warrior.BodyLife,
+                staticStats.Strength,
+                _configs.GetMaxHpStrengthMult());
+            content.Strength = staticStats.Strength;
+            content.Agility = staticStats.Agility;
+            content.Intelligence = staticStats.Intelligence;
+
+            var skills = warrior.SoldierSkills;
+            if (skills != null)
+            {
+                for (var i = 0; i < skills.Count; i++)
+                {
+                    var entry = skills[i];
+                    if (entry == null || string.IsNullOrEmpty(entry.SkillId))
+                    {
+                        continue;
+                    }
+
+                    var displayName = entry.SkillId;
+                    if (_configs.TryGetSkill(entry.SkillId, entry.SkillLevel, out var skillRow) &&
+                        skillRow != null &&
+                        !string.IsNullOrEmpty(skillRow.DisplayName))
+                    {
+                        displayName = skillRow.DisplayName;
+                    }
+
+                    content.Skills.Add(new FormationSoldierHoverTooltipView.SkillItem
+                    {
+                        DisplayName = displayName,
+                        Icon = FormationSoldierHoverTooltipView.LoadSkillIcon(entry.SkillId)
+                    });
+                }
+            }
+
+            _hoverTooltip.Show(slot.RectTransform, content);
+        }
+
+        private void HideHoverTooltip()
+        {
+            if (_hoverTooltip != null)
+            {
+                _hoverTooltip.Hide();
+            }
+        }
+
+        private string ResolveRaceDisplayName(string raceId)
+        {
+            if (_configs != null && _configs.TryGetRace(raceId, out var raceRow) && raceRow != null)
+            {
+                return string.IsNullOrEmpty(raceRow.DisplayNameKey) ? raceRow.RaceId : raceRow.DisplayNameKey;
+            }
+
+            return raceId ?? string.Empty;
+        }
+
+        private static string FormatBaseClass(BaseClassKind kind)
+        {
+            switch (kind)
+            {
+                case BaseClassKind.Warrior:
+                    return "战士";
+                case BaseClassKind.Archer:
+                    return "射手";
+                case BaseClassKind.Mage:
+                    return "法师";
+                case BaseClassKind.Thief:
+                    return "刺客";
+                default:
+                    return string.Empty;
+            }
         }
 
         private void RefreshHud()

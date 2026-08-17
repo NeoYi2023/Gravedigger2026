@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.38
-**最后更新 / Last Updated:** 2026-08-15  
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效）  
+**文档版本 / Document Version:** v0.82.50
+**最后更新 / Last Updated:** 2026-08-17  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,18 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-17 | v0.82.50 | 解禁游戏 Prefab 挂厂商 `AllIn1Shader`（菜单名 `AddAllIn1Shader`）/`SetAtlasUvs`；序列帧 UV 可用厂商 `SetAtlasUvs` 或项目 `AllIn1AtlasUvDriver`；`ExecuteInEditMode` 警告改为知情项；同步 SPEC_04 §15.2 |
+| 2026-08-17 | v0.82.49 | 渲染明确为 Built-in RP；删除误导入且未被游戏引用的 `Assets/Vefects`（Pixel Craft VFX URP），消除 `Common.hlsl` include 编译错误；同步 SPEC_04 §1 |
+| 2026-08-17 | v0.82.48 | `App_0_00` Visual 去掉 `AllIn1AtlasUvDriver`；AllIn1 管线约定仍保留（序列帧要用时再挂）；同步 SPEC_04 §15.2 |
+| 2026-08-17 | v0.82.47 | Mode2 士兵栏悬浮框（UI-021 / D-065）：指针停在有兵 `SoldierSlot` 上展示 ClassName/等级/种族/BaseClass/PromoteClass/静态 MaxHP 与三维+主属性标记/士兵技能图标与名；横滑/拖起/离槽隐藏；图标 `Resources/UI/Skills/{SkillId}`；Mode1 无框；同步 SPEC_03 §3.6/§3.8/§3.11、SPEC_04 §2/§6/§9.21、CONTEXT |
+| 2026-08-17 | v0.82.46 | `ClassConfig.PromoteClass`（转职职业）：可选文字列；空=无；本轮仅填表/加载，不驱动玩法；Mode1+Mode2 Excel/CSV；同步 SPEC_03 §3.11、SPEC_04 §9.9b、CONTEXT |
+| 2026-08-17 | v0.82.45 | 展示名「盗贼」统一为「刺客」（仅文案；`Class_Rogue` / `BaseClassKind.Thief` 不变）。`BaseClass` CSV 权威中文值改为 `刺客`（加载器仍接受旧值 `盗贼`）；Mode1 ClassName/ClassAffinity/魔法书 DisplayName 与 Mode2 躯体介绍同步；同步 SPEC_03 §3.11、SPEC_04 §9.9b/§9.24、CONTEXT |
+| 2026-08-17 | v0.82.44 | 修复推图近战+远程同打一目标时 AttackSlot 表按 N 重建导致近战认领被丢、双方站桩停手；近战环与远程环改为同一目标上的独立认领表；同步 SPEC_04 §9.7 |
+| 2026-08-17 | v0.82.43 | 修复 GM「添加士兵」同职业+同种族外形时对时错：匹配集禁止均匀随机，改为 DefaultAppearanceId∈匹配集 > AppearanceLevel==ClassLevel > 表序首条；无匹配仍不回退 DefaultAppearanceId；同步 SPEC_03 §3.5/§3.8 D-064、SPEC_04 §6 |
+| 2026-08-17 | v0.82.42 | 修复 App_0_00 EvilMarine 整格红块：`AllIn1AtlasUvDriver` MPB 绑定 `sprite.texture`；材质改像素描边+红光，去掉 ColorSwap/噪声 OutlineTex；同步 SPEC_04 §15.2 |
+| 2026-08-17 | v0.82.41 | AllIn1 序列帧 UV：游戏 Prefab 改用 `AllIn1AtlasUvDriver`（MPB）；禁止挂厂商 `AllIn1Shader`/`SetAtlasUvs`（`ExecuteInEditMode` 在 Prefab Mode Play 会弹警告）；同步 SPEC_04 §15.2、`App_0_00` |
+| 2026-08-17 | v0.82.40 | Demo 士兵外观可选用 AllIn1 Sprite Shader 材质（`Assets/Materials/AllIn1/`）；`App_0_00` 挂 EvilMarine（红光描边+换色）；序列帧须 `SetAtlasUvs`+`ATLAS_ON`；同步 SPEC_04 §2/§15.2 |
+| 2026-08-17 | v0.82.39 | ToolsPanel Demo GM「添加士兵」（UI-020 / D-064）：左侧 GmAddSoldierPanel；仅 UM 布阵可用；BodyAppearance RaceId+ClassAffinity 匹配造兵；可选自动上阵；UM「返回」挪到右下；同步 SPEC_03 §3.5/§3.6/§3.8、SPEC_04 §6、CONTEXT |
 | 2026-08-15 | v0.82.38 | Mode2 布阵 Prepare：`StartBattleButton` 移至右下 `CompleteButton` 正上方（同锚点叠放）；同步 `FormationEditorRoot_Mode2` + `FormationAssetBuilder`；SPEC_03 §3.11、SPEC_04 §6 |
 | 2026-08-15 | v0.82.37 | PushMap 开战镜头预览（方案 A）：`IsCombatIntroActive` 门闩；双方部署 Idle；计时冻结；沿 `CameraFollowPath` 从 WP_End 反向扫到 WP_Start；常量表 `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds`；同步 SPEC_03 §3.14、SPEC_04 §9.20b、CONTEXT |
 | 2026-08-15 | v0.82.36 | 常量表 P1/P2：攻击位/命中松弛/包围缺口/卡死停顿/投射物命中半径/Defend胜场 Exp；流场格宽/群体重算预算/软碰撞与 LocalDetour/Boss 到达与接战粘滞/刷怪散布；`CombatRuntimeTuning` 加载后应用；Mode1+Mode2 CSV/Excel；同步 SPEC_04 §9.20b |
@@ -303,6 +315,18 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-17 | v0.82.50 | Unban vendor `AllIn1Shader` (menu `AddAllIn1Shader`) / `SetAtlasUvs` on game Prefabs; spritesheet UVs may use vendor `SetAtlasUvs` or project `AllIn1AtlasUvDriver`; `ExecuteInEditMode` warning is advisory; synced SPEC_04 §15.2 |
+| 2026-08-17 | v0.82.49 | Rendering is Built-in RP; removed unused imported `Assets/Vefects` (Pixel Craft VFX URP) that failed to include `Common.hlsl`; synced SPEC_04 §1 |
+| 2026-08-17 | v0.82.48 | `App_0_00` Visual no longer mounts `AllIn1AtlasUvDriver`; AllIn1 pipeline remains optional; synced SPEC_04 §15.2 |
+| 2026-08-17 | v0.82.47 | Mode2 soldier-bar hover tooltip (UI-021 / D-065): pointer over occupied `SoldierSlot` shows ClassName / level / race / BaseClass / PromoteClass / static MaxHP + three dims with PrimaryStat marker / skill icons+names; hide on scroll/lift/leave; icons `Resources/UI/Skills/{SkillId}`; Mode1 has none; synced SPEC_03 §3.6/§3.8/§3.11, SPEC_04 §2/§6/§9.21, CONTEXT |
+| 2026-08-17 | v0.82.46 | `ClassConfig.PromoteClass` (ZH 转职职业): optional text; empty=none; fill/load this slice, unused in gameplay; Mode1+Mode2 Excel/CSV; synced SPEC_03 §3.11, SPEC_04 §9.9b, CONTEXT |
+| 2026-08-17 | v0.82.45 | Display rename 盗贼→刺客 (copy only; `Class_Rogue` / `BaseClassKind.Thief` unchanged). Canonical CSV `BaseClass` token is `刺客` (loader still accepts legacy `盗贼`); synced Mode1 ClassName/ClassAffinity/MagicBook DisplayName and Mode2 body-part blurb; synced SPEC_03 §3.11, SPEC_04 §9.9b/§9.24, CONTEXT |
+| 2026-08-17 | v0.82.44 | Fix PushMap mixed melee+ranged AttackSlot freeze: separate melee/ranged rings on the same target so a ranged claim cannot rebuild and drop melee claims; synced SPEC_04 §9.7 |
+| 2026-08-17 | v0.82.43 | Fix GM Add Soldier mixed visuals for same class+race: no uniform random in match set; pick DefaultAppearanceId-in-set > AppearanceLevel==ClassLevel > first table order; still no DefaultAppearanceId fallback when unmatched; synced SPEC_03 §3.5/§3.8 D-064, SPEC_04 §6 |
+| 2026-08-17 | v0.82.42 | Fix App_0_00 EvilMarine full-cell red blob: `AllIn1AtlasUvDriver` MPB binds `sprite.texture`; mat → pixel outline + red glow, drop ColorSwap/noisy OutlineTex; synced SPEC_04 §15.2 |
+| 2026-08-17 | v0.82.41 | AllIn1 spritesheet UVs: game Prefabs use `AllIn1AtlasUvDriver` (MPB); ban vendor `AllIn1Shader`/`SetAtlasUvs` (`ExecuteInEditMode` triggers Prefab Mode Play dialog); synced SPEC_04 §15.2, `App_0_00` |
+| 2026-08-17 | v0.82.40 | Demo warrior visuals may use AllIn1 Sprite Shader mats under `Assets/Materials/AllIn1/`; `App_0_00` uses EvilMarine (red glow outline + color swap); spritesheets need `SetAtlasUvs`+`ATLAS_ON`; synced SPEC_04 §2/§15.2 |
+| 2026-08-17 | v0.82.39 | ToolsPanel Demo GM Add Soldier (UI-020 / D-064): left GmAddSoldierPanel; UM Formation only; BodyAppearance RaceId+ClassAffinity match grant; optional auto-deploy; UM Return moved bottom-right; synced SPEC_03 §3.5/§3.6/§3.8, SPEC_04 §6, CONTEXT |
 | 2026-08-15 | v0.82.38 | Mode2 formation Prepare: move `StartBattleButton` directly above bottom-right `CompleteButton` (same anchors, stacked); synced `FormationEditorRoot_Mode2` + `FormationAssetBuilder`; SPEC_03 §3.11, SPEC_04 §6 |
 | 2026-08-15 | v0.82.37 | PushMap StartBattle camera intro (Approach A): `IsCombatIntroActive` latch; both sides deploy Idle; clock frozen; reverse rail sweep WP_End→WP_Start; constants `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds`; synced SPEC_03 §3.14, SPEC_04 §9.20b, CONTEXT |
 | 2026-08-15 | v0.82.36 | Constants P1/P2: AttackSlot/HitConfirmSlack/surround gap/StuckHold/projectile hit radius/Defend victory Exp; FlowField cell/mass recalc/soft+LocalDetour/Boss arrive+engage hysteresis/spawn spread; `CombatRuntimeTuning` after load; Mode1+Mode2 CSV/Excel; synced SPEC_04 §9.20b |

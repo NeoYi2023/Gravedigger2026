@@ -11,12 +11,14 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _levelButton;
         [SerializeField] private Button _grantProtagonistEquipmentButton;
         [SerializeField] private Button _grantMagicBookButton;
+        [SerializeField] private Button _grantAddSoldierButton;
         [SerializeField] private Button _closeButton;
 
         public event Action SettingsClicked;
         public event Action LevelClicked;
         public event Action GrantProtagonistEquipmentClicked;
         public event Action GrantMagicBookClicked;
+        public event Action GrantAddSoldierClicked;
 
         private void Awake()
         {
@@ -43,6 +45,11 @@ namespace Gravedigger2026.UI
             if (_grantMagicBookButton != null)
             {
                 _grantMagicBookButton.onClick.AddListener(() => GrantMagicBookClicked?.Invoke());
+            }
+
+            if (_grantAddSoldierButton != null)
+            {
+                _grantAddSoldierButton.onClick.AddListener(() => GrantAddSoldierClicked?.Invoke());
             }
 
             if (_closeButton != null)
@@ -106,17 +113,27 @@ namespace Gravedigger2026.UI
                     new Vector2(0f, -216f));
             }
 
-            var rootRt = _root != null ? _root.GetComponent<RectTransform>() : transform as RectTransform;
-            if (rootRt != null && rootRt.sizeDelta.y < 360f)
+            if (_grantAddSoldierButton == null)
             {
-                rootRt.sizeDelta = new Vector2(rootRt.sizeDelta.x, 380f);
+                _grantAddSoldierButton = CloneToolButton(
+                    "GrantAddSoldierButton",
+                    "添加士兵",
+                    new Color(0.48f, 0.40f, 0.28f, 1f),
+                    new Vector2(0f, -268f));
+            }
+
+            var rootRt = _root != null ? _root.GetComponent<RectTransform>() : transform as RectTransform;
+            if (rootRt != null && rootRt.sizeDelta.y < 420f)
+            {
+                rootRt.sizeDelta = new Vector2(rootRt.sizeDelta.x, 430f);
             }
 
             RelayoutToolButton(_settingsButton, new Vector2(0f, -60f), new Vector2(200f, 44f));
             RelayoutToolButton(_levelButton, new Vector2(0f, -112f), new Vector2(200f, 44f));
             RelayoutToolButton(_grantProtagonistEquipmentButton, new Vector2(0f, -164f), new Vector2(200f, 44f));
             RelayoutToolButton(_grantMagicBookButton, new Vector2(0f, -216f), new Vector2(200f, 44f));
-            RelayoutToolButton(_closeButton, new Vector2(0f, -272f), new Vector2(200f, 40f));
+            RelayoutToolButton(_grantAddSoldierButton, new Vector2(0f, -268f), new Vector2(200f, 44f));
+            RelayoutToolButton(_closeButton, new Vector2(0f, -324f), new Vector2(200f, 40f));
         }
 
         private static void RelayoutToolButton(Button button, Vector2 anchoredPos, Vector2 size)

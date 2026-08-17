@@ -1,12 +1,13 @@
 SkillId,SkillLevel,CooldownMode,CastTarget,ExtraActivationCondition,DisplayName,Description,IconAssetId,SkillEffectId,BaseCooldownSeconds,LossOfControlChanceBonus
-Skill_01,1,Mode1,CurrentNormalAttackTarget,,技能01,技能01展示描述,,SkillEffect_01,5,0.02
-Skill_01,2,Mode1,CurrentNormalAttackTarget,,技能01,技能01展示描述,,SkillEffect_01,5,0.03
-Skill_02,1,Mode1,CurrentNormalAttackTarget,,技能02,技能02展示描述,,SkillEffect_02,6,0
-Skill_03,1,Mode2,CurrentNormalAttackTarget,,技能03,技能03展示描述,,SkillEffect_03,7,-0.01
-Skill_04,1,Mode1,CurrentNormalAttackTarget,,技能04,技能04展示描述,,SkillEffect_04,8,0.02
-Skill_05,1,Mode1,EnemySingle,,技能05,技能05展示描述,,SkillEffect_05,9,0
-Skill_06,1,Mode2,Self,,技能06,技能06展示描述,,SkillEffect_06,10,-0.01
-Skill_07,1,Mode1,CurrentNormalAttackTarget,,技能07,技能07展示描述,,SkillEffect_07,11,0.02
-Skill_08,1,Mode1,AllySingle,,技能08,技能08展示描述,,SkillEffect_08,12,0
-Skill_09,1,Mode2,GroundPoint,,技能09,技能09展示描述,,SkillEffect_09,13,-0.01
-Skill_10,1,Mode1,EnemyAll,,技能10,技能10展示描述,,SkillEffect_10,14,0.02
+Skill_01,1,Mode2,CurrentNormalAttackTarget,,格挡,敌人的普通攻击有10%的概率伤害变为0（但还是判断为命中）,Skill_01,SkillEffect_01,1,0
+Skill_02,1,Mode2,CurrentNormalAttackTarget,,舒适,未受伤的情况下，伤害提升5%,Skill_02,SkillEffect_02,1,0
+Skill_03,1,Mode2,CurrentNormalAttackTarget,,连发,攻击目标时连续攻击3次，CD 10秒,Skill_03,SkillEffect_03,1,0
+Skill_04,1,Mode2,CurrentNormalAttackTarget,,先发制人,攻击1名敌人的第一次攻击伤害提升20%,Skill_04,SkillEffect_04,1,0
+Skill_05,1,Mode2,CurrentNormalAttackTarget,,坚挺,当这一次受伤将导致死亡时，生命值强制变为1点血，并无敌1秒钟,Skill_05,SkillEffect_05,1,0
+Skill_06,1,Mode2,EnemySingle,,击飞,命中敌人后，有10%的概率对目标敌人四周的士兵产生击飞,Skill_06,SkillEffect_06,1,0
+Skill_07,1,Mode2,Self,,冰冻,范围减少攻速和移动速度,Skill_07,SkillEffect_07,1,0
+Skill_08,1,Mode2,CurrentNormalAttackTarget,,精英克制,如果攻击的目标是“精英”怪物则攻击的伤害增加50%,Skill_08,SkillEffect_08,1,0
+Skill_09,1,Mode2,AllySingle,,渐入佳境,每存活10秒，攻击增加3%，最大60%,Skill_09,SkillEffect_09,1,0
+Skill_10,1,Mode2,GroundPoint,,贯穿,发射的箭矢命中1名敌人后可以穿过此敌人继续向后飞,Skill_10,SkillEffect_10,1,0
+Skill_11,1,Mode2,EnemyAll,,灼烧,范围持续伤害,Skill_11,SkillEffect_11,1,0
+Skill_12,1,Mode2,Self,,瞬移,当开始寻找新的攻击目标时，会寻找距离最远的敌人并瞬移到该敌人的背后,Skill_12,SkillEffect_12,1,0

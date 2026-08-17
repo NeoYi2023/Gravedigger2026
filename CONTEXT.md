@@ -36,7 +36,7 @@
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：Step1 士兵行+书槽 → Step2 加强动画 → Step3 进 UM 自动开布阵（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 |
 | CampaignModeSelect | 玩法模式选择 | 新建/进入存档前弹窗选 CampaignMode（UI-014 / D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」「增加魔法书」（→GmGrantListPanel / D-061） | [§3.5](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
@@ -108,9 +108,10 @@
 | SoulConfig | 灵魂配置表 | SoulId → ClassId、AttackMode、Skills（`SkillId;Level|…`）、AttackPriority（同 TargetSelect）、MoveStyle、SpiritCost、ControlPowerCost；含系统默认 `Soul_00` | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | Class | 职业 | 实例 ClassId（有灵魂取自灵魂；无灵魂 Class_Servants）；ClassName/PrimaryStat/五维→战斗参数换算系数 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassId | 职业ID | 职业主键；有灵魂取自灵魂；无灵魂强制 Class_Servants；写入士兵实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PrimaryStat、CombatConvertCoeffs、AttackRange/前摇/弹速/超时、AttackMode、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PromoteClass（转职职业，可选文字，预留）、PrimaryStat、CombatConvertCoeffs、AttackRange/前摇/弹速/超时、AttackMode、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassName | 职业名 | 职业表字段；参与 WarriorName 与外观 ClassAffinity；可为「战士」等，**不是**单位称谓「士兵」 | [§3.11](SPEC_03_GameRules.md) |
-| BaseClass | 基础职业 | ClassConfig 列；CSV 中文战士/射手/法师/盗贼；空或非法→Unspecified；预留魔法书等条件；不参与命名/外观/战斗；不烘进实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| BaseClass | 基础职业 | ClassConfig 列；CSV 中文战士/射手/法师/刺客（加载器仍接受旧值盗贼）；空或非法→Unspecified；预留魔法书等条件；不参与命名/外观/战斗；不烘进实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| PromoteClass | 转职职业 | ClassConfig 可选文字列；空=无；本轮仅填表/加载；不参与命名/外观/战斗；应用点 TBD | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | MoveStyle | 移动风格 | `Normal` \| `Aggressive` \| `Cautious` | [§3.11](SPEC_03_GameRules.md) |
 | ExtraEquipment | 额外装备 | 翅膀/坐骑；制造锁定；属性/技能/NamePrefix | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.14](SPEC_04_Technical.md) |
 | ExtraEquipmentConfig | 额外装备配置表 | EquipSlot、NamePrefix、EquipStats（`Attr_Value|…`）、Skills（`SkillId;Level|…`）、SpiritCost、ControlPowerCost | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.14](SPEC_04_Technical.md) |
@@ -136,6 +137,7 @@
 | BattleFormation | 战斗布阵 | 连续坐标；共享 `FormationEditor`；与士兵池同槽 PlayerPrefs 持久化 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | WarriorPool | 士兵可上阵池 | 存档级已造士兵实例集合；制造入池；布阵/Defend/PushMap 共用；按槽持久化 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | FormationEditor | 布阵编辑器 | Prefab `FormationEditorRoot`；底栏士兵格（上阵保留+变亮）+ Idle 跟手拖放；UM 返回 / Defend 开战 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
+| SoldierHoverTooltip | 士兵栏悬浮框 | Mode2 布阵：指针停在有兵 `SoldierSlot` 上展示职业/种族/静态属性/技能（UI-021 / D-065）；图标 `Resources/UI/Skills/{SkillId}`；Mode1 无 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Defend | 防守 / 保卫战 | Prepare→开战→Combat；亦可作战斗模式1；见专节 | [§3.12](SPEC_03_GameRules.md) |
 | BattleMode | 战斗模式 | Defend（保卫战）/ PushMap（推图战；规则 §3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
 | BattleModeSelect | 战斗模式选关 | 进入 Defend 后选模式+关卡（UI-013 / D-044；模式2确认→§3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |

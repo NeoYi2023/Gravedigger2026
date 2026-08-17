@@ -22,11 +22,6 @@ namespace Gravedigger2026.Gameplay.Maps
             RebuildMesh();
         }
 
-        private void Awake()
-        {
-            RebuildMesh();
-        }
-
         private void OnEnable()
         {
             RebuildMesh();
@@ -35,6 +30,20 @@ namespace Gravedigger2026.Gameplay.Maps
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            // MeshFilter.sharedMesh assignment uses SendMessage; Unity forbids that
+            // during OnValidate / Awake / CheckConsistency.
+            UnityEditor.EditorApplication.delayCall -= RebuildMeshOnEditorDelay;
+            UnityEditor.EditorApplication.delayCall += RebuildMeshOnEditorDelay;
+        }
+
+        private void RebuildMeshOnEditorDelay()
+        {
+            UnityEditor.EditorApplication.delayCall -= RebuildMeshOnEditorDelay;
+            if (this == null)
+            {
+                return;
+            }
+
             RebuildMesh();
         }
 #endif

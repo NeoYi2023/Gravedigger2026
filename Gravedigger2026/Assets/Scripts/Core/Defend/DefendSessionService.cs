@@ -316,7 +316,7 @@ namespace Gravedigger2026.Core.Defend
                 NormalAttackPower = WarriorCombatMath.ComputeNormalAttackPower(primary, coeffs),
                 AttackSpeed = WarriorCombatMath.ComputeAttackSpeed(battleStats.Agility, coeffs),
                 MoveSpeed = Math.Max(0.1f, battleStats.MoveSpeed > 0.01f ? battleStats.MoveSpeed : 3.5f),
-                AttackRange = classRow != null ? Math.Max(0.1f, classRow.AttackRange) : 1.5f,
+                AttackRange = classRow != null ? Math.Max(0.2f, classRow.AttackRange) : 1.5f,
                 MeleeWindupSeconds = classRow != null ? Math.Max(0f, classRow.MeleeWindupSeconds) : 0.3f,
                 RangedProjectileSpeed = classRow != null ? Math.Max(0.1f, classRow.RangedProjectileSpeed) : 10f,
                 RangedTimeoutSeconds = classRow != null ? Math.Max(0.1f, classRow.RangedTimeoutSeconds) : 2f,

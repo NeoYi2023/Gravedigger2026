@@ -1188,7 +1188,7 @@ GameObject:
   - component: {fileID: 6620576740276081707}
   - component: {fileID: 1062281568053643426}
   m_Layer: 0
-  m_Name: Class_Mage_0
+  m_Name: Class_BaseMage
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1221,7 +1221,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f06a11c1a55e46d2b8e3c4d5e6f70819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _classId: Class_Mage_0
+  _classId: Class_BaseMage
   _halfExtents: {x: 3.85, y: 2}
 --- !u!33 &7696214641314623504
 MeshFilter:
@@ -1558,7 +1558,7 @@ GameObject:
   - component: {fileID: 7873305197903554657}
   - component: {fileID: 5731315800812743672}
   m_Layer: 0
-  m_Name: Class_Archer_0
+  m_Name: Class_BaseArcher
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1591,7 +1591,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f06a11c1a55e46d2b8e3c4d5e6f70819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _classId: Class_Archer_0
+  _classId: Class_BaseArcher
   _halfExtents: {x: 3.85, y: 2}
 --- !u!33 &8227056830129668801
 MeshFilter:
@@ -1815,7 +1815,7 @@ GameObject:
   - component: {fileID: 7312666062092969733}
   - component: {fileID: 3736002377165917332}
   m_Layer: 0
-  m_Name: Class_Warrior_0
+  m_Name: Class_BaseWarrior
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1848,7 +1848,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f06a11c1a55e46d2b8e3c4d5e6f70819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _classId: Class_Warrior_0
+  _classId: Class_BaseWarrior
   _halfExtents: {x: 3.85, y: 2}
 --- !u!33 &5842671418407049039
 MeshFilter:
@@ -2988,7 +2988,7 @@ GameObject:
   - component: {fileID: 4834380514424287141}
   - component: {fileID: 2631580896654847321}
   m_Layer: 0
-  m_Name: Class_Rogue_0
+  m_Name: Class_BaseRogue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3021,7 +3021,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f06a11c1a55e46d2b8e3c4d5e6f70819, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _classId: Class_Rogue_0
+  _classId: Class_BaseRogue
   _halfExtents: {x: 3.85, y: 2}
 --- !u!33 &908887923667166289
 MeshFilter:

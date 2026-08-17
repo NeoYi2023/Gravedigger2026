@@ -41,7 +41,7 @@
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现层（UI-016）：规则跑批后播 Step1–2，再进 UM 并自动开布阵（§3.15）。 |
 | CampaignModeSelect | 玩法模式选择 | 点击「新建」或「进入」后弹出的选模式 UI（UI-014）；取消则留在存档界面（§3.2、§3.6）。 |
 | InSaveShell | 进档壳层 | 选定存档 **且选定 `CampaignMode`** 进入后的常驻壳：承载当前 `GameplayState` 占位与浮动「工具」入口。 |
-| ToolsPanel | 工具面板 | Demo 调试/设置壳层 UI；由浮动「工具」按钮打开。本期含「设置」「关卡」入口（关卡→列表选关），以及 Demo GM「增加主角装备」「增加魔法书」（→ GmGrantListPanel，见 §3.5 / UI-019 / D-061）。 |
+| ToolsPanel | 工具面板 | Demo 调试/设置壳层 UI；由浮动「工具」按钮打开。本期含「设置」「关卡」入口（关卡→列表选关），以及 Demo GM「增加主角装备」「增加魔法书」（→ GmGrantListPanel，UI-019 / D-061）与「添加士兵」（→ GmAddSoldierPanel，UI-020 / D-064）。 |
 | Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每阶段指定玩法类型与玩法配置 ID（§3.9；UM 阶段 ConfigId **忽略**）。工具「关卡」打开列表选关（去重 LevelId → Stage 1）；场景绑定 **TBD**。 |
 | LevelOperation | 关卡运作 | 关卡运作表一行：关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID。 |
 | DigGameplayConfig | 挖坟配置 | 挖坟配置表一行：时长、开局坟数、过程生成速率、品质权重（零权重项剔除）等（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
@@ -89,9 +89,10 @@
 | PrimaryStat | 主属性 | 职业配置字段：`Strength` / `Agility` / `Intelligence`；决定普攻攻击值所用属性维（§3.11、§3.12，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | Class | 职业 | 由实例 `ClassId` 提供（有灵魂取自该灵魂；无灵魂强制 `Class_Servants`）；决定 `ClassName`、`PrimaryStat`，以及对五维→战斗参数的换算系数调整（§3.11、§3.12，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | ClassId | 职业ID | 职业主键；有灵魂时取自灵魂 `ClassId`；无灵魂时强制 `Class_Servants`；制造时写入士兵实例（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.9b](SPEC_04_Technical.md)）。 |
-| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel（展示用等级）、BaseClass（基础职业，预留）、PrimaryStat、CombatConvertCoeffs（`键_数值|…`）、AttackRange / 前摇 / 弹速 / 超时、`DefaultSkillIds`（制造默认士兵技能）（§3.11，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
+| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel（展示用等级）、BaseClass（基础职业，预留）、PromoteClass（转职职业，可选文字，预留）、PrimaryStat、CombatConvertCoeffs（`键_数值|…`）、AttackRange / 前摇 / 弹速 / 超时、`DefaultSkillIds`（制造默认士兵技能）（§3.11，[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | ClassLevel | 职业等级 | `ClassConfig` 展示字段（品质等级）；UI-016 士兵卡职业名下显示 `Lv.{ClassLevel}`；**不**进战斗/制造公式（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
-| BaseClass | 基础职业 | `ClassConfig` 字段；CSV 中文 `战士`/`射手`/`法师`/`盗贼`；空或非法→`Unspecified`；**预留**后续魔法书等条件；**不**参与命名/外观/`PrimaryStat`/战斗（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
+| BaseClass | 基础职业 | `ClassConfig` 字段；CSV 中文 `战士`/`射手`/`法师`/`刺客`（加载器仍接受旧值 `盗贼`）；空或非法→`Unspecified`；**预留**后续魔法书等条件；**不**参与命名/外观/`PrimaryStat`/战斗（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
+| PromoteClass | 转职职业 | `ClassConfig` 可选文字列；空=无转职目标；本轮仅填表/加载；**不**参与命名/外观/`PrimaryStat`/战斗；应用点 **TBD**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。 |
 | DefaultSkillIds | 制造默认获得技能ID | `ClassConfig` 列；空=无；否则 `SkillId` 或 `SkillId\|SkillId`（FK → `SkillConfig.SkillId`）。`ClassId` 最终定稿后写入实例 `SoldierSkills`，初始等级 **1**（§3.11、§3.15）。 |
 | SoldierSkill | 士兵技能 | 绑定在士兵**实例**上的技能；制造时由职业默认授予；Mode2 可由魔法书改等级；**无**消耗经验升级；`PermanentDeath` 随实例删除；权威表 `SkillConfig`（§3.11，[SPEC_04 §9.21](SPEC_04_Technical.md)）。**勿与**灵魂/宝石/外置 `Skills` 列表混淆（并行；同 Id 合并 **TBD**）。 |
 | SoldierSkills | 士兵技能列表 | 实例字段 `{ SkillId, SkillLevel }[]`；制造烘进快照；`CombatDead` 保留；`PermanentDeath` 删除（§3.11，[SPEC_04 §9.9](SPEC_04_Technical.md)）。 |
@@ -228,7 +229,7 @@
 | AutoManufacturePresentation | AutoManufacture presentation | Mode2 AutoManufacture stage presentation (UI-016): after rule batch play Step1–2, then UM + auto-open Formation (§3.15). |
 | CampaignModeSelect | 玩法模式选择 | Mode-pick UI after Create/Enter (UI-014); cancel stays on save select (§3.2, §3.6). |
 | InSaveShell | 进档壳层 | Persistent shell after entering a save **with a chosen `CampaignMode`**: hosts current `GameplayState` placeholder and floating Tools entry. |
-| ToolsPanel | 工具面板 | Demo settings/debug shell UI opened by floating Tools. This version: Settings + Level (Level → pick list) + Demo GM Grant Protagonist Equipment / Grant MagicBook (→ GmGrantListPanel, §3.5 / UI-019 / D-061). |
+| ToolsPanel | 工具面板 | Demo settings/debug shell UI opened by floating Tools. This version: Settings + Level (Level → pick list) + Demo GM Grant Protagonist Equipment / Grant MagicBook (→ GmGrantListPanel, §3.5 / UI-019 / D-061) + Add Soldier (→ GmAddSoldierPanel, UI-020 / D-064). |
 | Level | 关卡 | Multi-stage flow defined by Level Operation table; each stage has gameplay type + config ID (§3.9; UM stage ConfigId **ignored**). Tools Level opens LevelSelectPanel (distinct LevelIds → Stage 1); scene binding **TBD**. |
 | LevelOperation | 关卡运作 | One Level Operation row: LevelId + StageNumber + GameplayType + GameplayConfigId. |
 | DigGameplayConfig | 挖坟配置 | One Dig config row: duration, initial grave count, spawn rate, quality weights (zero-weight entries dropped) (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
@@ -276,9 +277,10 @@
 | PrimaryStat | 主属性 | Class field: `Strength` / `Agility` / `Intelligence`; selects which dim feeds NormalAttackPower (§3.11, §3.12, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | Class | 职业 | From instance `ClassId` (placed soul's ClassId when present; else forced `Class_Servants`); supplies `ClassName`, `PrimaryStat`, and five-dim→combat-param convert coeffs (§3.11, §3.12, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | ClassId | 职业ID | Class primary key; from placed soul when present; else forced `Class_Servants`; written to soldier instance at manufacture (§3.11, [SPEC_04 §9.9](SPEC_04_Technical.md) / [§9.9b](SPEC_04_Technical.md)). |
-| ClassConfig | 职业配置表 | ClassId → ClassName, ClassLevel (display grade), BaseClass (reserved), PrimaryStat, CombatConvertCoeffs (`Key_Value|…`), AttackRange / windup / projectile / timeout (§3.11, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
+| ClassConfig | 职业配置表 | ClassId → ClassName, ClassLevel (display grade), BaseClass (reserved), PromoteClass (optional promote-class text, reserved), PrimaryStat, CombatConvertCoeffs (`Key_Value|…`), AttackRange / windup / projectile / timeout (§3.11, [SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | ClassLevel | Class level | `ClassConfig` display field (quality grade); UI-016 soldier card shows `Lv.{ClassLevel}` under class name; **not** used in combat/manufacture math ([SPEC_04 §9.9b](SPEC_04_Technical.md)). |
-| BaseClass | Base class | `ClassConfig` field; CSV Chinese Warrior/Archer/Mage/Thief literals; empty/illegal → `Unspecified`; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat ([SPEC_04 §9.9b](SPEC_04_Technical.md)). |
+| BaseClass | Base class | `ClassConfig` field; CSV Chinese `战士`/`射手`/`法师`/`刺客` (loader still accepts legacy `盗贼`); empty/illegal → `Unspecified`; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat ([SPEC_04 §9.9b](SPEC_04_Technical.md)). |
+| PromoteClass | 转职职业 | Optional `ClassConfig` text; empty = no promote target; fill/load this slice; **not** used in naming / appearance / `PrimaryStat` / combat; application **TBD** ([SPEC_04 §9.9b](SPEC_04_Technical.md)). |
 | BodyLife | 躯体生命 | `Base(MaxHP)+Equip(MaxHP)`; locked at manufacture; no Gem/Race/Buff amplify on HP dim; feeds soldier MaxHP formula (§3.11). |
 | CombatConstantConfig | 战斗常量表 | Global combat-formula defaults (`ConstantKey`→`Value`); incl. `NormalAttackPrimaryMult` etc. and `MaxHpStrengthMult`; Class `CombatConvertCoeffs` missing keys fall back here (§3.11, §3.12, [SPEC_04 §9.20b](SPEC_04_Technical.md)). |
 | NormalAttackPower | 普通攻击值 | `Primary × NormalAttackPrimaryMult` (class override else constants table; sample default 15); on hit, subtract from monster HP directly (no armor this batch) (§3.12). |
@@ -501,14 +503,15 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 |------|------|
 | 可见时机 | 仅在进档壳层常驻浮动「工具」按钮 |
 | 打开 / 关闭 | 点击按钮切换工具面板 |
-| 本期条目 | **设置**（含科技树画布入口，见 §3.13 / UI-012）、**关卡**（打开关卡列表，见 UI-008）、**增加主角装备**、**增加魔法书**（Demo GM，见 UI-019 / D-061） |
+| 本期条目 | **设置**（含科技树画布入口，见 §3.13 / UI-012）、**关卡**（打开关卡列表，见 UI-008）、**增加主角装备**、**增加魔法书**（Demo GM，见 UI-019 / D-061）、**添加士兵**（Demo GM，见 UI-020 / D-064） |
 | 关卡语义 | 工具「关卡」入口 **不等于** 直接切换三种 `GameplayState`；关卡多阶段规则见 §3.9。点击「关卡」→ 打开 **LevelSelectPanel**（Prefab）：列出当前 `CampaignMode` 已加载的 `Level_LevelOperationConfig` 中全部 **去重 `LevelId`**（同 Id 只显示一行）；点选某行 → `LevelOperationDriver.TryEnterLevel(levelId)`，从该关 **`StageNumber=1`**（升序第一阶段）进入。关列表空则 Toast 提示。 |
 | Demo GM：增加主角装备 | 点击 → 关闭 ToolsPanel → 打开 **GmGrantListPanel**：列出当前模式 `ProtagonistEquipmentConfig` **按 EquipId 去重**（取 Level 1 行 `DisplayName`，空则 Id）。点一次 → `ProtagonistEquipmentService.TryAcquire(equipId)`（首次入仓 L1；重复=转化经验）。成功/失败 Toast + 日志；列表保持打开可连点。 |
 | Demo GM：增加魔法书 | 点击 → 关闭 ToolsPanel → 同一 **GmGrantListPanel**：列出当前模式 `MagicBookConfig` 全表（`DisplayName`，空则 Id）。点一次 → `SpecialEquipSlotsService.TryEquip(magicBookId)`（装入第一个空槽；**无**独立仓库）。`IsUnique=1` 已装或 6 槽满 → 失败 Toast。Dig HUD「装备战士强化」等 GM **保留**。 |
+| Demo GM：添加士兵 | 点击 → 关闭 ToolsPanel。**仅**当 UM「布阵」编辑器已打开（`FormationEditorMode.UpgradeManufacture`）可用；否则 Toast「请先打开布阵界面」、不打开面板。可用时打开左侧 **GmAddSoldierPanel**（UI-020）：职业下拉=`ClassConfig` 全表；种族下拉=`RaceConfig` 全表；数量输入（默认 1，钳制 1～999）；「自动上阵」默认勾选；底「关闭」「添加」。「添加」**不关面板**：在当前模式 `BodyAppearanceConfig` 中查找 `RaceId` 精确匹配 **且** `ClassAffinity` 含该职业 `ClassName`（`|` 分隔，与制造亲和一致）的外观行；**无匹配** → Toast「找不到此种士兵！」且不入池（**不**回退 `DefaultAppearanceId`）。**多条匹配不得均匀随机**：优先匹配集内 `AppearanceId` 等于该职业 `DefaultAppearanceId` 的行；否则 `AppearanceLevel` 等于该职业 `ClassLevel` 的行；再否则取表内首次出现。有匹配 → 不耗材料/精魂，由 `GmSoldierGrantService` 按 Demo 固定 `BaseStats` + 职业/种族行构造实例入 `WarriorPool`（授予 `DefaultSkillIds`@Lv1）；若勾选自动上阵 → 对本批 Id 调 `AutoFormationDeployService.DeployBatch`（缺职业区则留池，不弹「找不到士兵」）。Defend/PushMap Prepare **不可用**。 |
 | Demo Debug：士兵任务标签 | 进档壳 **Debug** 区提供开关（**默认开**）：Defend / PushMap Combat 中士兵脚下 TextMesh 显示当前 `GoalKind` 中文简标（推进 / 回阵 / 追击 / 追击锚）；仅目标类，不含攻击前摇等细态；见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
-| 后续条目 | 正式装备仓 UI / 魔法书装配 UI 另专题；其余 TBD。本两项 GM 纳入 §3.8 D-061（P1） |
+| 后续条目 | 正式装备仓 UI / 魔法书装配 UI 另专题；其余 TBD。装备/魔法书 GM 见 D-061；添加士兵 GM 见 D-064（P1） |
 
-点击「设置」：进入设置页并承载科技树画布（§3.13）；其它设置项清单仍 **TBD**；科技树画布完整验收本版可选后置。点击「关卡」：关闭工具面板 → 打开 LevelSelectPanel → 点选进入对应关卡 Stage 1。点击「增加主角装备」/「增加魔法书」：关闭工具面板 → GmGrantListPanel → 点一次发放。
+点击「设置」：进入设置页并承载科技树画布（§3.13）；其它设置项清单仍 **TBD**；科技树画布完整验收本版可选后置。点击「关卡」：关闭工具面板 → 打开 LevelSelectPanel → 点选进入对应关卡 Stage 1。点击「增加主角装备」/「增加魔法书」：关闭工具面板 → GmGrantListPanel → 点一次发放。点击「添加士兵」：仅 UM 布阵打开时 → GmAddSoldierPanel。
 
 ### English
 
@@ -516,14 +519,15 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 |------|-------|
 | Visibility | Floating Tools only inside InSaveShell |
 | Open / close | Toggle ToolsPanel via button |
-| This version | **Settings** (hosts TechTree canvas, §3.13 / UI-012), **Level** (opens level list, UI-008), **Grant Protagonist Equipment**, **Grant MagicBook** (Demo GM, UI-019 / D-061) |
+| This version | **Settings** (hosts TechTree canvas, §3.13 / UI-012), **Level** (opens level list, UI-008), **Grant Protagonist Equipment**, **Grant MagicBook** (Demo GM, UI-019 / D-061), **Add Soldier** (Demo GM, UI-020 / D-064) |
 | Level meaning | Tools Level entry is **not** a direct three-state switch; multi-stage Level rules in §3.9. Level click → **LevelSelectPanel** Prefab: lists all **distinct `LevelId`** from the current `CampaignMode`'s loaded `Level_LevelOperationConfig` (one row per Id); picking a row → `LevelOperationDriver.TryEnterLevel(levelId)` starting at **`StageNumber=1`** (first ascending stage). Empty list → Toast. |
 | Demo GM: Grant Protagonist Equipment | Click → hide ToolsPanel → **GmGrantListPanel**: distinct `EquipId` from current-mode `ProtagonistEquipmentConfig` (Level 1 `DisplayName`, else Id). One click → `ProtagonistEquipmentService.TryAcquire(equipId)` (first acquire L1; duplicate converts Exp). Success/fail Toast + log; list stays open. |
 | Demo GM: Grant MagicBook | Click → hide ToolsPanel → same **GmGrantListPanel**: all current-mode `MagicBookConfig` rows (`DisplayName`, else Id). One click → `SpecialEquipSlotsService.TryEquip(magicBookId)` (first empty slot; **no** warehouse). Unique already equipped or 6 slots full → fail Toast. Dig HUD GM (e.g. Equip Warrior Enhance) **kept**. |
+| Demo GM: Add Soldier | Click → hide ToolsPanel. **Only** when UM Formation editor is open (`FormationEditorMode.UpgradeManufacture`); else Toast「请先打开布阵界面」and do not open panel. When allowed → left **GmAddSoldierPanel** (UI-020): class dropdown = full `ClassConfig`; race dropdown = full `RaceConfig`; count input (default 1, clamp 1–999); Auto-deploy default on; bottom Close / Add. Add **keeps panel open**: find current-mode `BodyAppearanceConfig` rows with exact `RaceId` **and** `ClassAffinity` containing that class `ClassName` (`|`-split, same as manufacture affinity); **no match** → Toast「找不到此种士兵！」and no pool add (**no** `DefaultAppearanceId` fallback). **If several rows match, do not pick uniformly at random**: prefer the match whose `AppearanceId` equals that class's `DefaultAppearanceId`; else `AppearanceLevel` equals `ClassLevel`; else first table order. On match → no material/Spirit cost; `GmSoldierGrantService` builds instances with Demo fixed `BaseStats` + class/race rows into `WarriorPool` (`DefaultSkillIds`@Lv1); if Auto-deploy → `AutoFormationDeployService.DeployBatch` for batch Ids (missing class zone → leave in pool; not「找不到士兵」). Defend/PushMap Prepare **not** allowed. |
 | Demo Debug: soldier task label | InSaveShell **Debug** toggle (**default on**): during Defend / PushMap Combat, TextMesh under each soldier shows current `GoalKind` short ZH label (advance / home / chase / chase-anchor); goal-kind only — no attack windup detail; see [SPEC_04 §9.7](SPEC_04_Technical.md) |
-| Future entries | Formal equipment warehouse UI / MagicBook equip UI later; other TBD. These two GM entries are §3.8 D-061 (P1) |
+| Future entries | Formal equipment warehouse UI / MagicBook equip UI later; other TBD. Equip/MagicBook GM = D-061; Add Soldier GM = D-064 (P1) |
 
-Settings click → Settings page hosting TechTree canvas (§3.13); other settings items still **TBD**; full TechTree canvas acceptance optional this Demo. Level click → hide Tools → LevelSelectPanel → pick enters that level at Stage 1. Grant Equipment / Grant MagicBook → hide Tools → GmGrantListPanel → one click grants.
+Settings click → Settings page hosting TechTree canvas (§3.13); other settings items still **TBD**; full TechTree canvas acceptance optional this Demo. Level click → hide Tools → LevelSelectPanel → pick enters that level at Stage 1. Grant Equipment / Grant MagicBook → hide Tools → GmGrantListPanel → one click grants. Add Soldier → only when UM Formation open → GmAddSoldierPanel.
 
 ---
 
@@ -535,7 +539,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 |----|------|------|------|
 | UI-001 | 存档选择 | 已定义（Demo） | 3 槽：新建 / 进入 / 删除（含确认） |
 | UI-002 | 浮动工具按钮 | 已定义（Demo） | 进档壳层常驻 |
-| UI-003 | 工具面板 | 已定义（Demo） | 含设置、关卡、增加主角装备、增加魔法书（后两项→ UI-019） |
+| UI-003 | 工具面板 | 已定义（Demo） | 含设置、关卡、增加主角装备、增加魔法书、添加士兵（后三项→ UI-019 / UI-020） |
 | UI-004 | 挖坟占位屏 | 占位 | 可识别当前为 Dig |
 | UI-005 | 升级与制造占位屏 | 占位 | 可识别当前为 UpgradeManufacture（原 SewRevive） |
 | UI-006 | 防守占位屏 | 占位 | 可识别当前为 Defend；完整 UI 见 §3.12 |
@@ -552,6 +556,8 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-017 | 推图战斗结算 | 已定义（Demo / PushMap） | 胜负均弹：上部「胜利/失败」；中部「战斗耗时」「击杀怪物总数」；底中「继续」。失败 Continue → LevelSelectPanel；胜利 Continue → UI-018；见 §3.14 |
 | UI-018 | 推图奖励弹窗 | 已定义（Demo / PushMap） | 仅展示本场已入账：`StageExpReward` + 占领 `CaptureLoot` 汇总；无额外发放；底中「继续」→ 关闭后打开 LevelSelectPanel；见 §3.14 |
 | UI-019 | GM 发放列表 | 已定义（Demo GM） | Prefab `GmGrantListPanel`（InSaveShell 子级；布局对齐 UI-008）；Tools「增加主角装备」/「增加魔法书」打开；按钮文案 DisplayName（空则 Id）；点一次发放；关闭按钮；验收见 §3.8 D-061 |
+| UI-020 | GM 添加士兵 | 已定义（Demo GM） | Prefab `GmAddSoldierPanel`（InSaveShell 子级；画面左侧靠边）；Tools「添加士兵」打开；职业/种族下拉 + 数量 + 自动上阵 + 关闭/添加；仅 UM 布阵打开可用；验收见 §3.8 D-064 |
+| UI-021 | 士兵栏悬浮框 | 已定义（Demo / Mode2） | 仅 `FormationEditorRoot_Mode2`：指针停在有兵 `SoldierSlot` 上展示职业信息/静态属性/技能图标与名；离槽、横滑、拖起上阵则隐藏；Mode1 **无**；验收见 §3.8 D-065 |
 
 ### English
 
@@ -559,7 +565,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 |----|------|--------|-------|
 | UI-001 | Save select | Defined (Demo) | 3 slots: create / enter / delete (confirm) |
 | UI-002 | Floating Tools button | Defined (Demo) | InSaveShell |
-| UI-003 | ToolsPanel | Defined (Demo) | Settings + Level + Grant Protagonist Equipment + Grant MagicBook (last two → UI-019) |
+| UI-003 | ToolsPanel | Defined (Demo) | Settings + Level + Grant Protagonist Equipment + Grant MagicBook + Add Soldier (last three → UI-019 / UI-020) |
 | UI-004 | Dig placeholder | Placeholder | Identifiable Dig |
 | UI-005 | UpgradeManufacture placeholder | Placeholder | Identifiable UpgradeManufacture (was SewRevive) |
 | UI-006 | Defend placeholder | Placeholder | Identifiable Defend; full UI in §3.12 |
@@ -576,6 +582,8 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-017 | PushMap battle settlement | Defined (Demo / PushMap) | Always on win/lose: top Victory/Defeat; mid combat time + monsters killed; bottom Continue. Fail Continue → LevelSelectPanel; Win Continue → UI-018; §3.14 |
 | UI-018 | PushMap reward popup | Defined (Demo / PushMap) | Show already-credited StageExpReward + CaptureLoot aggregate only; no extra grants; bottom Continue → LevelSelectPanel; §3.14 |
 | UI-019 | GM grant list | Defined (Demo GM) | Prefab `GmGrantListPanel` under InSaveShell (layout aligned with UI-008); Tools Grant Equipment / Grant MagicBook; label DisplayName (else Id); one click grants; close button; accept §3.8 D-061 |
+| UI-020 | GM add soldier | Defined (Demo GM) | Prefab `GmAddSoldierPanel` under InSaveShell (left dock); Tools Add Soldier; class/race dropdowns + count + auto-deploy + Close/Add; UM Formation only; accept §3.8 D-064 |
+| UI-021 | Soldier-bar hover tooltip | Defined (Demo / Mode2) | `FormationEditorRoot_Mode2` only: pointer over occupied `SoldierSlot` shows class info / static stats / skill icons+names; hide on leave, horizontal scroll, or lift-to-deploy; Mode1 **none**; accept §3.8 D-065 |
 
 ---
 
@@ -650,6 +658,8 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-061 | ToolsPanel Demo GM：增加主角装备（当前模式表按 EquipId 去重，点一次 `TryAcquire`）+ 增加魔法书（MagicBookConfig 全表，点一次 `TryEquip`；唯一已装/槽满失败）；GmGrantListPanel（UI-019）；Dig HUD GM 保留；正式仓/装配 UI **后置** | P1 | **完成**（TP-00～02；方案 A；issues `.scratch/tools-panel-gm-grant/`） |
 | D-062 | 士兵技能垂直：`SkillConfig` 表加载（Mode1+Mode2，含 `IconAssetId`）+ `ClassConfig.DefaultSkillIds` + 池持久化 + Mode1 制造授予 + Mode2 造兵授予/`SoldierSkillLevelAdd`（Step2 该书槽脉冲）；Demo **不施放** | P1 | **更新**（取消二次扫描；单槽脉冲立刻升技能） |
 | D-063 | Mode2 魔法书职业进阶：装备 `MagicBook_WarriorAdvance` 等四本后 AutoManufacture **Step2 该书槽脉冲**仅对对应 `Class_*_0` 以 25% 改为 `Class_*`（精确 ClassId；日志 hit/miss）；命中后重授 `DefaultSkillIds`；外观/命名/上阵区跟最终职业；其它职业不变；手验 Tools「增加魔法书」 | P1 | **更新**（生效点改为 Step2 单槽脉冲；Deploy 用最终 ClassId） |
+| D-064 | ToolsPanel Demo GM「添加士兵」（UI-020）：仅 UM 布阵打开可用；左侧面板选职业/种族/数量(1–999)/自动上阵；`BodyAppearance` 无 RaceId+ClassAffinity(ClassName) 匹配 → Tips「找不到此种士兵！」且不关面板、不入池；多匹配确定选取（`DefaultAppearanceId`∈匹配集 > `AppearanceLevel==ClassLevel` > 表序首条，禁止匹配集内随机）；匹配则免材料入池并可 DeployBatch；UM「返回」在右下（Mode2 在 Complete 上方） | P1 | **完成**（方案 A；外形选取修复） |
+| D-065 | Mode2 士兵栏悬浮框（UI-021）：指针停在有兵 `SoldierSlot` 上展示 ClassName、`{ClassLevel}级`、种族 `DisplayNameKey`、`BaseClass`/`PromoteClass`（空则隐藏该标）、静态 MaxHP 与力量/敏捷/智力（`PrimaryStat` 行标「(主属性)」）、实例 `SoldierSkills` 图标（`Resources/UI/Skills/{SkillId}`）与 `DisplayName`；离槽/横滑/拖起隐藏；UM 与 Defend/PushMap Prepare 均可用；Mode1 无框 | P1 | **本片**（方案 A） |
 
 **Demo 范围外（仍排除）：**
 
@@ -660,7 +670,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 - 完整存档序列化 schema（超出槽占用、士兵池、布阵及流水线所需的最小持久化字段；仓库/经验/科技等仍 TBD）
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
 - 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
-- 工具面板「设置」「关卡」及 D-061 GM 发放以外的后续功能；完整 polish；未写入本表的需求
+- 工具面板「设置」「关卡」及 D-061 / D-064 GM 以外的后续功能；完整 polish；未写入本表的需求
 - 打表全量 §9 列/类型校验（[SPEC_04 §14](SPEC_04_Technical.md) Demo 仅文件名+表头；schema 校验后置）
 
 实现边界对照：[SPEC_04 §6](SPEC_04_Technical.md)。
@@ -702,6 +712,8 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-061 | ToolsPanel Demo GM: Grant Protagonist Equipment (distinct EquipId, one click `TryAcquire`) + Grant MagicBook (full MagicBookConfig, one click `TryEquip`; unique already equipped / slots full fail); GmGrantListPanel (UI-019); Dig HUD GM kept; formal warehouse/equip UI **deferred** | P1 | **Done** (TP-00–02; Approach A; issues `.scratch/tools-panel-gm-grant/`) |
 | D-062 | Soldier-skill vertical: load `SkillConfig` (Mode1+Mode2, incl. `IconAssetId`) + `ClassConfig.DefaultSkillIds` + pool persist + Mode1 manufacture grant + Mode2 craft grant/`SoldierSkillLevelAdd` (Step2 that slot's pulse); Demo **no cast** | P1 | **Updated** (no second pass; immediate on-slot pulse) |
 | D-063 | Mode2 MagicBook class advance: equipped `MagicBook_WarriorAdvance` (and siblings) on AutoManufacture **Step2 that slot's pulse** promotes matching `Class_*_0` to `Class_*` at 25% (exact ClassId; log hit/miss); on hit re-grant `DefaultSkillIds`; appearance/name/deploy zone follow final class; other classes unchanged; hand-check Tools Grant MagicBook | P1 | **Updated** (apply point → Step2 per-slot pulse; Deploy uses final ClassId) |
+| D-064 | ToolsPanel Demo GM Add Soldier (UI-020): UM Formation only; left panel class/race/count(1–999)/auto-deploy; no BodyAppearance RaceId+ClassAffinity(ClassName) match → Tips「找不到此种士兵！」keep panel / no pool; multi-match deterministic pick (`DefaultAppearanceId` in set > `AppearanceLevel==ClassLevel` > first table order; no uniform random in set); match → free grant + optional DeployBatch; UM Return bottom-right (Mode2 above Complete) | P1 | **Done** (Approach A; appearance pick fix) |
+| D-065 | Mode2 soldier-bar hover tooltip (UI-021): pointer over occupied `SoldierSlot` shows ClassName, `{ClassLevel}级`, race `DisplayNameKey`, `BaseClass`/`PromoteClass` (hide badge if empty), static MaxHP + Str/Agi/Int with「(主属性)」on `PrimaryStat` row, instance `SoldierSkills` icons (`Resources/UI/Skills/{SkillId}`) + `DisplayName`; hide on leave/scroll/lift; UM and Defend/PushMap Prepare; Mode1 none | P1 | **This slice** (Approach A) |
 
 **Out of Demo scope (still excluded):**
 
@@ -712,7 +724,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - Full save schema beyond occupied flag + warrior pool + BattleFormation + minimal pipeline fields (Warehouse / Exp / Tech still TBD)
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
 - Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
-- Tools entries beyond Settings / Level / D-061 GM grants; full polish; anything not in this table
+- Tools entries beyond Settings / Level / D-061 / D-064 GM; full polish; anything not in this table
 - Bake full §9 column/type validation ([SPEC_04 §14](SPEC_04_Technical.md) Demo: filename + header only; schema validation deferred)
 
 Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
@@ -1188,6 +1200,7 @@ EffectiveDigDuration countdown → 0
 | 布阵 | 保留「布阵」打开共享 FormationEditor；可再编辑自动上阵结果 |
 | 布阵内完成 | Mode2 `FormationEditorRoot_Mode2`：`SoldierBar` **上方右侧**近屏边常驻 `CompleteButton`（文案同主屏「完成 / 进入下一阶段」）；**UM / Defend·PushMap Prepare 均显示**；点击语义同主屏完成 → **结束本 UM 阶段**（仅 UM 宿主接线；Prepare 宿主不订阅，按钮仍可见） |
 | 布阵内开战位 | Mode2：`StartBattleButton`（开战）在同一右下角叠放于 `CompleteButton` **正上方**（Defend / PushMap Prepare 显示；UM 宿主可隐藏） |
+| 士兵栏悬浮框 | Mode2 布阵编辑器内：指针停有兵格 → UI-021 悬浮框（见上「战斗布阵」）；Prepare 同样可用 |
 | 制造记录 | 「布阵」**右侧**「制造记录」打开只读 Modal（UI-015）；展示最近一批 AutoManufacture 士兵摘要；详见 §3.15 |
 | Spirit / Control | Mode2 **屏蔽**：制造不计 `SpiritCost`；布阵 HUD **不**显示控制力占用（失控专题另议；本轮不按 ControlPower 拦上阵） |
 | 灵魂 | 自动造兵路径 **不写** `SoulId`；灵魂手动装配 **后续需求**（§3.15） |
@@ -1350,7 +1363,7 @@ WarriorName = Prefix(es) + RaceDisplayName + ClassName + Suffix
 | 基础属性（BaseStats） | 由制造所用 **躯体部位** `StatBonus` 按维求和：`Base(S)=Σ StatBonus(S)`（见上）。固定五项：**生命值、移动速度、力量、敏捷、智力**。选敌/攻击距离/命中/死亡见 §3.12；普攻/攻速/技能CD/最终血量派生见下与 §3.12 |
 | 种族（Race） | 由躯体部位加权随机定稿（见上）；数据来自 **`RaceConfig`**（[SPEC_04 §9.11](SPEC_04_Technical.md)）。提供 **五维** `RaceAdjustCoeff`（缺省维 **0**；可正可负）。**不**单独计入 `ControlPowerCost` |
 | 灵魂（Soul） | 槽位 **可选**；数据来自 **`SoulConfig`**（[SPEC_04 §9.9](SPEC_04_Technical.md)）。有灵魂：消耗该行，写入其 `SoulId`/`ClassId`/`AttackMode`/技能/优先级/`MoveStyle`/SpiritCost/ControlPowerCost。无灵魂：不扣仓库；`SoulId=Soul_00`；其余灵魂侧字段读 `Soul_00`；**强制** `ClassId=Class_Servants`。`AttackMode ∈ { Melee, Ranged }`。**不**改写三维属性本身；**第一版 Demo 不施放技能**（见 §3.12） |
-| 职业（Class） | 由实例 `ClassId` 解析 **`ClassConfig`**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。提供：`ClassName`（命名与外观 `ClassAffinity`）、`BaseClass`（基础职业：`战士`/`射手`/`法师`/`盗贼`；**预留**后续魔法书等条件，**不**参与命名/外观/`PrimaryStat`/战斗派生）、`PrimaryStat ∈ { Strength, Agility, Intelligence }`、`CombatConvertCoeffs`（`键_数值|…`；缺键/空串回退 **`CombatConstantConfig`**）、以及 `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`、`DefaultSkillIds`（制造默认士兵技能）。示例语义：战士→Strength、射手→Agility、法师→Intelligence、仆从（`Class_Servants`）→与战士同主属性样例（以 `PrimaryStat` 为准，非 ClassName 硬编码） |
+| 职业（Class） | 由实例 `ClassId` 解析 **`ClassConfig`**（[SPEC_04 §9.9b](SPEC_04_Technical.md)）。提供：`ClassName`（命名与外观 `ClassAffinity`）、`BaseClass`（基础职业：`战士`/`射手`/`法师`/`刺客`；加载器仍接受旧值 `盗贼`；**预留**后续魔法书等条件，**不**参与命名/外观/`PrimaryStat`/战斗派生）、`PromoteClass`（转职职业：可选文字；空=无；本轮仅填表/加载，应用点 **TBD**）、`PrimaryStat ∈ { Strength, Agility, Intelligence }`、`CombatConvertCoeffs`（`键_数值|…`；缺键/空串回退 **`CombatConstantConfig`**）、以及 `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`、`DefaultSkillIds`（制造默认士兵技能）。示例语义：战士→Strength、射手→Agility、法师→Intelligence、仆从（`Class_Servants`）→与战士同主属性样例（以 `PrimaryStat` 为准，非 ClassName 硬编码） |
 | 士兵技能（SoldierSkills） | 实例绑定列表 `{ SkillId, SkillLevel }[]`；权威表 **`SkillConfig`**（[SPEC_04 §9.21](SPEC_04_Technical.md)）。制造时由最终 `ClassId` 的 `DefaultSkillIds` 授予（见下）；**无**消耗经验升级。灵魂/宝石/外置 `Skills` **并行**（同 Id 合并 **TBD**）。**第一版 Demo 不施放**（§3.12） |
 | 额外装备属性 | 外置装备提供的同名平坦属性加成与/或额外技能；制造时写入实例并锁定；并提供 `NamePrefix` |
 | 宝石（Gem） | 可选；最多 6 颗（类型互斥）；数据来自 **`GemConfig`**（[SPEC_04 §9.10](SPEC_04_Technical.md)）。提供：**五维** `GemMult` + **额外技能**（各宝石技能集合并与灵魂技能 **并存**；冲突/覆盖 **TBD**）。无宝石时五维皆 **0**；多颗时实例各维 `GemMult(S) = Σ` 已镶嵌宝石的 `GemMult(S)` |
@@ -1472,6 +1485,7 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | 可编辑时机 | **两处**写同一套数据：① UM「布阵」编辑器；② 防守 `Prepare` |
 | 编辑器复用 | 两处 **同一套** `FormationEditor` UI / 逻辑 |
 | 士兵栏 | 画面底部 UI：池内士兵以 **80×80** 方格左对齐向右排列（**已上阵也保留在栏内**）；栏内按住左右拖 = 横滑；方格文案上行为 `ClassName`（经 `ClassId` → `Manufacture_ClassConfig`；缺行回退 `ClassId`）、下行 `Lv.{ClassLevel}`（缺行按 0） |
+| Mode2 士兵栏悬浮框 | 仅 `FormationEditorRoot_Mode2`（UM / Defend·PushMap Prepare）：指针停在**有兵** `SoldierSlot` 上展示悬浮框（UI-021）；标题=`ClassName`（缺行回退 `ClassId`）；标牌=`{ClassLevel}级`、种族 `RaceConfig.DisplayNameKey`（空则 `RaceId`）、`BaseClass` 中文（`Unspecified` 隐藏）、`PromoteClass`（空隐藏）；属性=静态 `MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult)` + StaticStat 力量/敏捷/智力，`PrimaryStat` 对应行标「(主属性)」；技能=实例 `SoldierSkills` 顺序，名=`SkillConfig.DisplayName`（缺行回退 `SkillId`），图标文件名=`SkillId`（`Resources/UI/Skills/{SkillId}`；缺图仍显示名；**不**用 `IconAssetId` 作路径）。指针离开槽位、栏内横滑、向上拖起上阵、编辑器关闭 → 隐藏。空槽 / Mode1 Prefab **不显示**。悬浮框不拦截射线（不挡拖拽） |
 | 上阵操作 | 左键按住方格 **向上拖** → 该格 **变亮**；拖出士兵栏后光标处出现 **Idle 待机模型** 跟手；在地图内松手 → `TryDeployAt` 写坐标（放下即存）；上阵后栏内该格 **保持变亮且不隐藏** |
 | 改位 / 下阵 | 已上阵可在战场再拖改位（`TrySetPosition`）；拖回士兵栏或松手在 **地图外**（`DigMapBounds` 外）→ `TryUndeploy` / 取消上阵并回栏，同时 **关闭** 该格变亮 |
 | 控制力 HUD | 画面左上角显示 `ΣControlPowerCost / ControlPowerCap` |
@@ -1530,6 +1544,7 @@ UpgradeManufacture stage
 | Formation | Keep Formation button → shared FormationEditor; auto-deploy results remain editable |
 | Complete in editor | Mode2 `FormationEditorRoot_Mode2`: `CompleteButton` above `SoldierBar` on the **right**, near screen edge (same label as main Complete); **visible in UM and Defend/PushMap Prepare**; click = same as main Complete → **end UM stage** (only UM host wires it; Prepare hosts do not subscribe; button still visible) |
 | StartBattle placement | Mode2: `StartBattleButton` stacked **directly above** `CompleteButton` on the same bottom-right edge (shown in Defend/PushMap Prepare; UM host may hide) |
+| Soldier-bar tooltip | Inside Mode2 Formation editor: pointer over occupied cell → UI-021 tooltip (see BattleFormation above); also in Prepare |
 | Manufacture record | "Manufacture Record" to the **right** of Formation opens read-only Modal (UI-015); last AutoManufacture batch summaries; see §3.15 |
 | Spirit / Control | Mode2 **shielded**: manufacture ignores `SpiritCost`; formation HUD **hides** ControlPower (LOC later; this round does not gate deploy by ControlPower) |
 | Soul | Auto-craft path writes **no** `SoulId`; manual soul attach is a **later** topic (§3.15) |
@@ -1692,7 +1707,7 @@ A soldier is composed of: **WarriorInfo**, **BaseStats**, **Race**, **Soul**, **
 | BaseStats | Sum of filled BodyPart `StatBonus` per dim: `Base(S)=Σ StatBonus(S)` (above). Fixed five: **HP, MoveSpeed, Strength, Agility, Intelligence**. Targeting / AttackRange / hit / death in §3.12; NormalAttack / ASPD / SkillCD / final MaxHP derives below and in §3.12 |
 | Race | Weighted pick from BodyParts (above); data from **`RaceConfig`** ([SPEC_04 §9.11](SPEC_04_Technical.md)). Five-dim `RaceAdjustCoeff` (missing dim = **0**; may be +/-). No separate ControlPowerCost term |
 | Soul | Slot **optional**; **`SoulConfig`** ([SPEC_04 §9.9](SPEC_04_Technical.md)). If filled: consume that row; write its SoulId/ClassId/AttackMode/skills/priority/MoveStyle/SpiritCost/ControlPowerCost. If empty: no warehouse consume; `SoulId=Soul_00`; other soul-side fields from `Soul_00`; **force** `ClassId=Class_Servants`. `AttackMode ∈ { Melee, Ranged }`. Does **not** rewrite the three dims; **Demo v1 does not cast skills** (see §3.12) |
-| Class | Resolved from instance `ClassId` via **`ClassConfig`** ([SPEC_04 §9.9b](SPEC_04_Technical.md)): `ClassName` (naming + appearance `ClassAffinity`), `BaseClass` (base class: Warrior/Archer/Mage/Thief; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat derives), `PrimaryStat ∈ { Strength, Agility, Intelligence }`, `CombatConvertCoeffs` (`Key_Value|…`; missing key / empty → **`CombatConstantConfig`**), plus `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`, `DefaultSkillIds` (default soldier skills at manufacture). Example semantics: Warrior→Strength, Archer→Agility, Mage→Intelligence, Servants (`Class_Servants`)→same PrimaryStat sample as Warrior (`PrimaryStat` wins; not ClassName hardcoding) |
+| Class | Resolved from instance `ClassId` via **`ClassConfig`** ([SPEC_04 §9.9b](SPEC_04_Technical.md)): `ClassName` (naming + appearance `ClassAffinity`), `BaseClass` (base class CSV: `战士`/`射手`/`法师`/`刺客`; runtime enum Warrior/Archer/Mage/Thief; loader still accepts legacy `盗贼`; **reserved** for future MagicBook conditions; **not** used in naming / appearance / `PrimaryStat` / combat derives), `PromoteClass` (optional promote-class text; empty = none; fill/load this slice; application **TBD**), `PrimaryStat ∈ { Strength, Agility, Intelligence }`, `CombatConvertCoeffs` (`Key_Value|…`; missing key / empty → **`CombatConstantConfig`**), plus `AttackRange` / `MeleeWindupSeconds` / `RangedProjectileSpeed` / `RangedTimeoutSeconds`, `DefaultSkillIds` (default soldier skills at manufacture). Example semantics: Warrior→Strength, Archer→Agility, Mage→Intelligence, Servants (`Class_Servants`)→same PrimaryStat sample as Warrior (`PrimaryStat` wins; not ClassName hardcoding) |
 | SoldierSkills | Instance list `{ SkillId, SkillLevel }[]`; catalog **`SkillConfig`** ([SPEC_04 §9.21](SPEC_04_Technical.md)). Granted at manufacture from final `ClassId` `DefaultSkillIds` (below); **no** exp-spend upgrade. Soul/Gem/ExtraEquipment `Skills` remain **parallel** (same-Id merge **TBD**). **Demo v1 does not cast** (§3.12) |
 | ExtraEquipment stats | Flat same-named bonuses and/or extra skills; locked at manufacture; also supplies `NamePrefix` |
 | Gem | Optional; up to 6 (type-exclusive); **`GemConfig`** ([SPEC_04 §9.10](SPEC_04_Technical.md)): **five-dim** `GemMult` + extra skills (union with Soul skills; conflict **TBD**). No gems → all dims **0**; multi-gem → instance `GemMult(S) = Σ` socketed `GemMult(S)` |
@@ -1814,6 +1829,7 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | Editable in | UM Formation editor **and** Defend `Prepare` (one dataset) |
 | Editor reuse | **Same** `FormationEditor` UI/logic in both places |
 | Soldier bar | Bottom UI: pool soldiers as **80×80** cells left-aligned (**deployed cells remain in bar**); horizontal drag inside bar = scroll; cell text: upper line `ClassName` (via `ClassId` → `Manufacture_ClassConfig`; missing row → fallback `ClassId`), lower line `Lv.{ClassLevel}` (missing row → 0) |
+| Mode2 soldier-bar tooltip | `FormationEditorRoot_Mode2` only (UM / Defend·PushMap Prepare): pointer over an **occupied** `SoldierSlot` shows hover tooltip (UI-021); title=`ClassName` (missing row → `ClassId`); badges=`{ClassLevel}级`, race `RaceConfig.DisplayNameKey` (else `RaceId`), `BaseClass` Chinese (`Unspecified` hidden), `PromoteClass` (empty hidden); stats=static `MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult)` + StaticStat Str/Agi/Int with「(主属性)」on the `PrimaryStat` row; skills=instance `SoldierSkills` order, name=`SkillConfig.DisplayName` (missing row → `SkillId`), icon filename=`SkillId` (`Resources/UI/Skills/{SkillId}`; missing sprite still shows name; do **not** use `IconAssetId` as path). Hide when pointer leaves the slot, bar scrolls horizontally, lift-to-deploy, or editor closes. Empty slot / Mode1 Prefab **no tooltip**. Tooltip does not block raycasts (must not eat drag) |
 | Deploy | LMB hold cell, drag **up** → cell **highlights**; after leaving bar, Idle model follows cursor; release on map → `TryDeployAt` (persist immediately); deployed cell **stays highlighted and visible** |
 | Reposition / undeploy | Drag deployed units to move (`TrySetPosition`); drag back to bar or release **outside map** (`DigMapBounds`) → `TryUndeploy` / cancel and **clear** cell highlight |
 | ControlPower HUD | Top-left: `ΣControlPowerCost / ControlPowerCap` |
@@ -3548,6 +3564,7 @@ RecalcCaps
 - [ ] 设置项清单（科技树入口已定；其它设置项 TBD）
 - [ ] 存档完整字段（显示名、时间戳、局内进度等）
 - [x] ToolsPanel Demo GM：增加主角装备 / 增加魔法书（D-061 / UI-019）
+- [x] ToolsPanel Demo GM：添加士兵（D-064 / UI-020）
 - [ ] 工具面板其余后续功能 / polish
 - [x] 推图战（PushMap）框架：GameplayType、目标点/判定圈占领、空气墙、刷怪点/陷阱、BOSS 通关、AggroMode、复用 Defend 护盾/失控（§3.14）
 - [x] Mode2 自动制造（AutoManufacture）规则关闭：流水线 Dig→AutoManufacture→UM；最低配方头+躯干+双臂（含主要手）+双腿；近似品质 |Δ|≤1；职业由双手 ClassRestrict；不计 Spirit/Control；无 SoulId；魔法书表+6槽+钩子骨架；清空布阵后按 PlacementOrder/职业区上阵（§3.15）
@@ -3626,6 +3643,7 @@ RecalcCaps
 - [ ] Settings item list (TechTree entry closed; other settings TBD)
 - [ ] Full save fields (name, timestamp, progress, etc.)
 - [x] ToolsPanel Demo GM: Grant Protagonist Equipment / Grant MagicBook (D-061 / UI-019)
+- [x] ToolsPanel Demo GM: Add Soldier (D-064 / UI-020)
 - [ ] Remaining ToolsPanel entries / polish
 - [x] PushMap framework: GameplayType, objectives/CaptureZone, AirWall, SpawnPoint/Trap, Boss clear, AggroMode, reuse Defend Shield/LOC (§3.14)
 - [x] Mode2 AutoManufacture rules closed: Dig→AutoManufacture→UM; min recipe Head+Torso+2Arm(incl PrimaryHand)+2Leg; approx |Δ|≤1; class from hand ClassRestrict; no Spirit/Control; no SoulId; MagicBook schema+6 slots+hook stub; clear formation then PlacementOrder/class-zone deploy (§3.15)

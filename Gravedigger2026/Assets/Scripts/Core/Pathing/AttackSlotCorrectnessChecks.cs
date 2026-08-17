@@ -23,6 +23,7 @@ namespace Gravedigger2026.Core.Pathing
             CheckSurroundGapSkipped(sb);
             CheckSurroundTopGapTowardAttackers(sb);
             CheckSurroundReleaseThenReclaim(sb);
+            CheckMixedMeleeRangedIndependentTables(sb);
             return sb.Length == 0 ? null : sb.ToString();
         }
 
@@ -434,6 +435,60 @@ namespace Gravedigger2026.Core.Pathing
             if (svc.GetOccupiedCount("t") != 4)
             {
                 sb.AppendLine("SurroundRelease: occupied != 4 after reclaim.");
+            }
+        }
+
+        private static void CheckMixedMeleeRangedIndependentTables(StringBuilder sb)
+        {
+            var svc = new AttackSlotService();
+            var target = Vector3.zero;
+            const float meleeRange = 0.35f;
+            const float rangedRange = 1f;
+
+            if (!svc.TryClaim(
+                    "melee0",
+                    "boss",
+                    meleeRange,
+                    target,
+                    out _,
+                    AttackMode.Melee,
+                    attackerPos: new Vector3(1f, 0f, 0f),
+                    targetBodyRadius: 0.3f,
+                    attackerBodyRadius: 0.13f))
+            {
+                sb.AppendLine("MixedMode: first melee claim failed.");
+                return;
+            }
+
+            if (!svc.TryClaim(
+                    "ranged0",
+                    "boss",
+                    rangedRange,
+                    target,
+                    out _,
+                    AttackMode.Ranged,
+                    attackerPos: new Vector3(-1f, 0f, 0f),
+                    targetBodyRadius: 0.3f,
+                    attackerBodyRadius: 0.13f))
+            {
+                sb.AppendLine("MixedMode: ranged claim failed.");
+                return;
+            }
+
+            if (!svc.TryGetClaimedTargetId("melee0", out var meleeTarget) || meleeTarget != "boss")
+            {
+                sb.AppendLine("MixedMode: melee claim dropped after ranged TryClaim.");
+            }
+
+            if (!svc.TryGetClaimedTargetId("ranged0", out var rangedTarget) || rangedTarget != "boss")
+            {
+                sb.AppendLine("MixedMode: ranged claim missing.");
+            }
+
+            if (svc.GetOccupiedCount("boss") != 2)
+            {
+                sb.AppendLine(
+                    $"MixedMode: occupied {svc.GetOccupiedCount("boss")} != 2 (melee+ranged rings).");
             }
         }
     }

@@ -58,7 +58,12 @@ namespace Gravedigger2026.Meta
         private BattleFormationService _formation;
         private ManufactureService _manufacture;
         private AutoManufactureService _autoManufacture;
+        private AutoFormationDeployService _autoDeploy;
+        private GmSoldierGrantService _gmSoldierGrant;
+        private UpgradeManufactureStageModule _umModule;
         private LevelOperationDriver _levelDriver;
+        private readonly List<FormationClassZoneSnapshot> _gmZoneScratch =
+            new List<FormationClassZoneSnapshot>();
 
         public SaveSlotService SaveSlots => _saveSlots;
         public GameplayStateService GameplayState => _gameplayState;
@@ -85,6 +90,8 @@ namespace Gravedigger2026.Meta
             _autoManufacture = new AutoManufactureService(
                 _configs, _warehouse, _tempWarriorWarehouse, _warriorPool, magicBookHook);
             var autoDeploy = new AutoFormationDeployService(_configs, _warriorPool, _formation);
+            _autoDeploy = autoDeploy;
+            _gmSoldierGrant = new GmSoldierGrantService(_configs, _warriorPool, _autoDeploy);
             _levelDriver = new LevelOperationDriver(_configs, _gameplayState);
             _levelDriver.RegisterDefaultPlaceholders();
             _levelDriver.RegisterModule(
@@ -123,21 +130,21 @@ namespace Gravedigger2026.Meta
 
             if (_umPrefabCatalog != null)
             {
-                _levelDriver.RegisterModule(
-                    new UpgradeManufactureStageModule(
-                        _configs,
-                        _umPrefabCatalog,
-                        _formationPrefabCatalog,
-                        _defendPrefabCatalog,
-                        _umWorldParent != null ? _umWorldParent : transform,
-                        _progress,
-                        _manufacture,
-                        _warriorPool,
-                        _formation,
-                        HandleUmComplete,
-                        SetStagePresentationActive,
-                        _autoManufactureBatchRecord,
-                        _autoMfgPresentationFlags));
+                _umModule = new UpgradeManufactureStageModule(
+                    _configs,
+                    _umPrefabCatalog,
+                    _formationPrefabCatalog,
+                    _defendPrefabCatalog,
+                    _umWorldParent != null ? _umWorldParent : transform,
+                    _progress,
+                    _manufacture,
+                    _warriorPool,
+                    _formation,
+                    HandleUmComplete,
+                    SetStagePresentationActive,
+                    _autoManufactureBatchRecord,
+                    _autoMfgPresentationFlags);
+                _levelDriver.RegisterModule(_umModule);
             }
             else
             {
@@ -209,8 +216,10 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.LevelRequested += HandleLevel;
                 _inSaveShellView.GrantProtagonistEquipmentRequested += HandleGrantProtagonistEquipment;
                 _inSaveShellView.GrantMagicBookRequested += HandleGrantMagicBook;
+                _inSaveShellView.GrantAddSoldierRequested += HandleGrantAddSoldier;
                 _inSaveShellView.LevelSelectPicked += HandleLevelSelectPicked;
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
+                _inSaveShellView.GmAddSoldierAddClicked += HandleGmAddSoldierAdd;
             }
 
             if (_techTreeCanvasView != null)
@@ -526,6 +535,7 @@ namespace Gravedigger2026.Meta
             {
                 _inSaveShellView.HideToolsPanel();
                 _inSaveShellView.HideGmGrantListPanel();
+                _inSaveShellView.HideGmAddSoldierPanel();
             }
 
             var levelIds = _configs.GetDistinctLevelIds();
@@ -671,6 +681,132 @@ namespace Gravedigger2026.Meta
             OpenGmGrantList(GmGrantKind.MagicBook);
         }
 
+        private void HandleGrantAddSoldier()
+        {
+            if (!_configs.IsLoaded)
+            {
+                _configs.TryLoadAll();
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.HideToolsPanel();
+                _inSaveShellView.HideLevelSelectPanel();
+                _inSaveShellView.HideGmGrantListPanel();
+            }
+
+            if (_umModule == null || !_umModule.IsFormationEditorOpen)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("请先打开布阵界面");
+                }
+
+                return;
+            }
+
+            var classes = BuildClassDropdownOptions();
+            var races = BuildRaceDropdownOptions();
+            if (classes.Count == 0 || races.Count == 0)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("当前模式无职业或种族配置");
+                }
+
+                return;
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.ShowGmAddSoldierPanel(classes, races);
+            }
+        }
+
+        private void HandleGmAddSoldierAdd()
+        {
+            if (_inSaveShellView == null
+                || !_inSaveShellView.TryGetGmAddSoldierSelection(
+                    out var classId, out var raceId, out var count, out var autoDeploy))
+            {
+                return;
+            }
+
+            if (_umModule == null || !_umModule.IsFormationEditorOpen)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("请先打开布阵界面");
+                }
+
+                return;
+            }
+
+            _gmZoneScratch.Clear();
+            _umModule.TryCollectFormationClassZones(_gmZoneScratch);
+
+            if (!_gmSoldierGrant.TryAdd(
+                    classId,
+                    raceId,
+                    count,
+                    autoDeploy,
+                    _gmZoneScratch,
+                    out var added,
+                    out var deployed,
+                    out var error))
+            {
+                if (error == GmSoldierGrantError.SoldierNotFound && _toastView != null)
+                {
+                    _toastView.Show("找不到此种士兵！");
+                }
+
+                return;
+            }
+
+            if (_toastView != null)
+            {
+                _toastView.Show(autoDeploy
+                    ? $"已添加 {added}，上阵 {deployed}"
+                    : $"已添加 {added}");
+            }
+        }
+
+        private List<GmDropdownOption> BuildClassDropdownOptions()
+        {
+            var list = new List<GmDropdownOption>();
+            foreach (var row in _configs.Classes)
+            {
+                if (row == null || string.IsNullOrEmpty(row.ClassId))
+                {
+                    continue;
+                }
+
+                var label = string.IsNullOrEmpty(row.ClassName) ? row.ClassId : row.ClassName;
+                list.Add(new GmDropdownOption(row.ClassId, label));
+            }
+
+            list.Sort((a, b) => string.CompareOrdinal(a.Label, b.Label));
+            return list;
+        }
+
+        private List<GmDropdownOption> BuildRaceDropdownOptions()
+        {
+            var list = new List<GmDropdownOption>();
+            foreach (var row in _configs.Races)
+            {
+                if (row == null || string.IsNullOrEmpty(row.RaceId))
+                {
+                    continue;
+                }
+
+                var label = string.IsNullOrEmpty(row.DisplayNameKey) ? row.RaceId : row.DisplayNameKey;
+                list.Add(new GmDropdownOption(row.RaceId, label));
+            }
+
+            list.Sort((a, b) => string.CompareOrdinal(a.Label, b.Label));
+            return list;
+        }
+
         private void OpenGmGrantList(GmGrantKind kind)
         {
             if (!_configs.IsLoaded)
@@ -682,6 +818,7 @@ namespace Gravedigger2026.Meta
             {
                 _inSaveShellView.HideToolsPanel();
                 _inSaveShellView.HideLevelSelectPanel();
+                _inSaveShellView.HideGmAddSoldierPanel();
             }
 
             _gmGrantKind = kind;

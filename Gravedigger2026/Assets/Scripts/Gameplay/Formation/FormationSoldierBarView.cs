@@ -35,6 +35,8 @@ namespace Gravedigger2026.Gameplay.Formation
         private Vector2 _pressScreen;
         private Vector2 _lastScreen;
         private FormationSoldierSlotView _pressedSlot;
+        private FormationSoldierSlotView _hoverSlot;
+        private string _hoverWarriorId;
         private bool _liftNotified;
         private Canvas _canvas;
 
@@ -42,6 +44,11 @@ namespace Gravedigger2026.Gameplay.Formation
 
         /// <summary>Upward drag started on a slot (still may be inside bar).</summary>
         public event Action<FormationSoldierSlotView> SlotLiftStarted;
+
+        /// <summary>Occupied slot under pointer, or null. Not fired while scrolling/lifting.</summary>
+        public event Action<FormationSoldierSlotView> HoverChanged;
+
+        public FormationSoldierSlotView HoveredSlot => _hoverSlot;
 
         private void Awake()
         {
@@ -63,6 +70,7 @@ namespace Gravedigger2026.Gameplay.Formation
             {
                 if (!ContainsScreenPoint(mouse, null))
                 {
+                    SetHover(null);
                     return;
                 }
 
@@ -72,6 +80,15 @@ namespace Gravedigger2026.Gameplay.Formation
                 _mode = PointerMode.Pressed;
                 _liftNotified = false;
                 return;
+            }
+
+            if (_mode == PointerMode.Scrolling || _mode == PointerMode.Lifting)
+            {
+                SetHover(null);
+            }
+            else
+            {
+                UpdateHover(mouse);
             }
 
             if (_mode == PointerMode.Idle)
@@ -95,6 +112,7 @@ namespace Gravedigger2026.Gameplay.Formation
                     if (Mathf.Abs(total.x) >= Mathf.Abs(total.y))
                     {
                         _mode = PointerMode.Scrolling;
+                        SetHover(null);
                     }
                     else if (total.y > 0f)
                     {
@@ -103,6 +121,7 @@ namespace Gravedigger2026.Gameplay.Formation
                     else
                     {
                         _mode = PointerMode.Scrolling;
+                        SetHover(null);
                     }
                 }
 
@@ -158,6 +177,7 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             Canvas.ForceUpdateCanvases();
+            RevalidateHover();
         }
 
         public void SetSlotHighlighted(string warriorId, bool highlighted)
@@ -178,6 +198,47 @@ namespace Gravedigger2026.Gameplay.Formation
             return ScreenPointInRect(BarRoot, screenPoint);
         }
 
+        private void OnDisable()
+        {
+            SetHover(null);
+        }
+
+        private void UpdateHover(Vector2 screenPoint)
+        {
+            var slot = FindSlotAt(screenPoint);
+            if (slot == null || string.IsNullOrEmpty(slot.WarriorId))
+            {
+                SetHover(null);
+                return;
+            }
+
+            SetHover(slot);
+        }
+
+        private void RevalidateHover()
+        {
+            if (_mode == PointerMode.Scrolling || _mode == PointerMode.Lifting)
+            {
+                SetHover(null);
+                return;
+            }
+
+            UpdateHover(Input.mousePosition);
+        }
+
+        private void SetHover(FormationSoldierSlotView slot)
+        {
+            var nextId = slot != null && !string.IsNullOrEmpty(slot.WarriorId) ? slot.WarriorId : null;
+            if (slot == _hoverSlot && string.Equals(nextId, _hoverWarriorId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _hoverSlot = string.IsNullOrEmpty(nextId) ? null : slot;
+            _hoverWarriorId = nextId;
+            HoverChanged?.Invoke(_hoverSlot);
+        }
+
         private void BeginLift()
         {
             if (_liftNotified)
@@ -193,12 +254,14 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_pressedSlot == null || string.IsNullOrEmpty(_pressedSlot.WarriorId))
             {
                 _mode = PointerMode.Scrolling;
+                SetHover(null);
                 return;
             }
 
             _mode = PointerMode.Lifting;
             _liftNotified = true;
             _pressedSlot.SetHighlighted(true);
+            SetHover(null);
             SlotLiftStarted?.Invoke(_pressedSlot);
         }
 
