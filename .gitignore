@@ -139,9 +139,22 @@ credentials.json
 # Node 依赖（.scratch 脚本等本地安装）
 **/node_modules/
 
+# Python 编译缓存
+**/__pycache__/
+*.py[cod]
+
+# 本地冲突备份、墓碑图处理预览（非正式资源）
+.scratch/git-conflict-backup/
+.scratch/tools/_grave_preview_*.png
+.scratch/tools/_grave_processed_preview/
+.scratch/tools/_grave_q1_q15_backup/
+
 # 可选：Asset Store 工具插件（需要忽略时取消下一行注释）
 # **/[Aa]ssets/AssetStoreTools*
 
 # 第三方资源包（体积大，本地自行导入）
 **/[Aa]ssets/SmallScaleInt/
 **/[Aa]ssets/SmallScaleInt.meta
+# 已剔除的 URP VFX 包残留（SPEC v0.82.49）
+**/[Aa]ssets/Vefects/
+**/[Aa]ssets/Vefects.meta
