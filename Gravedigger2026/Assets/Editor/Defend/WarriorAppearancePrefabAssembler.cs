@@ -182,7 +182,8 @@ namespace Gravedigger2026.Editor.Defend
                 if (sr != null)
                 {
                     // SPEC_04 §15.2 — above GroundTilemap (order 0).
-                    sr.sortingOrder = 200;
+                    sr.sortingOrder = SortingOrder;
+                    RepairMissingSpriteMaterial(visual.gameObject, sr);
                 }
 
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
@@ -191,6 +192,45 @@ namespace Gravedigger2026.Editor.Defend
             finally
             {
                 PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        /// <summary>
+        /// SPEC_04 §15.2 — None material slot → Sprites-Default; strip vendor AllIn1Shader
+        /// so ExecuteInEditMode cannot replace Default with an unsaved in-memory mat.
+        /// Does not overwrite authored on-disk AllIn1 materials.
+        /// </summary>
+        private static void RepairMissingSpriteMaterial(GameObject visualGo, SpriteRenderer sr)
+        {
+            if (sr == null || sr.sharedMaterial != null)
+            {
+                return;
+            }
+
+            var spritesDefault = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+            if (spritesDefault != null)
+            {
+                sr.sharedMaterial = spritesDefault;
+            }
+
+            StripVendorAllIn1Shader(visualGo);
+        }
+
+        private static void StripVendorAllIn1Shader(GameObject visualGo)
+        {
+            if (visualGo == null)
+            {
+                return;
+            }
+
+            var behaviours = visualGo.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                var b = behaviours[i];
+                if (b != null && b.GetType().Name == "AllIn1Shader")
+                {
+                    Object.DestroyImmediate(b);
+                }
             }
         }
 

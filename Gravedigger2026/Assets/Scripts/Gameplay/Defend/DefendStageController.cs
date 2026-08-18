@@ -814,6 +814,8 @@ namespace Gravedigger2026.Gameplay.Defend
                     facingYawFlip = appearanceRow.FacingYawFlip == 1;
                 }
 
+                bodyRadius *= WarriorVisualModelScale.Resolve(warrior);
+
                 var go = Instantiate(appearancePrefab, _worldRoot);
                 go.name = $"Warrior_{warrior.Id}";
                 var formationHome = new Vector3(
@@ -1014,8 +1016,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            // SC-03: melee chase → Surround gap claim (B+); ranged → Chase (full ring).
-            if (!_attackSlots.TryClaim(
+            var claimed = _attackSlots.TryClaim(
                     warrior.AttackerId,
                     monster.RuntimeId,
                     warrior.AttackRange,
@@ -1025,17 +1026,46 @@ namespace Gravedigger2026.Gameplay.Defend
                     warrior.transform.position,
                     monster.BodyRadius,
                     warrior.AgentRadius,
-                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode)))
+                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode));
+
+            var distXZ = CombatReach.DistanceXZ(warrior.transform.position, monster.transform.position);
+            if (CombatReach.IsInAttackRange(
+                    distXZ,
+                    warrior.AttackRange,
+                    warrior.AgentRadius,
+                    monster.BodyRadius))
+            {
+                var hold = claimed
+                    ? CombatReach.ChaseDestinationXZ(
+                        warrior.transform.position,
+                        monster.transform.position,
+                        slotPos,
+                        warrior.AttackRange,
+                        warrior.AgentRadius,
+                        monster.BodyRadius,
+                        MassMoveScheduler.ArriveEpsilon)
+                    : new Vector2(warrior.transform.position.x, warrior.transform.position.z);
+                _moveScheduler.SetGoal(warrior.MoveId, GoalKind.AttackSlot, hold);
+                _moveScheduler.SetPaused(warrior.MoveId, true);
+                return;
+            }
+
+            if (!claimed)
             {
                 _moveScheduler.SetPaused(warrior.MoveId, true);
                 return;
             }
 
+            var dest = CombatReach.ChaseDestinationXZ(
+                warrior.transform.position,
+                monster.transform.position,
+                slotPos,
+                warrior.AttackRange,
+                warrior.AgentRadius,
+                monster.BodyRadius,
+                MassMoveScheduler.ArriveEpsilon);
             _moveScheduler.SetPaused(warrior.MoveId, false);
-            _moveScheduler.SetGoal(
-                warrior.MoveId,
-                GoalKind.AttackSlot,
-                new Vector2(slotPos.x, slotPos.z));
+            _moveScheduler.SetGoal(warrior.MoveId, GoalKind.AttackSlot, dest);
         }
 
         private void RefreshRebelSlotGoal(WarriorAgentView warrior)

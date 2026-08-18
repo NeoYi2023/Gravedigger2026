@@ -20,6 +20,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// TryConfirmMeleeHit; ranged → shared ProjectileView soft-hit → TryConfirmRangedHit
     /// (timeout = miss, no settlement). Combat params come from PushMapSessionService
     /// StartBattle registry (WarriorCombatMath + ClassConfig, mirrored from Defend).
+    /// D-069: Skill_03 burst occupies this attack channel (3× scheme D) when CD ready.
     /// PM-13: CombatDead → PlayDie + stop acting (aligned with Defend WarriorAgentView).
     /// Presentation: WarriorAnimView SetMoving/DirIndex facing; PlayAttack on windup/fire.
     /// </summary>
@@ -29,7 +30,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private enum AttackPhase
         {
             IdleOrMove = 0,
-            Windup = 1
+            Windup = 1,
+            BurstRecover = 2
         }
 
         private const float NavMeshSampleRadius = 12f;
@@ -67,6 +69,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _windupRemaining;
         private string _windupTargetId;
         private AttackPhase _attackPhase = AttackPhase.IdleOrMove;
+        private int _burstHitsRemaining;
+        private float _burstRecoverRemaining;
 
         private AttackSlotService _attackSlots;
         /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun — not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
@@ -158,6 +162,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             _windupRemaining = 0f;
             _windupTargetId = null;
             _attackPhase = AttackPhase.IdleOrMove;
+            _burstHitsRemaining = 0;
+            _burstRecoverRemaining = 0f;
             _diePlayed = false;
             _stoppedActing = false;
             _stuckHold.Reset();
@@ -197,7 +203,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 taskLabel = gameObject.AddComponent<WarriorTaskDebugLabelView>();
             }
 
-            taskLabel.Bind(_scheduler, _moveId);
+            taskLabel.Bind(_scheduler, _moveId, FormatSkillCdSuffix);
 
             _anim = GetComponent<WarriorAnimView>();
             if (_anim == null)
@@ -269,6 +275,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 HideFootCircle();
                 _attackPhase = AttackPhase.IdleOrMove;
                 _windupTargetId = null;
+                _burstHitsRemaining = 0;
+                _burstRecoverRemaining = 0f;
                 _attackStartCooldown = 0f;
                 _scheduler?.SetPaused(_moveId, true);
                 ClearPathingState();
@@ -277,7 +285,8 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         /// <summary>
         /// Nearest living monster inside Demo engage detect (MP-05: enter AttackSlot, leave
-        /// Objective field). v0.74.10 sticky hysteresis (SPEC_03 §3.14): while the claimed
+        /// Objective field). v0.82.55 Approach C: detect = max(weapon reach, monster AlertRadius).
+        /// v0.74.10 sticky hysteresis (SPEC_03 §3.14): while the claimed
         /// target is alive and still inside its detect radius, a rival steals the claim only
         /// when closer by more than engage stick hysteresis (CombatConstantConfig).
         /// </summary>
@@ -306,19 +315,20 @@ namespace Gravedigger2026.Gameplay.PushMap
                     continue;
                 }
 
-                // Detect reach = edge-gap AttackRange + both BodyRadii (SPEC_03 §3.12 v0.75.24).
+                // Detect = max(weapon reach, monster AlertRadius) (SPEC_03 §3.12 v0.82.55 C).
                 var detect = CombatReach.EngageDetectRadius(
                     m.AttackRange,
                     AttackRange,
                     m.BodyRadius,
                     _bodyRadius,
-                    MassMoveScheduler.ArriveEpsilon);
+                    MassMoveScheduler.ArriveEpsilon,
+                    m.AlertRadius);
                 if (detect <= 0f)
                 {
                     continue;
                 }
 
-                var d = Vector3.Distance(transform.position, m.transform.position);
+                var d = CombatReach.DistanceXZ(transform.position, m.transform.position);
                 if (d > detect)
                 {
                     continue;
@@ -362,12 +372,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                 active: !_isRebel &&
                         isActiveAndEnabled &&
                         IsCombatActive &&
-                        _attackPhase != AttackPhase.Windup);
+                        _attackPhase != AttackPhase.Windup &&
+                        _attackPhase != AttackPhase.BurstRecover);
         }
 
         private void Update()
         {
-            if (_isRebel)
+            if (_isRebel && !IsSkillBurstActive)
             {
                 TickAnimPresentation();
                 return;
@@ -401,6 +412,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_attackPhase == AttackPhase.Windup)
             {
                 ClearWindup();
+            }
+
+            if (_attackPhase == AttackPhase.BurstRecover || _burstHitsRemaining > 0)
+            {
+                ClearBurst();
             }
 
             PlayDieOnce();
@@ -439,11 +455,17 @@ namespace Gravedigger2026.Gameplay.PushMap
             ClearPathingState();
             _attackPhase = AttackPhase.IdleOrMove;
             _windupTargetId = null;
+            _burstHitsRemaining = 0;
+            _burstRecoverRemaining = 0f;
         }
+
+        private bool IsSkillBurstActive =>
+            _burstHitsRemaining > 0 || _attackPhase == AttackPhase.BurstRecover;
 
         /// <summary>
         /// PM-12 scheme D: engaged (AttackSlot claim on a living monster) + in AttackRange →
         /// melee windup / ranged projectile; settlement via session HitConfirm only.
+        /// D-069: Skill_03 occupies this channel for 3 sequential scheme-D hits when CD ready.
         /// </summary>
         private void TickCombat()
         {
@@ -458,14 +480,29 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
-            if (_attackStartCooldown > 0f)
+            if (_attackPhase == AttackPhase.BurstRecover)
+            {
+                TickBurstRecover();
+                return;
+            }
+
+            if (TrySyncRebelFromSession())
             {
                 return;
             }
 
-            if (!TryResolveEngagedTarget(out var target))
+            if (_burstHitsRemaining <= 0)
             {
+                _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
+            }
+
+            if (!TryResolveCombatTarget(out var target))
+            {
+                if (_burstHitsRemaining > 0)
+                {
+                    EndBurst();
+                }
+
                 return;
             }
 
@@ -475,30 +512,94 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             if (!CombatReach.IsInAttackRange(
-                    Vector3.Distance(transform.position, target.transform.position),
+                    CombatReach.DistanceXZ(transform.position, target.transform.position),
                     state.AttackRange,
                     _bodyRadius,
                     target.BodyRadius))
+            {
+                if (_burstHitsRemaining > 0)
+                {
+                    EndBurst();
+                }
+
+                return;
+            }
+
+            if (_burstHitsRemaining > 0)
+            {
+                FireBurstHit(state, target);
+                return;
+            }
+
+            if (_session.TryCommitSkillBurst(_attackerId, out var hits) && hits > 0)
+            {
+                _burstHitsRemaining = hits;
+                FireBurstHit(state, target);
+                return;
+            }
+
+            if (_attackStartCooldown > 0f)
             {
                 return;
             }
 
             if (state.AttackMode == AttackMode.Melee)
             {
-                BeginWindup(target, state);
+                BeginWindup(target, state, fromBurst: false);
             }
             else
             {
-                FireProjectile(state, target);
+                FireProjectile(state, target, fromBurst: false);
             }
         }
 
-        private void BeginWindup(PushMapMonsterAgentView target, DefendCombatWarriorState state)
+        private bool TryResolveCombatTarget(out PushMapMonsterAgentView target)
+        {
+            if (TryResolveEngagedTarget(out target))
+            {
+                return true;
+            }
+
+            // In-range hold may keep GoalKind=AttackSlot without a free ring slot
+            // (SPEC_03 §3.12 v0.82.57). Still allow the swing if the detect target is in reach.
+            if (_scheduler == null ||
+                !_scheduler.TryGetGoal(_moveId, out var kind, out _) ||
+                kind != GoalKind.AttackSlot ||
+                !TryGetEngageMonster(out target) ||
+                target == null)
+            {
+                target = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        private void FireBurstHit(DefendCombatWarriorState state, PushMapMonsterAgentView target)
+        {
+            if (state.AttackMode == AttackMode.Melee)
+            {
+                BeginWindup(target, state, fromBurst: true);
+            }
+            else
+            {
+                FireProjectile(state, target, fromBurst: true);
+            }
+        }
+
+        private void BeginWindup(
+            PushMapMonsterAgentView target,
+            DefendCombatWarriorState state,
+            bool fromBurst)
         {
             _attackPhase = AttackPhase.Windup;
             _windupTargetId = target.RuntimeTargetId;
             _windupRemaining = Mathf.Max(0f, state.MeleeWindupSeconds);
-            _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+            if (!fromBurst)
+            {
+                _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+            }
+
             _scheduler?.SetPaused(_moveId, true);
             ClearPathingState();
 
@@ -524,7 +625,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             var inRange = target != null
                           && target.IsAlive
                           && CombatReach.IsInAttackRange(
-                              Vector3.Distance(transform.position, target.transform.position),
+                              CombatReach.DistanceXZ(transform.position, target.transform.position),
                               range,
                               _bodyRadius,
                               target.BodyRadius,
@@ -532,6 +633,10 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _session.TryConfirmMeleeHit(_attackerId, _windupTargetId, inRange);
             ClearWindup();
+            if (_burstHitsRemaining > 0)
+            {
+                AfterBurstHit(melee: true);
+            }
         }
 
         private void ClearWindup()
@@ -541,12 +646,24 @@ namespace Gravedigger2026.Gameplay.PushMap
             _scheduler?.SetPaused(_moveId, false);
         }
 
-        private void FireProjectile(DefendCombatWarriorState state, PushMapMonsterAgentView target)
+        private void FireProjectile(
+            DefendCombatWarriorState state,
+            PushMapMonsterAgentView target,
+            bool fromBurst)
         {
-            _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+            if (!fromBurst)
+            {
+                _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+            }
+
             if (_projectilePrefab == null)
             {
                 Debug.LogWarning($"[PushMapAdvance] {_attackerId} Ranged but Projectile Prefab missing.");
+                if (fromBurst)
+                {
+                    EndBurst();
+                }
+
                 return;
             }
 
@@ -586,6 +703,119 @@ namespace Gravedigger2026.Gameplay.PushMap
                 state.RangedTimeoutSeconds);
 
             _scheduler?.SetPaused(_moveId, false);
+            if (fromBurst)
+            {
+                AfterBurstHit(melee: false);
+            }
+        }
+
+        private void AfterBurstHit(bool melee)
+        {
+            _burstHitsRemaining = Mathf.Max(0, _burstHitsRemaining - 1);
+            if (_burstHitsRemaining <= 0)
+            {
+                EndBurst();
+                return;
+            }
+
+            var recover = 0.05f;
+            if (!melee &&
+                _session != null &&
+                _session.TryGetWarrior(_attackerId, out var state) &&
+                state != null)
+            {
+                recover = Mathf.Max(0.05f, state.MeleeWindupSeconds);
+            }
+
+            _attackPhase = AttackPhase.BurstRecover;
+            _burstRecoverRemaining = recover;
+            _scheduler?.SetPaused(_moveId, true);
+            ClearPathingState();
+        }
+
+        private void TickBurstRecover()
+        {
+            _burstRecoverRemaining -= Time.deltaTime;
+            if (_burstRecoverRemaining > 0f)
+            {
+                return;
+            }
+
+            _attackPhase = AttackPhase.IdleOrMove;
+            _scheduler?.SetPaused(_moveId, false);
+        }
+
+        private void EndBurst()
+        {
+            _burstHitsRemaining = 0;
+            _burstRecoverRemaining = 0f;
+            if (_attackPhase == AttackPhase.BurstRecover)
+            {
+                _attackPhase = AttackPhase.IdleOrMove;
+            }
+
+            _scheduler?.SetPaused(_moveId, false);
+            if (_session != null &&
+                _session.TryGetWarrior(_attackerId, out var state) &&
+                state != null)
+            {
+                _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+            }
+
+            TrySyncRebelFromSession();
+        }
+
+        private void ClearBurst()
+        {
+            _burstHitsRemaining = 0;
+            _burstRecoverRemaining = 0f;
+            if (_attackPhase == AttackPhase.BurstRecover)
+            {
+                _attackPhase = AttackPhase.IdleOrMove;
+            }
+
+            _scheduler?.SetPaused(_moveId, false);
+        }
+
+        private bool TrySyncRebelFromSession()
+        {
+            if (_isRebel)
+            {
+                return true;
+            }
+
+            if (_session == null ||
+                !_session.TryGetWarrior(_attackerId, out var state) ||
+                state == null ||
+                !state.IsRebel)
+            {
+                return false;
+            }
+
+            if (IsSkillBurstActive || _attackPhase == AttackPhase.Windup)
+            {
+                return false;
+            }
+
+            SetRebel(true);
+            return true;
+        }
+
+        private string FormatSkillCdSuffix()
+        {
+            if (IsSkillBurstActive)
+            {
+                return " 连发";
+            }
+
+            if (_session != null &&
+                _session.TryGetSkillCooldownRemaining(_attackerId, out var remaining) &&
+                remaining > 0.05f)
+            {
+                return $" CD:{remaining:0}";
+            }
+
+            return null;
         }
 
         private void FaceTarget(Vector3 targetPos)
@@ -647,7 +877,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var inWindup = _attackPhase == AttackPhase.Windup;
+            var inWindup = _attackPhase == AttackPhase.Windup ||
+                           _attackPhase == AttackPhase.BurstRecover;
             // MassMove uses Move()+ResetPath — velocity≈0; use steer like monsters (SPEC_04 §15.5).
             var wantsMove = !inWindup && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;

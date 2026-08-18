@@ -38,6 +38,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public string VisualStyleId;
         public int VisualPriority;
         public float VisualIntensity;
+        public float VisualModelScale = 1f;
     }
 
     [Serializable]

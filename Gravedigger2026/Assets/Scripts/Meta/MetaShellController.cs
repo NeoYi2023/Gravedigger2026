@@ -210,6 +210,8 @@ namespace Gravedigger2026.Meta
             {
                 _inSaveShellView.ToolsToggleRequested += HandleToolsToggle;
                 _inSaveShellView.BackToSaveSelectRequested += HandleBackToSaveSelect;
+                _inSaveShellView.EquipmentRequested += HandleEquipmentRequested;
+                _inSaveShellView.MagicBookRequested += HandleMagicBookRequested;
                 _inSaveShellView.DebugCycleStateRequested += HandleDebugCycleState;
                 _inSaveShellView.DebugAdvanceStageRequested += HandleDebugAdvanceStage;
                 _inSaveShellView.SettingsRequested += HandleSettings;
@@ -318,6 +320,8 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.Show(slotIndex);
+                _inSaveShellView.BindEquipmentWarehouse(_protagonistEquipment, _configs);
+                _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs);
                 _inSaveShellView.ShowGameplayState(_gameplayState.Current);
                 _inSaveShellView.ShowStageInfo(null);
             }
@@ -430,6 +434,45 @@ namespace Gravedigger2026.Meta
             ShowSaveSelect();
         }
 
+        private void HandleEquipmentRequested()
+        {
+            if (_inSaveShellView == null)
+            {
+                return;
+            }
+
+            HideSiblingInSaveOverlays();
+            _inSaveShellView.HideMagicBookSlotsPanel();
+            _inSaveShellView.BindEquipmentWarehouse(_protagonistEquipment, _configs);
+            _inSaveShellView.ShowEquipmentWarehousePanel();
+        }
+
+        private void HandleMagicBookRequested()
+        {
+            if (_inSaveShellView == null)
+            {
+                return;
+            }
+
+            HideSiblingInSaveOverlays();
+            _inSaveShellView.HideEquipmentWarehousePanel();
+            _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs);
+            _inSaveShellView.ShowMagicBookSlotsPanel();
+        }
+
+        private void HideSiblingInSaveOverlays()
+        {
+            if (_inSaveShellView == null)
+            {
+                return;
+            }
+
+            _inSaveShellView.HideToolsPanel();
+            _inSaveShellView.HideLevelSelectPanel();
+            _inSaveShellView.HideGmGrantListPanel();
+            _inSaveShellView.HideGmAddSoldierPanel();
+        }
+
         private void HandleDebugCycleState()
         {
             if (_levelDriver != null && _levelDriver.IsRunning)
@@ -536,6 +579,8 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.HideToolsPanel();
                 _inSaveShellView.HideGmGrantListPanel();
                 _inSaveShellView.HideGmAddSoldierPanel();
+                _inSaveShellView.HideEquipmentWarehousePanel();
+                _inSaveShellView.HideMagicBookSlotsPanel();
             }
 
             var levelIds = _configs.GetDistinctLevelIds();
@@ -639,6 +684,8 @@ namespace Gravedigger2026.Meta
                 {
                     _inSaveShellView.HideToolsPanel();
                     _inSaveShellView.HideGmGrantListPanel();
+                    _inSaveShellView.HideEquipmentWarehousePanel();
+                    _inSaveShellView.HideMagicBookSlotsPanel();
                 }
 
                 return;
@@ -693,6 +740,8 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.HideToolsPanel();
                 _inSaveShellView.HideLevelSelectPanel();
                 _inSaveShellView.HideGmGrantListPanel();
+                _inSaveShellView.HideEquipmentWarehousePanel();
+                _inSaveShellView.HideMagicBookSlotsPanel();
             }
 
             if (_umModule == null || !_umModule.IsFormationEditorOpen)
@@ -819,6 +868,8 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.HideToolsPanel();
                 _inSaveShellView.HideLevelSelectPanel();
                 _inSaveShellView.HideGmAddSoldierPanel();
+                _inSaveShellView.HideEquipmentWarehousePanel();
+                _inSaveShellView.HideMagicBookSlotsPanel();
             }
 
             _gmGrantKind = kind;
@@ -1000,6 +1051,8 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.HideLevelSelectPanel();
                 _inSaveShellView.HideGmGrantListPanel();
                 _inSaveShellView.HideToolsPanel();
+                _inSaveShellView.HideEquipmentWarehousePanel();
+                _inSaveShellView.HideMagicBookSlotsPanel();
             }
 
             if (_toastView != null)

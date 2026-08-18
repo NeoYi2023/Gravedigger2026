@@ -29,3 +29,7 @@ MonoBehaviour:
     IntensityFloatProperties:
     - _OutlineWidth
     - _OutlineGlow
+  - StyleId: Style_ScaleModel
+    Kind: 1
+    Material: {fileID: 0}
+    IntensityFloatProperties: []

@@ -48,6 +48,16 @@ namespace Gravedigger2026.Core.Defend
             return coeffs.AttackSpeedBase + coeffs.AttackSpeedAgiDiv / Math.Max(agility, 1f);
         }
 
+        public static float ComputeSkillCooldown(
+            float intelligence,
+            float baseCooldownSeconds,
+            in CombatConvertCoeffs coeffs)
+        {
+            return Math.Max(
+                coeffs.SkillCdFloor,
+                baseCooldownSeconds - coeffs.SkillCdIntDiv / Math.Max(intelligence, 1f));
+        }
+
         public static int ComputeBattleMaxHp(
             WarriorInstance warrior,
             in StatBlock battleStats,

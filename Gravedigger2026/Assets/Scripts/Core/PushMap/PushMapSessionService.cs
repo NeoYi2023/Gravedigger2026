@@ -13,6 +13,9 @@ namespace Gravedigger2026.Core.PushMap
     /// Boss clear → VictorySettled(StageExpReward), CaptureLoot/DungeonUnlock hooks.
     /// PM-12/13: independently mirrors Defend StartBattle registry + HitConfirm
     /// (WarriorCombatMath + ClassConfig; no DefendSessionService lifetime binding).
+    /// D-069: Skill_03 burst commit / SkillCooldown tick / post-cast LOC re-roll (Approach C);
+    /// Skill_01 block on monster AA (SC-02 Approach B);
+    /// Skill_02 Comfort outgoing mul on SettleMonsterDamage (SC-03 Approach A).
     /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId); monster→soldier → CombatDead.
     /// Position resolution and instantiation are View concerns.
     /// </summary>
@@ -655,7 +658,8 @@ namespace Gravedigger2026.Core.PushMap
                 NormalAttackPower = WarriorCombatMath.ComputeNormalAttackPower(primary, coeffs),
                 AttackSpeed = WarriorCombatMath.ComputeAttackSpeed(battleStats.Agility, coeffs),
                 MoveSpeed = Math.Max(0.1f, battleStats.MoveSpeed > 0.01f ? battleStats.MoveSpeed : 3.5f),
-                AttackRange = classRow != null ? Math.Max(0.1f, classRow.AttackRange) : 1.5f,
+                AttackRange = (classRow != null ? Math.Max(0.1f, classRow.AttackRange) : 1.5f)
+                    * WarriorVisualModelScale.Resolve(warrior),
                 MeleeWindupSeconds = classRow != null ? Math.Max(0f, classRow.MeleeWindupSeconds) : 0.3f,
                 RangedProjectileSpeed = classRow != null ? Math.Max(0.1f, classRow.RangedProjectileSpeed) : 10f,
                 RangedTimeoutSeconds = classRow != null ? Math.Max(0.1f, classRow.RangedTimeoutSeconds) : 2f,
@@ -667,16 +671,36 @@ namespace Gravedigger2026.Core.PushMap
                 GemIds = warrior.GemIds != null ? new List<string>(warrior.GemIds) : new List<string>(),
                 SoldierSkills = warrior.SoldierSkills != null
                     ? new List<SoldierSkillEntry>(warrior.SoldierSkills)
-                    : new List<SoldierSkillEntry>()
+                    : new List<SoldierSkillEntry>(),
+                CastSkillId = string.Empty,
+                CastSkillLevel = 0,
+                SkillCooldownSeconds = 0f,
+                SkillCdRemaining = 0f
             };
+
+            if (SoldierSkillCast.TryResolveSkill03(state.SoldierSkills, _configs, out var skillRow)
+                && skillRow != null)
+            {
+                state.CastSkillId = SoldierSkillCast.Skill03Id;
+                state.CastSkillLevel = skillRow.SkillLevel;
+                state.SkillCooldownSeconds = WarriorCombatMath.ComputeSkillCooldown(
+                    battleStats.Intelligence,
+                    skillRow.BaseCooldownSeconds,
+                    coeffs);
+                state.SkillCdRemaining = 0f;
+            }
 
             _warriors[warrior.Id] = state;
             warrior.RemainingHP = state.RemainingHp;
+            var skillLog = string.IsNullOrEmpty(state.CastSkillId)
+                ? "Skill=none"
+                : $"Skill={state.CastSkillId} Lv{state.CastSkillLevel} CD={state.SkillCooldownSeconds:0.##}s";
             Debug.Log(
                 $"[PushMapSession] RegisterWarrior {state.WarriorId} Mode={state.AttackMode} " +
                 $"HP={state.RemainingHp:0}/{state.MaxHp} Atk={state.NormalAttackPower:0.##} " +
                 $"ASPD={state.AttackSpeed:0.##} Range={state.AttackRange:0.##} " +
-                $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##}");
+                $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##} " +
+                skillLog);
             return true;
         }
 
@@ -711,6 +735,131 @@ namespace Gravedigger2026.Core.PushMap
             return !string.IsNullOrEmpty(warriorId)
                    && _warriors.TryGetValue(warriorId, out state)
                    && state != null;
+        }
+
+        /// <summary>D-069: tick Mode2 Skill_03 CD while Combat gameplay is active.</summary>
+        public void TickSkillCooldowns(float deltaTime)
+        {
+            if (!IsCombatGameplayActive || deltaTime <= 0f)
+            {
+                return;
+            }
+
+            foreach (var pair in _warriors)
+            {
+                var warrior = pair.Value;
+                if (warrior == null || warrior.SkillCdRemaining <= 0f)
+                {
+                    continue;
+                }
+
+                warrior.SkillCdRemaining = Math.Max(0f, warrior.SkillCdRemaining - deltaTime);
+            }
+        }
+
+        public bool TryGetSkillCooldownRemaining(string warriorId, out float remaining)
+        {
+            remaining = 0f;
+            if (!TryGetWarrior(warriorId, out var warrior) || warrior == null)
+            {
+                return false;
+            }
+
+            remaining = Math.Max(0f, warrior.SkillCdRemaining);
+            return !string.IsNullOrEmpty(warrior.CastSkillId);
+        }
+
+        /// <summary>
+        /// D-069: commit Skill_03 burst (Mode2 CD starts now). Returns hit count (3) on success.
+        /// Does not settle damage — View occupies the scheme-D channel.
+        /// </summary>
+        public bool TryCommitSkillBurst(string warriorId, out int burstHitCount)
+        {
+            burstHitCount = 0;
+            if (!IsCombatGameplayActive)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            if (warrior.IsRebel)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(warrior.CastSkillId) || warrior.SkillCdRemaining > 0f)
+            {
+                return false;
+            }
+
+            if (!SoldierSkillCast.TryResolveSkill03(warrior.SoldierSkills, _configs, out var skillRow)
+                || skillRow == null)
+            {
+                return false;
+            }
+
+            warrior.SkillCdRemaining = Math.Max(warrior.SkillCooldownSeconds, 0f);
+            burstHitCount = SoldierSkillCast.BurstHitCount;
+            Debug.Log(
+                $"[PushMapSession] SkillCast {warrior.CastSkillId} Lv{warrior.CastSkillLevel} " +
+                $"{warrior.WarriorId} hits={burstHitCount} cd={warrior.SkillCdRemaining:0.##}s");
+            TryRollLossOfControlAfterSkillCast(warrior);
+            return true;
+        }
+
+        private void TryRollLossOfControlAfterSkillCast(DefendCombatWarriorState warrior)
+        {
+            if (warrior == null || warrior.IsRebel || _lockedLossOfControlDegree <= 0f)
+            {
+                return;
+            }
+
+            var skillBonus = SoldierSkillGrant.SumLossOfControlChanceBonus(warrior.SoldierSkills, _configs);
+            if (Math.Abs(skillBonus) < 0.0001f)
+            {
+                return;
+            }
+
+            var raceBonus = 0f;
+            var gemBonus = 0f;
+            if (_configs != null)
+            {
+                if (!string.IsNullOrEmpty(warrior.RaceId)
+                    && _configs.TryGetRace(warrior.RaceId, out var raceRow)
+                    && raceRow != null)
+                {
+                    raceBonus = raceRow.LossOfControlChanceBonus;
+                }
+
+                if (warrior.GemIds != null)
+                {
+                    for (var g = 0; g < warrior.GemIds.Count; g++)
+                    {
+                        if (_configs.TryGetGem(warrior.GemIds[g], out var gemRow) && gemRow != null)
+                        {
+                            gemBonus += gemRow.LossOfControlChanceBonus;
+                        }
+                    }
+                }
+            }
+
+            var chance = LossOfControlMath.ComputeFinalLossChance(
+                _lockedTierChance, raceBonus, gemBonus, skillBonus);
+            var roll = UnityEngine.Random.value;
+            var rebel = roll < chance;
+            if (rebel)
+            {
+                SetWarriorRebel(warrior.WarriorId, true);
+            }
+
+            Debug.Log(
+                $"[PushMapSession] SkillCastRebelRoll {warrior.WarriorId} chance={chance:0.###} " +
+                $"roll={roll:0.###} → {(rebel ? "REBEL" : "loyal")} " +
+                $"(SkillBonus={skillBonus:0.###})");
         }
 
         public bool TryGetMonster(string runtimeId, out DefendCombatMonsterState state)
@@ -790,6 +939,7 @@ namespace Gravedigger2026.Core.PushMap
 
         /// <summary>
         /// PM-13: monster normal attack on a loyal soldier — AttackPower, no armor.
+        /// Skill_01 (SC-02): independent on-hit hook may zero this damage (still a hit).
         /// RemainingHp≤0 → CombatDead (gems → PermanentDeath mark Demo-min; no material polish).
         /// </summary>
         public bool TryApplyMonsterDamageToWarrior(string monsterRuntimeId, string warriorId, float attackPower)
@@ -810,10 +960,24 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             var dmg = Math.Max(0f, attackPower);
+            var blockNote = string.Empty;
+            var blocked = SoldierSkillCast.TryRollSkill01Block(
+                warrior.SoldierSkills, _configs, out var skill01Row, out var chance);
+            if (skill01Row != null)
+            {
+                if (blocked)
+                {
+                    dmg = 0f;
+                }
+
+                blockNote =
+                    $" Skill_01 Lv{skill01Row.SkillLevel} chance={chance:0.00} blocked={blocked}";
+            }
+
             warrior.RemainingHp = Math.Max(0f, warrior.RemainingHp - dmg);
             Debug.Log(
                 $"[PushMapSession] MonsterHit {monsterRuntimeId} -> {warriorId} dmg={dmg:0.##} " +
-                $"HP={warrior.RemainingHp:0}/{warrior.MaxHp}");
+                $"HP={warrior.RemainingHp:0}/{warrior.MaxHp}{blockNote}");
 
             WarriorDamageSettled?.Invoke(warriorId, dmg);
             if (warrior.RemainingHp <= 0f)
@@ -831,12 +995,32 @@ namespace Gravedigger2026.Core.PushMap
                 return false;
             }
 
-            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - warrior.NormalAttackPower);
+            var dmg = warrior.NormalAttackPower;
+            var comfortNote = string.Empty;
+            var comfort = SoldierSkillCast.TryGetSkill02OutgoingBonus(
+                warrior.SoldierSkills,
+                _configs,
+                warrior.RemainingHp,
+                warrior.MaxHp,
+                out var skill02Row,
+                out var bonus);
+            if (skill02Row != null)
+            {
+                if (comfort)
+                {
+                    dmg *= 1f + bonus;
+                }
+
+                comfortNote =
+                    $" Skill_02 Lv{skill02Row.SkillLevel} bonus=+{bonus:0.00} applied={comfort}";
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - dmg);
             Debug.Log(
                 $"[PushMapSession] {tag} {warrior.WarriorId} -> {monsterRuntimeId} " +
-                $"dmg={warrior.NormalAttackPower:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+                $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}{comfortNote}");
 
-            MonsterDamageSettled?.Invoke(monsterRuntimeId, warrior.NormalAttackPower);
+            MonsterDamageSettled?.Invoke(monsterRuntimeId, dmg);
             if (monster.RemainingHp <= 0f)
             {
                 monster.IsAlive = false;

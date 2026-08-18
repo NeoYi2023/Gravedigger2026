@@ -282,7 +282,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 SoldierSkills = ToSkillArray(w.SoldierSkills),
                 VisualStyleId = w.VisualStyleId,
                 VisualPriority = w.VisualPriority,
-                VisualIntensity = w.VisualIntensity
+                VisualIntensity = w.VisualIntensity,
+                VisualModelScale = WarriorVisualModelScale.Resolve(w)
             };
         }
 
@@ -307,7 +308,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 SourceSpiritCost = dto.SourceSpiritCost,
                 VisualStyleId = dto.VisualStyleId,
                 VisualPriority = dto.VisualPriority,
-                VisualIntensity = dto.VisualIntensity
+                VisualIntensity = dto.VisualIntensity,
+                VisualModelScale = dto.VisualModelScale > 0f ? dto.VisualModelScale : 1f
             };
 
             CopyIds(dto.LockedEquipIds, w.LockedEquipIds);

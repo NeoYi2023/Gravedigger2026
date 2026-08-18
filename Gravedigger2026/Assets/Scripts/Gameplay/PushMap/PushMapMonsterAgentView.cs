@@ -55,6 +55,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         public bool IsBoss => _isBoss;
         public int MoveId => _moveId;
         public float AttackRange => _config != null ? _config.AttackRange : 0f;
+        /// <summary>Active detect radius; empty table cell defaults to AttackRange at load.</summary>
+        public float AlertRadius => _config != null ? Mathf.Max(0f, _config.AlertRadius) : 0f;
         public float BodyRadius => _config != null ? Mathf.Max(0.05f, _config.BodyRadius) : 0.35f;
         public AttackMode AttackMode =>
             _config != null && _config.AttackMode == AttackMode.Ranged

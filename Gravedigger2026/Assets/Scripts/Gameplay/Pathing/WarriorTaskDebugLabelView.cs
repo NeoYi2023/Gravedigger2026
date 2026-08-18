@@ -1,3 +1,4 @@
+using System;
 using Gravedigger2026.Core.Pathing;
 using UnityEngine;
 
@@ -10,7 +11,9 @@ namespace Gravedigger2026.Gameplay.Pathing
     public sealed class WarriorTaskDebugLabelView : MonoBehaviour
     {
         private const float FootOffsetY = 0.02f;
+        private const float FootOffsetZ = -0.38f;
         private const float CharacterSize = 0.12f;
+        private const int FontSize = 12;
 
         private MassMoveScheduler _scheduler;
         private int _moveId;
@@ -20,10 +23,15 @@ namespace Gravedigger2026.Gameplay.Pathing
         private bool _hasLastKind;
         private bool _visible;
 
-        public void Bind(MassMoveScheduler scheduler, int moveId)
+        private Func<string> _extraText;
+        private string _lastExtra;
+
+        public void Bind(MassMoveScheduler scheduler, int moveId, Func<string> extraText = null)
         {
             _scheduler = scheduler;
             _moveId = moveId;
+            _extraText = extraText;
+            _lastExtra = null;
             EnsureLabel();
             ApplyVisibility(WarriorTaskLabelSettings.Enabled);
             RefreshText(force: true);
@@ -78,7 +86,7 @@ namespace Gravedigger2026.Gameplay.Pathing
             var go = new GameObject("TaskDebugLabel");
             _labelTransform = go.transform;
             _labelTransform.SetParent(transform, false);
-            _labelTransform.localPosition = new Vector3(0f, FootOffsetY, 0f);
+            _labelTransform.localPosition = new Vector3(0f, FootOffsetY, FootOffsetZ);
             // Top-down Combat cameras look down -Y; face text upward.
             _labelTransform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
@@ -86,7 +94,7 @@ namespace Gravedigger2026.Gameplay.Pathing
             _textMesh.anchor = TextAnchor.MiddleCenter;
             _textMesh.alignment = TextAlignment.Center;
             _textMesh.characterSize = CharacterSize;
-            _textMesh.fontSize = 32;
+            _textMesh.fontSize = FontSize;
             _textMesh.color = Color.white;
             // Demo: OS CJK font so GoalKind ZH labels render under top-down camera.
             var font = Font.CreateDynamicFontFromOSFont(
@@ -130,14 +138,22 @@ namespace Gravedigger2026.Gameplay.Pathing
                 return;
             }
 
-            if (!force && _hasLastKind && kind == _lastKind)
+            var extra = _extraText != null ? _extraText() : null;
+            if (!force && _hasLastKind && kind == _lastKind && extra == _lastExtra)
             {
                 return;
             }
 
             _lastKind = kind;
             _hasLastKind = true;
-            _textMesh.text = ToZhLabel(kind);
+            _lastExtra = extra;
+            var label = ToZhLabel(kind);
+            if (!string.IsNullOrEmpty(extra))
+            {
+                label += extra;
+            }
+
+            _textMesh.text = label;
         }
 
         private static string ToZhLabel(GoalKind kind)

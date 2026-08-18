@@ -9,7 +9,7 @@ namespace Gravedigger2026.Core.Config
         public string SkillId;
         /// <summary>≥ 1.</summary>
         public int SkillLevel;
-        /// <summary>Mode1 | Mode2; unused cast in Demo.</summary>
+        /// <summary>Mode1 | Mode2; Mode2 CD starts on cast commit (D-069).</summary>
         public string CooldownMode;
         public string CastTarget;
         public string ExtraActivationCondition;
@@ -19,7 +19,7 @@ namespace Gravedigger2026.Core.Config
         public string IconAssetId;
         /// <summary>FK → SkillEffectConfig; effect body not loaded this slice.</summary>
         public string SkillEffectId;
-        /// <summary>≥ 0; unused cast in Demo.</summary>
+        /// <summary>≥ 0; feeds SkillCooldown formula when the skill is cast (D-069).</summary>
         public float BaseCooldownSeconds;
         /// <summary>+/- ; missing → 0.</summary>
         public float LossOfControlChanceBonus;

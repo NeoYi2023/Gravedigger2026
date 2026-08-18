@@ -19,9 +19,12 @@
 | ClassLevel | 职业等级 | ClassConfig 展示用品质等级；UI-016 士兵卡 `Lv.N`；不进战斗公式 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵螺旋落入 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
 | IsoTileYaw | 等距砖轴偏航 | `Y=-atan2(cellSize.y,cellSize.x)`，使 Transform 本地 +X 对齐 Isometric Grid 在 XZ 上的砖轴（Demo ≈ -26.57°）；**职业布阵区已废止此偏航**（改无旋转 IsoDiamond，同 WalkSurface） | [SPEC_04 §13](SPEC_04_Technical.md) |
-| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；命中时可竞争 `VisualStyle`；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；命中时可烘进 `VisualStyle`（材质和/或放大）；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
 | MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/VisualStyleId/Priority/IntensityAdd/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
-| SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；IsUnique 限制叠装 | [§3.15](SPEC_03_GameRules.md) |
+| SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；下标 0→5=左→右；可 TrySwap（含空槽）；IsUnique 限制叠装；无独立仓库 | [§3.15](SPEC_03_GameRules.md) |
+| EquipmentWarehousePanel | 装备仓弹窗 | InSaveShell 左下「装备」打开的只读 Modal；展示 OwnedEquip（名/等级/描述/图标）；不升级、不卸下（UI-022 / D-067） | [§3.6](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md) |
+| MagicBookSlotsPanel | 魔法书槽弹窗 | InSaveShell 左下「魔法书」打开；共享 BookRow；拖拽 TrySwap 含空槽；无仓库；本轮不卸下（UI-023 / D-068） | [§3.6](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
+| BookRow | 魔法书槽行 | 6×BookSlot 共享 Prefab；AM 演出与魔法书弹窗嵌套同一份 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentConfig | 主角装备配置表 | EquipId+EquipLevel → 名/图标/升下一级经验/转化经验/生效域/效果/描述 | [SPEC_04 §9.25](SPEC_04_Technical.md) |
@@ -35,7 +38,7 @@
 | AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 WarriorId；下一批覆盖；PlayerPrefs 按槽+CampaignMode | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：Step1 士兵行+书槽 → Step2 加强动画 → Step3 进 UM 自动开布阵（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 |
 | CampaignModeSelect | 玩法模式选择 | 新建/进入存档前弹窗选 CampaignMode（UI-014 / D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
-| InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md) |
+| InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具 + 左下装备/魔法书入口） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
@@ -74,7 +77,7 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
-| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制 Attack→Run；士兵死亡：锁存 Die **最后非空**精灵（跳过末尾 null 关键帧）+ RGB×`CorpseDarkenMul` 变暗 + `sortingOrder`→100（低于存活单位 200）；士兵与怪物（Defend/PushMap）共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`Taunt`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制 Attack→Run；士兵死亡：锁存 Die **最后非空**精灵（跳过末尾 null 关键帧）+ RGB×`CorpseDarkenMul` 变暗 + `sortingOrder`→100（低于存活单位 200）；士兵与怪物（Defend/PushMap）共用；UI-016 卡面揭示：Taunt 一遍后循环默认 Idle（Camera+RT） | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | FacingHysteresis | 朝向迟滞 | 推图怪八向切换迟滞：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；仅 `PushMapMonsterAgentView` | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | StuckHold | 受堵停滞 | 推图怪 steer 非零但 0.25s 滑窗 XZ 位移 < 0.05 → 停播 Run 面向追击目标；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
@@ -97,7 +100,8 @@
 | MaxHpStrengthMult | 血量力量系数 | 常量表键；MaxHP=ceil(BodyLife+Str×本值)；样例 3 | [§3.11](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| VisualStyle | 特效外观 | 同一 AppearanceId Prefab 上的 AllIn1 材质预设；Mode2 魔法书 Token 命中后按优先级烘进；世界 Instantiate 换 `sharedMaterial`+MPB；新增预设步骤见 SPEC_04 §15.2 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md)/[§15.2](SPEC_04_Technical.md) |
+| VisualStyle | 特效外观 | Mode2 书命中后烘进：AllIn1 材质通道（优先级赢家）+ 放大通道 `Style_ScaleModel`（`VisualModelScale` 连乘 k，可与材质共存）；世界 Instantiate 换材质/改 Visual Scale，BodyRadius 与 AttackRange ×k | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md)/[§15.2](SPEC_04_Technical.md) |
+| VisualModelScale | 模型缩放系数 | 放大通道连乘系数 k（缺省 1）；`VisualIntensityAdd` 即该书 k | [§3.15](SPEC_03_GameRules.md) 6b、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；职业不匹配时走保底；A 空先改亡灵 | [§3.11](SPEC_03_GameRules.md) |
 | DefaultAppearanceId | 职业默认外形 | Mode2 ClassConfig 字段；B 空或亡灵改写后 A 仍空时优先于 IsFallback | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
@@ -127,8 +131,9 @@
 | SkillBuffCoeff | 技能 Buff 系数 | 仅战斗运行时；FinalStat 公式 | [§3.11](SPEC_03_GameRules.md) |
 | SoldierSkill | 士兵技能 | 绑定士兵实例；职业默认授予；Mode2 魔法书可改等级；无经验升级；PermanentDeath 删除 | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
 | SoldierSkills | 士兵技能列表 | 实例 `{SkillId,SkillLevel}[]`；制造烘进；CombatDead 保留 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/CD/失控加成；Demo 不施放 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
-| SkillEffectConfig | 技能效果配置表 | SkillEffectId 主键；效果正文列仍骨架 | [SPEC_04 §9.21b](SPEC_04_Technical.md) |
+| SkillCast | 士兵技能施放 | Combat 内按 SoldierSkills+SkillConfig 自动施放；PushMap `Skill_03` 占用普攻通道 3×方案 D；`Skill_01` 独立被动格挡钩子（命中伤害→0 仍判命中）；`Skill_02` 满血 Outgoing 倍率（NAP×(1+5%～25%)）；Mode2 提交后进 CD（仅主动技） | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.21](SPEC_04_Technical.md) |
+| SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/CD/失控加成；PushMap `Skill_03`/`Skill_01`/`Skill_02` 见 D-069 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
+| SkillEffectConfig | 技能效果配置表 | SkillEffectId 主键；`Skill_03` 硬映射 3 连发；`Skill_01` 硬映射格挡概率；`Skill_02` 硬映射满血增伤（D-069）；其余效果列仍骨架 | [SPEC_04 §9.21b](SPEC_04_Technical.md) |
 | ControlPower | 控制力 | 上阵占用；本版上限=等级行 ControlPowerCap；超额失控 | [§3.11](SPEC_03_GameRules.md) |
 | LossOfControl | 失控 | Degree 分档；开战锁定；各士兵独立 roll；成功→叛变 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | LossOfControlDegree | 失控程度 | ΣCost/Cap−1；≤0 未失控；开战锁定 | [§3.11](SPEC_03_GameRules.md) |

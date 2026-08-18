@@ -49,5 +49,10 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
         /// <summary>Stacked VisualIntensityAdd on the winning style.</summary>
         public float VisualIntensity;
+
+        /// <summary>
+        /// Scale-channel multiplier (SPEC_03 §3.15 6b). Default 1; *= VisualIntensityAdd on Style_ScaleModel hit.
+        /// </summary>
+        public float VisualModelScale = 1f;
     }
 }

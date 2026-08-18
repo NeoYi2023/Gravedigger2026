@@ -5,6 +5,7 @@ Numeric emit follows SPEC_04 §14.6 (no binary float noise).
 """
 from __future__ import annotations
 
+import io
 import math
 import re
 from decimal import Decimal, ROUND_HALF_UP
@@ -101,7 +102,10 @@ def cell_to_csv_text(value: object) -> str:
 
 
 def read_sheet_rows(xlsx_path: Path) -> list[list[str]]:
-    wb = load_workbook(xlsx_path, read_only=True, data_only=True)
+    # Snapshot bytes first so Excel sharing the file does not abort (SPEC_04 §14.4).
+    with open(xlsx_path, "rb") as raw:
+        data = raw.read()
+    wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     ws = wb.active
     rows: list[list[str]] = []
     for row in ws.iter_rows(values_only=True):

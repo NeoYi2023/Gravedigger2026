@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.AutoManufacture;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Level;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Gameplay.Pathing;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,6 +18,8 @@ namespace Gravedigger2026.UI
         [SerializeField] private Text _slotLabel;
         [SerializeField] private Button _toolsButton;
         [SerializeField] private Button _backToSaveSelectButton;
+        [SerializeField] private Button _equipmentButton;
+        [SerializeField] private Button _magicBookButton;
         [SerializeField] private Button _debugCycleStateButton;
         [SerializeField] private Button _debugAdvanceStageButton;
         [SerializeField] private Button _debugWarriorTaskLabelButton;
@@ -22,6 +27,8 @@ namespace Gravedigger2026.UI
         [SerializeField] private LevelSelectPanelView _levelSelectPanel;
         [SerializeField] private GmGrantListPanelView _gmGrantListPanel;
         [SerializeField] private GmAddSoldierPanelView _gmAddSoldierPanel;
+        [SerializeField] private EquipmentWarehousePanelView _equipmentWarehousePanel;
+        [SerializeField] private MagicBookSlotsPanelView _magicBookSlotsPanel;
         [SerializeField] private GameplayStatePlaceholderView _placeholderView;
 
         private Color _backdropDefault = new Color(0.10f, 0.12f, 0.16f, 0.96f);
@@ -29,6 +36,8 @@ namespace Gravedigger2026.UI
 
         public event Action ToolsToggleRequested;
         public event Action BackToSaveSelectRequested;
+        public event Action EquipmentRequested;
+        public event Action MagicBookRequested;
         public event Action DebugCycleStateRequested;
         public event Action DebugAdvanceStageRequested;
         public event Action SettingsRequested;
@@ -60,6 +69,16 @@ namespace Gravedigger2026.UI
                 _backToSaveSelectButton.onClick.AddListener(() => BackToSaveSelectRequested?.Invoke());
             }
 
+            if (_equipmentButton != null)
+            {
+                _equipmentButton.onClick.AddListener(() => EquipmentRequested?.Invoke());
+            }
+
+            if (_magicBookButton != null)
+            {
+                _magicBookButton.onClick.AddListener(() => MagicBookRequested?.Invoke());
+            }
+
             if (_debugCycleStateButton != null)
             {
                 _debugCycleStateButton.onClick.AddListener(() => DebugCycleStateRequested?.Invoke());
@@ -73,6 +92,8 @@ namespace Gravedigger2026.UI
             EnsureWarriorTaskLabelToggleButton();
             EnsureGmGrantListPanel();
             EnsureGmAddSoldierPanel();
+            EnsureEquipmentWarehouseList();
+            EnsureMagicBookRow();
             if (_debugWarriorTaskLabelButton != null)
             {
                 _debugWarriorTaskLabelButton.onClick.AddListener(HandleWarriorTaskLabelToggleClicked);
@@ -140,6 +161,8 @@ namespace Gravedigger2026.UI
             HideLevelSelectPanel();
             HideGmGrantListPanel();
             HideGmAddSoldierPanel();
+            HideEquipmentWarehousePanel();
+            HideMagicBookSlotsPanel();
 
             if (_root != null)
             {
@@ -217,6 +240,56 @@ namespace Gravedigger2026.UI
         }
 
         public bool HasGmAddSoldierPanel => _gmAddSoldierPanel != null;
+
+        public void BindEquipmentWarehouse(ProtagonistEquipmentService equipment, ConfigCsvRepository configs)
+        {
+            if (_equipmentWarehousePanel != null)
+            {
+                _equipmentWarehousePanel.EnsureRuntimeUi();
+                _equipmentWarehousePanel.Bind(equipment, configs);
+            }
+        }
+
+        public void BindMagicBookSlots(SpecialEquipSlotsService slots, ConfigCsvRepository configs)
+        {
+            if (_magicBookSlotsPanel != null)
+            {
+                _magicBookSlotsPanel.EnsureBookRow();
+                _magicBookSlotsPanel.Bind(slots, configs);
+            }
+        }
+
+        public void ShowEquipmentWarehousePanel()
+        {
+            if (_equipmentWarehousePanel != null)
+            {
+                _equipmentWarehousePanel.Show();
+            }
+        }
+
+        public void HideEquipmentWarehousePanel()
+        {
+            if (_equipmentWarehousePanel != null)
+            {
+                _equipmentWarehousePanel.Hide();
+            }
+        }
+
+        public void ShowMagicBookSlotsPanel()
+        {
+            if (_magicBookSlotsPanel != null)
+            {
+                _magicBookSlotsPanel.Show();
+            }
+        }
+
+        public void HideMagicBookSlotsPanel()
+        {
+            if (_magicBookSlotsPanel != null)
+            {
+                _magicBookSlotsPanel.Hide();
+            }
+        }
 
         public bool TryGetGmAddSoldierSelection(
             out string classId,
@@ -335,6 +408,22 @@ namespace Gravedigger2026.UI
             }
 
             _warriorTaskLabelButtonText = clone.GetComponentInChildren<Text>(true);
+        }
+
+        private void EnsureEquipmentWarehouseList()
+        {
+            if (_equipmentWarehousePanel != null)
+            {
+                _equipmentWarehousePanel.EnsureRuntimeUi();
+            }
+        }
+
+        private void EnsureMagicBookRow()
+        {
+            if (_magicBookSlotsPanel != null)
+            {
+                _magicBookSlotsPanel.EnsureBookRow();
+            }
         }
 
         private void EnsureGmGrantListPanel()

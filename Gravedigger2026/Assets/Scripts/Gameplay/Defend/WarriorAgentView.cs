@@ -600,7 +600,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            var dist = Vector3.Distance(transform.position, target.transform.position);
+            var dist = CombatReach.DistanceXZ(transform.position, target.transform.position);
             if (!CombatReach.IsInAttackRange(dist, state.AttackRange, _bodyRadius, target.BodyRadius))
             {
                 return;
@@ -618,7 +618,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            var dist = Vector3.Distance(transform.position, target.transform.position);
+            var dist = CombatReach.DistanceXZ(transform.position, target.transform.position);
             if (!CombatReach.IsInAttackRange(dist, state.AttackRange, _bodyRadius, target.BodyRadius))
             {
                 return;
@@ -643,7 +643,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var targetBody = ResolveRebelTargetBodyRadius(kind, targetId);
-            var dist = Vector3.Distance(transform.position, targetPos);
+            var dist = CombatReach.DistanceXZ(transform.position, targetPos);
             if (!CombatReach.IsInAttackRange(dist, state.AttackRange, _bodyRadius, targetBody))
             {
                 return;
@@ -798,7 +798,7 @@ namespace Gravedigger2026.Gameplay.Defend
             var inRange = target != null
                           && target.IsAlive
                           && CombatReach.IsInAttackRange(
-                              Vector3.Distance(transform.position, target.transform.position),
+                              CombatReach.DistanceXZ(transform.position, target.transform.position),
                               state.AttackRange,
                               _bodyRadius,
                               target.BodyRadius,
@@ -823,7 +823,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     var tf = _protagonistProvider != null ? _protagonistProvider() : null;
                     var inRange = tf != null
                                   && CombatReach.IsInAttackRange(
-                                      Vector3.Distance(transform.position, tf.position),
+                                      CombatReach.DistanceXZ(transform.position, tf.position),
                                       state.AttackRange,
                                       _bodyRadius,
                                       AttackSlotService.DefaultTargetBodyRadius,
@@ -840,7 +840,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     var other = FindWarriorById(_windupTargetId);
                     var inRange = other != null
                                   && CombatReach.IsInAttackRange(
-                                      Vector3.Distance(transform.position, other.transform.position),
+                                      CombatReach.DistanceXZ(transform.position, other.transform.position),
                                       state.AttackRange,
                                       _bodyRadius,
                                       other.AgentRadius,
@@ -854,7 +854,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     var inRange = target != null
                                   && target.IsAlive
                                   && CombatReach.IsInAttackRange(
-                                      Vector3.Distance(transform.position, target.transform.position),
+                                      CombatReach.DistanceXZ(transform.position, target.transform.position),
                                       state.AttackRange,
                                       _bodyRadius,
                                       target.BodyRadius,

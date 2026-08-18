@@ -36,16 +36,87 @@ namespace Gravedigger2026.Editor.Config
                 throw new FileNotFoundException("xlsx not found.", xlsxPath ?? "(null)");
             }
 
-            using (var zip = ZipFile.OpenRead(xlsxPath))
+            try
             {
-                var sharedStrings = ReadSharedStrings(zip);
-                var sheetEntry = ResolveFirstWorksheetEntry(zip);
-                using (var stream = sheetEntry.Open())
+                using (var zip = OpenZipSnapshot(xlsxPath))
                 {
-                    var doc = XDocument.Load(stream);
-                    return ParseSheetData(doc, sharedStrings);
+                    var sharedStrings = ReadSharedStrings(zip);
+                    var sheetEntry = ResolveFirstWorksheetEntry(zip);
+                    using (var stream = sheetEntry.Open())
+                    {
+                        var doc = XDocument.Load(stream);
+                        return ParseSheetData(doc, sharedStrings);
+                    }
                 }
             }
+            catch (IOException ex) when (IsSharingViolation(ex))
+            {
+                throw new IOException(BuildLockedMessage(xlsxPath, ex), ex);
+            }
+        }
+
+        /// <summary>
+        /// Snapshots last-saved bytes with <see cref="FileShare.ReadWrite"/> then opens Zip.
+        /// <see cref="ZipFile.OpenRead"/> uses FileShare.Read and fails while Excel holds the file.
+        /// </summary>
+        private static ZipArchive OpenZipSnapshot(string xlsxPath)
+        {
+            byte[] bytes;
+            using (var fs = new FileStream(
+                       xlsxPath,
+                       FileMode.Open,
+                       FileAccess.Read,
+                       FileShare.ReadWrite | FileShare.Delete))
+            {
+                using (var copy = new MemoryStream())
+                {
+                    fs.CopyTo(copy);
+                    bytes = copy.ToArray();
+                }
+            }
+
+            var memory = new MemoryStream(bytes, writable: false);
+            return new ZipArchive(memory, ZipArchiveMode.Read, leaveOpen: false);
+        }
+
+        private static bool IsSharingViolation(Exception ex)
+        {
+            const int errorSharingViolation = unchecked((int)0x80070020);
+            const int errorLockViolation = unchecked((int)0x80070021);
+            for (var e = ex; e != null; e = e.InnerException)
+            {
+                if (!(e is IOException io))
+                {
+                    continue;
+                }
+
+                if (io.HResult == errorSharingViolation || io.HResult == errorLockViolation)
+                {
+                    return true;
+                }
+
+                if (io.Message.IndexOf("Sharing violation", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string BuildLockedMessage(string xlsxPath, Exception inner)
+        {
+            var dir = Path.GetDirectoryName(xlsxPath);
+            var lockPath = string.IsNullOrEmpty(dir)
+                ? null
+                : Path.Combine(dir, "~$" + Path.GetFileName(xlsxPath));
+            var lockHint = !string.IsNullOrEmpty(lockPath) && File.Exists(lockPath)
+                ? " Excel lock file present (~$*.xlsx)."
+                : string.Empty;
+            return
+                "file is locked by Excel or another process — save, close the workbook, then bake again." +
+                lockHint +
+                " Bake reads last-saved disk bytes. (" + inner.Message + ")";
         }
 
         private static List<string> ReadSharedStrings(ZipArchive zip)

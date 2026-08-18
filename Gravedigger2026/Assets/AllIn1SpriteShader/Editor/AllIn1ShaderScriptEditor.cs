@@ -31,8 +31,17 @@ namespace AllIn1SpriteShader
             ChooseAndDiplayAssetImage();
 
             AllIn1Shader myScript = (AllIn1Shader)target;
+            if (myScript == null) return;
 
             SetCurrentShaderType(myScript);
+
+            if (!HasUsableMaterial(myScript))
+            {
+                EditorGUILayout.HelpBox(
+                    "This Renderer/Image has no Material. Prefabs need a Material saved in the Project.\n" +
+                    "Click 'New Clean Material', then 'Save Material To Folder' before using this as a Prefab (see Documentation: First Steps / Saving Prefabs).",
+                    MessageType.Warning);
+            }
 
             if (GUILayout.Button("Deactivate All Effects"))
             {
@@ -250,18 +259,29 @@ namespace AllIn1SpriteShader
             }
         }
 
+        private static bool HasUsableMaterial(AllIn1Shader myScript)
+        {
+            if (myScript == null) return false;
+            Renderer sr = myScript.GetComponent<Renderer>();
+            if (sr != null) return sr.sharedMaterial != null && sr.sharedMaterial.shader != null;
+            Graphic img = myScript.GetComponent<Graphic>();
+            return img != null && img.material != null && img.material.shader != null;
+        }
+
         private void SetCurrentShaderType(AllIn1Shader myScript)
         {
             string shaderName = "";
             Renderer sr = myScript.GetComponent<Renderer>();
             if (sr != null)
             {
-                shaderName = sr.sharedMaterial.shader.name;
+                if (sr.sharedMaterial != null && sr.sharedMaterial.shader != null)
+                    shaderName = sr.sharedMaterial.shader.name;
             }
             else
             {
                 Graphic img = myScript.GetComponent<Graphic>();
-                if (img != null) shaderName = img.material.shader.name;
+                if (img != null && img.material != null && img.material.shader != null)
+                    shaderName = img.material.shader.name;
             }
             shaderName = shaderName.Replace("AllIn1SpriteShader/", "");
 

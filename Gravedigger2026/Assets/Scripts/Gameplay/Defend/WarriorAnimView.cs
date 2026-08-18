@@ -63,17 +63,21 @@ namespace Gravedigger2026.Gameplay.Defend
         [SerializeField] private string _attackTriggerParam = "Attack1";
         [Tooltip("View-layer death Trigger (SPEC_04 §15.5).")]
         [SerializeField] private string _dieTriggerParam = "Die";
+        [Tooltip("View-layer taunt Trigger (SPEC_04 §15.5 UI-016 card).")]
+        [SerializeField] private string _tauntTriggerParam = "Taunt";
         [SerializeField] private int _defaultDirIndex = 2;
 
         private int _dirIndexHash;
         private int _directionHash;
         private int _attackTriggerHash;
         private int _dieTriggerHash;
+        private int _tauntTriggerHash;
         private int _isRunHash;
         private bool _hasDirIndex;
         private bool _hasDirection;
         private bool _hasAttackTrigger;
         private bool _hasDieTrigger;
+        private bool _hasTauntTrigger;
         private bool _hasIsRun;
         private bool _facingYawFlip;
         private int _facingDirIndex = -1;
@@ -274,6 +278,34 @@ namespace Gravedigger2026.Gameplay.Defend
             ClearLocomotionBools();
             _animator.ResetTrigger(_attackTriggerHash);
             _animator.SetTrigger(_attackTriggerHash);
+        }
+
+        /// <summary>UI-016 card reveal: one-shot Creator Taunt (SPEC_04 §15.5).</summary>
+        public void PlayTaunt()
+        {
+            if (_dead || _animator == null || !_hasTauntTrigger)
+            {
+                return;
+            }
+
+            _moving = false;
+            _forceInterruptedWhileMoving = false;
+            ClearLocomotionBools();
+            _animator.ResetTrigger(_tauntTriggerHash);
+            _animator.SetTrigger(_tauntTriggerHash);
+        }
+
+        public bool HasTauntTrigger => _hasTauntTrigger;
+
+        public bool IsPlayingTaunt()
+        {
+            if (_animator == null)
+            {
+                return false;
+            }
+
+            return ClipNameStartsWith(_animator.GetCurrentAnimatorClipInfo(0), "Taunt")
+                   || ClipNameStartsWith(_animator.GetNextAnimatorClipInfo(0), "Taunt");
         }
 
         public void PlayDie()
@@ -666,6 +698,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _hasDirection = false;
             _hasAttackTrigger = false;
             _hasDieTrigger = false;
+            _hasTauntTrigger = false;
             _hasIsRun = false;
 
             if (_animator == null || _animator.runtimeAnimatorController == null)
@@ -675,10 +708,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
             var attackName = string.IsNullOrEmpty(_attackTriggerParam) ? "Attack1" : _attackTriggerParam;
             var dieName = string.IsNullOrEmpty(_dieTriggerParam) ? "Die" : _dieTriggerParam;
+            var tauntName = string.IsNullOrEmpty(_tauntTriggerParam) ? "Taunt" : _tauntTriggerParam;
             _dirIndexHash = Animator.StringToHash(DirIndexParam);
             _directionHash = Animator.StringToHash(DirectionParam);
             _attackTriggerHash = Animator.StringToHash(attackName);
             _dieTriggerHash = Animator.StringToHash(dieName);
+            _tauntTriggerHash = Animator.StringToHash(tauntName);
             _isRunHash = Animator.StringToHash(IsRunParam);
 
             foreach (var p in _animator.parameters)
@@ -698,6 +733,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 else if (p.nameHash == _dieTriggerHash)
                 {
                     _hasDieTrigger = true;
+                }
+                else if (p.nameHash == _tauntTriggerHash)
+                {
+                    _hasTauntTrigger = true;
                 }
                 else if (p.nameHash == _isRunHash && p.type == AnimatorControllerParameterType.Bool)
                 {
@@ -762,6 +801,16 @@ namespace Gravedigger2026.Gameplay.Defend
                     return;
                 }
             }
+        }
+
+        private static bool ClipNameStartsWith(AnimatorClipInfo[] infos, string prefix)
+        {
+            if (infos == null || infos.Length == 0 || infos[0].clip == null || string.IsNullOrEmpty(prefix))
+            {
+                return false;
+            }
+
+            return infos[0].clip.name.StartsWith(prefix, System.StringComparison.Ordinal);
         }
     }
 }

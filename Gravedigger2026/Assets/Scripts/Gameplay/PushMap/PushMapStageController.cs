@@ -421,6 +421,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var hasLoyalInZone = HasLoyalSoldierInCurrentZone();
             _session.TickCapture(hasLoyalInZone);
+            _session.TickSkillCooldowns(Time.deltaTime);
             TickMassCombatPathing();
             PollTrapEntry();
             PollPassiveProvocation();
@@ -1010,6 +1011,9 @@ namespace Gravedigger2026.Gameplay.PushMap
                     attackRange = classRow.AttackRange;
                 }
 
+                var modelScale = WarriorVisualModelScale.Resolve(warrior);
+                attackRange *= modelScale;
+
                 // PM-12: register combat stats (HP / NormalAttackPower / AttackSpeed / windup /
                 // projectile) on the PushMap session before the view goes live.
                 if (_session != null &&
@@ -1041,6 +1045,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                     repulsionScale = appearanceRow.RepulsionScale;
                     facingYawFlip = appearanceRow.FacingYawFlip == 1;
                 }
+
+                bodyRadius *= WarriorVisualModelScale.Resolve(warrior);
 
                 var moveSpeed = 1.5f;
                 if (_session != null &&
@@ -1314,18 +1320,46 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var targetBody = monster.BodyRadius;
+            var distXZ = CombatReach.DistanceXZ(soldier.transform.position, monster.transform.position);
+            var inMelee = CombatReach.IsInAttackRange(
+                distXZ,
+                soldier.AttackRange,
+                soldier.AgentRadius,
+                targetBody);
+
             // SC-03: melee chase → Surround gap claim (B+); ranged → Chase (full ring).
-            if (!_attackSlots.TryClaim(
-                    soldier.AttackerId,
-                    monster.RuntimeTargetId,
-                    soldier.AttackRange,
-                    monster.transform.position,
-                    out var slotPos,
-                    soldier.AttackMode,
-                    soldier.transform.position,
-                    targetBody,
-                    soldier.AgentRadius,
-                    CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, soldier.AttackMode)))
+            var claimed = _attackSlots.TryClaim(
+                soldier.AttackerId,
+                monster.RuntimeTargetId,
+                soldier.AttackRange,
+                monster.transform.position,
+                out var slotPos,
+                soldier.AttackMode,
+                soldier.transform.position,
+                targetBody,
+                soldier.AgentRadius,
+                CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, soldier.AttackMode));
+
+            if (inMelee)
+            {
+                // Monster parity (SPEC_03 §3.12 v0.82.57): already in AttackRange → hold and
+                // swing. Do not keep seeking a farther ring slot (inside-ring walk-away).
+                var hold = claimed
+                    ? CombatReach.ChaseDestinationXZ(
+                        soldier.transform.position,
+                        monster.transform.position,
+                        slotPos,
+                        soldier.AttackRange,
+                        soldier.AgentRadius,
+                        targetBody,
+                        MassMoveScheduler.ArriveEpsilon)
+                    : new Vector2(soldier.transform.position.x, soldier.transform.position.z);
+                _moveScheduler.SetGoal(soldier.MoveId, GoalKind.AttackSlot, hold);
+                _moveScheduler.SetPaused(soldier.MoveId, true);
+                return;
+            }
+
+            if (!claimed)
             {
                 // No free slot: keep Objective FlowField (do not hard-freeze). Overflow soldiers
                 // continue advance / LocalDetour around the ring until a slot frees or the
@@ -1335,11 +1369,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
+            var dest = CombatReach.ChaseDestinationXZ(
+                soldier.transform.position,
+                monster.transform.position,
+                slotPos,
+                soldier.AttackRange,
+                soldier.AgentRadius,
+                targetBody,
+                MassMoveScheduler.ArriveEpsilon);
             _moveScheduler.SetPaused(soldier.MoveId, false);
-            _moveScheduler.SetGoal(
-                soldier.MoveId,
-                GoalKind.AttackSlot,
-                new Vector2(slotPos.x, slotPos.z));
+            _moveScheduler.SetGoal(soldier.MoveId, GoalKind.AttackSlot, dest);
         }
 
         private void ReleaseNavMesh()

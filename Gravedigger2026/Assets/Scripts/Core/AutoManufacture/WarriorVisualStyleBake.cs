@@ -6,6 +6,7 @@ namespace Gravedigger2026.Core.AutoManufacture
 {
     /// <summary>
     /// Competes MagicBook VisualStyle onto a warrior only after a token hit (SPEC_03 §3.15 6b).
+    /// Scale-channel Style_ScaleModel does not compete with AllIn1 material.
     /// </summary>
     public static class WarriorVisualStyleBake
     {
@@ -23,10 +24,12 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             styleId = styleId.Trim();
-            var add = row.VisualIntensityAdd;
-            if (add <= 0f)
+            var add = WarriorVisualModelScale.ClampFactor(row.VisualIntensityAdd);
+
+            if (WarriorVisualModelScale.IsScaleStyle(styleId))
             {
-                add = 1f;
+                warrior.VisualModelScale = WarriorVisualModelScale.Resolve(warrior) * add;
+                return;
             }
 
             var priority = row.VisualPriority;

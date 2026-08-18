@@ -6,6 +6,7 @@ namespace Gravedigger2026.Gameplay.Defend
     /// <summary>
     /// Applies Mode2 VisualStyle to a spawned warrior Visual (SPEC_03 §3.15 6b / SPEC_04 §15.2).
     /// Swaps sharedMaterial; writes intensity via MaterialPropertyBlock; never clones materials.
+    /// Scale channel sets Visual.localScale to (k,k,k).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class WarriorAllIn1StyleView : MonoBehaviour
@@ -23,6 +24,7 @@ namespace Gravedigger2026.Gameplay.Defend
             var styleId = warrior != null ? warrior.VisualStyleId : null;
             var intensity = warrior != null ? warrior.VisualIntensity : 0f;
             ApplyTo(root, catalog, styleId, intensity);
+            ApplyModelScale(root, WarriorVisualModelScale.Resolve(warrior));
         }
 
         public static void ApplyTo(
@@ -50,10 +52,11 @@ namespace Gravedigger2026.Gameplay.Defend
                 && catalog != null
                 && catalog.TryGet(styleId.Trim(), out entry)
                 && entry != null
+                && entry.Kind != WarriorVisualStyleCatalog.StyleKind.ScaleModel
                 && entry.Material != null;
             if (!resolved)
             {
-                if (hasStyle)
+                if (hasStyle && !WarriorVisualModelScale.IsScaleStyle(styleId))
                 {
                     Debug.LogWarning(
                         $"[VisualStyle] Apply skipped style={styleId} catalog={(catalog != null)} " +
@@ -67,6 +70,18 @@ namespace Gravedigger2026.Gameplay.Defend
             visual.sharedMaterial = entry.Material;
             ApplyIntensity(visual, entry, intensity <= 0f ? 1f : intensity);
             RefreshAtlas(visual.gameObject);
+        }
+
+        private static void ApplyModelScale(GameObject root, float scale)
+        {
+            var visual = root.transform.Find("Visual");
+            if (visual == null)
+            {
+                return;
+            }
+
+            var k = scale <= 0f ? 1f : scale;
+            visual.localScale = new Vector3(k, k, k);
         }
 
         private static SpriteRenderer FindVisualRenderer(GameObject root)

@@ -13,7 +13,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 {
     /// <summary>
     /// Mode2 AutoManufacture presentation Step1–2 (SPEC_03 UI-016 / D-055).
-    /// Step2 book pulse peak invokes onBookPulsePeak(warriorId, slotIndex) for Core apply.
+    /// Soldier row conveyor: enter slides card 0 from one pitch right of viewport center;
+    /// after each soldier's books+Idle, shift left one pitch. Book pulse peak invokes Core apply.
     /// </summary>
     public sealed class AutoManufacturePresentationController : MonoBehaviour
     {
@@ -24,7 +25,6 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private const float SpeedStep = 1.25f;
         private const int SpeedEveryN = 3;
         private const float CardSpacing = 16f;
-        private const float BookSpacing = 12f;
 
         [SerializeField] private RectTransform _bookRow;
         [SerializeField] private ScrollRect _soldierScroll;
@@ -32,6 +32,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         [SerializeField] private AutoMfgSoldierCardView _cardTemplate;
         [SerializeField] private AutoMfgMagicBookSlotView[] _bookSlots =
             new AutoMfgMagicBookSlotView[SpecialEquipSlotsService.SlotCount];
+        [SerializeField] private BookRowView _bookRowView;
 
         private readonly List<AutoMfgSoldierCardView> _cards = new List<AutoMfgSoldierCardView>();
         private readonly List<string> _batchIds = new List<string>();
@@ -39,17 +40,26 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private ConfigCsvRepository _configs;
         private WarriorPoolService _warriorPool;
         private DefendPrefabCatalog _defendCatalog;
+        private SpecialEquipSlotsService _boundBooks;
         private Action _onComplete;
         private Action<string, int> _onBookPulsePeak;
         private Coroutine _playRoutine;
         private Canvas _canvas;
+        private AutoMfgSoldierPreviewFarm _previewFarm;
+        private bool _booksChangedSubscribed;
 
-        public bool IsWired =>
-            _soldierScroll != null
-            && _soldierContent != null
-            && _cardTemplate != null
-            && _bookSlots != null
-            && _bookSlots.Length == SpecialEquipSlotsService.SlotCount;
+        public bool IsWired
+        {
+            get
+            {
+                EnsureBookRowView();
+                return _soldierScroll != null
+                    && _soldierContent != null
+                    && _cardTemplate != null
+                    && _bookSlots != null
+                    && _bookSlots.Length == SpecialEquipSlotsService.SlotCount;
+            }
+        }
 
         public void Begin(
             IReadOnlyList<string> batchWarriorIds,
@@ -61,6 +71,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             Action<string, int> onBookPulsePeak = null)
         {
             End();
+            EnsureBookRowView();
             if (_soldierScroll == null || _soldierContent == null || _cardTemplate == null
                 || _bookSlots == null || _bookSlots.Length != SpecialEquipSlotsService.SlotCount)
             {
@@ -115,6 +126,47 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
         }
 
+        /// <summary>
+        /// Step2 pulse peak: show/update soldier-card live preview when VisualStyle is baked (UI-016 / D-055).
+        /// </summary>
+        public void RefreshFocusedCardVisual(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId) || _warriorPool == null || _defendCatalog == null)
+            {
+                return;
+            }
+
+            if (!_warriorPool.TryGet(warriorId, out var warrior) || warrior == null)
+            {
+                return;
+            }
+
+            if (!AutoMfgSoldierPreviewFarm.HasBakedVisual(warrior))
+            {
+                return;
+            }
+
+            AutoMfgSoldierCardView card = null;
+            for (var i = 0; i < _cards.Count; i++)
+            {
+                var c = _cards[i];
+                if (c != null && string.Equals(c.WarriorId, warriorId, StringComparison.Ordinal))
+                {
+                    card = c;
+                    break;
+                }
+            }
+
+            if (card == null)
+            {
+                return;
+            }
+
+            EnsureFarm();
+            var styleCatalog = _defendCatalog.VisualStyleCatalog;
+            _previewFarm?.RefreshVisual(card, warrior, _defendCatalog, styleCatalog);
+        }
+
         public void End()
         {
             if (_playRoutine != null)
@@ -123,13 +175,30 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 _playRoutine = null;
             }
 
+            DestroyFarm();
             ClearCards();
+            UnsubscribeBooksChanged();
+            _boundBooks = null;
             _configs = null;
             _warriorPool = null;
             _defendCatalog = null;
             _onComplete = null;
             _onBookPulsePeak = null;
             _batchIds.Clear();
+        }
+
+        private void OnEnable()
+        {
+            SubscribeBooksChanged();
+            if (_boundBooks != null)
+            {
+                RefreshBooks();
+            }
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeBooksChanged();
         }
 
         /// <summary>
@@ -165,30 +234,10 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             var dim = CreatePanel(root.transform, "Dim", new Color(0f, 0f, 0f, 0.55f));
             Stretch(dim.GetComponent<RectTransform>());
 
-            var bookRow = CreatePanel(root.transform, "BookRow", new Color(0f, 0f, 0f, 0f));
-            var bookRt = bookRow.GetComponent<RectTransform>();
-            bookRt.anchorMin = new Vector2(0.5f, 0.5f);
-            bookRt.anchorMax = new Vector2(0.5f, 0.5f);
-            bookRt.pivot = new Vector2(0.5f, 0.5f);
+            var bookRowView = BookRowView.CreateHierarchy(root.transform);
+            var bookRt = bookRowView.GetComponent<RectTransform>();
             bookRt.anchoredPosition = new Vector2(0f, 220f);
-            bookRt.sizeDelta = new Vector2(
-                SpecialEquipSlotsService.SlotCount * AutoMfgMagicBookSlotView.SlotWidth
-                + (SpecialEquipSlotsService.SlotCount - 1) * BookSpacing,
-                AutoMfgMagicBookSlotView.SlotHeight);
-
-            var hlg = bookRow.AddComponent<HorizontalLayoutGroup>();
-            hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.spacing = BookSpacing;
-            hlg.childForceExpandHeight = false;
-            hlg.childForceExpandWidth = false;
-            hlg.childControlHeight = true;
-            hlg.childControlWidth = true;
-
-            var bookSlots = new AutoMfgMagicBookSlotView[SpecialEquipSlotsService.SlotCount];
-            for (var i = 0; i < bookSlots.Length; i++)
-            {
-                bookSlots[i] = CreateBookSlot(bookRow.transform, i);
-            }
+            bookRowView.SetAllowReorder(false);
 
             var scrollGo = new GameObject("SoldierScroll", typeof(RectTransform), typeof(ScrollRect), typeof(Image));
             scrollGo.transform.SetParent(root.transform, false);
@@ -245,15 +294,52 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             var controller = root.GetComponent<AutoManufacturePresentationController>();
             controller._canvas = canvas;
             controller._bookRow = bookRt;
+            controller._bookRowView = bookRowView;
             controller._soldierScroll = scroll;
             controller._soldierContent = contentRt;
             controller._cardTemplate = cardTemplate;
-            controller._bookSlots = bookSlots;
+            controller._bookSlots = bookRowView.Slots;
             return controller;
         }
 
         private void BindBooks(SpecialEquipSlotsService slots)
         {
+            EnsureBookRowView();
+            UnsubscribeBooksChanged();
+            _boundBooks = slots;
+            if (_bookRowView != null)
+            {
+                _bookRowView.SetAllowReorder(false);
+                _bookRowView.Bind(slots, _configs);
+                _bookSlots = _bookRowView.Slots;
+            }
+            else
+            {
+                RefreshBooksFallback();
+            }
+
+            SubscribeBooksChanged();
+        }
+
+        private void RefreshBooks()
+        {
+            if (_bookRowView != null)
+            {
+                _bookRowView.Refresh();
+                _bookSlots = _bookRowView.Slots;
+                return;
+            }
+
+            RefreshBooksFallback();
+        }
+
+        private void RefreshBooksFallback()
+        {
+            if (_bookSlots == null)
+            {
+                return;
+            }
+
             for (var i = 0; i < _bookSlots.Length; i++)
             {
                 var view = _bookSlots[i];
@@ -263,7 +349,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 }
 
                 view.ResetScale();
-                var bookId = slots != null ? slots.GetSlot(i) : string.Empty;
+                var bookId = _boundBooks != null ? _boundBooks.GetSlot(i) : string.Empty;
                 if (string.IsNullOrEmpty(bookId) || _configs == null || !_configs.TryGetMagicBook(bookId, out var row))
                 {
                     view.BindEmpty();
@@ -278,6 +364,73 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
                 var name = !string.IsNullOrEmpty(row.DisplayName) ? row.DisplayName : bookId;
                 view.BindBook(name, icon);
+            }
+        }
+
+        private void HandleBooksChanged()
+        {
+            RefreshBooks();
+        }
+
+        private void SubscribeBooksChanged()
+        {
+            if (_booksChangedSubscribed || _boundBooks == null)
+            {
+                return;
+            }
+
+            _boundBooks.Changed += HandleBooksChanged;
+            _booksChangedSubscribed = true;
+        }
+
+        private void UnsubscribeBooksChanged()
+        {
+            if (!_booksChangedSubscribed || _boundBooks == null)
+            {
+                _booksChangedSubscribed = false;
+                return;
+            }
+
+            _boundBooks.Changed -= HandleBooksChanged;
+            _booksChangedSubscribed = false;
+        }
+
+        private void EnsureBookRowView()
+        {
+            if (_bookRowView != null && _bookRowView.HasWiredSlots)
+            {
+                _bookSlots = _bookRowView.Slots;
+                if (_bookRow == null)
+                {
+                    _bookRow = _bookRowView.transform as RectTransform;
+                }
+
+                return;
+            }
+
+            if (_bookRowView == null && _bookRow != null)
+            {
+                _bookRowView = _bookRow.GetComponent<BookRowView>();
+            }
+
+            if (_bookRowView == null)
+            {
+                _bookRowView = GetComponentInChildren<BookRowView>(true);
+            }
+
+            if (_bookRowView == null
+                && _bookRow != null
+                && _bookSlots != null
+                && _bookSlots.Length == SpecialEquipSlotsService.SlotCount)
+            {
+                _bookRowView = _bookRow.gameObject.AddComponent<BookRowView>();
+                _bookRowView.RuntimeWire(_bookSlots, allowReorder: false);
+            }
+
+            if (_bookRowView != null)
+            {
+                _bookSlots = _bookRowView.Slots;
+                _bookRow = _bookRowView.transform as RectTransform;
             }
         }
 
@@ -302,10 +455,71 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             Canvas.ForceUpdateCanvases();
+            ApplyCenterPadding();
+            Canvas.ForceUpdateCanvases();
             if (_soldierScroll != null)
             {
+                _soldierScroll.StopMovement();
+                _soldierScroll.inertia = false;
                 _soldierScroll.horizontalNormalizedPosition = 0f;
             }
+        }
+
+        /// <summary>
+        /// Left pad = (viewportW - cardW)/2 + pitch so scroll=0 places card 0 one pitch right of center.
+        /// Right pad = (viewportW - cardW)/2 so the last card can center.
+        /// Card width is measured from the laid-out template instance (Prefab may differ from 150).
+        /// </summary>
+        private void ApplyCenterPadding()
+        {
+            if (_soldierScroll == null || _soldierScroll.viewport == null || _soldierContent == null)
+            {
+                return;
+            }
+
+            var layout = _soldierContent.GetComponent<HorizontalLayoutGroup>();
+            if (layout == null)
+            {
+                return;
+            }
+
+            var viewWidth = _soldierScroll.viewport.rect.width;
+            var cardWidth = ResolveLaidOutCardWidth();
+            if (viewWidth <= 1f || cardWidth <= 1f)
+            {
+                return;
+            }
+
+            var pitch = cardWidth + layout.spacing;
+            var side = Mathf.Max(0f, (viewWidth - cardWidth) * 0.5f);
+            layout.padding = new RectOffset(
+                Mathf.RoundToInt(side + pitch),
+                Mathf.RoundToInt(side),
+                layout.padding.top,
+                layout.padding.bottom);
+        }
+
+        private float ResolveLaidOutCardWidth()
+        {
+            if (_cards.Count > 0 && _cards[0] != null)
+            {
+                var rt = _cards[0].RectTransform;
+                if (rt != null && rt.rect.width > 1f)
+                {
+                    return rt.rect.width;
+                }
+            }
+
+            if (_cardTemplate != null)
+            {
+                var templateRt = _cardTemplate.RectTransform;
+                if (templateRt != null && templateRt.rect.width > 1f)
+                {
+                    return templateRt.rect.width;
+                }
+            }
+
+            return AutoMfgSoldierCardView.CardWidth;
         }
 
         private string ResolveClassName(string warriorId)
@@ -338,6 +552,70 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             return 0;
         }
 
+        private void RevealCard(AutoMfgSoldierCardView card)
+        {
+            if (card == null)
+            {
+                return;
+            }
+
+            EnsureFarm();
+            if (_previewFarm != null && _previewFarm.HasActivePreview(card.WarriorId))
+            {
+                _previewFarm.TryPlayTaunt(card.WarriorId);
+                return;
+            }
+
+            GameObject prefab = null;
+            WarriorInstance warrior = null;
+            if (_warriorPool != null)
+            {
+                _warriorPool.TryGet(card.WarriorId, out warrior);
+            }
+
+            if (warrior != null && _defendCatalog != null)
+            {
+                _defendCatalog.TryGetWarriorAppearance(warrior.AppearanceId, out prefab);
+            }
+
+            var styleCatalog = _defendCatalog != null ? _defendCatalog.VisualStyleCatalog : null;
+            if (_previewFarm != null && _previewFarm.TryReveal(card, prefab, warrior, styleCatalog))
+            {
+                return;
+            }
+
+            card.RevealIdle(ResolveIdleSprite(card.WarriorId));
+        }
+
+        private void EnsureFarm()
+        {
+            if (_previewFarm != null)
+            {
+                return;
+            }
+
+            Transform worldParent = transform.parent;
+            var canvas = GetComponent<Canvas>();
+            if (canvas == null || canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                worldParent = transform;
+            }
+
+            _previewFarm = AutoMfgSoldierPreviewFarm.Ensure(worldParent);
+        }
+
+        private void DestroyFarm()
+        {
+            if (_previewFarm == null)
+            {
+                return;
+            }
+
+            _previewFarm.ClearAll();
+            Destroy(_previewFarm.gameObject);
+            _previewFarm = null;
+        }
+
         private Sprite ResolveIdleSprite(string warriorId)
         {
             if (_warriorPool == null || !_warriorPool.TryGet(warriorId, out var warrior) || warrior == null)
@@ -357,17 +635,29 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
         private IEnumerator CoPlay()
         {
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            ApplyCenterPadding();
+            Canvas.ForceUpdateCanvases();
+            if (_soldierScroll != null)
+            {
+                _soldierScroll.StopMovement();
+                _soldierScroll.inertia = false;
+                _soldierScroll.horizontalNormalizedPosition = 0f;
+            }
+
+            LockSoldierScrollDrag();
+
+            yield return CoFocusCard(0, BaseFocusSeconds);
             yield return new WaitForSeconds(Step1HoldSeconds);
 
             var completed = 0;
             for (var i = 0; i < _cards.Count; i++)
             {
                 var speed = Mathf.Pow(SpeedStep, completed / SpeedEveryN);
-                var focusDur = BaseFocusSeconds / speed;
                 var pulseDur = BaseBookPulseSeconds / speed;
                 var revealHold = BaseRevealHoldSeconds / speed;
-
-                yield return CoFocusCard(i, focusDur);
+                var focusDur = BaseFocusSeconds / speed;
 
                 var card = _cards[i];
                 card.SetAmplifyVisible(true);
@@ -378,6 +668,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                     if (slot == null)
                     {
                         _onBookPulsePeak?.Invoke(card.WarriorId, b);
+                        RefreshFocusedCardVisual(card.WarriorId);
                         continue;
                     }
 
@@ -385,16 +676,45 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 }
 
                 card.SetAmplifyVisible(false);
-                card.RevealIdle(ResolveIdleSprite(card.WarriorId));
+                RevealCard(card);
                 yield return new WaitForSeconds(revealHold);
 
                 completed++;
+                if (i + 1 < _cards.Count)
+                {
+                    yield return CoFocusCard(i + 1, focusDur);
+                }
             }
 
             _playRoutine = null;
             var done = _onComplete;
             _onComplete = null;
             done?.Invoke();
+        }
+
+        private void LockSoldierScrollDrag()
+        {
+            if (_soldierScroll == null)
+            {
+                return;
+            }
+
+            _soldierScroll.StopMovement();
+            _soldierScroll.inertia = false;
+            var scrollImage = _soldierScroll.GetComponent<Image>();
+            if (scrollImage != null)
+            {
+                scrollImage.raycastTarget = false;
+            }
+
+            if (_soldierScroll.viewport != null)
+            {
+                var viewportImage = _soldierScroll.viewport.GetComponent<Image>();
+                if (viewportImage != null)
+                {
+                    viewportImage.raycastTarget = false;
+                }
+            }
         }
 
         private IEnumerator CoFocusCard(int index, float duration)
@@ -405,9 +725,12 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             Canvas.ForceUpdateCanvases();
+            _soldierScroll.StopMovement();
+            _soldierScroll.inertia = false;
+
             var target = ComputeFocusNormalized(index);
             var start = _soldierScroll.horizontalNormalizedPosition;
-            if (duration <= 0.001f)
+            if (duration <= 0.001f || Mathf.Abs(target - start) <= 0.0001f)
             {
                 _soldierScroll.horizontalNormalizedPosition = target;
                 yield break;
@@ -428,14 +751,15 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
         private float ComputeFocusNormalized(int index)
         {
-            if (_cards.Count <= 1 || _soldierScroll == null || _soldierScroll.viewport == null)
+            if (_soldierScroll == null || _soldierScroll.viewport == null || index < 0 || index >= _cards.Count)
             {
                 return 0f;
             }
 
             var content = _soldierContent;
             var viewport = _soldierScroll.viewport;
-            var card = _cards[index].RectTransform;
+            var cardView = _cards[index];
+            var card = cardView != null ? cardView.RectTransform : null;
             if (content == null || card == null)
             {
                 return 0f;
@@ -449,8 +773,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 return 0f;
             }
 
-            var cardCenter = card.anchoredPosition.x + card.rect.width * 0.5f;
-            var desired = cardCenter - viewWidth * 0.5f;
+            var cardCenterLocal = content.InverseTransformPoint(card.TransformPoint(card.rect.center));
+            var desired = cardCenterLocal.x - viewWidth * 0.5f;
             return Mathf.Clamp01(desired / scrollable);
         }
 
@@ -478,6 +802,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             slot.SetPulseScale(1.18f);
             // Peak scale: apply only this slot's MagicBook (SPEC_03 §3.15 Step2).
             _onBookPulsePeak?.Invoke(warriorId, slotIndex);
+            RefreshFocusedCardVisual(warriorId);
 
             t = 0f;
             while (t < half)
@@ -507,39 +832,6 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private void OnDestroy()
         {
             End();
-        }
-
-        private static AutoMfgMagicBookSlotView CreateBookSlot(Transform parent, int index)
-        {
-            var go = CreatePanel(parent, "BookSlot_" + index, new Color(0.28f, 0.3f, 0.4f, 0.95f));
-            var le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = AutoMfgMagicBookSlotView.SlotWidth;
-            le.preferredHeight = AutoMfgMagicBookSlotView.SlotHeight;
-            le.minWidth = AutoMfgMagicBookSlotView.SlotWidth;
-            le.minHeight = AutoMfgMagicBookSlotView.SlotHeight;
-
-            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            iconGo.transform.SetParent(go.transform, false);
-            var iconRt = iconGo.GetComponent<RectTransform>();
-            iconRt.anchorMin = new Vector2(0.15f, 0.35f);
-            iconRt.anchorMax = new Vector2(0.85f, 0.9f);
-            iconRt.offsetMin = Vector2.zero;
-            iconRt.offsetMax = Vector2.zero;
-            var icon = iconGo.GetComponent<Image>();
-            icon.enabled = false;
-            icon.raycastTarget = false;
-
-            var name = CreateText(go.transform, "Name", string.Empty, 18, TextAnchor.LowerCenter);
-            var nameRt = name.GetComponent<RectTransform>();
-            nameRt.anchorMin = new Vector2(0.05f, 0.02f);
-            nameRt.anchorMax = new Vector2(0.95f, 0.32f);
-            nameRt.offsetMin = Vector2.zero;
-            nameRt.offsetMax = Vector2.zero;
-            name.gameObject.SetActive(false);
-
-            var view = go.AddComponent<AutoMfgMagicBookSlotView>();
-            view.RuntimeWire(go.GetComponent<Image>(), icon, name);
-            return view;
         }
 
         private static AutoMfgSoldierCardView CreateSoldierCard(Transform parent)

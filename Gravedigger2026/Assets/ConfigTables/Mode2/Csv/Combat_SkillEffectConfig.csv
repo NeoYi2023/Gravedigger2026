@@ -9,3 +9,28 @@ SkillEffect_07,
 SkillEffect_08,
 SkillEffect_09,
 SkillEffect_10,
+SkillEffect_01_1,格挡 Lv1：敌人普攻命中 Self 时 10% 伤害→0（仍判命中）
+SkillEffect_01_2,格挡 Lv2：15%
+SkillEffect_01_3,格挡 Lv3：20%
+SkillEffect_01_4,格挡 Lv4：25%
+SkillEffect_01_5,格挡 Lv5：30%
+SkillEffect_02_1,舒适 Lv1：Self 满血（自身血量=100%）时伤害 +5%
+SkillEffect_02_2,舒适 Lv2：+10%
+SkillEffect_02_3,舒适 Lv3：+15%
+SkillEffect_02_4,舒适 Lv4：+20%
+SkillEffect_02_5,舒适 Lv5：+25%
+SkillEffect_03_1,连发 Lv1：EnemySingle、无 ExtraActivationCondition；攻击目标时连续攻击 3 次；BaseCD=50s
+SkillEffect_03_2,连发 Lv2：同 3 次；BaseCD=40s
+SkillEffect_03_3,连发 Lv3：同 3 次；BaseCD=30s
+SkillEffect_03_4,连发 Lv4：同 3 次；BaseCD=20s
+SkillEffect_03_5,连发 Lv5：同 3 次；BaseCD=10s
+SkillEffect_04_1,先发制人 Lv1：EnemySingle；普攻攻击新目标敌人的第一次；攻击伤害 +20%
+SkillEffect_04_2,先发制人 Lv2：同条件；+30%
+SkillEffect_04_3,先发制人 Lv3：同条件；+40%
+SkillEffect_04_4,先发制人 Lv4：同条件；+50%
+SkillEffect_04_5,先发制人 Lv5：同条件；+60%
+SkillEffect_05_1,坚挺 Lv1：Self、敌人的本次攻击导致Self死亡；HP 强制变为 1，无敌 1 秒；BaseCD=60s
+SkillEffect_05_2,坚挺 Lv2：同触发；无敌 2 秒
+SkillEffect_05_3,坚挺 Lv3：同触发；无敌 3 秒
+SkillEffect_05_4,坚挺 Lv4：同触发；无敌 4 秒
+SkillEffect_05_5,坚挺 Lv5：同触发；无敌 5 秒

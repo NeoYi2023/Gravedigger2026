@@ -68,7 +68,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                     continue;
                 }
 
-                var bodyRadius = ResolveBodyRadius(warrior.AppearanceId);
+                var bodyRadius = ResolveBodyRadius(warrior);
                 if (!FormationZoneSpiralSearch.TryFindSlot(zone, bodyRadius, occupied, out var relX, out var relZ))
                 {
                     Debug.LogWarning(
@@ -97,16 +97,18 @@ namespace Gravedigger2026.Core.AutoManufacture
             return deployed;
         }
 
-        private float ResolveBodyRadius(string appearanceId)
+        private float ResolveBodyRadius(WarriorInstance warrior)
         {
+            var scale = WarriorVisualModelScale.Resolve(warrior);
+            var appearanceId = warrior != null ? warrior.AppearanceId : null;
             if (!string.IsNullOrEmpty(appearanceId)
                 && _configs.TryGetAppearance(appearanceId, out var row)
                 && row != null)
             {
-                return Mathf.Max(FormationZoneSpiralSearch.MinRadius, row.BodyRadius);
+                return Mathf.Max(FormationZoneSpiralSearch.MinRadius, row.BodyRadius * scale);
             }
 
-            return BodyAppearanceConfigRow.DefaultBodyRadius;
+            return BodyAppearanceConfigRow.DefaultBodyRadius * scale;
         }
 
         private List<string> OrderByPlacement(IReadOnlyList<string> batchWarriorIds)

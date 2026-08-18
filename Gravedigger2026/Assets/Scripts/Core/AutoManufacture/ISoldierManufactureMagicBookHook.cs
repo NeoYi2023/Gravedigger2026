@@ -188,7 +188,8 @@ namespace Gravedigger2026.Core.AutoManufacture
             WarriorVisualStyleBake.TryApply(warrior, row);
             Debug.Log(
                 $"[MagicBook] SoldierManufacture Restore (RaceWeightPick) book={magicBookId} " +
-                $"warrior={warrior.Id} Race={raceId}");
+                $"warrior={warrior.Id} Race={raceId} VisualStyle={warrior.VisualStyleId ?? ""} " +
+                $"VisualModelScale={WarriorVisualModelScale.Resolve(warrior):0.###}");
         }
 
         private void ApplySoldierSkillLevelAdd(WarriorInstance warrior, string magicBookId, MagicBookConfigRow row)
@@ -422,7 +423,8 @@ namespace Gravedigger2026.Core.AutoManufacture
             Debug.Log(
                 $"[MagicBook] StatMul Primary {kind} +=({mul}-1)*{bodySum}={delta} " +
                 $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} Base={stats.Get(kind)} " +
-                $"VisualStyle={warrior.VisualStyleId ?? ""}");
+                $"VisualStyle={warrior.VisualStyleId ?? ""} " +
+                $"VisualModelScale={WarriorVisualModelScale.Resolve(warrior):0.###}");
         }
 
         /// <summary>

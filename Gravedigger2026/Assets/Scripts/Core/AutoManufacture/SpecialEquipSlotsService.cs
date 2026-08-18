@@ -7,6 +7,7 @@ namespace Gravedigger2026.Core.AutoManufacture
     /// <summary>
     /// Protagonist MagicBook 6-slot persistence + equip gate (SPEC_03 §3.15 / SPEC_04 §6 / §9.24).
     /// PlayerPrefs JSON per slot + CampaignMode; mutate → immediate write when bound.
+    /// TryEquip / TrySwap / Unequip raise <see cref="Changed"/> (UI-023 / D-068).
     /// </summary>
     public sealed class SpecialEquipSlotsService
     {
@@ -24,6 +25,9 @@ namespace Gravedigger2026.Core.AutoManufacture
 
         public int BoundSlotIndex => _slotIndex;
         public CampaignMode BoundCampaignMode => _campaignMode;
+
+        /// <summary>Raised after bind/clear/mutate so BookRow views can refresh (UI-023 / D-068).</summary>
+        public event Action Changed;
 
         /// <summary>Length always <see cref="SlotCount"/>; empty = "".</summary>
         public string GetSlot(int index)
@@ -57,6 +61,7 @@ namespace Gravedigger2026.Core.AutoManufacture
 
             Debug.Log(
                 $"[SpecialEquipSlots] Bound slot={slotIndex} mode={campaignMode} slots=[{FormatSlots()}]");
+            Changed?.Invoke();
         }
 
         public void ClearBound()
@@ -64,6 +69,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             _slotIndex = -1;
             _campaignMode = CampaignMode.Mode1;
             ClearLocalSlots();
+            Changed?.Invoke();
         }
 
         public static void DeleteSlotData(int slotIndex)
@@ -110,7 +116,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 }
 
                 _slots[i] = id;
-                Persist();
+                PersistAndNotify();
                 Debug.Log(
                     $"[SpecialEquipSlots] Equip '{id}' → index={i} slot={_slotIndex} mode={_campaignMode} slots=[{FormatSlots()}]");
                 return true;
@@ -155,7 +161,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             _slots[index] = id;
-            Persist();
+            PersistAndNotify();
             Debug.Log(
                 $"[SpecialEquipSlots] EquipAt '{id}' → index={index} slot={_slotIndex} mode={_campaignMode} slots=[{FormatSlots()}]");
             return true;
@@ -184,9 +190,42 @@ namespace Gravedigger2026.Core.AutoManufacture
 
             var removed = _slots[index];
             _slots[index] = string.Empty;
-            Persist();
+            PersistAndNotify();
             Debug.Log(
                 $"[SpecialEquipSlots] Unequip '{removed}' ← index={index} slot={_slotIndex} mode={_campaignMode} slots=[{FormatSlots()}]");
+            return true;
+        }
+
+        /// <summary>
+        /// Swap two slot MagicBookIds (empty allowed = move book). Persists immediately.
+        /// </summary>
+        public bool TrySwap(int indexA, int indexB, out string error)
+        {
+            error = null;
+            if (_slotIndex < 0)
+            {
+                error = "No save slot bound.";
+                return false;
+            }
+
+            if (indexA < 0 || indexA >= SlotCount || indexB < 0 || indexB >= SlotCount)
+            {
+                error = $"Slot index must be 0..{SlotCount - 1}.";
+                return false;
+            }
+
+            if (indexA == indexB)
+            {
+                error = "Cannot swap a slot with itself.";
+                return false;
+            }
+
+            var tmp = _slots[indexA];
+            _slots[indexA] = _slots[indexB];
+            _slots[indexB] = tmp;
+            PersistAndNotify();
+            Debug.Log(
+                $"[SpecialEquipSlots] Swap {indexA}↔{indexB} slot={_slotIndex} mode={_campaignMode} slots=[{FormatSlots()}]");
             return true;
         }
 
@@ -221,6 +260,12 @@ namespace Gravedigger2026.Core.AutoManufacture
             };
             PlayerPrefs.SetString(PrefsKey(_slotIndex, _campaignMode), JsonUtility.ToJson(data));
             PlayerPrefs.Save();
+        }
+
+        private void PersistAndNotify()
+        {
+            Persist();
+            Changed?.Invoke();
         }
 
         private void ApplyLoaded(SpecialEquipSlotsSaveData data)

@@ -1,5 +1,7 @@
 #if UNITY_EDITOR
 using System.IO;
+using Gravedigger2026.Editor.AutoManufacture;
+using Gravedigger2026.Gameplay.AutoManufacture;
 using Gravedigger2026.Meta;
 using Gravedigger2026.UI;
 using UnityEditor;
@@ -12,6 +14,9 @@ namespace Gravedigger2026.Editor.Meta
 {
     /// <summary>
     /// Builds Meta shell Prefabs + Boot scene (Approach A). Auto-runs once if assets missing.
+    /// EM-01: Ensure InSaveEquipMagicBookPanels (UI-022/023).
+    /// EM-02: Ensure EquipmentWarehouse list (UI-022 / D-067).
+    /// EM-03: Nest shared BookRow into MagicBookSlotsPanel (UI-023 / D-068).
     /// </summary>
     public static class MetaShellAssetBuilder
     {
@@ -22,6 +27,10 @@ namespace Gravedigger2026.Editor.Meta
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
         private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
         private const string GmAddSoldierRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08239_gmAddSoldier";
+        private const string EquipMagicBookRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08270_equipMagicBook";
+        private const string EquipWarehouseListRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08271_equipWarehouseList";
+        private const string MagicBookBookRowRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08272_magicBookRow";
+        private const int InSaveModalSortingOrder = 100;
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -60,6 +69,27 @@ namespace Gravedigger2026.Editor.Meta
                 {
                     EnsureGmAddSoldierPanelOnExistingPrefab();
                     EditorPrefs.SetBool(GmAddSoldierRegenPrefsKey, true);
+                }
+
+                var needsEquipMagicBookRegen = !EditorPrefs.GetBool(EquipMagicBookRegenPrefsKey, false);
+                if (needsEquipMagicBookRegen)
+                {
+                    EnsureInSaveEquipMagicBookPanelsOnExistingPrefab();
+                    EditorPrefs.SetBool(EquipMagicBookRegenPrefsKey, true);
+                }
+
+                var needsEquipWarehouseListRegen = !EditorPrefs.GetBool(EquipWarehouseListRegenPrefsKey, false);
+                if (needsEquipWarehouseListRegen)
+                {
+                    EnsureEquipmentWarehouseListOnExistingPrefab();
+                    EditorPrefs.SetBool(EquipWarehouseListRegenPrefsKey, true);
+                }
+
+                var needsMagicBookRowRegen = !EditorPrefs.GetBool(MagicBookBookRowRegenPrefsKey, false);
+                if (needsMagicBookRowRegen)
+                {
+                    EnsureMagicBookBookRowOnExistingPrefab();
+                    EditorPrefs.SetBool(MagicBookBookRowRegenPrefsKey, true);
                 }
             };
         }
@@ -245,6 +275,269 @@ namespace Gravedigger2026.Editor.Meta
 
                 PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
                 Debug.Log("[MetaShellAssetBuilder] ToolsPanel「添加士兵」patched onto MetaShellRoot (UI-020).");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure InSaveEquipMagicBookPanels (UI-022/023)")]
+        public static void EnsureInSaveEquipMagicBookPanelsMenu()
+        {
+            EnsureInSaveEquipMagicBookPanelsOnExistingPrefab();
+            EditorPrefs.SetBool(EquipMagicBookRegenPrefsKey, true);
+            EnsureEquipmentWarehouseListOnExistingPrefab();
+            EditorPrefs.SetBool(EquipWarehouseListRegenPrefsKey, true);
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureInSaveEquipMagicBookPanelsBatch</summary>
+        public static void EnsureInSaveEquipMagicBookPanelsBatch()
+        {
+            EnsureInSaveEquipMagicBookPanelsMenu();
+        }
+
+        /// <summary>
+        /// Surgical patch: bottom-left Equipment / MagicBook buttons + two modal shells.
+        /// Does not rebuild MetaShellRoot.
+        /// </summary>
+        public static void EnsureInSaveEquipMagicBookPanelsOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                PatchInSaveEquipMagicBookButtons(inSave.transform, out var equipmentBtn, out var magicBookBtn);
+
+                var so = new SerializedObject(inSave);
+                var equipmentBtnProp = so.FindProperty("_equipmentButton");
+                if (equipmentBtnProp != null && equipmentBtn != null)
+                {
+                    equipmentBtnProp.objectReferenceValue = equipmentBtn.GetComponent<Button>();
+                }
+
+                var magicBookBtnProp = so.FindProperty("_magicBookButton");
+                if (magicBookBtnProp != null && magicBookBtn != null)
+                {
+                    magicBookBtnProp.objectReferenceValue = magicBookBtn.GetComponent<Button>();
+                }
+
+                var equipPanelProp = so.FindProperty("_equipmentWarehousePanel");
+                EquipmentWarehousePanelView equipPanel = null;
+                if (equipPanelProp != null)
+                {
+                    equipPanel = equipPanelProp.objectReferenceValue as EquipmentWarehousePanelView;
+                }
+
+                if (equipPanel == null)
+                {
+                    var existing = inSave.transform.Find("EquipmentWarehousePanel");
+                    if (existing != null)
+                    {
+                        Object.DestroyImmediate(existing.gameObject);
+                    }
+
+                    equipPanel = BuildEquipmentWarehousePanel(inSave.transform);
+                    if (equipPanelProp != null)
+                    {
+                        equipPanelProp.objectReferenceValue = equipPanel;
+                    }
+                }
+
+                var magicPanelProp = so.FindProperty("_magicBookSlotsPanel");
+                MagicBookSlotsPanelView magicPanel = null;
+                if (magicPanelProp != null)
+                {
+                    magicPanel = magicPanelProp.objectReferenceValue as MagicBookSlotsPanelView;
+                }
+
+                if (magicPanel == null)
+                {
+                    var existing = inSave.transform.Find("MagicBookSlotsPanel");
+                    if (existing != null)
+                    {
+                        Object.DestroyImmediate(existing.gameObject);
+                    }
+
+                    magicPanel = BuildMagicBookSlotsPanel(inSave.transform);
+                    if (magicPanelProp != null)
+                    {
+                        magicPanelProp.objectReferenceValue = magicPanel;
+                    }
+                }
+
+                so.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] InSave Equipment/MagicBook buttons + modal shells patched onto MetaShellRoot (UI-022/023).");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure EquipmentWarehouseList (UI-022)")]
+        public static void EnsureEquipmentWarehouseListMenu()
+        {
+            EnsureEquipmentWarehouseListOnExistingPrefab();
+            EditorPrefs.SetBool(EquipWarehouseListRegenPrefsKey, true);
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureEquipmentWarehouseListBatch</summary>
+        public static void EnsureEquipmentWarehouseListBatch()
+        {
+            EnsureEquipmentWarehouseListMenu();
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure MagicBook BookRow (UI-023)")]
+        public static void EnsureMagicBookBookRowMenu()
+        {
+            EnsureMagicBookBookRowOnExistingPrefab();
+            EditorPrefs.SetBool(MagicBookBookRowRegenPrefsKey, true);
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureMagicBookBookRowBatch</summary>
+        public static void EnsureMagicBookBookRowBatch()
+        {
+            AmAssetBuilder.NestBookRowIntoExistingPresentation();
+            EnsureMagicBookBookRowOnExistingPrefab();
+        }
+
+        /// <summary>
+        /// Surgical patch: nest shared BookRow.prefab under MagicBookSlotsPanel/BookRowHost.
+        /// </summary>
+        public static void EnsureMagicBookBookRowOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var bookRowPrefab = AmAssetBuilder.EnsureBookRowPrefab();
+            if (bookRowPrefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] BookRow.prefab missing; run AmAssetBuilder Generate BookRow.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                var magicPanel = inSave.GetComponentInChildren<MagicBookSlotsPanelView>(true);
+                if (magicPanel == null)
+                {
+                    var existing = inSave.transform.Find("MagicBookSlotsPanel");
+                    if (existing != null)
+                    {
+                        Object.DestroyImmediate(existing.gameObject);
+                    }
+
+                    magicPanel = BuildMagicBookSlotsPanel(inSave.transform);
+                    var so = new SerializedObject(inSave);
+                    var magicPanelProp = so.FindProperty("_magicBookSlotsPanel");
+                    if (magicPanelProp != null)
+                    {
+                        magicPanelProp.objectReferenceValue = magicPanel;
+                    }
+
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+
+                NestBookRowIntoMagicPanel(magicPanel, bookRowPrefab);
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] Nested BookRow.prefab into MagicBookSlotsPanel (UI-023).");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            EditorPrefs.SetBool(MagicBookBookRowRegenPrefsKey, true);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// Surgical patch: EquipScroll + row template + empty hint on EquipmentWarehousePanel.
+        /// Does not rebuild MetaShellRoot.
+        /// </summary>
+        public static void EnsureEquipmentWarehouseListOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                var so = new SerializedObject(inSave);
+                var equipPanelProp = so.FindProperty("_equipmentWarehousePanel");
+                EquipmentWarehousePanelView equipPanel = null;
+                if (equipPanelProp != null)
+                {
+                    equipPanel = equipPanelProp.objectReferenceValue as EquipmentWarehousePanelView;
+                }
+
+                if (equipPanel == null)
+                {
+                    var existing = inSave.transform.Find("EquipmentWarehousePanel");
+                    if (existing != null)
+                    {
+                        Object.DestroyImmediate(existing.gameObject);
+                    }
+
+                    equipPanel = BuildEquipmentWarehousePanel(inSave.transform);
+                    if (equipPanelProp != null)
+                    {
+                        equipPanelProp.objectReferenceValue = equipPanel;
+                    }
+                }
+                else
+                {
+                    PatchEquipmentWarehouseList(equipPanel);
+                }
+
+                so.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] EquipmentWarehousePanel scroll list patched onto MetaShellRoot (UI-022 / D-067).");
             }
             finally
             {
@@ -470,6 +763,8 @@ namespace Gravedigger2026.Editor.Meta
             var backBtn = CreateButton(root.transform, "BackButton", "返回存档", new Color(0.35f, 0.35f, 0.40f, 1f));
             Place(backBtn.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(160f, 48f));
 
+            PatchInSaveEquipMagicBookButtons(root.transform, out var equipmentBtn, out var magicBookBtn);
+
             var debugBtn = CreateButton(root.transform, "DebugCycleStateButton", "Debug：切下一态", new Color(0.55f, 0.45f, 0.20f, 1f));
             Place(debugBtn.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-24f, 24f), new Vector2(200f, 48f));
 
@@ -479,6 +774,8 @@ namespace Gravedigger2026.Editor.Meta
             var toolsPanel = BuildToolsPanel(root.transform);
             var levelSelect = BuildLevelSelectPanel(root.transform);
             var gmGrant = BuildGmGrantListPanel(root.transform);
+            var equipmentWarehouse = BuildEquipmentWarehousePanel(root.transform);
+            var magicBookSlots = BuildMagicBookSlotsPanel(root.transform);
 
             var view = root.AddComponent<InSaveShellView>();
             var so = new SerializedObject(view);
@@ -487,11 +784,15 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_slotLabel").objectReferenceValue = slotLabel;
             so.FindProperty("_toolsButton").objectReferenceValue = toolsBtn.GetComponent<Button>();
             so.FindProperty("_backToSaveSelectButton").objectReferenceValue = backBtn.GetComponent<Button>();
+            so.FindProperty("_equipmentButton").objectReferenceValue = equipmentBtn.GetComponent<Button>();
+            so.FindProperty("_magicBookButton").objectReferenceValue = magicBookBtn.GetComponent<Button>();
             so.FindProperty("_debugCycleStateButton").objectReferenceValue = debugBtn.GetComponent<Button>();
             so.FindProperty("_debugAdvanceStageButton").objectReferenceValue = advanceBtn.GetComponent<Button>();
             so.FindProperty("_toolsPanel").objectReferenceValue = toolsPanel;
             so.FindProperty("_levelSelectPanel").objectReferenceValue = levelSelect;
             so.FindProperty("_gmGrantListPanel").objectReferenceValue = gmGrant;
+            so.FindProperty("_equipmentWarehousePanel").objectReferenceValue = equipmentWarehouse;
+            so.FindProperty("_magicBookSlotsPanel").objectReferenceValue = magicBookSlots;
             so.FindProperty("_placeholderView").objectReferenceValue = placeholder;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -578,6 +879,394 @@ namespace Gravedigger2026.Editor.Meta
             so.ApplyModifiedPropertiesWithoutUndo();
             root.SetActive(false);
             return view;
+        }
+
+        private static void PatchInSaveEquipMagicBookButtons(
+            Transform inSaveRoot,
+            out GameObject equipmentBtn,
+            out GameObject magicBookBtn)
+        {
+            var backBtn = inSaveRoot.Find("BackButton");
+            if (backBtn != null)
+            {
+                Place(
+                    backBtn.GetComponent<RectTransform>(),
+                    new Vector2(0f, 0f),
+                    new Vector2(0f, 0f),
+                    new Vector2(0f, 0f),
+                    new Vector2(24f, 24f),
+                    new Vector2(160f, 48f));
+            }
+
+            equipmentBtn = inSaveRoot.Find("EquipmentButton")?.gameObject;
+            if (equipmentBtn == null)
+            {
+                equipmentBtn = CreateButton(
+                    inSaveRoot,
+                    "EquipmentButton",
+                    "装备",
+                    new Color(0.30f, 0.48f, 0.42f, 1f));
+            }
+
+            Place(
+                equipmentBtn.GetComponent<RectTransform>(),
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(24f, 136f),
+                new Vector2(160f, 48f));
+
+            magicBookBtn = inSaveRoot.Find("MagicBookButton")?.gameObject;
+            if (magicBookBtn == null)
+            {
+                magicBookBtn = CreateButton(
+                    inSaveRoot,
+                    "MagicBookButton",
+                    "魔法书",
+                    new Color(0.38f, 0.36f, 0.52f, 1f));
+            }
+
+            Place(
+                magicBookBtn.GetComponent<RectTransform>(),
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f),
+                new Vector2(24f, 80f),
+                new Vector2(160f, 48f));
+        }
+
+        private static void ApplyModalCanvasSorting(GameObject root)
+        {
+            var canvas = root.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = root.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = InSaveModalSortingOrder;
+            if (root.GetComponent<GraphicRaycaster>() == null)
+            {
+                root.AddComponent<GraphicRaycaster>();
+            }
+        }
+
+        private static EquipmentWarehousePanelView BuildEquipmentWarehousePanel(Transform parent)
+        {
+            var root = CreatePanel(parent, "EquipmentWarehousePanel", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(root.GetComponent<RectTransform>());
+            ApplyModalCanvasSorting(root);
+
+            var box = CreatePanel(root.transform, "Box", new Color(0.16f, 0.18f, 0.22f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 560f));
+
+            var title = CreateText(box.transform, "Title", "装备", 28, TextAnchor.MiddleCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(460f, 40f));
+
+            BuildEquipWarehouseListOnBox(box.transform, out var listContent, out var rowTemplate, out var emptyHint);
+
+            var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(180f, 44f));
+
+            var view = root.AddComponent<EquipmentWarehousePanelView>();
+            WireEquipmentWarehousePanel(view, root, title, close.GetComponent<Button>(), listContent, rowTemplate, emptyHint);
+            root.SetActive(false);
+            return view;
+        }
+
+        private static void PatchEquipmentWarehouseList(EquipmentWarehousePanelView view)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            var box = view.transform.Find("Box");
+            if (box == null)
+            {
+                return;
+            }
+
+            var so = new SerializedObject(view);
+            var listProp = so.FindProperty("_listContent");
+            var rowProp = so.FindProperty("_rowTemplate");
+            var emptyProp = so.FindProperty("_emptyHintText");
+            var alreadyWired = listProp != null && listProp.objectReferenceValue != null
+                               && rowProp != null && rowProp.objectReferenceValue != null
+                               && emptyProp != null && emptyProp.objectReferenceValue != null
+                               && box.Find("EquipScroll") != null;
+            if (alreadyWired)
+            {
+                return;
+            }
+
+            BuildEquipWarehouseListOnBox(box, out var listContent, out var rowTemplate, out var emptyHint);
+            if (listProp != null)
+            {
+                listProp.objectReferenceValue = listContent;
+            }
+
+            if (rowProp != null)
+            {
+                rowProp.objectReferenceValue = rowTemplate;
+            }
+
+            if (emptyProp != null)
+            {
+                emptyProp.objectReferenceValue = emptyHint;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void BuildEquipWarehouseListOnBox(
+            Transform box,
+            out Transform listContent,
+            out GameObject rowTemplate,
+            out Text emptyHint)
+        {
+            var existingScroll = box.Find("EquipScroll");
+            if (existingScroll != null)
+            {
+                Object.DestroyImmediate(existingScroll.gameObject);
+            }
+
+            var existingEmpty = box.Find("EmptyHint");
+            if (existingEmpty != null)
+            {
+                Object.DestroyImmediate(existingEmpty.gameObject);
+            }
+
+            var scrollGo = new GameObject("EquipScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollGo.transform.SetParent(box, false);
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            Place(scrollRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(460f, 400f));
+            scrollGo.GetComponent<Image>().color = new Color(0.10f, 0.11f, 0.14f, 1f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRt = content.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = new Vector2(0f, 0f);
+            var vlg = content.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(12, 12, 12, 12);
+            vlg.spacing = 10f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRt;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            rowTemplate = CreateEquipRowTemplate(content.transform);
+            listContent = content.transform;
+
+            emptyHint = CreateText(box, "EmptyHint", "尚未拥有装备", 22, TextAnchor.MiddleCenter);
+            Place(emptyHint.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(420f, 60f));
+            emptyHint.gameObject.SetActive(false);
+        }
+
+        private static GameObject CreateEquipRowTemplate(Transform content)
+        {
+            var go = CreatePanel(content, "EquipRowTemplate", new Color(0.28f, 0.38f, 0.52f, 1f));
+            var le = go.GetComponent<LayoutElement>();
+            if (le == null)
+            {
+                le = go.AddComponent<LayoutElement>();
+            }
+
+            le.minHeight = 96f;
+            le.preferredHeight = 96f;
+
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGo.transform.SetParent(go.transform, false);
+            Place(iconGo.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(64f, 64f));
+            var icon = iconGo.GetComponent<Image>();
+            icon.color = Color.white;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            var title = CreateText(go.transform, "Title", "Name Lv.1", 20, TextAnchor.MiddleLeft);
+            StretchFull(title.GetComponent<RectTransform>());
+            title.GetComponent<RectTransform>().offsetMin = new Vector2(84f, 56f);
+            title.GetComponent<RectTransform>().offsetMax = new Vector2(-12f, -8f);
+            title.horizontalOverflow = HorizontalWrapMode.Overflow;
+            title.raycastTarget = false;
+
+            var desc = CreateText(go.transform, "Description", "Description", 16, TextAnchor.UpperLeft);
+            StretchFull(desc.GetComponent<RectTransform>());
+            desc.GetComponent<RectTransform>().offsetMin = new Vector2(84f, 8f);
+            desc.GetComponent<RectTransform>().offsetMax = new Vector2(-12f, -40f);
+            desc.horizontalOverflow = HorizontalWrapMode.Wrap;
+            desc.verticalOverflow = VerticalWrapMode.Overflow;
+            desc.raycastTarget = false;
+
+            go.SetActive(false);
+            return go;
+        }
+
+        private static void WireEquipmentWarehousePanel(
+            EquipmentWarehousePanelView view,
+            GameObject root,
+            Text title,
+            Button close,
+            Transform listContent,
+            GameObject rowTemplate,
+            Text emptyHint)
+        {
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_titleText").objectReferenceValue = title;
+            so.FindProperty("_closeButton").objectReferenceValue = close;
+            so.FindProperty("_listContent").objectReferenceValue = listContent;
+            so.FindProperty("_rowTemplate").objectReferenceValue = rowTemplate;
+            so.FindProperty("_emptyHintText").objectReferenceValue = emptyHint;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static MagicBookSlotsPanelView BuildMagicBookSlotsPanel(Transform parent)
+        {
+            var root = CreatePanel(parent, "MagicBookSlotsPanel", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(root.GetComponent<RectTransform>());
+            ApplyModalCanvasSorting(root);
+
+            var box = CreatePanel(root.transform, "Box", new Color(0.16f, 0.18f, 0.22f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(800f, 400f));
+
+            var title = CreateText(box.transform, "Title", "魔法书", 28, TextAnchor.MiddleCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(740f, 40f));
+
+            var host = new GameObject("BookRowHost", typeof(RectTransform));
+            host.transform.SetParent(box.transform, false);
+            Place(
+                host.GetComponent<RectTransform>(),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0f, 10f),
+                new Vector2(BookRowView.RowWidth, AutoMfgMagicBookSlotView.SlotHeight));
+
+            var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(180f, 44f));
+
+            var view = root.AddComponent<MagicBookSlotsPanelView>();
+            BookRowView nestedRow = null;
+            var bookRowPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(AmAssetBuilder.BookRowPrefabPath);
+            if (bookRowPrefab != null)
+            {
+                nestedRow = NestBookRowUnderHost(host.transform, bookRowPrefab);
+            }
+
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_titleText").objectReferenceValue = title;
+            so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
+            so.FindProperty("_bookRowHost").objectReferenceValue = host.transform;
+            var bookRowProp = so.FindProperty("_bookRow");
+            if (bookRowProp != null)
+            {
+                bookRowProp.objectReferenceValue = nestedRow;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            root.SetActive(false);
+            return view;
+        }
+
+        private static void NestBookRowIntoMagicPanel(MagicBookSlotsPanelView panel, GameObject bookRowPrefab)
+        {
+            if (panel == null || bookRowPrefab == null)
+            {
+                return;
+            }
+
+            var so = new SerializedObject(panel);
+            var hostProp = so.FindProperty("_bookRowHost");
+            Transform host = hostProp != null ? hostProp.objectReferenceValue as Transform : null;
+            if (host == null)
+            {
+                var box = panel.transform.Find("Box");
+                host = box != null ? box.Find("BookRowHost") : null;
+            }
+
+            if (host == null)
+            {
+                return;
+            }
+
+            var hostRt = host as RectTransform;
+            if (hostRt != null)
+            {
+                hostRt.sizeDelta = new Vector2(BookRowView.RowWidth, AutoMfgMagicBookSlotView.SlotHeight);
+            }
+
+            var nested = NestBookRowUnderHost(host, bookRowPrefab);
+            if (hostProp != null)
+            {
+                hostProp.objectReferenceValue = host;
+            }
+
+            var bookRowProp = so.FindProperty("_bookRow");
+            if (bookRowProp != null)
+            {
+                bookRowProp.objectReferenceValue = nested;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static BookRowView NestBookRowUnderHost(Transform host, GameObject bookRowPrefab)
+        {
+            var existing = host.GetComponentInChildren<BookRowView>(true);
+            if (existing != null)
+            {
+                var source = PrefabUtility.GetCorrespondingObjectFromSource(existing.gameObject);
+                if (source == bookRowPrefab)
+                {
+                    PlaceNestedBookRow(existing.GetComponent<RectTransform>());
+                    return existing;
+                }
+
+                Object.DestroyImmediate(existing.gameObject);
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(bookRowPrefab, host);
+            instance.name = "BookRow";
+            var rt = instance.GetComponent<RectTransform>();
+            PlaceNestedBookRow(rt);
+            return instance.GetComponent<BookRowView>();
+        }
+
+        private static void PlaceNestedBookRow(RectTransform rt)
+        {
+            if (rt == null)
+            {
+                return;
+            }
+
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(BookRowView.RowWidth, AutoMfgMagicBookSlotView.SlotHeight);
         }
 
         private static GameObject CreatePlaceholderPanel(Transform parent, string name, string label, Color color)
