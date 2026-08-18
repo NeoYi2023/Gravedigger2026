@@ -72,6 +72,7 @@ Gravedigger2026/Assets/
 │   │   ├── Projectile/
 │   │   └── Shield/
 │   ├── UI/                # 2D 图标统一落点（本版不另建 Sprites/）
+│   │   ├── Cursor.png     # UI-024 运行时硬件光标源（PlayerPointer；非 Prefab Instantiate）
 │   │   ├── Currency/
 │   │   ├── Icons/
 │   │   ├── Outlines/
@@ -95,13 +96,13 @@ Gravedigger2026/Assets/
     └── Csv/               # 程序读表（.csv）；打表产物；运行时唯一数据源
 ```
 
-**Art vs Prefabs：** `Art/` 存源素材（图、Clip、Controller、贴图等）；游戏 Instantiate / Catalog 绑定只引用 `Prefabs/<模块>/`。本版 **不** 单独落地顶层 `Sprites/`；2D 图标统一落在 `Art/UI/`（及 `Art/Placeholder/` 过渡）。**例外（UI-021 / D-065）：** 士兵技能图标须按 `SkillId` 运行时热加载，投放目录为 `Assets/Resources/UI/Skills/`（文件名 = `SkillId`，如 `Skill_01.png`）；`Resources.Load<Sprite>("UI/Skills/"+SkillId)`；缺图则空框仍显示技能名。角色烘焙细则见 [§15](#15-角色美术管线character-creator-烘焙整角)。
+**Art vs Prefabs：** `Art/` 存源素材（图、Clip、Controller、贴图等）；游戏 Instantiate / Catalog 绑定只引用 `Prefabs/<模块>/`。本版 **不** 单独落地顶层 `Sprites/`；2D 图标统一落在 `Art/UI/`（及 `Art/Placeholder/` 过渡）。**运行时光标（UI-024）：** `Art/UI/Cursor.png` 由 `PlayerSettings.defaultCursor` 引用，**不**走 Prefab Instantiate。**例外（UI-021 / D-065）：** 士兵技能图标须按 `SkillId` 运行时热加载，投放目录为 `Assets/Resources/UI/Skills/`（文件名 = `SkillId`，如 `Skill_01.png`）；`Resources.Load<Sprite>("UI/Skills/"+SkillId)`；缺图则空框仍显示技能名。角色烘焙细则见 [§15](#15-角色美术管线character-creator-烘焙整角)。
 
 实际目录以工程为准；结构性变更记入 SPEC_00 Changelog。配置表路径与命名强制约定见 [§14](#14-配置表工程约定与打表工具)。角色美术路径与工具目录禁入见 [§15](#15-角色美术管线character-creator-烘焙整角)。
 
 ### English
 
-Recommended tree as above. `Art/` holds source art (Characters per [§15](#15-角色美术管线character-creator-烘焙整角), Dig/Maps/Defend/UI/VFX/Audio, plus `Placeholder/` for Demo CSV `AssetPath`); runtime Instantiate uses `Prefabs/` only. Top-level `Sprites/` is **not** used this revision—2D icons live under `Art/UI/`. **Exception (UI-021 / D-065):** soldier-skill icons load by `SkillId` at runtime from `Assets/Resources/UI/Skills/` (filename = `SkillId`; `Resources.Load<Sprite>("UI/Skills/"+SkillId)`; missing sprite still shows the skill name). Also includes `Materials/AllIn1/` (optional AllIn1 sprite-effect mats, §15.2), `Prefabs/Dig|Defend|Maps/...`, `SmallScaleInt/` tool source, `ConfigTables/Excel/` + `ConfigTables/Csv/`. Record structural changes in SPEC_00 Changelog. Config-table path and naming rules: [§14](#14-配置表工程约定与打表工具). Character art paths and vendor-folder ban: [§15](#15-角色美术管线character-creator-烘焙整角).
+Recommended tree as above. `Art/` holds source art (Characters per [§15](#15-角色美术管线character-creator-烘焙整角), Dig/Maps/Defend/UI/VFX/Audio, plus `Placeholder/` for Demo CSV `AssetPath`); runtime Instantiate uses `Prefabs/` only. Top-level `Sprites/` is **not** used this revision—2D icons live under `Art/UI/`. **Runtime pointer (UI-024):** `Art/UI/Cursor.png` is referenced by `PlayerSettings.defaultCursor`, **not** Prefab Instantiate. **Exception (UI-021 / D-065):** soldier-skill icons load by `SkillId` at runtime from `Assets/Resources/UI/Skills/` (filename = `SkillId`; `Resources.Load<Sprite>("UI/Skills/"+SkillId)`; missing sprite still shows the skill name). Also includes `Materials/AllIn1/` (optional AllIn1 sprite-effect mats, §15.2), `Prefabs/Dig|Defend|Maps/...`, `SmallScaleInt/` tool source, `ConfigTables/Excel/` + `ConfigTables/Csv/`. Record structural changes in SPEC_00 Changelog. Config-table path and naming rules: [§14](#14-配置表工程约定与打表工具). Character art paths and vendor-folder ban: [§15](#15-角色美术管线character-creator-烘焙整角).
 
 ---
 
@@ -129,19 +130,41 @@ See naming table. Checklist: [unity-spec-dev-workflow](.cursor/skills/unity-spec
 
 ---
 
-## 4. 跨平台输入（占位）
+## 4. 跨平台输入（占位）与运行时光标
 
 ### 简体中文
 
-**状态：未定义**
+**输入抽象状态：未定义**
 
 建议玩法依赖输入抽象接口，禁止玩法直接读 `Input.GetKey` / 原始触摸 API。
 
+**运行时硬件光标（PlayerPointer / UI-024，方案 A）：**
+
+| 项 | 约定 |
+|----|------|
+| 范围 | 整段 Play：Boot 存档选择起，含进档壳与全部玩法阶段 |
+| 载体 | `PlayerSettings.defaultCursor` + `cursorHotspot`；**不**写 `Cursor.SetCursor`；**不**用 Overlay Image 跟随；**不**改 `Cursor.visible` |
+| 源图 | `Assets/Art/UI/Cursor.png`（非 Prefab Instantiate） |
+| 导入 | Texture Type = **Cursor**、Read/Write、Filter Mode = Point、Alpha is Transparency、**不压缩**、各平台 `maxTextureSize=32`（Windows 硬件光标上限） |
+| hotspot | 贴图像素坐标，原点左上，对齐锁尖（约 `(0,0)`） |
+| 与 Dig | `UiDigCursorRing` 仅为范围指示，叠加在 PlayerPointer 上；**不**替代 OS 指针 |
+
 ### English
 
-**Status: Undefined**
+**Input abstraction status: Undefined**
 
 Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
+
+**Runtime hardware cursor (PlayerPointer / UI-024, Approach A):**
+
+| Item | Convention |
+|------|------------|
+| Scope | Whole Play: from Boot save-select through InSaveShell and every gameplay stage |
+| Carrier | `PlayerSettings.defaultCursor` + `cursorHotspot`; **no** `Cursor.SetCursor` script; **no** Overlay Image follow; do **not** change `Cursor.visible` |
+| Source | `Assets/Art/UI/Cursor.png` (not Prefab Instantiate) |
+| Import | Texture Type = **Cursor**, Read/Write, Filter Mode = Point, Alpha is Transparency, **uncompressed**, per-platform `maxTextureSize=32` (Windows hardware-cursor cap) |
+| Hotspot | Texture pixel coords, origin top-left, at shovel tip (about `(0,0)`) |
+| vs Dig | `UiDigCursorRing` is range overlay only on top of PlayerPointer; it does **not** replace the OS pointer |
 
 ---
 
@@ -169,6 +192,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 |------|------|
 | 存档 Meta | 固定 3 槽；本地按槽索引；至少持久化「是否占用」及流水线所需最小字段；新建 / 进入 / 删除（含确认） |
 | 进档壳层 | 进入后默认 `GameplayState = Dig` 占位；浮动「工具」；左下「装备」「魔法书」（UI-022 / UI-023 / D-067 / D-068）；流水线片可从壳层启动样例关卡（§3.8 D-003 / D-010） |
+| 运行时光标 | UI-024：全 Play 硬件指针 `Art/UI/Cursor.png`（`PlayerSettings.defaultCursor`）；Dig 圆圈不替代 OS 指针 |
 | 工具面板 | 设置、关卡入口 + Demo GM「增加主角装备」「增加魔法书」（UI-019 / D-061）+「添加士兵」（UI-020 / D-064）；与玩法 View 分离（壳层 UI） |
 | 关卡驱动 | 只读 `ConfigTables/Csv/`；`LevelOperationConfig` 升序驱动 Dig → UpgradeManufacture → Defend |
 | Dig | §3.10 垂直切片：`DigMapId`→`Prefabs/Maps/`；挖掘 / 奖励 / DigStageSummary（临时美术允许） |
@@ -195,6 +219,8 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 **士兵外观 From-Art（D-056 方案 B，WA-01 已编码）+ 职业区全覆盖（D-057，WA-02 已编码）：** 扩展 `WarriorAppearancePrefabAssembler`：Art 就绪且缺 `Warriors/{AppearanceId}.prefab` 时从 Art 创建 Visual；已有只修结构。然后用 `CloneApp02FallbackAppearances.RefreshWarriorCatalogBindings` 刷新 Defend/UM Catalog（并集 Mode1+Mode2 `BodyAppearanceConfig` 已有 Prefab 的 AppearanceId），**禁止** `GenerateAll`。`EnsureFormationClassZones` / 菜单「Ensure Formation Class Zones on Maps」以 **Mode2** `Manufacture_ClassConfig` 为权威 ClassId（读 CSV；缺补/表外删；第二前/后排及 `_0` 缺区偏移见 §13；已有区保留世界 XZ；样例 HalfExtents 锁定 `(3.85, 2)`；父/子 localRotation=identity，废止 IsoTileYaw）。issues：`.scratch/mode2-warrior-art-bind/`。
 
 **自动制造 Stage（规则已锁；AM-03～13 闭环 + D-054/D-055 + Step2 单槽套书）：** `GameplayType=AutoManufacture` → `AutoManufactureStageModule` + `AutoManufactureService` + `AutoFormationDeployService`；`GameplayConfigId` 忽略；循环选料/职业/基础属性（**造兵时不套书**；默认定种族）→ 授予 `DefaultSkillIds` → StaticStat/外观/命名 → `TempWarriorWarehouse` → **先 Clear `BattleFormation`** → flush→`WarriorPool`（收集本批 Id）→ 批次记录 →（crafted>0）UI-016 Step2 每槽脉冲峰值调用 `SoldierManufactureMagicBookHook.ApplyEquippedBookAtSlot`（仅该书；含 `RaceWeightPick`/`StatMul`/`ForceClass`/`SoldierSkillLevelAdd`；`ForceClass` 命中重授技能）→ `RefinalizeInstance` → **再**按最终 `PlacementOrder` 落入 `FormationClassZone`；不计 Spirit/Control；不写 SoulId；演出失败/`Exit` → `ApplyRemainingSlots` 兜底；**D-054** 批末 `Replace`；**D-055** 播完再 Advance + Mode2 UM `AutoOpenFormationOnce`；0 兵 Tips + 跳过演出。UI-016 士兵行：Content 左右居中垫 + 按卡索引滚动；进入第一张从视口中心右侧一格滑入，该兵揭示后左移一格（卡宽取 `SoldierCardTemplate` 实际宽度）。士兵卡揭示（方案 B）：画外 Camera+RT；先 `Taunt` 再循环默认 Idle；传送带不等 Taunt。MetaShell 进档 Bind / 回档 Clear / 删档 Delete。
+
+**运行时光标（UI-024，方案 A）：** `PlayerSettings.defaultCursor` = `Assets/Art/UI/Cursor.png`，`cursorHotspot` 对齐锁尖；导入约定见 [§4](#4-跨平台输入占位与运行时光标)；**不**写运行时 `Cursor.SetCursor`；Dig `UiDigCursorRing` 叠加其上。
 
 **Meta 壳实现（方案 A，D-001～D-004 + D-045；关卡列表方案 B / UI-008；Tools GM 方案 A / UI-019 / D-061 + UI-020 / D-064；装备仓 / 魔法书弹窗方案 A / UI-022 / D-067 + UI-023 / D-068）：** 单场景 `Assets/Scenes/Boot.unity`；`SaveSelect` / `InSaveShell` 以 Canvas Prefab 显隐切换（`Assets/Prefabs/Meta/`、`Assets/Prefabs/UI/`）。规则层：`SaveSlotService` + `GameplayStateService` + `CampaignModeService`；View 只订阅。工具「设置」→ **打开科技树画布**（见下 UI-012）；工具「关卡」→ 打开 Prefab **`LevelSelectPanel`**（InSaveShell 子级；`MetaShellAssetBuilder` 生成）：`ConfigCsvRepository.GetDistinctLevelIds()` 列出当前模式已加载 `Level_LevelOperationConfig` 的去重 `LevelId`（首次出现顺序）；点选 → `LevelOperationDriver.TryEnterLevel(levelId)`（自 StageNumber=1）；关闭按钮关掉面板。**Demo GM（ToolsPanel）：** 「增加主角装备」「增加魔法书」关闭 ToolsPanel → Prefab **`GmGrantListPanel`**（布局对齐 LevelSelectPanel）：装备列出当前模式 `ProtagonistEquipmentConfig` 去重 EquipId（Level 1 DisplayName）→ `ProtagonistEquipmentService.TryAcquire`；魔法书列出 `MagicBookConfig` 全表 → `SpecialEquipSlotsService.TryEquip`（无仓库；唯一已装/槽满失败）；Toast + 日志；列表保持打开可连点。「添加士兵」关闭 ToolsPanel → 仅 UM 布阵打开时打开左侧 Prefab **`GmAddSoldierPanel`**（职业/种族下拉、数量 1–999、自动上阵默认开）；`GmSoldierGrantService`：`BodyAppearance` 须 RaceId+ClassAffinity(ClassName) 匹配否则 Tips「找不到此种士兵！」；多匹配确定选取（`DefaultAppearanceId`∈匹配集 > `AppearanceLevel==ClassLevel` > 表序首条，禁止随机）；匹配则固定 Demo `BaseStats`（MaxHP=100、MoveSpeed=3、Strength/Agility/Intelligence=20）入池并可 `DeployBatch`；Dig HUD GM **保留**。**InSaveShell 装备 / 魔法书（方案 A / D-067 / D-068）：** 左下 `BackButton` 上方竖排「装备」「魔法书」（各 160×48，间距 8）；点击打开居中 Prefab **`EquipmentWarehousePanel`** / **`MagicBookSlotsPanel`**（对齐 LevelSelectPanel：全屏 dim + 中框 + Title + Close；`sortingOrder` ≥ 100）。装备仓只读：`EquipmentWarehousePanelView` 滚动列出 `OwnedEquips`（当前等级 `DisplayName`/`EquipId` + `Lv.{Level}` + `Description` + `IconAssetId`→`Resources.Load<Sprite>`）；空态「尚未拥有装备」；订阅 `Changed`；进档注入 Service+Configs。菜单 `Ensure EquipmentWarehouseList (UI-022)` 手术补列表。魔法书嵌套共享 `Assets/Prefabs/AutoManufacture/BookRow.prefab`（与 UI-016 演出同一份）；`SpecialEquipSlotsService.TrySwap` 交换任意两槽（含空槽）后立即 persist 并 `Changed`；演出 BookRow 订阅 `Changed` 同步。菜单 `Ensure InSaveEquipMagicBookPanels (UI-022/023)` 手术补 Prefab。菜单 `Ensure MagicBook BookRow (UI-023)` 与 `Gravedigger2026/AutoManufacture/Nest BookRow into Presentation Root` 手术嵌套共享 `BookRow.prefab`。菜单 `Gravedigger2026/Meta/Ensure GmGrantListPanel (UI-019)` / `Ensure GmAddSoldierPanel (UI-020)` 手术补 Prefab。**布局：** `InSaveShellPanel` 的 `StateLabel` / `StageInfoLabel` 顶栏水平居中（锚点顶中；`StateLabel` y≈−16、`StageInfoLabel` y≈−52），不挡中部战斗视野。壳层正式手动切三态仍 **TBD**；Demo 暂提供进档壳 **Debug「切下一态」** 仅用于手验 D-004（不得等同工具「关卡」）；另提供 **Debug「推进阶段」** 手验 D-010（占位结束当前阶段 → 下一阶段 / VictorySettlement）。
 
@@ -244,7 +270,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Status: Aligned with SPEC_03 §3.8 (Meta shell + Level-pipeline vertical slice)**
 
-**In scope (D-001–D-044):** 3 fixed slots with local occupied flag + minimal pipeline fields; InSaveShell default Dig placeholder + floating Tools + bottom-left Equipment / MagicBook (UI-022 / UI-023); sample Level start from shell (D-003/D-010); CSV-only LevelOperation drive Dig→UM→Defend; Dig / UM / Defend verticals per §3.8 (temp art OK); UM stage `GameplayConfigId` **ignored** (§9.1); Defend ModeSelect gate (D-044); Defend Demo-min spawn + NavMesh.
+**In scope (D-001–D-044):** 3 fixed slots with local occupied flag + minimal pipeline fields; InSaveShell default Dig placeholder + floating Tools + bottom-left Equipment / MagicBook (UI-022 / UI-023); sample Level start from shell (D-003/D-010); CSV-only LevelOperation drive Dig→UM→Defend; Dig / UM / Defend verticals per §3.8 (temp art OK); UM stage `GameplayConfigId` **ignored** (§9.1); Defend ModeSelect gate (D-044); Defend Demo-min spawn + NavMesh. **UI-024:** whole-Play hardware pointer `Art/UI/Cursor.png` via `PlayerSettings.defaultCursor`; Dig ring does not replace the OS pointer.
 
 **Out of scope:** Full skill casts / effect tables; formal art polish; exact OutsideMap geometry; **full** save schema (Warehouse/Exp/Tech still TBD; warrior pool + formation locked this slice); concrete TechTree node values/icon polish & full feature-system enum; Tools entries beyond D-061 / D-064 GM / D-067 / D-068; bake full §9 column/type validation (Demo: filename + header only); anything not in §3.8.
 
@@ -266,6 +292,8 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 **Soldier From-Art visuals (D-056 Approach B, WA-01 coded) + full class-zone cover (D-057, WA-02 coded):** Extend `WarriorAppearancePrefabAssembler`: create Visual from Art when Prefab missing and Art ready; existing Prefabs keep layout-only fix. Refresh Defend/UM catalogs via `CloneApp02FallbackAppearances.RefreshWarriorCatalogBindings` (union Mode1+Mode2 `BodyAppearanceConfig` AppearanceIds that already have Prefabs); **do not** `GenerateAll`. `EnsureFormationClassZones` / menu "Ensure Formation Class Zones on Maps" uses **Mode2** `Manufacture_ClassConfig` as authoritative ClassId list (CSV; add missing / remove orphans; second front/back + `_0` offsets: §13; existing zones keep world XZ; sample HalfExtents locked to `(3.85, 2)`; parent/child localRotation=identity, IsoTileYaw dropped). Issues: `.scratch/mode2-warrior-art-bind/`.
 
 **AutoManufacture stage (rules locked; AM-03–13 closed + D-054/D-055 + Step2 per-slot MagicBook):** `GameplayType=AutoManufacture` → `AutoManufactureStageModule` + `AutoManufactureService` + `AutoFormationDeployService`; ignore `GameplayConfigId`; pick/class/base (**no MagicBook at craft**; default race) → grant `DefaultSkillIds` → StaticStat/appearance/name → `TempWarriorWarehouse` → **Clear `BattleFormation` first** → flush→`WarriorPool` → batch record → (crafted>0) UI-016 Step2 pulse peak calls `SoldierManufactureMagicBookHook.ApplyEquippedBookAtSlot` (that book only; incl. `RaceWeightPick`/`StatMul`/`ForceClass`/`SoldierSkillLevelAdd`; `ForceClass` hit re-grants skills) → `RefinalizeInstance` → **then** deploy by final `PlacementOrder` into `FormationClassZone`; ignore Spirit/Control; no SoulId; presentation fail/`Exit` → `ApplyRemainingSlots`; **D-054** batch `Replace`; **D-055** advance after play + Mode2 UM `AutoOpenFormationOnce`; 0 craft Tips + skip presentation. UI-016 soldier row: Content side padding + per-index scroll; enter slides first card from one pitch right of viewport center; after reveal shift left one pitch (card width from actual `SoldierCardTemplate`). Card reveal (Approach B): off-screen Camera+RT; `Taunt` then loop default Idle; conveyor does not wait for Taunt. MetaShell Bind/Clear/Delete.
+
+**Runtime pointer (UI-024, Approach A):** `PlayerSettings.defaultCursor` = `Assets/Art/UI/Cursor.png`, `cursorHotspot` at shovel tip; import rules in [§4](#4-跨平台输入占位与运行时光标); **no** runtime `Cursor.SetCursor`; Dig `UiDigCursorRing` overlays it.
 
 **Meta shell (Approach A, D-001–D-004 + D-045; Level list Approach B / UI-008; Tools GM Approach A / UI-019 / D-061 + UI-020 / D-064; equipment warehouse / MagicBook popup Approach A / UI-022 / D-067 + UI-023 / D-068):** Single scene `Assets/Scenes/Boot.unity`; SaveSelect / InSaveShell via Canvas Prefab show/hide (`Assets/Prefabs/Meta/`, `Assets/Prefabs/UI/`). Rules: `SaveSlotService` + `GameplayStateService` + `CampaignModeService`; Views subscribe only. Tools Settings → **opens TechTree canvas** (UI-012 below); Tools Level → Prefab **`LevelSelectPanel`** under InSaveShell (built by `MetaShellAssetBuilder`): `ConfigCsvRepository.GetDistinctLevelIds()` lists distinct `LevelId` from loaded current-mode `Level_LevelOperationConfig` (first-seen order); pick → `LevelOperationDriver.TryEnterLevel(levelId)` (from StageNumber=1); close hides panel. **Demo GM (ToolsPanel):** Grant Protagonist Equipment / Grant MagicBook hide ToolsPanel → Prefab **`GmGrantListPanel`** (layout aligned with LevelSelectPanel): equipment = distinct EquipId from current-mode `ProtagonistEquipmentConfig` (Level 1 DisplayName) → `ProtagonistEquipmentService.TryAcquire`; MagicBook = full `MagicBookConfig` → `SpecialEquipSlotsService.TryEquip` (no warehouse; unique already equipped / slots full fail); Toast + log; list stays open. Add Soldier hide ToolsPanel → left Prefab **`GmAddSoldierPanel`** only when UM Formation is open (class/race dropdowns, count 1–999, auto-deploy default on); `GmSoldierGrantService` requires BodyAppearance RaceId+ClassAffinity(ClassName) else Tips「找不到此种士兵！」; multi-match deterministic pick (`DefaultAppearanceId` in set > `AppearanceLevel==ClassLevel` > first table order; no random); on match Demo fixed `BaseStats` (MaxHP=100, MoveSpeed=3, Str/Agi/Int=20) into pool + optional `DeployBatch`; Dig HUD GM **kept**. **InSaveShell Equipment / MagicBook (Approach A / D-067 / D-068):** above `BackButton`, vertical Equipment / MagicBook (160×48, gap 8); click opens centered Prefab **`EquipmentWarehousePanel`** / **`MagicBookSlotsPanel`** (align LevelSelectPanel: full-screen dim + box + Title + Close; `sortingOrder` ≥ 100). Warehouse read-only: `EquipmentWarehousePanelView` scrolls `OwnedEquips` (current-level `DisplayName`/`EquipId` + `Lv.{Level}` + `Description` + `IconAssetId`→`Resources.Load<Sprite>`); empty 「尚未拥有装备」; subscribes `Changed`; Service+Configs injected on enter-save. Menu `Ensure EquipmentWarehouseList (UI-022)` patches the list. MagicBook nests shared `Assets/Prefabs/AutoManufacture/BookRow.prefab` (same as UI-016 presentation); `SpecialEquipSlotsService.TrySwap` any two slots (incl. empty) persists immediately + `Changed`; presentation BookRow subscribes `Changed`. Menu `Ensure InSaveEquipMagicBookPanels (UI-022/023)`. Menu `Ensure MagicBook BookRow (UI-023)` and `Gravedigger2026/AutoManufacture/Nest BookRow into Presentation Root` nest shared `BookRow.prefab`. Menus `Ensure GmGrantListPanel (UI-019)` / `Ensure GmAddSoldierPanel (UI-020)`. **Layout:** `InSaveShellPanel` `StateLabel` / `StageInfoLabel` top-center (top-middle anchors; `StateLabel` y≈−16, `StageInfoLabel` y≈−52) so they do not cover mid-screen combat. Formal shell three-state switch still **TBD**; Demo temp **Debug cycle** on InSaveShell for hand-checking D-004 (must not equal Tools Level); **Debug advance stage** for D-010 (placeholder end → next / VictorySettlement).
 

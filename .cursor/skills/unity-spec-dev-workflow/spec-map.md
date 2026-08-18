@@ -30,7 +30,7 @@
 | 配置表工程约定 / 打表 | [SPEC_04 §14](../../SPEC_04_Technical.md) | Excel 四段中英名 + CSV 两段英文名、Bake Tables 菜单 |
 | 角色美术管线 / 烘焙整角 | [SPEC_04 §15](../../SPEC_04_Technical.md) | Character Creator；工具目录禁入；导出补丁→Art/Characters→Prefabs；[§15.2](../../SPEC_04_Technical.md) AllIn1 VisualStyle 新增预设流程 |
 | 代码规范 | [SPEC_04 §3](../../SPEC_04_Technical.md) | 命名、命名空间 |
-| 跨平台输入 | [SPEC_04 §4](../../SPEC_04_Technical.md) | 输入抽象 |
+| 跨平台输入 | [SPEC_04 §4](../../SPEC_04_Technical.md) | 输入抽象占位；UI-024 PlayerPointer 硬件光标 |
 | 性能与资源 | [SPEC_04 §5](../../SPEC_04_Technical.md) | 对象池等 |
 | 版本控制 | [SPEC_04 §7](../../SPEC_04_Technical.md) | .gitignore |
 | 本地化 | [SPEC_04 §8](../../SPEC_04_Technical.md) | Key 体系（若启用） |
@@ -41,7 +41,7 @@
 | 主题 | 规则 (SPEC_03) | 技术 (SPEC_04) |
 |------|----------------|----------------|
 | Meta 存档（固定 3 槽） | [§3.4](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 持久化意图 |
-| 工具面板 / 进档壳层 | [§3.5](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 壳层 UI；UI-022 / UI-023 装备仓只读 + 魔法书 BookRow 排序 |
+| 工具面板 / 进档壳层 | [§3.5](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md) 壳层 UI；UI-022 / UI-023 装备仓只读 + 魔法书 BookRow 排序；UI-024 运行时光标 |
 | GameplayState（Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap） | [§3.1](../../SPEC_03_GameRules.md)、[§3.7](../../SPEC_03_GameRules.md) | [§6](../../SPEC_04_Technical.md)、[§13](../../SPEC_04_Technical.md) |
 | 关卡阶段流水线 / LevelOperation | [§3.9](../../SPEC_03_GameRules.md) | [§9](../../SPEC_04_Technical.md) |
 | 挖坟 Dig / DigMap / Grave | [§3.10](../../SPEC_03_GameRules.md) | [§9.2](../../SPEC_04_Technical.md) DigMapId→`Prefabs/Maps/Ground_*`；[§13](../../SPEC_04_Technical.md)；[§15](../../SPEC_04_Technical.md) Digger 烘焙整角 |

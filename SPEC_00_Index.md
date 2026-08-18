@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.82.75
+**文档版本 / Document Version:** v0.82.76
 **最后更新 / Last Updated:** 2026-08-18  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03））  
 
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-18 | v0.82.76 | UI-024 运行时光标（方案 A）：整段 Play 使用 `PlayerSettings.defaultCursor`=`Art/UI/Cursor.png` 硬件指针（hotspot 锁尖）；Dig 圆圈仅作范围指示，不隐藏系统鼠标。同步 SPEC_03 §3.1/§3.6/§3.10、SPEC_04 §2/§4/§6、CONTEXT、spec-map |
 | 2026-08-18 | v0.82.75 | SC-03：§3.12 SkillCast 纳入 `Skill_02` 舒适（方案 A）。PushMap `SettleMonsterDamage` 扣怪 HP 前：满血（`RemainingHp >= MaxHp`）时 Outgoing = `NormalAttackPower × (1 + 5%/10%/15%/20%/25%)`（Lv1～5 硬映射 `SkillEffect_02_*`）；不占普攻通道、不进 CD、不 roll 失控；不改写存储攻击力。连发 3 击各自独立检查满血。Defend 不接线。选定方案：A。issues `.scratch/soldier-skill-cast/`。同步 SPEC_03 §3.8/§3.12/§3.14、SPEC_04 §9.21/§9.21b、CONTEXT、spec-map |
 | 2026-08-18 | v0.82.74 | SC-02：§3.12 SkillCast 纳入 `Skill_01` 格挡（方案 B）。PushMap 独立被动钩子：怪物普攻命中 `TryApplyMonsterDamageToWarrior` 前按 Lv1～5 硬映射 10%/15%/20%/25%/30% 将本次伤害变为 0（仍判命中）；不占普攻通道、不进 CD、不触发失控二次 roll；不格挡远程弹道；Defend / `Skill_02` 后置。选定方案：B。issues `.scratch/soldier-skill-cast/`。同步 SPEC_03 §3.8/§3.12/§3.14、SPEC_04 §9.21/§9.21b、CONTEXT、spec-map |
 | 2026-08-18 | v0.82.73 | SC-00/01：§3.12 SkillCast + 验收 D-069（P1）。PushMap 忠诚兵占用普攻通道自动施放 `Skill_03` 连发（3×方案 D）；Mode2 提交后进 CD；进距且 CD 好即放；Rebel 不施放。选定方案：C。issues `.scratch/soldier-skill-cast/`。同步 SPEC_03 §3.8/§3.11/§3.12/§3.14、SPEC_04 §9.21/§9.21b/§9.22、CONTEXT、spec-map |
@@ -337,6 +338,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-18 | v0.82.76 | UI-024 runtime pointer (Approach A): whole-Play hardware cursor via `PlayerSettings.defaultCursor`=`Art/UI/Cursor.png` (hotspot at shovel tip); Dig ring is range overlay only, OS cursor stays visible. Synced SPEC_03 §3.1/§3.6/§3.10, SPEC_04 §2/§4/§6, CONTEXT, spec-map |
 | 2026-08-18 | v0.82.75 | SC-03: §3.12 SkillCast adds `Skill_02` Comfort (Approach A). Before PushMap `SettleMonsterDamage` subtracts monster HP: at full HP (`RemainingHp >= MaxHp`) outgoing = `NormalAttackPower × (1 + 5%/10%/15%/20%/25%)` (Lv1–5 hard-map `SkillEffect_02_*`); does not occupy AA, start CD, or extra LOC roll; does not rewrite stored attack power. Each of 3 burst hits checks full HP independently. Defend not wired. Selected: A. Issues `.scratch/soldier-skill-cast/`. Synced SPEC_03 §3.8/§3.12/§3.14, SPEC_04 §9.21/§9.21b, CONTEXT, spec-map |
 | 2026-08-18 | v0.82.74 | SC-02: §3.12 SkillCast adds `Skill_01` block (Approach B). PushMap independent on-hit hook: before monster AA `TryApplyMonsterDamageToWarrior`, hard-map Lv1–5 10%/15%/20%/25%/30% → this hit’s damage 0 (still a hit); does not occupy AA, start CD, or extra LOC roll; does not block ranged projectiles; Defend / `Skill_02` deferred. Selected: B. Issues `.scratch/soldier-skill-cast/`. Synced SPEC_03 §3.8/§3.12/§3.14, SPEC_04 §9.21/§9.21b, CONTEXT, spec-map |
 | 2026-08-18 | v0.82.73 | SC-00/01: §3.12 SkillCast + accept D-069 (P1). PushMap loyal soldiers occupy the AA channel to auto-cast `Skill_03` burst (3× scheme D); Mode2 CD starts on commit; fire when in range and CD ready; Rebels do not cast. Selected: C. Issues `.scratch/soldier-skill-cast/`. Synced SPEC_03 §3.8/§3.11/§3.12/§3.14, SPEC_04 §9.21/§9.21b/§9.22, CONTEXT, spec-map |

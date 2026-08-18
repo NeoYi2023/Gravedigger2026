@@ -44,6 +44,7 @@
 | CampaignModeSelect | 玩法模式选择 | 点击「新建」或「进入」后弹出的选模式 UI（UI-014）；取消则留在存档界面（§3.2、§3.6）。 |
 | InSaveShell | 进档壳层 | 选定存档 **且选定 `CampaignMode`** 进入后的常驻壳：承载当前 `GameplayState` 占位、浮动「工具」入口，以及左下「装备」「魔法书」（UI-022 / UI-023）。 |
 | ToolsPanel | 工具面板 | Demo 调试/设置壳层 UI；由浮动「工具」按钮打开。本期含「设置」「关卡」入口（关卡→列表选关），以及 Demo GM「增加主角装备」「增加魔法书」（→ GmGrantListPanel，UI-019 / D-061）与「添加士兵」（→ GmAddSoldierPanel，UI-020 / D-064）。 |
+| PlayerPointer | 运行时光标 | 整段 Play 的系统硬件鼠标外观（UI-024）；源图 `Art/UI/Cursor.png`；点击热点为锁尖。**勿与** Dig 圆圈范围（`DigCursorRadius` / `UiDigCursorRing`）混淆。 |
 | Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每阶段指定玩法类型与玩法配置 ID（§3.9；UM 阶段 ConfigId **忽略**）。工具「关卡」打开列表选关（去重 LevelId → Stage 1）；场景绑定 **TBD**。 |
 | LevelOperation | 关卡运作 | 关卡运作表一行：关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID。 |
 | DigGameplayConfig | 挖坟配置 | 挖坟配置表一行：时长、开局坟数、过程生成速率、品质权重（零权重项剔除）等（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
@@ -234,6 +235,7 @@
 | CampaignModeSelect | 玩法模式选择 | Mode-pick UI after Create/Enter (UI-014); cancel stays on save select (§3.2, §3.6). |
 | InSaveShell | 进档壳层 | Persistent shell after entering a save **with a chosen `CampaignMode`**: hosts current `GameplayState` placeholder, floating Tools, and bottom-left Equipment / MagicBook (UI-022 / UI-023). |
 | ToolsPanel | 工具面板 | Demo settings/debug shell UI opened by floating Tools. This version: Settings + Level (Level → pick list) + Demo GM Grant Protagonist Equipment / Grant MagicBook (→ GmGrantListPanel, §3.5 / UI-019 / D-061) + Add Soldier (→ GmAddSoldierPanel, UI-020 / D-064). |
+| PlayerPointer | 运行时光标 | Whole-Play hardware mouse look (UI-024); source `Art/UI/Cursor.png`; hotspot = shovel tip. **Distinct from** Dig circle range (`DigCursorRadius` / `UiDigCursorRing`). |
 | Level | 关卡 | Multi-stage flow defined by Level Operation table; each stage has gameplay type + config ID (§3.9; UM stage ConfigId **ignored**). Tools Level opens LevelSelectPanel (distinct LevelIds → Stage 1); scene binding **TBD**. |
 | LevelOperation | 关卡运作 | One Level Operation row: LevelId + StageNumber + GameplayType + GameplayConfigId. |
 | DigGameplayConfig | 挖坟配置 | One Dig config row: duration, initial grave count, spawn rate, quality weights (zero-weight entries dropped) (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
@@ -570,6 +572,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-021 | 士兵栏悬浮框 | 已定义（Demo / Mode2） | 仅 `FormationEditorRoot_Mode2`：指针停在有兵 `SoldierSlot` 上展示职业信息/静态属性/技能图标与名；离槽、横滑、拖起上阵则隐藏；Mode1 **无**；验收见 §3.8 D-065 |
 | UI-022 | 主角装备仓弹窗 | 已定义（Demo） | InSaveShell 左下「装备」打开居中 Modal（对齐 UI-008：全屏遮罩 + 中框 + 关闭；`sortingOrder` ≥ 100）；只读 `OwnedEquips`：`DisplayName`（空则 `EquipId`）+ `Lv.{Level}` + 当前等级行 `Description` + `IconAssetId`（有则 `Resources.Load<Sprite>`）；空态「尚未拥有装备」；订阅 `Changed`；**不**升级、**不**划 `EquipCommonExp`、**不**卸下；Mode1/Mode2 均有；验收见 §3.8 D-067 |
 | UI-023 | 魔法书槽弹窗 | 已定义（Demo） | InSaveShell 左下「魔法书」打开居中 Modal（同 UI-022 壳）；嵌套共享 `Assets/Prefabs/AutoManufacture/BookRow.prefab`（6×`BookSlot_0`…`_5`，120×160）；下标 **0→5 = 左→右**（与 UI-016 Step2 启动顺序相同）；左键拖拽任意两槽 `SpecialEquipSlotsService.TrySwap`（含空槽=搬书）；成功立即 persist + `Changed`；AM 演出 BookRow 订阅 `Changed` 同步；**无**独立魔法书仓库；装入仍 Tools GM `TryEquip`（UI-019）；本轮 **不卸下**；Mode1/Mode2 均有；验收见 §3.8 D-068 |
+| UI-024 | 运行时光标 | 已定义（Demo） | 整段 Play（Boot 存档选择起）硬件指针 = `Assets/Art/UI/Cursor.png`；`PlayerSettings.defaultCursor` + hotspot 对齐锁尖（贴图左上）；**不**隐藏系统鼠标；Dig 圆圈仅作范围指示 |
 
 ### English
 
@@ -598,6 +601,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-021 | Soldier-bar hover tooltip | Defined (Demo / Mode2) | `FormationEditorRoot_Mode2` only: pointer over occupied `SoldierSlot` shows class info / static stats / skill icons+names; hide on leave, horizontal scroll, or lift-to-deploy; Mode1 **none**; accept §3.8 D-065 |
 | UI-022 | Protagonist equipment warehouse popup | Defined (Demo) | InSaveShell bottom-left Equipment opens centered Modal (align UI-008: full-screen dim + center box + close; `sortingOrder` ≥ 100); read-only `OwnedEquips`: `DisplayName` (else `EquipId`) + `Lv.{Level}` + current-level `Description` + `IconAssetId` (`Resources.Load<Sprite>` if set); empty 「尚未拥有装备」; subscribe `Changed`; **no** level-up / spend `EquipCommonExp` / unequip; Mode1 and Mode2; accept §3.8 D-067 |
 | UI-023 | MagicBook slots popup | Defined (Demo) | InSaveShell bottom-left MagicBook opens centered Modal (same shell as UI-022); nested shared `Assets/Prefabs/AutoManufacture/BookRow.prefab` (6×`BookSlot_0`…`_5`, 120×160); index **0→5 = left→right** (same start order as UI-016 Step2); LMB-drag any two slots `SpecialEquipSlotsService.TrySwap` (empty slot = move book); success persists immediately + `Changed`; AM presentation BookRow subscribes `Changed`; **no** MagicBook warehouse; grant still Tools GM `TryEquip` (UI-019); **no** unequip this round; Mode1 and Mode2; accept §3.8 D-068 |
+| UI-024 | Runtime pointer | Defined (Demo) | Whole-Play (from Boot save-select) hardware cursor = `Assets/Art/UI/Cursor.png`; `PlayerSettings.defaultCursor` + hotspot at shovel tip (texture top-left); do **not** hide OS cursor; Dig ring is range overlay only |
 
 ---
 
@@ -941,7 +945,7 @@ EnterLevel
 
 | 规则 | 值 |
 |------|-----|
-| 光标形态 | 进入挖坟阶段后，鼠标指针变为「圆圈范围」；半径 = `DigCursorRadius`（圆，非方） |
+| 光标形态 | 进入挖坟阶段后叠加「圆圈范围」指示；半径 = `DigCursorRadius`（圆，非方）。OS 指针仍为 UI-024 `PlayerPointer`，**不**隐藏 |
 | DigHitShape | 每品质 Grave Prefab 上离线烘焙的 **本地 XZ 凸包**（≤12 顶点，贴近精灵轮廓）；与 `DigObstacle` 圆半径分离。无有效凸包时回退为该 Prefab `DigObstacle` 半径的圆近似 |
 | 命中判定 | 光标圆与坟 `DigHitShape`（世界 XZ）**相交**的未清除坟为候选；规则层纯几何，**禁止**运行时读 Sprite/像素。Busy 视觉缩放 **不**放大命中形 |
 | 光标表现 | 屏幕空间 UI Prefab `UiDigCursorRing`（`Assets/Prefabs/Dig/`）：外圈描边 + 内区白色半透明填充；圆直径 = `DigCursorRadius` 的屏幕投影像素 ÷ Dig HUD `Canvas.scaleFactor`（写入 `sizeDelta`，避免 CanvasScaler 二次放大），**描边屏幕像素粗细不随半径/分辨率缩放** |
@@ -1118,7 +1122,7 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 
 | Rule | Value |
 |------|-------|
-| Cursor | On Dig stage enter, pointer becomes a **circle range**; radius = `DigCursorRadius` (circle, not square) |
+| Cursor | On Dig stage enter, a **circle range** overlay appears; radius = `DigCursorRadius` (circle, not square). OS pointer stays UI-024 `PlayerPointer` — do **not** hide it |
 | DigHitShape | Per-quality Grave Prefab: offline-baked **local XZ convex hull** (≤12 verts, silhouette-approx); separate from `DigObstacle` circle radius. If no valid hull, fall back to that Prefab's `DigObstacle` radius as a circle |
 | Hit test | Uncleared graves whose `DigHitShape` (world XZ) **intersects** the cursor circle are candidates; rules use pure geometry — **no** runtime Sprite/pixel reads. Busy visual scale does **not** enlarge the hit shape |
 | Cursor visuals | Screen-space UI Prefab `UiDigCursorRing` (`Assets/Prefabs/Dig/`): outer stroke + inner white semi-transparent fill; diameter = screen projection of `DigCursorRadius` in pixels ÷ Dig HUD `Canvas.scaleFactor` (written to `sizeDelta`, avoiding CanvasScaler double-scale); **stroke thickness stays constant in screen pixels** |
