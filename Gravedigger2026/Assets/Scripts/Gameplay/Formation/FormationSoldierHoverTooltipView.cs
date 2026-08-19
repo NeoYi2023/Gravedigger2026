@@ -6,20 +6,25 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.Formation
 {
     /// <summary>
-    /// Mode2 soldier-bar hover tooltip (SPEC_03 UI-021 / D-065).
+    /// Mode2 soldier-bar hover tooltip (SPEC_03 UI-021 / D-065 / D-070).
     /// Does not block raycasts. Icon path = Resources/UI/Skills/{SkillId}.
+    /// Each Icon has a 5×5 EffectStatus child (green/red from SkillConfig.EffectImplemented).
     /// </summary>
     public sealed class FormationSoldierHoverTooltipView : MonoBehaviour
     {
         public const string SkillIconResourcesFolder = "UI/Skills";
         private const float PanelWidth = 300f;
         private const float SkillIconSize = 44f;
+        private const float EffectStatusSize = 5f;
         private const int MaxSkillSlots = 8;
+        private static readonly Color EffectImplementedColor = new Color(0.12f, 0.78f, 0.22f, 1f);
+        private static readonly Color EffectUnimplementedColor = new Color(0.86f, 0.16f, 0.16f, 1f);
 
         public struct SkillItem
         {
             public string DisplayName;
             public Sprite Icon;
+            public bool EffectImplemented;
         }
 
         public sealed class Content
@@ -39,6 +44,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
         private static readonly Dictionary<string, Sprite> IconCache =
             new Dictionary<string, Sprite>(System.StringComparer.Ordinal);
+        private static Sprite _solidWhiteSprite;
 
         [SerializeField] private Text _title;
         [SerializeField] private Text _levelBadge;
@@ -56,6 +62,7 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private RectTransform _skillsRow;
 
         private readonly List<Image> _skillIcons = new List<Image>();
+        private readonly List<Image> _effectStatus = new List<Image>();
         private readonly List<Text> _skillNames = new List<Text>();
         private Canvas _canvas;
         private bool _built;
@@ -171,6 +178,13 @@ namespace Gravedigger2026.Gameplay.Formation
                     icon.sprite = item.Icon;
                     icon.enabled = true;
                     icon.color = item.Icon != null ? Color.white : new Color(0.85f, 0.85f, 0.88f, 1f);
+                }
+
+                if (i < _effectStatus.Count && _effectStatus[i] != null)
+                {
+                    _effectStatus[i].color = item.EffectImplemented
+                        ? EffectImplementedColor
+                        : EffectUnimplementedColor;
                 }
 
                 if (name != null)
@@ -370,6 +384,24 @@ namespace Gravedigger2026.Gameplay.Formation
                 outline.effectColor = new Color(0.35f, 0.35f, 0.38f, 1f);
                 outline.effectDistance = new Vector2(1f, -1f);
 
+                var statusGo = new GameObject("EffectStatus", typeof(RectTransform), typeof(Image), typeof(Outline));
+                statusGo.transform.SetParent(iconGo.transform, false);
+                var statusRt = statusGo.GetComponent<RectTransform>();
+                statusRt.anchorMin = new Vector2(1f, 1f);
+                statusRt.anchorMax = new Vector2(1f, 1f);
+                statusRt.pivot = new Vector2(1f, 1f);
+                statusRt.anchoredPosition = Vector2.zero;
+                statusRt.sizeDelta = new Vector2(EffectStatusSize, EffectStatusSize);
+                var status = statusGo.GetComponent<Image>();
+                status.sprite = GetSolidWhiteSprite();
+                status.type = Image.Type.Simple;
+                status.color = EffectUnimplementedColor;
+                status.raycastTarget = false;
+                var statusOutline = statusGo.GetComponent<Outline>();
+                statusOutline.effectColor = new Color(0.08f, 0.08f, 0.1f, 1f);
+                statusOutline.effectDistance = new Vector2(1f, -1f);
+                statusGo.transform.SetAsLastSibling();
+
                 var name = CreateText(cell.transform, "Name", string.Empty, 10, TextAnchor.UpperCenter, Color.black, font);
                 var nameRt = name.rectTransform;
                 nameRt.anchorMin = new Vector2(0f, 0f);
@@ -381,6 +413,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 name.verticalOverflow = VerticalWrapMode.Overflow;
 
                 _skillIcons.Add(icon);
+                _effectStatus.Add(status);
                 _skillNames.Add(name);
                 cell.SetActive(false);
             }
@@ -535,6 +568,22 @@ namespace Gravedigger2026.Gameplay.Formation
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
+        }
+
+        private static Sprite GetSolidWhiteSprite()
+        {
+            if (_solidWhiteSprite != null)
+            {
+                return _solidWhiteSprite;
+            }
+
+            var tex = Texture2D.whiteTexture;
+            _solidWhiteSprite = Sprite.Create(
+                tex,
+                new Rect(0f, 0f, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f),
+                1f);
+            return _solidWhiteSprite;
         }
 
         private static void PlaceTop(RectTransform rt, float yFromTop, float height)

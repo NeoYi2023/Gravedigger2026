@@ -6,6 +6,7 @@ using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.PushMap;
+using Gravedigger2026.Core.Shop;
 using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.AutoManufacture;
@@ -53,6 +54,10 @@ namespace Gravedigger2026.Meta
             new AutoManufacturePresentationFlags();
         private SpecialEquipSlotsService _specialEquipSlots;
         private ProtagonistEquipmentService _protagonistEquipment;
+        private readonly ShopProgressService _shopProgress = new ShopProgressService();
+        private readonly ShopOfferRefreshService _shopOfferRefresh = new ShopOfferRefreshService();
+        private ShopPurchaseService _shopPurchase;
+        private ShopStageRootView _shopStageRootView;
         private readonly AutoManufactureBatchRecordService _autoManufactureBatchRecord =
             new AutoManufactureBatchRecordService();
         private BattleFormationService _formation;
@@ -85,6 +90,7 @@ namespace Gravedigger2026.Meta
             _manufacture = new ManufactureService(_configs, _warehouse, _warriorPool);
             _specialEquipSlots = new SpecialEquipSlotsService(_configs);
             _protagonistEquipment = new ProtagonistEquipmentService(_configs);
+            _shopPurchase = new ShopPurchaseService(_warehouse, _protagonistEquipment, _specialEquipSlots);
             _techTree.BindEquipment(_protagonistEquipment);
             var magicBookHook = new SoldierManufactureMagicBookHook(_specialEquipSlots, _configs);
             _autoManufacture = new AutoManufactureService(
@@ -185,6 +191,8 @@ namespace Gravedigger2026.Meta
                         _warriorPool,
                         _formation,
                         _warehouse,
+                        _specialEquipSlots,
+                        _protagonistEquipment,
                         _dungeonUnlocks,
                         HandlePushMapVictoryContinue,
                         HandlePushMapFailureContinue,
@@ -212,6 +220,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.BackToSaveSelectRequested += HandleBackToSaveSelect;
                 _inSaveShellView.EquipmentRequested += HandleEquipmentRequested;
                 _inSaveShellView.MagicBookRequested += HandleMagicBookRequested;
+                _inSaveShellView.ShopRequested += HandleShopRequested;
                 _inSaveShellView.DebugCycleStateRequested += HandleDebugCycleState;
                 _inSaveShellView.DebugAdvanceStageRequested += HandleDebugAdvanceStage;
                 _inSaveShellView.SettingsRequested += HandleSettings;
@@ -260,6 +269,7 @@ namespace Gravedigger2026.Meta
             _dungeonUnlocks.ClearBound();
             _specialEquipSlots?.ClearBound();
             _protagonistEquipment?.ClearBound();
+            _shopProgress.ClearBound();
             _autoManufactureBatchRecord.ClearBound();
             _campaignMode.Clear();
             SetStagePresentationActive(false);
@@ -272,6 +282,12 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.Hide();
+            }
+
+            if (_shopStageRootView != null)
+            {
+                Destroy(_shopStageRootView.gameObject);
+                _shopStageRootView = null;
             }
 
             if (_saveSelectView != null)
@@ -291,6 +307,7 @@ namespace Gravedigger2026.Meta
             _dungeonUnlocks.BindSlot(slotIndex, mode);
             _specialEquipSlots?.BindSlot(slotIndex, mode);
             _protagonistEquipment?.BindSlot(slotIndex, mode);
+            _shopProgress.BindSlot(slotIndex, mode);
             _autoManufactureBatchRecord.BindSlot(slotIndex, mode);
             if (!_configs.TryLoadAll(mode))
             {
@@ -321,7 +338,7 @@ namespace Gravedigger2026.Meta
             {
                 _inSaveShellView.Show(slotIndex);
                 _inSaveShellView.BindEquipmentWarehouse(_protagonistEquipment, _configs);
-                _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs);
+                _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs, _confirmDialog);
                 _inSaveShellView.ShowGameplayState(_gameplayState.Current);
                 _inSaveShellView.ShowStageInfo(null);
             }
@@ -456,8 +473,48 @@ namespace Gravedigger2026.Meta
 
             HideSiblingInSaveOverlays();
             _inSaveShellView.HideEquipmentWarehousePanel();
-            _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs);
+            _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs, _confirmDialog);
             _inSaveShellView.ShowMagicBookSlotsPanel();
+        }
+
+        private void HandleShopRequested()
+        {
+            if (_inSaveShellView == null)
+            {
+                return;
+            }
+
+            if (_campaignMode.Current != CampaignMode.Mode2)
+            {
+                _toastView?.Show("Mode2 才能使用商店");
+                return;
+            }
+
+            if (_shopStageRootView != null)
+            {
+                return;
+            }
+
+            HideSiblingInSaveOverlays();
+            _inSaveShellView.HideEquipmentWarehousePanel();
+            _inSaveShellView.HideMagicBookSlotsPanel();
+
+            var go = new GameObject("ShopStageRoot");
+            go.transform.SetParent(_inSaveShellView.transform, false);
+            _shopStageRootView = go.AddComponent<ShopStageRootView>();
+
+            _shopStageRootView.Bind(
+                _shopProgress,
+                _protagonistEquipment,
+                _specialEquipSlots,
+                _warehouse,
+                _configs,
+                _shopOfferRefresh,
+                _shopPurchase,
+                _toastView);
+
+            _shopStageRootView.Closed += () => { _shopStageRootView = null; };
+            _shopStageRootView.Open();
         }
 
         private void HideSiblingInSaveOverlays()
@@ -549,12 +606,50 @@ namespace Gravedigger2026.Meta
 
         private void HandlePushMapVictoryContinue()
         {
+            var levelId = _levelDriver != null ? _levelDriver.ActiveLevelId : null;
+
+            // SS-06：Mode2 新关卡解锁 → OnLevelCleared(pending) → 立刻 TryAutoRefreshOnceIfPending 生成 offers once。
+            if (_campaignMode.HasMode && _campaignMode.Current == CampaignMode.Mode2)
+            {
+                if (!string.IsNullOrEmpty(levelId) && TryExtractTrailingNumber(levelId, out var levelMaxNumber))
+                {
+                    var updated = _shopProgress.OnLevelCleared(levelMaxNumber);
+                    if (updated)
+                    {
+                        _shopOfferRefresh.TryAutoRefreshOnceIfPending(_shopProgress, _configs);
+                    }
+                }
+            }
+
             if (_levelDriver != null)
             {
                 _levelDriver.CompleteLevelAfterBattleSettlement();
             }
 
             OpenLevelSelectPanel();
+        }
+
+        private static bool TryExtractTrailingNumber(string levelId, out int number)
+        {
+            number = 0;
+            if (string.IsNullOrEmpty(levelId))
+            {
+                return false;
+            }
+
+            var i = levelId.Length - 1;
+            while (i >= 0 && char.IsDigit(levelId[i]))
+            {
+                i--;
+            }
+
+            if (i == levelId.Length - 1)
+            {
+                return false; // no trailing digits
+            }
+
+            var digits = levelId.Substring(i + 1);
+            return int.TryParse(digits, out number);
         }
 
         private void HandlePushMapFailureContinue(string reason)

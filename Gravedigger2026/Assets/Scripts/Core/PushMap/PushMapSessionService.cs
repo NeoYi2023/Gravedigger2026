@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Combat;
+using Gravedigger2026.Core.Combat.SkillEffects;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.UpgradeManufacture;
@@ -16,10 +18,16 @@ namespace Gravedigger2026.Core.PushMap
     /// D-069: Skill_03 burst commit / SkillCooldown tick / post-cast LOC re-roll (Approach C);
     /// Skill_01 block on monster AA (SC-02 Approach B);
     /// Skill_02 Comfort outgoing mul on SettleMonsterDamage (SC-03 Approach A).
+    /// D-073: SkillEffectPipeline on OutgoingDamageSettle (SE-01 Skill_04) + OnWarriorWouldDie (SE-02 Skill_05)
+    /// + OnWarriorAaHitConfirm (SE-03 Skill_06 AOE Stun / SE-04 Skill_07 AOE Slow / SE-05 Skill_08 Elite / SE-08 Skill_11 Burn)
+    /// + OnSkillInternalCooldown (SE-06 Skill_09 StackingOutgoingMulTimed)
+    /// + OnProjectileHit (SE-07 Skill_10 Pierce)
+    /// + OnWarriorTargetAcquired (SE-09 Skill_12 Blink).
+    /// D-071: SkillIconPopup / SkillPersistChanged for CombatSkillIcon (rules only).
     /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId); monster→soldier → CombatDead.
-    /// Position resolution and instantiation are View concerns.
+    /// Position resolution and instantiation are View concerns; AOE uses injected world-XZ provider.
     /// </summary>
-    public sealed class PushMapSessionService : IProjectileCombatSession
+    public sealed class PushMapSessionService : IProjectileCombatSession, IProjectilePierceChannel
     {
         private bool _active;
         private bool _outcomeSettled;
@@ -60,10 +68,21 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>PM-13: warrior RemainingHp≤0 → CombatDead (or gem PermanentDeath mark); View PlayDie + stop.</summary>
         public event Action<string> WarriorCombatDead;
 
+        /// <summary>D-071: overhead CombatSkillIcon popup (warriorId, skillId).</summary>
+        public event Action<string, string> SkillIconPopup;
+
+        /// <summary>D-071: persist CombatSkillIcon at feet (warriorId, skillId, on).</summary>
+        public event Action<string, string, bool> SkillPersistChanged;
+
         private readonly Dictionary<string, DefendCombatWarriorState> _warriors =
             new Dictionary<string, DefendCombatWarriorState>(StringComparer.Ordinal);
         private readonly Dictionary<string, DefendCombatMonsterState> _monsters =
             new Dictionary<string, DefendCombatMonsterState>(StringComparer.Ordinal);
+        private readonly HashSet<string> _skill02PersistOn = new HashSet<string>(StringComparer.Ordinal);
+        private readonly CombatStatusService _combatStatus = new CombatStatusService();
+        private SkillEffectPipeline _skillEffectPipeline;
+        private Func<string, Vector2?> _monsterWorldXZProvider;
+        private readonly List<MonsterWorldXZ> _aliveMonstersXZScratch = new List<MonsterWorldXZ>(32);
 
         private readonly List<int> _objectiveOrders = new List<int>();
         private readonly HashSet<int> _capturedObjectives = new HashSet<int>();
@@ -152,6 +171,9 @@ namespace Gravedigger2026.Core.PushMap
             _lockedLossOfControlTierId = 0;
             _lockedTierChance = 0f;
             _configs = null;
+            _skillEffectPipeline = null;
+            _monsterWorldXZProvider = null;
+            _aliveMonstersXZScratch.Clear();
             _objectiveOrders.Clear();
             _capturedObjectives.Clear();
             _currentObjectiveOrder = 0;
@@ -160,6 +182,37 @@ namespace Gravedigger2026.Core.PushMap
             _spawnPointsStoppedByCapture.Clear();
             _warriors.Clear();
             _monsters.Clear();
+            _skill02PersistOn.Clear();
+            _combatStatus.WarriorInvincibleChanged -= HandleWarriorInvincibleChanged;
+            _combatStatus.MonsterBurnTick -= HandleMonsterBurnTick;
+            _combatStatus.ClearAll();
+        }
+
+        /// <summary>
+        /// Stage injects View world XZ lookup for AOE skill effects (Skill_06+).
+        /// Returns null when the runtime id has no live View position.
+        /// </summary>
+        public void SetMonsterWorldXZProvider(Func<string, Vector2?> provider)
+        {
+            _monsterWorldXZProvider = provider;
+        }
+
+        /// <summary>D-073 SE-03: CombatStatus Stun gate for monster AI (no SkillId in View).</summary>
+        public bool IsMonsterStunned(string monsterRuntimeId)
+        {
+            return _combatStatus.IsMonsterStunned(monsterRuntimeId);
+        }
+
+        /// <summary>D-073 SE-04: Slow move mul (1 = none). View polls; no SkillId.</summary>
+        public float GetMonsterSlowMoveMul(string monsterRuntimeId)
+        {
+            return _combatStatus.GetMonsterSlowMoveMul(monsterRuntimeId);
+        }
+
+        /// <summary>D-073 SE-04: Slow attack-speed mul (1 = none).</summary>
+        public float GetMonsterSlowAttackMul(string monsterRuntimeId)
+        {
+            return _combatStatus.GetMonsterSlowAttackMul(monsterRuntimeId);
         }
 
         public bool CanStartBattle(int deployedSoldierCount)
@@ -203,6 +256,11 @@ namespace Gravedigger2026.Core.PushMap
             _lockedLossOfControlTierId = LossOfControlMath.MapTierId(lossOfControlDegree);
             _lockedTierChance = 0f;
             _configs = configs;
+            _skillEffectPipeline = configs != null ? new SkillEffectPipeline(configs) : null;
+            _combatStatus.WarriorInvincibleChanged -= HandleWarriorInvincibleChanged;
+            _combatStatus.WarriorInvincibleChanged += HandleWarriorInvincibleChanged;
+            _combatStatus.MonsterBurnTick -= HandleMonsterBurnTick;
+            _combatStatus.MonsterBurnTick += HandleMonsterBurnTick;
             if (_lockedLossOfControlTierId > 0
                 && configs != null
                 && configs.TryGetLossOfControlTier(_lockedLossOfControlTierId, out var tierRow)
@@ -630,7 +688,9 @@ namespace Gravedigger2026.Core.PushMap
                 return false;
             }
 
-            var battleStats = WarriorCombatMath.ComputeBattleStats(warrior);
+            var battleStats = WarriorCombatMath.ComputeBattleStats(
+                warrior,
+                WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow));
             var coeffDefaults = _configs != null
                 ? _configs.GetCombatConvertCoeffDefaults()
                 : CombatConvertCoeffs.SafetyDefaults;
@@ -675,8 +735,13 @@ namespace Gravedigger2026.Core.PushMap
                 CastSkillId = string.Empty,
                 CastSkillLevel = 0,
                 SkillCooldownSeconds = 0f,
-                SkillCdRemaining = 0f
+                SkillCdRemaining = 0f,
+                SkillInternalCdRemaining = new Dictionary<string, float>(StringComparer.Ordinal),
+                SkillInternalCooldownSeconds = new Dictionary<string, float>(StringComparer.Ordinal),
+                EffectStackByKind = new Dictionary<string, EffectStackState>(StringComparer.Ordinal)
             };
+
+            SeedInternalSkillCooldowns(state, battleStats, coeffs);
 
             if (SoldierSkillCast.TryResolveSkill03(state.SoldierSkills, _configs, out var skillRow)
                 && skillRow != null)
@@ -737,7 +802,18 @@ namespace Gravedigger2026.Core.PushMap
                    && state != null;
         }
 
-        /// <summary>D-069: tick Mode2 Skill_03 CD while Combat gameplay is active.</summary>
+        /// <summary>D-073: tick CombatStatusService while Combat gameplay is active.</summary>
+        public void TickCombatStatus(float deltaTime)
+        {
+            if (!IsCombatGameplayActive || deltaTime <= 0f)
+            {
+                return;
+            }
+
+            _combatStatus.Tick(deltaTime);
+        }
+
+        /// <summary>D-069/D-073: tick Skill_03 CD and per-skill internal CDs while Combat is active.</summary>
         public void TickSkillCooldowns(float deltaTime)
         {
             if (!IsCombatGameplayActive || deltaTime <= 0f)
@@ -748,13 +824,282 @@ namespace Gravedigger2026.Core.PushMap
             foreach (var pair in _warriors)
             {
                 var warrior = pair.Value;
-                if (warrior == null || warrior.SkillCdRemaining <= 0f)
+                if (warrior == null)
                 {
                     continue;
                 }
 
-                warrior.SkillCdRemaining = Math.Max(0f, warrior.SkillCdRemaining - deltaTime);
+                if (warrior.SkillCdRemaining > 0f)
+                {
+                    warrior.SkillCdRemaining = Math.Max(0f, warrior.SkillCdRemaining - deltaTime);
+                }
+
+                TickWarriorInternalSkillCooldowns(warrior, deltaTime);
             }
+        }
+
+        private void TickWarriorInternalSkillCooldowns(DefendCombatWarriorState warrior, float deltaTime)
+        {
+            if (warrior?.SkillInternalCdRemaining == null || warrior.SkillInternalCdRemaining.Count == 0)
+            {
+                return;
+            }
+
+            if (warrior.IsCombatDead || warrior.IsRebel)
+            {
+                return;
+            }
+
+            var keys = new List<string>(warrior.SkillInternalCdRemaining.Keys);
+            for (var i = 0; i < keys.Count; i++)
+            {
+                var skillId = keys[i];
+                var remaining = warrior.SkillInternalCdRemaining[skillId];
+                if (remaining > 0f)
+                {
+                    warrior.SkillInternalCdRemaining[skillId] = Math.Max(0f, remaining - deltaTime);
+                    if (warrior.SkillInternalCdRemaining[skillId] > 0f)
+                    {
+                        continue;
+                    }
+                }
+
+                TryDispatchSkillInternalCooldown(warrior, skillId);
+            }
+        }
+
+        private void TryDispatchSkillInternalCooldown(DefendCombatWarriorState warrior, string skillId)
+        {
+            if (_skillEffectPipeline == null || warrior == null || string.IsNullOrWhiteSpace(skillId))
+            {
+                return;
+            }
+
+            if (!TryResolveSkillEffectForInternalCd(warrior, skillId, out _))
+            {
+                return;
+            }
+
+            var ctx = new SkillEffectContext
+            {
+                Warrior = warrior,
+                CombatStatus = _combatStatus
+            };
+            _skillEffectPipeline.Dispatch(SkillEffectTriggerHook.OnSkillInternalCooldown, ctx);
+            if (!string.IsNullOrEmpty(ctx.TriggeredSkillId))
+            {
+                SkillIconPopup?.Invoke(warrior.WarriorId, ctx.TriggeredSkillId);
+            }
+
+            if (ctx.SkillPersistOn && !string.IsNullOrEmpty(ctx.SkillPersistSkillId))
+            {
+                SkillPersistChanged?.Invoke(warrior.WarriorId, ctx.SkillPersistSkillId, true);
+            }
+        }
+
+        private bool TryResolveSkillEffectForInternalCd(
+            DefendCombatWarriorState warrior,
+            string skillId,
+            out SkillEffectConfigRow effectRow)
+        {
+            effectRow = null;
+            if (warrior?.SoldierSkills == null || _configs == null || string.IsNullOrWhiteSpace(skillId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < warrior.SoldierSkills.Count; i++)
+            {
+                var entry = warrior.SoldierSkills[i];
+                if (entry == null || !string.Equals(entry.SkillId, skillId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!_configs.TryGetSkill(entry.SkillId, entry.SkillLevel, out var skillRow) || skillRow == null)
+                {
+                    return false;
+                }
+
+                if (!_configs.TryGetSkillEffect(skillRow.SkillEffectId, out effectRow) || effectRow == null)
+                {
+                    return false;
+                }
+
+                return string.Equals(
+                    effectRow.TriggerHook,
+                    SkillEffectTriggerHook.OnSkillInternalCooldown,
+                    StringComparison.Ordinal);
+            }
+
+            return false;
+        }
+
+        private void SeedInternalSkillCooldowns(
+            DefendCombatWarriorState state,
+            StatBlock battleStats,
+            CombatConvertCoeffs coeffs)
+        {
+            if (state?.SoldierSkills == null || _configs == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < state.SoldierSkills.Count; i++)
+            {
+                var entry = state.SoldierSkills[i];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.SkillId))
+                {
+                    continue;
+                }
+
+                if (string.Equals(entry.SkillId, SoldierSkillCast.Skill03Id, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!_configs.TryGetSkill(entry.SkillId, entry.SkillLevel, out var skillRow) || skillRow == null)
+                {
+                    continue;
+                }
+
+                if (skillRow.BaseCooldownSeconds <= 0f)
+                {
+                    continue;
+                }
+
+                state.SkillInternalCooldownSeconds[entry.SkillId] = WarriorCombatMath.ComputeSkillCooldown(
+                    battleStats.Intelligence,
+                    skillRow.BaseCooldownSeconds,
+                    coeffs);
+
+                var initialCd = 0f;
+                if (!string.IsNullOrWhiteSpace(skillRow.SkillEffectId)
+                    && _configs.TryGetSkillEffect(skillRow.SkillEffectId, out var effectRow)
+                    && effectRow != null
+                    && string.Equals(
+                        effectRow.EffectKind,
+                        SkillEffectKind.StackingOutgoingMulTimed,
+                        StringComparison.Ordinal)
+                    && StackingOutgoingMulTimedHandler.TryParseTickSeconds(
+                        effectRow,
+                        skillRow,
+                        out var tickSeconds)
+                    && tickSeconds > 0f)
+                {
+                    initialCd = tickSeconds;
+                }
+
+                state.SkillInternalCdRemaining[entry.SkillId] = initialCd;
+            }
+        }
+
+        /// <summary>
+        /// D-073 SE-09: dispatch OnWarriorTargetAcquired. Handler may override to farthest
+        /// enemy and a sampled landing. View Warps; this method does not touch Transform.
+        /// </summary>
+        public bool TryAcquireWarriorTarget(
+            string warriorId,
+            Vector2 warriorPositionXZ,
+            float warriorBodyRadius,
+            IReadOnlyList<MonsterWorldXZ> candidates,
+            Func<Vector2, float, Vector2?> sampleWalkableXZ,
+            out string overrideTargetId,
+            out Vector2 teleportLandingXZ)
+        {
+            overrideTargetId = null;
+            teleportLandingXZ = default;
+            if (!IsCombatGameplayActive || _skillEffectPipeline == null)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior) || warrior == null)
+            {
+                return false;
+            }
+
+            if (warrior.IsRebel)
+            {
+                return false;
+            }
+
+            var ctx = new SkillEffectContext
+            {
+                Warrior = warrior,
+                CombatStatus = _combatStatus,
+                WarriorPositionXZ = warriorPositionXZ,
+                HasWarriorPositionXZ = true,
+                WarriorBodyRadius = warriorBodyRadius,
+                ArriveEpsilon = CombatRuntimeTuning.MassMoveArriveEpsilon,
+                AliveMonstersXZ = candidates,
+                SampleWalkableXZ = sampleWalkableXZ
+            };
+            _skillEffectPipeline.Dispatch(SkillEffectTriggerHook.OnWarriorTargetAcquired, ctx);
+            if (!ctx.HasTeleportOverride || string.IsNullOrEmpty(ctx.OverrideTargetRuntimeId))
+            {
+                return false;
+            }
+
+            if (!IsMonsterAlive(ctx.OverrideTargetRuntimeId))
+            {
+                return false;
+            }
+
+            overrideTargetId = ctx.OverrideTargetRuntimeId;
+            teleportLandingXZ = ctx.TeleportLandingXZ;
+
+            if (!string.IsNullOrEmpty(ctx.TriggeredSkillId))
+            {
+                SkillIconPopup?.Invoke(warrior.WarriorId, ctx.TriggeredSkillId);
+            }
+
+            if (ctx.CommittedInternalCooldown)
+            {
+                TryRollLossOfControlAfterSkillCast(warrior);
+            }
+
+            return true;
+        }
+
+        private void HandleMonsterBurnTick(string monsterRuntimeId, string sourceWarriorId, float tickDamage, string skillId)
+        {
+            if (!IsCombatGameplayActive || tickDamage <= 0f)
+            {
+                return;
+            }
+
+            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            {
+                return;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - tickDamage);
+            Debug.Log(
+                $"[PushMapSession] BurnTick {sourceWarriorId} -> {monsterRuntimeId} skill={skillId} " +
+                $"dmg={tickDamage:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+
+            MonsterDamageSettled?.Invoke(monsterRuntimeId, tickDamage);
+            if (monster.RemainingHp <= 0f)
+            {
+                monster.IsAlive = false;
+                _combatStatus.ClearMonster(monsterRuntimeId);
+                _monstersKilled++;
+                Debug.Log(
+                    $"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) " +
+                    $"kills={_monstersKilled} (Burn)");
+                MonsterKilled?.Invoke(monsterRuntimeId, sourceWarriorId ?? string.Empty);
+            }
+        }
+
+        private void HandleWarriorInvincibleChanged(string warriorId, string skillId, bool on)
+        {
+            if (string.IsNullOrEmpty(warriorId) || string.IsNullOrEmpty(skillId))
+            {
+                return;
+            }
+
+            SkillPersistChanged?.Invoke(warriorId, skillId, on);
         }
 
         public bool TryGetSkillCooldownRemaining(string warriorId, out float remaining)
@@ -807,6 +1152,7 @@ namespace Gravedigger2026.Core.PushMap
             Debug.Log(
                 $"[PushMapSession] SkillCast {warrior.CastSkillId} Lv{warrior.CastSkillLevel} " +
                 $"{warrior.WarriorId} hits={burstHitCount} cd={warrior.SkillCdRemaining:0.##}s");
+            SkillIconPopup?.Invoke(warrior.WarriorId, SoldierSkillCast.Skill03Id);
             TryRollLossOfControlAfterSkillCast(warrior);
             return true;
         }
@@ -919,6 +1265,17 @@ namespace Gravedigger2026.Core.PushMap
         /// </summary>
         public bool TryConfirmRangedHit(string warriorId, string monsterRuntimeId)
         {
+            return TryConfirmRangedHit(warriorId, monsterRuntimeId, flight: null);
+        }
+
+        /// <summary>
+        /// Generic pierce settle (SE-07): Dispatch OnProjectileHit; Handler writes ExtraHitsRemaining.
+        /// </summary>
+        public bool TryConfirmRangedHit(
+            string warriorId,
+            string monsterRuntimeId,
+            ProjectileHitFlightContext flight)
+        {
             if (!IsCombatGameplayActive)
             {
                 return false;
@@ -934,12 +1291,13 @@ namespace Gravedigger2026.Core.PushMap
                 return false;
             }
 
-            return SettleMonsterDamage(warrior, monsterRuntimeId, "RangedHit");
+            return SettleMonsterDamage(warrior, monsterRuntimeId, "RangedHit", flight);
         }
 
         /// <summary>
         /// PM-13: monster normal attack on a loyal soldier — AttackPower, no armor.
         /// Skill_01 (SC-02): independent on-hit hook may zero this damage (still a hit).
+        /// D-073 SE-02: invincible zeroes damage; OnWarriorWouldDie may intercept lethal hit.
         /// RemainingHp≤0 → CombatDead (gems → PermanentDeath mark Demo-min; no material polish).
         /// </summary>
         public bool TryApplyMonsterDamageToWarrior(string monsterRuntimeId, string warriorId, float attackPower)
@@ -968,27 +1326,69 @@ namespace Gravedigger2026.Core.PushMap
                 if (blocked)
                 {
                     dmg = 0f;
+                    SkillIconPopup?.Invoke(warriorId, SoldierSkillCast.Skill01Id);
                 }
 
                 blockNote =
                     $" Skill_01 Lv{skill01Row.SkillLevel} chance={chance:0.00} blocked={blocked}";
             }
 
-            warrior.RemainingHp = Math.Max(0f, warrior.RemainingHp - dmg);
+            var invincibleNote = string.Empty;
+            if (dmg > 0f && _combatStatus.IsWarriorInvincible(warriorId))
+            {
+                dmg = 0f;
+                invincibleNote = " Invincible=1";
+            }
+
+            var interceptNote = string.Empty;
+            var wouldDie = dmg > 0f && warrior.RemainingHp - dmg <= 0f;
+            if (wouldDie && _skillEffectPipeline != null)
+            {
+                var ctx = new SkillEffectContext
+                {
+                    Warrior = warrior,
+                    IncomingDamage = dmg,
+                    CombatStatus = _combatStatus
+                };
+                _skillEffectPipeline.Dispatch(SkillEffectTriggerHook.OnWarriorWouldDie, ctx);
+                if (ctx.WouldDieIntercepted)
+                {
+                    dmg = 0f;
+                    interceptNote = $" Skill_05 intercept HP=1";
+                    if (!string.IsNullOrEmpty(ctx.TriggeredSkillId))
+                    {
+                        SkillIconPopup?.Invoke(warriorId, ctx.TriggeredSkillId);
+                    }
+                }
+            }
+
+            if (dmg > 0f)
+            {
+                warrior.RemainingHp = Math.Max(0f, warrior.RemainingHp - dmg);
+            }
+
             Debug.Log(
                 $"[PushMapSession] MonsterHit {monsterRuntimeId} -> {warriorId} dmg={dmg:0.##} " +
-                $"HP={warrior.RemainingHp:0}/{warrior.MaxHp}{blockNote}");
+                $"HP={warrior.RemainingHp:0}/{warrior.MaxHp}{blockNote}{invincibleNote}{interceptNote}");
 
             WarriorDamageSettled?.Invoke(warriorId, dmg);
             if (warrior.RemainingHp <= 0f)
             {
                 EnterWarriorDowned(warrior);
             }
+            else
+            {
+                SyncSkill02Persist(warrior);
+            }
 
             return true;
         }
 
-        private bool SettleMonsterDamage(DefendCombatWarriorState warrior, string monsterRuntimeId, string tag)
+        private bool SettleMonsterDamage(
+            DefendCombatWarriorState warrior,
+            string monsterRuntimeId,
+            string tag,
+            ProjectileHitFlightContext flight = null)
         {
             if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
             {
@@ -1015,21 +1415,133 @@ namespace Gravedigger2026.Core.PushMap
                     $" Skill_02 Lv{skill02Row.SkillLevel} bonus=+{bonus:0.00} applied={comfort}";
             }
 
+            var isPierceExtra = flight?.AlreadyHitRuntimeIds != null && flight.AlreadyHitRuntimeIds.Count > 1;
+            var isNewTargetFirstHit = !isPierceExtra && !string.Equals(
+                warrior.LastNormalAttackTargetRuntimeId,
+                monsterRuntimeId,
+                StringComparison.Ordinal);
+            var pipelineNote = string.Empty;
+            if (_skillEffectPipeline != null)
+            {
+                var ctx = new SkillEffectContext
+                {
+                    Warrior = warrior,
+                    TargetMonster = monster,
+                    TargetMonsterRuntimeId = monsterRuntimeId,
+                    OutgoingDamage = dmg,
+                    IsNewTargetFirstHit = isNewTargetFirstHit,
+                    CombatStatus = _combatStatus,
+                    AlreadyHitRuntimeIds = flight != null ? flight.AlreadyHitRuntimeIds : null
+                };
+                var beforePipeline = dmg;
+                if (flight != null)
+                {
+                    _skillEffectPipeline.Dispatch(SkillEffectTriggerHook.OnProjectileHit, ctx);
+                    dmg = ctx.OutgoingDamage;
+                    flight.ExtraHitsRemaining = Math.Max(0, ctx.ExtraHitsRemaining);
+                    if (!string.IsNullOrEmpty(ctx.TriggeredSkillId))
+                    {
+                        SkillIconPopup?.Invoke(warrior.WarriorId, ctx.TriggeredSkillId);
+                    }
+                }
+
+                _skillEffectPipeline.Dispatch(SkillEffectTriggerHook.OnOutgoingDamageSettle, ctx);
+                dmg = ctx.OutgoingDamage;
+                if (Math.Abs(dmg - beforePipeline) > 0.001f)
+                {
+                    pipelineNote = $" Pipeline mul={dmg / Math.Max(0.001f, beforePipeline):0.##} newTarget={isNewTargetFirstHit}";
+                }
+            }
+
+            warrior.LastNormalAttackTargetRuntimeId = monsterRuntimeId;
+
+            var hitCenter = default(Vector2);
+            var hasHitCenter = TryResolveMonsterWorldXZ(monsterRuntimeId, out hitCenter);
+
             monster.RemainingHp = Math.Max(0f, monster.RemainingHp - dmg);
             Debug.Log(
                 $"[PushMapSession] {tag} {warrior.WarriorId} -> {monsterRuntimeId} " +
-                $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}{comfortNote}");
+                $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}{comfortNote}{pipelineNote}");
 
             MonsterDamageSettled?.Invoke(monsterRuntimeId, dmg);
             if (monster.RemainingHp <= 0f)
             {
                 monster.IsAlive = false;
+                _combatStatus.ClearMonster(monsterRuntimeId);
                 _monstersKilled++;
                 Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) kills={_monstersKilled}");
                 MonsterKilled?.Invoke(monsterRuntimeId, warrior.WarriorId);
             }
 
+            if (_skillEffectPipeline != null && hasHitCenter)
+            {
+                FillAliveMonstersXZScratch();
+                var aaCtx = new SkillEffectContext
+                {
+                    Warrior = warrior,
+                    TargetMonster = monster,
+                    TargetMonsterRuntimeId = monsterRuntimeId,
+                    HitCenterXZ = hitCenter,
+                    HasHitCenterXZ = true,
+                    AliveMonstersXZ = _aliveMonstersXZScratch,
+                    CombatStatus = _combatStatus
+                };
+                _skillEffectPipeline.Dispatch(SkillEffectTriggerHook.OnWarriorAaHitConfirm, aaCtx);
+                if (!string.IsNullOrEmpty(aaCtx.TriggeredSkillId))
+                {
+                    SkillIconPopup?.Invoke(warrior.WarriorId, aaCtx.TriggeredSkillId);
+                }
+
+                if (aaCtx.CommittedInternalCooldown)
+                {
+                    TryRollLossOfControlAfterSkillCast(warrior);
+                }
+            }
+
             return true;
+        }
+
+        private bool TryResolveMonsterWorldXZ(string monsterRuntimeId, out Vector2 positionXZ)
+        {
+            positionXZ = default;
+            if (string.IsNullOrEmpty(monsterRuntimeId) || _monsterWorldXZProvider == null)
+            {
+                return false;
+            }
+
+            var maybe = _monsterWorldXZProvider(monsterRuntimeId);
+            if (!maybe.HasValue)
+            {
+                return false;
+            }
+
+            positionXZ = maybe.Value;
+            return true;
+        }
+
+        private void FillAliveMonstersXZScratch()
+        {
+            _aliveMonstersXZScratch.Clear();
+            if (_monsterWorldXZProvider == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _monsters)
+            {
+                var state = pair.Value;
+                if (state == null || !state.IsAlive || state.RemainingHp <= 0f)
+                {
+                    continue;
+                }
+
+                if (!TryResolveMonsterWorldXZ(pair.Key, out var xz))
+                {
+                    continue;
+                }
+
+                _aliveMonstersXZScratch.Add(new MonsterWorldXZ(pair.Key, xz));
+            }
         }
 
         private void EnterWarriorDowned(DefendCombatWarriorState warrior)
@@ -1053,7 +1565,62 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             WarriorCombatDead?.Invoke(warrior.WarriorId);
+            _combatStatus.ClearWarrior(warrior.WarriorId);
+            SyncSkill02Persist(warrior);
             TryEvaluateLoyalWipe();
+        }
+
+        /// <summary>
+        /// D-071: after soldier Views exist, emit Skill_02 persist + one overhead popup
+        /// for each registered warrior that starts Combat at full HP with Comfort.
+        /// Do not call from TryRegisterWarrior — HUD is not bound yet.
+        /// </summary>
+        public void EmitStartBattleSkillIcons()
+        {
+            if (!_active || Phase != PushMapPhase.Combat)
+            {
+                return;
+            }
+
+            foreach (var pair in _warriors)
+            {
+                SyncSkill02Persist(pair.Value);
+            }
+        }
+
+        /// <summary>
+        /// Skill_02 persist on when held + full HP; off when damaged or CombatDead.
+        /// Activate (off→on) also fires one overhead popup. Full-HP 0-damage block does not re-fire.
+        /// </summary>
+        private void SyncSkill02Persist(DefendCombatWarriorState warrior)
+        {
+            if (warrior == null || string.IsNullOrEmpty(warrior.WarriorId))
+            {
+                return;
+            }
+
+            var hasSkill02 = SoldierSkillCast.TryResolveSkill02(warrior.SoldierSkills, _configs, out _);
+            var fullHp = !warrior.IsCombatDead &&
+                         !warrior.IsPermanentDead &&
+                         warrior.MaxHp > 0f &&
+                         warrior.RemainingHp >= warrior.MaxHp;
+            var wantOn = hasSkill02 && fullHp;
+            var wasOn = _skill02PersistOn.Contains(warrior.WarriorId);
+            if (wantOn == wasOn)
+            {
+                return;
+            }
+
+            if (wantOn)
+            {
+                _skill02PersistOn.Add(warrior.WarriorId);
+                SkillPersistChanged?.Invoke(warrior.WarriorId, SoldierSkillCast.Skill02Id, true);
+                SkillIconPopup?.Invoke(warrior.WarriorId, SoldierSkillCast.Skill02Id);
+                return;
+            }
+
+            _skill02PersistOn.Remove(warrior.WarriorId);
+            SkillPersistChanged?.Invoke(warrior.WarriorId, SoldierSkillCast.Skill02Id, false);
         }
 
         /// <summary>Sync View rebel roll into rules state; may trigger loyal wipe LevelFailure.</summary>

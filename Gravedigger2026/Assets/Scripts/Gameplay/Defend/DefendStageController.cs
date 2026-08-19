@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
@@ -378,11 +379,13 @@ namespace Gravedigger2026.Gameplay.Defend
 
             EnsurePathingServices();
             DeployCombatUnits();
+            RefreshCombatBondHud();
             _session.ResolveStartBattleRebelRolls(_configs);
             if (_hudView != null)
             {
                 _hudView.SetPrepareVisible(false);
                 _hudView.SetCombatVisible(true);
+                _hudView.SetCombatBondHudVisible(true);
                 _hudView.SetHint(
                     $"战斗中 Degree={_session.LockedLossOfControlDegree:0.##} Tier={_session.LockedLossOfControlTierId}；清场胜利入账 Exp；护盾归零失败");
             }
@@ -1170,6 +1173,19 @@ namespace Gravedigger2026.Gameplay.Defend
                 RefreshFormation();
                 RefreshHud();
             }
+        }
+
+        private void RefreshCombatBondHud()
+        {
+            var bondHud = _hudView != null ? _hudView.CombatBondHud : null;
+            if (bondHud == null || _formation == null || _warriorPool == null || _configs == null)
+            {
+                return;
+            }
+
+            var evaluated = FormationBondEvaluator.Evaluate(_formation, _warriorPool, _configs);
+            bondHud.BindServices(null, null, _configs);
+            bondHud.SetSnapshot(evaluated);
         }
 
         private void RefreshHud()

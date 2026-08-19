@@ -33,7 +33,8 @@ namespace Gravedigger2026.Core.Config
 
     /// <summary>
     /// SPEC_04 §9.3 Dig LootDrop: Id;Weight;Count|... with DropMode.
-    /// Monster / CaptureLoot still use Parse (Id_Count|...).
+    /// Monster LootDrop + CaptureLoot (and other item reward strings) use ParseIdSemicolonCount (Id;Count|...).
+    /// Dig "settled" / encoded loot lists use underscore encoding via Parse (Id_Count|...).
     /// </summary>
     public static class LootDropParser
     {
@@ -43,7 +44,7 @@ namespace Gravedigger2026.Core.Config
         public const int PerTenThousand = 10000;
         private const char WeightedFieldSeparator = ';';
 
-        /// <summary>Legacy encoding for Monster / CaptureLoot: Id_Count|Id_Count|...</summary>
+        /// <summary>Legacy underscore encoding: Id_Count|Id_Count|...</summary>
         public static List<LootDropEntry> Parse(string encoded, Action<string> onIgnored = null)
         {
             var result = new List<LootDropEntry>();
@@ -81,6 +82,52 @@ namespace Gravedigger2026.Core.Config
             }
 
             return result;
+        }
+
+        /// <summary>Monster LootDrop + CaptureLoot / item reward encoding: Id;Count|Id;Count|...</summary>
+        public static List<LootDropEntry> ParseIdSemicolonCount(string encoded, Action<string> onIgnored = null)
+        {
+            var result = new List<LootDropEntry>();
+            if (string.IsNullOrWhiteSpace(encoded))
+            {
+                return result;
+            }
+
+            var segments = encoded.Split('|');
+            for (var i = 0; i < segments.Length; i++)
+            {
+                var seg = segments[i].Trim();
+                if (seg.Length == 0)
+                {
+                    continue;
+                }
+
+                var sep = seg.LastIndexOf(WeightedFieldSeparator);
+                if (sep <= 0 || sep >= seg.Length - 1)
+                {
+                    onIgnored?.Invoke($"LootDrop segment ignored (missing Id;Count): '{seg}'");
+                    continue;
+                }
+
+                var id = seg.Substring(0, sep);
+                var countText = seg.Substring(sep + 1);
+                if (!int.TryParse(countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) ||
+                    count < 1)
+                {
+                    onIgnored?.Invoke($"LootDrop segment ignored (bad Count): '{seg}'");
+                    continue;
+                }
+
+                result.Add(new LootDropEntry(id, count));
+            }
+
+            return result;
+        }
+
+        /// <summary>Convenience alias: MonsterConfig.LootDrop parser.</summary>
+        public static List<LootDropEntry> ParseMonsterLootDrop(string encoded, Action<string> onIgnored = null)
+        {
+            return ParseIdSemicolonCount(encoded, onIgnored);
         }
 
         /// <summary>Dig GraveQuality encoding: Id;Weight;Count|... (two ';' from the right).</summary>

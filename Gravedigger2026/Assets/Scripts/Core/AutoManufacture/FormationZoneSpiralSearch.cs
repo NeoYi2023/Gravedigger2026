@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -66,6 +67,80 @@ namespace Gravedigger2026.Core.AutoManufacture
 
                     relX = x;
                     relZ = z;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Randomized candidate traversal inside zone (SPEC_03 D-074):
+        /// keep IsoDiamond safe check + Footprint separation, but shuffle candidate points order.
+        /// </summary>
+        public static bool TryFindRandomSlot(
+            FormationClassZoneSnapshot zone,
+            float bodyRadius,
+            IReadOnlyList<Footprint> occupied,
+            System.Random rng,
+            out float relX,
+            out float relZ)
+        {
+            relX = 0f;
+            relZ = 0f;
+            if (zone.Equals(default(FormationClassZoneSnapshot)) && string.IsNullOrEmpty(zone.ClassId))
+            {
+                return false;
+            }
+
+            if (rng == null)
+            {
+                throw new ArgumentNullException(nameof(rng));
+            }
+
+            var radius = Mathf.Max(MinRadius, bodyRadius);
+            var step = Mathf.Max(radius * 1.75f, 0.12f);
+            var angleOffset = (float)(rng.NextDouble() * Mathf.PI * 2f);
+
+            // Upper bound: center + sum(ring=1..MaxRings) (BasePointsPerRing + (ring-1)*2)
+            var candidateCount = 1;
+            for (var ring = 1; ring <= MaxRings; ring++)
+            {
+                candidateCount += BasePointsPerRing + (ring - 1) * 2;
+            }
+
+            var candidates = new List<Footprint>(candidateCount);
+            candidates.Add(new Footprint(zone.CenterRelX, zone.CenterRelZ, radius));
+
+            for (var ring = 1; ring <= MaxRings; ring++)
+            {
+                var ringRadius = step * ring;
+                var points = BasePointsPerRing + (ring - 1) * 2;
+                for (var i = 0; i < points; i++)
+                {
+                    var angle = angleOffset + (Mathf.PI * 2f) * i / points;
+                    var x = zone.CenterRelX + Mathf.Cos(angle) * ringRadius;
+                    var z = zone.CenterRelZ + Mathf.Sin(angle) * ringRadius;
+                    candidates.Add(new Footprint(x, z, radius));
+                }
+            }
+
+            // Fisher–Yates shuffle.
+            for (var i = candidates.Count - 1; i > 0; i--)
+            {
+                var j = rng.Next(i + 1);
+                var tmp = candidates[i];
+                candidates[i] = candidates[j];
+                candidates[j] = tmp;
+            }
+
+            for (var idx = 0; idx < candidates.Count; idx++)
+            {
+                var c = candidates[idx];
+                if (TryAccept(zone, c.X, c.Z, radius, occupied))
+                {
+                    relX = c.X;
+                    relZ = c.Z;
                     return true;
                 }
             }

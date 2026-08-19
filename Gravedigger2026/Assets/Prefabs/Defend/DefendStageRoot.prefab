@@ -1259,6 +1259,7 @@ MonoBehaviour:
   _combatStatusText: {fileID: 8861657912412158598}
   _startBattleButton: {fileID: 755202859584469299}
   _hintText: {fileID: 803838058165939491}
+  _combatBondHud: {fileID: 0}
 --- !u!1 &4752503697982707120
 GameObject:
   m_ObjectHideFlags: 0

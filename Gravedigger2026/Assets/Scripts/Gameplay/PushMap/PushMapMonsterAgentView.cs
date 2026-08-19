@@ -29,6 +29,9 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Func<IReadOnlyList<PushMapAdvanceView>> _warriorsProvider;
         private Action<string> _onHitProtagonist;
         private Func<string, string, float, bool> _onHitWarrior;
+        private Func<bool> _isStunned;
+        private Func<float> _getSlowMoveMul;
+        private Func<float> _getSlowAttackMul;
         private AttackSlotService _attackSlots;
         private MassMoveScheduler _scheduler;
         private float _retargetInterval = 1f;
@@ -58,6 +61,25 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// <summary>Active detect radius; empty table cell defaults to AttackRange at load.</summary>
         public float AlertRadius => _config != null ? Mathf.Max(0f, _config.AlertRadius) : 0f;
         public float BodyRadius => _config != null ? Mathf.Max(0.05f, _config.BodyRadius) : 0.35f;
+        public Vector2 FacingXZ
+        {
+            get
+            {
+                if (_anim != null &&
+                    _anim.TryGetFacingUnitXZ(out var unit) &&
+                    unit.x * unit.x + unit.z * unit.z > 1e-8f)
+                {
+                    return new Vector2(unit.x, unit.z).normalized;
+                }
+
+                if (_lastSteerDirXZ.sqrMagnitude > 1e-8f)
+                {
+                    return new Vector2(_lastSteerDirXZ.x, _lastSteerDirXZ.z).normalized;
+                }
+
+                return new Vector2(0f, -1f);
+            }
+        }
         public AttackMode AttackMode =>
             _config != null && _config.AttackMode == AttackMode.Ranged
                 ? AttackMode.Ranged
@@ -85,13 +107,19 @@ namespace Gravedigger2026.Gameplay.PushMap
             AttackSlotService attackSlots = null,
             MassMoveScheduler scheduler = null,
             int moveId = 0,
-            Func<string, string, float, bool> onHitWarrior = null)
+            Func<string, string, float, bool> onHitWarrior = null,
+            Func<bool> isStunned = null,
+            Func<float> getSlowMoveMul = null,
+            Func<float> getSlowAttackMul = null)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _protagonist = protagonist;
             _warriorsProvider = warriorsProvider;
             _onHitProtagonist = onHitProtagonist;
             _onHitWarrior = onHitWarrior;
+            _isStunned = isStunned;
+            _getSlowMoveMul = getSlowMoveMul;
+            _getSlowAttackMul = getSlowAttackMul;
             _attackSlots = attackSlots;
             _scheduler = scheduler;
             _moveId = moveId;
@@ -207,7 +235,17 @@ namespace Gravedigger2026.Gameplay.PushMap
                     break;
             }
 
-            return Mathf.Max(0.1f, _config.MoveSpeed * mult);
+            return Mathf.Max(0.1f, _config.MoveSpeed * mult * ResolveSlowMoveMul());
+        }
+
+        private float ResolveSlowMoveMul()
+        {
+            return _getSlowMoveMul == null ? 1f : Mathf.Max(0f, _getSlowMoveMul());
+        }
+
+        private float ResolveSlowAttackMul()
+        {
+            return _getSlowAttackMul == null ? 1f : Mathf.Max(0f, _getSlowAttackMul());
         }
 
         /// <summary>
@@ -275,12 +313,18 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
         }
 
-        /// <summary>XZ sample for MassMoveScheduler (inactive when dead/stationary/idle-passive).</summary>
+        private bool IsStunnedNow()
+        {
+            return _isStunned != null && _isStunned();
+        }
+
+        /// <summary>XZ sample for MassMoveScheduler (inactive when dead/stationary/idle-passive/stunned).</summary>
         public MassMoveSample BuildSample()
         {
             var pos = transform.position;
             var active = _alive && !IsStationary && isActiveAndEnabled &&
-                         (!IsPassive || _provoked);
+                         (!IsPassive || _provoked) &&
+                         !IsStunnedNow();
             return new MassMoveSample(
                 _moveId,
                 new Vector2(pos.x, pos.z),
@@ -295,6 +339,14 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             if (!_alive || IsStationary || _config == null || scheduler == null || _moveId == 0)
             {
+                return false;
+            }
+
+            if (IsStunnedNow())
+            {
+                ReleaseSlotClaim(slots);
+                StopMovement();
+                scheduler.SetPaused(_moveId, true);
                 return false;
             }
 
@@ -383,6 +435,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
+            if (IsStunnedNow())
+            {
+                StopMovement();
+                _scheduler?.SetPaused(_moveId, true);
+                return;
+            }
+
             // Legacy retarget timer kept for TargetSelect cadence; slot refresh is Stage-budgeted.
             _retargetTimer += Time.deltaTime;
             if (_retargetTimer >= _retargetInterval)
@@ -442,7 +501,8 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _anim?.PlayAttack();
 
-            var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
+            var aspd = _config.AttackSpeed * ResolveSlowAttackMul();
+            var interval = aspd > 0.01f ? 1f / aspd : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
         }
 
@@ -457,48 +517,56 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             if (_alive && !IsStationary && _agent != null && _scheduler != null && _moveId != 0)
             {
-                if (!_agent.isOnNavMesh)
+                if (IsStunnedNow())
                 {
-                    var warpSample = Mathf.Max(1f, BodyRadius * 3f);
-                    if (NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
-                    {
-                        _agent.Warp(hit.position);
-                    }
+                    StopMovement();
+                    _scheduler.SetPaused(_moveId, true);
                 }
-
-                if (_agent.isOnNavMesh)
+                else
                 {
-                    // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
-                    var hasSteer =
-                        _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
-                    var hasCorrection =
-                        _scheduler.TryGetCorrection(_moveId, out var correction) &&
-                        correction.sqrMagnitude > 1e-8f;
-                    if (hasSteer || hasCorrection)
+                    if (!_agent.isOnNavMesh)
                     {
-                        if (_agent.hasPath)
+                        var warpSample = Mathf.Max(1f, BodyRadius * 3f);
+                        if (NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
                         {
-                            _agent.ResetPath();
+                            _agent.Warp(hit.position);
                         }
+                    }
 
-                        _agent.isStopped = false;
-                        var speed = ResolveEffectiveMoveSpeed();
-                        _agent.speed = speed;
-                        var delta = hasSteer
-                            ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
-                            : Vector3.zero;
-                        if (hasCorrection)
+                    if (_agent.isOnNavMesh)
+                    {
+                        // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
+                        var hasSteer =
+                            _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+                        var hasCorrection =
+                            _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                            correction.sqrMagnitude > 1e-8f;
+                        if (hasSteer || hasCorrection)
                         {
-                            delta.x += correction.x;
-                            delta.z += correction.y;
-                        }
+                            if (_agent.hasPath)
+                            {
+                                _agent.ResetPath();
+                            }
 
-                        if (hasSteer)
-                        {
-                            _lastSteerDirXZ = new Vector3(steer.x, 0f, steer.y);
-                        }
+                            _agent.isStopped = false;
+                            var speed = ResolveEffectiveMoveSpeed();
+                            _agent.speed = speed;
+                            var delta = hasSteer
+                                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
+                                : Vector3.zero;
+                            if (hasCorrection)
+                            {
+                                delta.x += correction.x;
+                                delta.z += correction.y;
+                            }
 
-                        _agent.Move(delta);
+                            if (hasSteer)
+                            {
+                                _lastSteerDirXZ = new Vector3(steer.x, 0f, steer.y);
+                            }
+
+                            _agent.Move(delta);
+                        }
                     }
                 }
             }
@@ -524,6 +592,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var wantsMove = _alive &&
+                            !IsStunnedNow() &&
                             !IsStationary &&
                             !inAttackRange &&
                             _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
@@ -539,6 +608,12 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             if (_anim == null || !_alive)
             {
+                return;
+            }
+
+            if (IsStunnedNow())
+            {
+                _anim.SetMoving(false, 0f);
                 return;
             }
 

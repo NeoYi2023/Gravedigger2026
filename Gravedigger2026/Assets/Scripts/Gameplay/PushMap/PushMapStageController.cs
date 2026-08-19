@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.Pathing;
 using Gravedigger2026.Core.PushMap;
+using Gravedigger2026.Core.Rewards;
 using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Core.AutoManufacture;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Formation;
@@ -26,6 +30,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// settles via scheme-D HitConfirm → MonsterDamageSettled (red popup/flash + provoke) /
     /// MonsterKilled(runtimeId, killerWarriorId). PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
     /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
+    /// D-071 CombatSkillIcon: SkillIconPopup / SkillPersistChanged → WarriorSkillIconHudView.
     /// VictorySettled → AddExperience → settlement UI (UI-017) → reward (UI-018) → LevelSelect;
     /// LevelFailure (Shield≤0 / loyal wipe) → settlement → LevelSelect; no Exp.
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
@@ -49,6 +54,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private PushMapCameraFollowController _cameraFollow;
         private GameObject _resumeFollowButtonRoot;
+        private FormationBondHudView _combatBondHud;
 
         private DefendPrefabCatalog _catalog;
         private FormationPrefabCatalog _formationCatalog;
@@ -57,7 +63,10 @@ namespace Gravedigger2026.Gameplay.PushMap
         private WarriorPoolService _warriorPool;
         private BattleFormationService _formation;
         private WarehouseService _warehouse;
+        private SpecialEquipSlotsService _specialEquipSlots;
+        private ProtagonistEquipmentService _protagonistEquipment;
         private DungeonUnlockService _dungeonUnlocks;
+        private RewardGrantService _rewardGrant;
         private Action _onVictoryAdvance;
         private Action<string> _onLevelFailure;
         private PushMapBattleSettlementView _settlementView;
@@ -120,6 +129,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             WarriorPoolService warriorPool,
             BattleFormationService formation,
             WarehouseService warehouse = null,
+            SpecialEquipSlotsService specialEquipSlots = null,
+            ProtagonistEquipmentService protagonistEquipment = null,
             DungeonUnlockService dungeonUnlocks = null,
             Action onVictoryAdvance = null,
             Action<string> onLevelFailure = null)
@@ -137,7 +148,10 @@ namespace Gravedigger2026.Gameplay.PushMap
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _warehouse = warehouse;
+            _specialEquipSlots = specialEquipSlots;
+            _protagonistEquipment = protagonistEquipment;
             _dungeonUnlocks = dungeonUnlocks;
+            _rewardGrant = new RewardGrantService(_configs, _warehouse, _specialEquipSlots, _protagonistEquipment);
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
             _driverOutcomeDispatched = false;
@@ -174,6 +188,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _session = new PushMapSessionService();
+            _session.SetMonsterWorldXZProvider(TryGetMonsterWorldXZ);
             _session.LevelFailureRequested += HandleLevelFailureRequested;
             _session.VictorySettled += HandleVictorySettled;
             _session.ObjectiveCaptured += HandleObjectiveCaptured;
@@ -182,6 +197,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.MonsterDamageSettled += HandleMonsterDamageSettled;
             _session.MonsterKilled += HandleMonsterKilled;
             _session.WarriorDamageSettled += HandleWarriorDamageSettled;
+            _session.WarriorCombatDead += HandleWarriorCombatDead;
+            _session.SkillIconPopup += HandleSkillIconPopup;
+            _session.SkillPersistChanged += HandleSkillPersistChanged;
             _session.BeginPrepare(context.PushMapConfig);
 
             PushMapBattleResultUiFactory.Ensure(transform, out _settlementView, out _rewardView);
@@ -221,6 +239,9 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _session.MonsterDamageSettled -= HandleMonsterDamageSettled;
                 _session.MonsterKilled -= HandleMonsterKilled;
                 _session.WarriorDamageSettled -= HandleWarriorDamageSettled;
+                _session.WarriorCombatDead -= HandleWarriorCombatDead;
+                _session.SkillIconPopup -= HandleSkillIconPopup;
+                _session.SkillPersistChanged -= HandleSkillPersistChanged;
                 _session.Stop();
                 _session = null;
             }
@@ -317,6 +338,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             DeployCombatUnits();
+            EnsureCombatBondHud();
+            RefreshCombatBondHud();
+            _session.EmitStartBattleSkillIcons();
             _session.FireStartBattleSpawns();
             ResolveStartBattleRebelRolls();
             _session.NotifyBossPointPresence(_bossPoint != null);
@@ -328,6 +352,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _hudView.SetPrepareVisible(false);
                 _hudView.SetCombatVisible(true);
+                _hudView.SetCombatBondHudVisible(true);
                 _hudView.SetPhaseText("推图战 — Combat");
                 RefreshCombatHud();
                 _hudView.SetHint(
@@ -422,6 +447,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             var hasLoyalInZone = HasLoyalSoldierInCurrentZone();
             _session.TickCapture(hasLoyalInZone);
             _session.TickSkillCooldowns(Time.deltaTime);
+            _session.TickCombatStatus(Time.deltaTime);
             TickMassCombatPathing();
             PollTrapEntry();
             PollPassiveProvocation();
@@ -468,6 +494,22 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             SpawnDamagePopup(soldier.transform.position, damage, DamagePopupStyle.Soldier);
+        }
+
+        private void HandleSkillIconPopup(string warriorId, string skillId)
+        {
+            EnsureSkillIconHud(FindAdvanceView(warriorId))?.PlayPopup(skillId);
+        }
+
+        private void HandleSkillPersistChanged(string warriorId, string skillId, bool on)
+        {
+            EnsureSkillIconHud(FindAdvanceView(warriorId))?.SetPersist(skillId, on);
+        }
+
+        /// <summary>D-071: CombatDead immediately clears that soldier's CombatSkillIcon HUD.</summary>
+        private void HandleWarriorCombatDead(string warriorId)
+        {
+            FindAdvanceView(warriorId)?.GetComponent<WarriorSkillIconHudView>()?.ClearAll();
         }
 
         private void SpawnDamagePopup(Vector3 worldPos, float damage, DamagePopupStyle style)
@@ -863,6 +905,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     view = go.AddComponent<PushMapMonsterAgentView>();
                 }
 
+                var runtimeId = go.name;
                 view.Bind(
                     monsterRow,
                     protagonistTf,
@@ -874,7 +917,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                     ++_nextAdvanceMoveId,
                     (monsterRuntimeId, warriorId, attackPower) =>
                         _session != null &&
-                        _session.TryApplyMonsterDamageToWarrior(monsterRuntimeId, warriorId, attackPower));
+                        _session.TryApplyMonsterDamageToWarrior(monsterRuntimeId, warriorId, attackPower),
+                    () => _session != null && _session.IsMonsterStunned(runtimeId),
+                    () => _session != null ? _session.GetMonsterSlowMoveMul(runtimeId) : 1f,
+                    () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f);
                 if (request.IsBoss)
                 {
                     view.MarkAsBoss(true);
@@ -1083,6 +1129,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     go.AddComponent<HitFlashView>();
                 }
 
+                EnsureSkillIconHud(advance);
                 _advanceViews.Add(advance);
             }
 
@@ -1092,6 +1139,47 @@ namespace Gravedigger2026.Gameplay.PushMap
         private IReadOnlyList<PushMapMonsterAgentView> ProvidePushMapMonsters()
         {
             return _monsters;
+        }
+
+        /// <summary>D-073 SE-03: world XZ for AOE skill effects (Session rules layer).</summary>
+        private Vector2? TryGetMonsterWorldXZ(string runtimeId)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return null;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !string.Equals(monster.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                // Hit-center may resolve on a just-killed View before NotifyKilled despawn.
+                var p = monster.transform.position;
+                return new Vector2(p.x, p.z);
+            }
+
+            return null;
+        }
+
+        private WarriorSkillIconHudView EnsureSkillIconHud(PushMapAdvanceView soldier)
+        {
+            if (soldier == null)
+            {
+                return null;
+            }
+
+            var hud = soldier.GetComponent<WarriorSkillIconHudView>();
+            if (hud == null)
+            {
+                hud = soldier.gameObject.AddComponent<WarriorSkillIconHudView>();
+            }
+
+            hud.Bind(_pushMapCamera, _catalog != null ? _catalog.SkillIconHudPrefab : null);
+            return hud;
         }
 
         private PushMapAdvanceView FindAdvanceView(string warriorId)
@@ -1403,21 +1491,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             Debug.Log(
                 $"[PushMapStage] Objective {order} captured — granting CaptureLoot='{loot}' Unlock='{unlockIds}' (no Exp).");
 
-            if (_warehouse != null && _configs != null && !string.IsNullOrEmpty(loot))
+            if (_rewardGrant != null && !string.IsNullOrEmpty(loot))
             {
-                var entries = LootDropParser.Parse(
+                var entries = LootDropParser.ParseIdSemicolonCount(
                     loot,
                     msg => Debug.LogWarning($"[PushMapStage] {msg}"));
-                for (var i = 0; i < entries.Count; i++)
-                {
-                    _warehouse.CreditLootEntry(
-                        entries[i],
-                        _configs,
-                        (id, count) => Debug.Log($"[PushMapStage] CaptureLoot material +{count} {id}"),
-                        spirit => Debug.Log($"[PushMapStage] CaptureLoot Spirit +{spirit}"));
-                }
-
-                _session?.RecordCaptureLoot(entries);
+                var granted = _rewardGrant.GrantEntries(
+                    entries,
+                    msg => Debug.Log($"[PushMapStage] {msg}"),
+                    msg => Debug.LogWarning($"[PushMapStage] {msg}"));
+                _session?.RecordCaptureLoot(granted);
             }
 
             _dungeonUnlocks?.UnlockEncoded(unlockIds);
@@ -1550,7 +1633,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                     }
                     else
                     {
-                        sb.AppendLine($"{pair.Key} × {pair.Value}");
+                        var displayName = pair.Key;
+                        if (_configs != null &&
+                            _configs.TryGetItemCatalog(pair.Key, out var item) &&
+                            item != null &&
+                            !string.IsNullOrEmpty(item.DisplayName))
+                        {
+                            displayName = item.DisplayName;
+                        }
+
+                        sb.AppendLine($"{displayName} × {pair.Value}");
                     }
                 }
             }
@@ -1850,6 +1942,36 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _resumeFollowButtonRoot.SetActive(false);
             }
+        }
+
+        private void RefreshCombatBondHud()
+        {
+            EnsureCombatBondHud();
+            if (_combatBondHud == null || _formation == null || _warriorPool == null || _configs == null)
+            {
+                return;
+            }
+
+            var evaluated = FormationBondEvaluator.Evaluate(_formation, _warriorPool, _configs);
+            _combatBondHud.BindServices(null, null, _configs);
+            _combatBondHud.SetSnapshot(evaluated);
+            _combatBondHud.gameObject.SetActive(true);
+        }
+
+        private void EnsureCombatBondHud()
+        {
+            if (_combatBondHud != null)
+            {
+                return;
+            }
+
+            if (_hudView != null && _hudView.CombatBondHud != null)
+            {
+                _combatBondHud = _hudView.CombatBondHud;
+                return;
+            }
+
+            _combatBondHud = FormationBondHudRuntimeFactory.Create(transform, sortingOrder: 65);
         }
 
         private void EnsureResumeFollowButton()

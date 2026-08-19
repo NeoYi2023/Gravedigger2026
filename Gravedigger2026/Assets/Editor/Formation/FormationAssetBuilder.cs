@@ -129,6 +129,7 @@ namespace Gravedigger2026.Editor.Formation
             EnsureMode2StartBattleAboveComplete(contents);
             EnsureMode2ReturnAboveComplete(contents);
             EnsureMode2SoldierHoverTooltip(contents);
+            EnsureFormationBondHud(FindDeep(contents.transform, "FormationCanvas"), contents.GetComponent<FormationEditorController>());
 
             PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
             PrefabUtility.UnloadPrefabContents(contents);
@@ -151,6 +152,202 @@ namespace Gravedigger2026.Editor.Formation
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[FormationAssetBuilder] Patched Mode2 SoldierHoverTooltip (D-065).");
+        }
+
+        [MenuItem("Gravedigger2026/Formation/Patch Formation Bond HUD")]
+        public static void PatchFormationBondHudMenu()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null)
+            {
+                GenerateAll();
+                return;
+            }
+
+            var mode1 = PrefabUtility.LoadPrefabContents(EditorRootPath);
+            var canvas1 = FindDeep(mode1.transform, "FormationCanvas");
+            EnsureFormationBondHud(canvas1, mode1.GetComponent<FormationEditorController>());
+            PrefabUtility.SaveAsPrefabAsset(mode1, EditorRootPath);
+            PrefabUtility.UnloadPrefabContents(mode1);
+
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) != null)
+            {
+                var mode2 = PrefabUtility.LoadPrefabContents(EditorRootMode2Path);
+                EnsureFormationBondHud(FindDeep(mode2.transform, "FormationCanvas"), mode2.GetComponent<FormationEditorController>());
+                PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
+                PrefabUtility.UnloadPrefabContents(mode2);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[FormationAssetBuilder] Patched Formation Bond HUD.");
+        }
+
+        /// <summary>Top-left bond button + active icon row + detail modal (SPEC_03 §3.17).</summary>
+        private static void EnsureFormationBondHud(Transform canvas, FormationEditorController controller)
+        {
+            if (canvas == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationCanvas missing; cannot add Bond HUD.");
+                return;
+            }
+
+            var hudRoot = FindDeep(canvas, "BondHudRoot");
+            GameObject hudGo;
+            if (hudRoot != null)
+            {
+                hudGo = hudRoot.gameObject;
+            }
+            else
+            {
+                hudGo = new GameObject("BondHudRoot", typeof(RectTransform), typeof(FormationBondHudView));
+                hudGo.transform.SetParent(canvas, false);
+            }
+
+            Place(
+                hudGo.GetComponent<RectTransform>(),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(24f, -72f),
+                new Vector2(160f, 400f));
+
+            var viewBtn = FindDeep(hudGo.transform, "ViewBondsButton");
+            GameObject viewBtnGo;
+            if (viewBtn != null)
+            {
+                viewBtnGo = viewBtn.gameObject;
+            }
+            else
+            {
+                viewBtnGo = CreateUiButton(hudGo.transform, "ViewBondsButton", "查看阵容羁绊",
+                    new Color(0.28f, 0.36f, 0.48f, 1f));
+                Place(
+                    viewBtnGo.GetComponent<RectTransform>(),
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 0f),
+                    new Vector2(160f, 36f));
+            }
+
+            var iconRow = FindDeep(hudGo.transform, "ActiveBondIconsRow");
+            GameObject iconRowGo;
+            if (iconRow != null)
+            {
+                iconRowGo = iconRow.gameObject;
+            }
+            else
+            {
+                iconRowGo = new GameObject(
+                    "ActiveBondIconsRow",
+                    typeof(RectTransform),
+                    typeof(VerticalLayoutGroup),
+                    typeof(ContentSizeFitter));
+                iconRowGo.transform.SetParent(hudGo.transform, false);
+            }
+
+            var legacyHlg = iconRowGo.GetComponent<HorizontalLayoutGroup>();
+            if (legacyHlg != null)
+            {
+                Object.DestroyImmediate(legacyHlg);
+            }
+
+            Place(
+                iconRowGo.GetComponent<RectTransform>(),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, -42f),
+                new Vector2(40f, 0f));
+
+            var vlg = iconRowGo.GetComponent<VerticalLayoutGroup>();
+            if (vlg == null)
+            {
+                vlg = iconRowGo.AddComponent<VerticalLayoutGroup>();
+            }
+
+            vlg.spacing = 6f;
+            vlg.childAlignment = TextAnchor.UpperLeft;
+            vlg.childControlWidth = false;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+            var fitter = iconRowGo.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = iconRowGo.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var detail = FindDeep(canvas, "BondDetailModal");
+            GameObject detailGo;
+            FormationBondDetailView detailView;
+            if (detail != null)
+            {
+                detailGo = detail.gameObject;
+                detailView = detailGo.GetComponent<FormationBondDetailView>();
+                if (detailView == null)
+                {
+                    detailView = detailGo.AddComponent<FormationBondDetailView>();
+                }
+            }
+            else
+            {
+                detailGo = CreateUiPanel(canvas, "BondDetailModal", new Color(0.08f, 0.1f, 0.14f, 0.96f));
+                Place(
+                    detailGo.GetComponent<RectTransform>(),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(720f, 520f));
+                detailView = detailGo.AddComponent<FormationBondDetailView>();
+
+                var title = CreateUiText(detailGo.transform, "Title", "阵容羁绊", 24, TextAnchor.UpperCenter);
+                Place(title.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0f, -12f), new Vector2(0f, 40f));
+
+                var body = CreateUiText(detailGo.transform, "Body", string.Empty, 16, TextAnchor.UpperLeft);
+                Place(body.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f),
+                    new Vector2(16f, 56f), new Vector2(-32f, -72f));
+                body.horizontalOverflow = HorizontalWrapMode.Wrap;
+                body.verticalOverflow = VerticalWrapMode.Overflow;
+
+                var closeBtn = CreateUiButton(detailGo.transform, "CloseButton", "关闭",
+                    new Color(0.35f, 0.4f, 0.5f, 1f));
+                Place(closeBtn.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(140f, 40f));
+
+                var dso = new SerializedObject(detailView);
+                dso.FindProperty("_root").objectReferenceValue = detailGo;
+                dso.FindProperty("_titleText").objectReferenceValue = title;
+                dso.FindProperty("_bodyText").objectReferenceValue = body;
+                dso.FindProperty("_closeButton").objectReferenceValue = closeBtn.GetComponent<Button>();
+                dso.ApplyModifiedPropertiesWithoutUndo();
+                detailGo.SetActive(false);
+            }
+
+            var hudView = hudGo.GetComponent<FormationBondHudView>();
+            if (hudView == null)
+            {
+                hudView = hudGo.AddComponent<FormationBondHudView>();
+            }
+
+            var hso = new SerializedObject(hudView);
+            hso.FindProperty("_viewButton").objectReferenceValue = viewBtnGo.GetComponent<Button>();
+            hso.FindProperty("_viewButtonLabel").objectReferenceValue = viewBtnGo.GetComponentInChildren<Text>();
+            hso.FindProperty("_iconRow").objectReferenceValue = iconRowGo.GetComponent<RectTransform>();
+            hso.FindProperty("_detailView").objectReferenceValue = detailView;
+            hso.ApplyModifiedPropertiesWithoutUndo();
+
+            if (controller != null)
+            {
+                var cso = new SerializedObject(controller);
+                cso.FindProperty("_bondHud").objectReferenceValue = hudView;
+                cso.ApplyModifiedPropertiesWithoutUndo();
+            }
         }
 
         /// <summary>
@@ -427,6 +624,8 @@ namespace Gravedigger2026.Editor.Formation
             var controlText = CreateUiText(canvasGo.transform, "ControlPowerText", "0 / 0", 28, TextAnchor.UpperLeft);
             Place(controlText.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
                 new Vector2(24f, -24f), new Vector2(360f, 48f));
+
+            EnsureFormationBondHud(canvasGo.transform, controller);
 
             var returnBtn = CreateUiButton(canvasGo.transform, "ReturnButton", "返回", new Color(0.35f, 0.4f, 0.5f, 1f));
             // Bottom-right above SoldierBar (height 112). Mode2 bumps Return/StartBattle to y=180 above Complete.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
@@ -21,6 +22,8 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// (timeout = miss, no settlement). Combat params come from PushMapSessionService
     /// StartBattle registry (WarriorCombatMath + ClassConfig, mirrored from Defend).
     /// D-069: Skill_03 burst occupies this attack channel (3× scheme D) when CD ready.
+    /// D-073 SE-09: new-target acquire may Warp behind farthest enemy (rules pick; View Warp).
+    /// PM-13: CombatDead → PlayDie + stop acting (aligned with Defend WarriorAgentView).
     /// PM-13: CombatDead → PlayDie + stop acting (aligned with Defend WarriorAgentView).
     /// Presentation: WarriorAnimView SetMoving/DirIndex facing; PlayAttack on windup/fire.
     /// </summary>
@@ -35,6 +38,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         private const float NavMeshSampleRadius = 12f;
+        private const float BlinkNavMeshSampleMinRadius = 0.75f;
         private const float DefaultAttackRange = 1f;
         private const float MoveAnimSpeedSqr = 0.01f;
         /// <summary>
@@ -45,6 +49,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _engageStickHysteresisMargin = CombatConstantKeys.Safety.EngageStickHysteresisMargin;
 
         private Func<IReadOnlyList<PushMapMonsterAgentView>> _monstersProvider;
+        private readonly List<string> _aliveMonsterIdsScratch = new List<string>(32);
         private MassMoveScheduler _scheduler;
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
@@ -77,6 +82,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Vector3 _lastSteerDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private AllyFootCircleView _footCircle;
+        private readonly List<MonsterWorldXZ> _targetAcquireCandidates = new List<MonsterWorldXZ>(32);
 
         public bool IsRebel => _isRebel;
         public int MoveId => _moveId;
@@ -353,12 +359,152 @@ namespace Gravedigger2026.Gameplay.PushMap
                              bestDist < claimedDist - _engageStickHysteresisMargin;
                 monster = stolen ? best : claimed;
             }
+            else if (TryBlinkOverrideTarget(list, out var blinkMonster))
+            {
+                monster = blinkMonster;
+            }
             else
             {
                 monster = best;
             }
 
             return monster != null;
+        }
+
+        /// <summary>
+        /// SE-09: new-target acquire asks the rules layer (farthest + landing). View only samples/Warps.
+        /// </summary>
+        private bool TryBlinkOverrideTarget(
+            IReadOnlyList<PushMapMonsterAgentView> list,
+            out PushMapMonsterAgentView monster)
+        {
+            monster = null;
+            if (_session == null || list == null || _isRebel)
+            {
+                return false;
+            }
+
+            _targetAcquireCandidates.Clear();
+            for (var i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeTargetId))
+                {
+                    continue;
+                }
+
+                var p = m.transform.position;
+                _targetAcquireCandidates.Add(new MonsterWorldXZ(
+                    m.RuntimeTargetId,
+                    new Vector2(p.x, p.z),
+                    m.FacingXZ,
+                    m.BodyRadius));
+            }
+
+            if (_targetAcquireCandidates.Count == 0)
+            {
+                return false;
+            }
+
+            var self = transform.position;
+            if (!_session.TryAcquireWarriorTarget(
+                    _attackerId,
+                    new Vector2(self.x, self.z),
+                    _bodyRadius,
+                    _targetAcquireCandidates,
+                    SampleBlinkLanding,
+                    out var overrideId,
+                    out var landing) ||
+                string.IsNullOrEmpty(overrideId))
+            {
+                return false;
+            }
+
+            if (!TryFindMonsterByRuntimeId(list, overrideId, out monster) || monster == null)
+            {
+                return false;
+            }
+
+            if (!TryWarpToLanding(landing))
+            {
+                Debug.LogWarning(
+                    $"[PushMapAdvance] blink Warp failed warrior={_attackerId} target={overrideId}");
+            }
+
+            FaceTarget(monster.transform.position);
+            return true;
+        }
+
+        private static bool TryFindMonsterByRuntimeId(
+            IReadOnlyList<PushMapMonsterAgentView> list,
+            string runtimeId,
+            out PushMapMonsterAgentView monster)
+        {
+            monster = null;
+            if (list == null || string.IsNullOrEmpty(runtimeId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m != null && m.IsAlive &&
+                    string.Equals(m.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    monster = m;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Vector2? SampleBlinkLanding(Vector2 desiredXZ, float sampleRadius)
+        {
+            var radius = Mathf.Max(BlinkNavMeshSampleMinRadius, sampleRadius);
+            var origin = new Vector3(desiredXZ.x, transform.position.y, desiredXZ.y);
+            if (!NavMesh.SamplePosition(origin, out var hit, radius, NavMesh.AllAreas))
+            {
+                return null;
+            }
+
+            var dx = hit.position.x - desiredXZ.x;
+            var dz = hit.position.z - desiredXZ.y;
+            if (dx * dx + dz * dz > radius * radius)
+            {
+                return null;
+            }
+
+            return new Vector2(hit.position.x, hit.position.z);
+        }
+
+        private bool TryWarpToLanding(Vector2 landingXZ)
+        {
+            if (_agent == null || !_agent.enabled)
+            {
+                return false;
+            }
+
+            var world = new Vector3(landingXZ.x, transform.position.y, landingXZ.y);
+            if (!_agent.isOnNavMesh)
+            {
+                TryWarpOntoNavMesh();
+            }
+
+            if (!_agent.Warp(world))
+            {
+                return false;
+            }
+
+            if (_agent.hasPath)
+            {
+                _agent.ResetPath();
+            }
+
+            _agent.velocity = Vector3.zero;
+            _scheduler?.SnapPosition(_moveId, landingXZ);
+            return true;
         }
 
         /// <summary>XZ sample for MassMoveScheduler (inactive when rebel / windup / combat-down).</summary>
@@ -419,6 +565,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 ClearBurst();
             }
 
+            GetComponent<WarriorSkillIconHudView>()?.ClearAll();
             PlayDieOnce();
             StopActing();
         }
@@ -700,7 +847,9 @@ namespace Gravedigger2026.Gameplay.PushMap
                 target.RuntimeTargetId,
                 ResolveMonsterTransform,
                 state.RangedProjectileSpeed,
-                state.RangedTimeoutSeconds);
+                state.RangedTimeoutSeconds,
+                hitRadius: -1f,
+                enumerateAliveTargets: EnumerateAliveMonsterRuntimeIds);
 
             _scheduler?.SetPaused(_moveId, false);
             if (fromBurst)
@@ -833,6 +982,35 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             var m = FindMonsterByRuntimeId(runtimeId);
             return m != null ? m.transform : null;
+        }
+
+        /// <summary>Generic pierce scan: alive monster RuntimeIds (SE-07).</summary>
+        private IReadOnlyList<string> EnumerateAliveMonsterRuntimeIds()
+        {
+            _aliveMonsterIdsScratch.Clear();
+            var list = _monstersProvider != null ? _monstersProvider() : null;
+            if (list == null)
+            {
+                return _aliveMonsterIdsScratch;
+            }
+
+            for (var i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null || string.IsNullOrEmpty(m.RuntimeTargetId))
+                {
+                    continue;
+                }
+
+                if (_session != null && !_session.IsMonsterAlive(m.RuntimeTargetId))
+                {
+                    continue;
+                }
+
+                _aliveMonsterIdsScratch.Add(m.RuntimeTargetId);
+            }
+
+            return _aliveMonsterIdsScratch;
         }
 
         private PushMapMonsterAgentView FindMonsterByRuntimeId(string runtimeId)

@@ -1,8 +1,10 @@
 using System;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.PushMap;
+using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Formation;
@@ -29,6 +31,8 @@ namespace Gravedigger2026.Core.Level
         private readonly WarriorPoolService _warriorPool;
         private readonly BattleFormationService _formation;
         private readonly WarehouseService _warehouse;
+        private readonly SpecialEquipSlotsService _specialEquipSlots;
+        private readonly ProtagonistEquipmentService _protagonistEquipment;
         private readonly DungeonUnlockService _dungeonUnlocks;
         private readonly Action _onVictoryAdvance;
         private readonly Action<string> _onLevelFailure;
@@ -47,6 +51,8 @@ namespace Gravedigger2026.Core.Level
             WarriorPoolService warriorPool,
             BattleFormationService formation,
             WarehouseService warehouse,
+            SpecialEquipSlotsService specialEquipSlots,
+            ProtagonistEquipmentService protagonistEquipment,
             DungeonUnlockService dungeonUnlocks,
             Action onVictoryAdvance,
             Action<string> onLevelFailure,
@@ -60,6 +66,8 @@ namespace Gravedigger2026.Core.Level
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _warehouse = warehouse;
+            _specialEquipSlots = specialEquipSlots;
+            _protagonistEquipment = protagonistEquipment;
             _dungeonUnlocks = dungeonUnlocks;
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
@@ -120,6 +128,8 @@ namespace Gravedigger2026.Core.Level
                 _warriorPool,
                 _formation,
                 _warehouse,
+                _specialEquipSlots,
+                _protagonistEquipment,
                 _dungeonUnlocks,
                 _onVictoryAdvance,
                 _onLevelFailure);

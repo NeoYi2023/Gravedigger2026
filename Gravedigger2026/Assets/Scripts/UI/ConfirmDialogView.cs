@@ -6,6 +6,8 @@ namespace Gravedigger2026.UI
 {
     public sealed class ConfirmDialogView : MonoBehaviour
     {
+        private const int ConfirmDialogSortingOrder = 110;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _messageText;
         [SerializeField] private Button _confirmButton;
@@ -40,6 +42,8 @@ namespace Gravedigger2026.UI
 
             if (_root != null)
             {
+                _root.transform.SetAsLastSibling();
+                ApplyModalSorting(_root);
                 _root.SetActive(true);
             }
         }
@@ -53,6 +57,22 @@ namespace Gravedigger2026.UI
 
             _onConfirm = null;
             _onCancel = null;
+        }
+
+        private static void ApplyModalSorting(GameObject root)
+        {
+            var canvas = root.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = root.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = ConfirmDialogSortingOrder;
+            if (root.GetComponent<GraphicRaycaster>() == null)
+            {
+                root.AddComponent<GraphicRaycaster>();
+            }
         }
 
         private void HandleConfirm()

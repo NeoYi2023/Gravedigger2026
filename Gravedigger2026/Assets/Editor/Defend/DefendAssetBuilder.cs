@@ -884,6 +884,8 @@ namespace Gravedigger2026.Editor.Defend
             Stretch(combatStatus.GetComponent<RectTransform>());
 
             var hud = panelRoot.AddComponent<DefendHudView>();
+            var combatBondHud = EnsureCombatBondHud(panelRoot.transform);
+
             var hso = new SerializedObject(hud);
             hso.FindProperty("_root").objectReferenceValue = panelRoot;
             hso.FindProperty("_preparePanel").objectReferenceValue = preparePanel;
@@ -892,6 +894,7 @@ namespace Gravedigger2026.Editor.Defend
             hso.FindProperty("_combatStatusText").objectReferenceValue = combatStatus;
             hso.FindProperty("_startBattleButton").objectReferenceValue = startBattle.GetComponent<Button>();
             hso.FindProperty("_hintText").objectReferenceValue = hint;
+            hso.FindProperty("_combatBondHud").objectReferenceValue = combatBondHud;
             hso.ApplyModifiedPropertiesWithoutUndo();
 
             var cso = new SerializedObject(controller);
@@ -1103,6 +1106,98 @@ namespace Gravedigger2026.Editor.Defend
             var text = CreateUiText(go.transform, "Label", label, 20, TextAnchor.MiddleCenter);
             Stretch(text.GetComponent<RectTransform>());
             return go;
+        }
+
+        private static FormationBondHudView EnsureCombatBondHud(Transform panelRoot)
+        {
+            var existing = panelRoot.Find("CombatBondHudRoot");
+            if (existing != null)
+            {
+                var view = existing.GetComponent<FormationBondHudView>();
+                if (view != null)
+                {
+                    return view;
+                }
+            }
+
+            var hudGo = new GameObject("CombatBondHudRoot", typeof(RectTransform), typeof(FormationBondHudView));
+            hudGo.transform.SetParent(panelRoot, false);
+            var hudRt = hudGo.GetComponent<RectTransform>();
+            hudRt.anchorMin = new Vector2(0f, 1f);
+            hudRt.anchorMax = new Vector2(0f, 1f);
+            hudRt.pivot = new Vector2(0f, 1f);
+            hudRt.anchoredPosition = new Vector2(16f, -16f);
+            hudRt.sizeDelta = new Vector2(160f, 400f);
+
+            var canvas = panelRoot.GetComponentInParent<Canvas>();
+            Transform detailParent = canvas != null ? canvas.transform : panelRoot;
+
+            var existingDetail = detailParent.Find("BondDetailModal");
+            GameObject detailGo;
+            FormationBondDetailView detailView;
+            if (existingDetail != null)
+            {
+                detailGo = existingDetail.gameObject;
+                detailView = detailGo.GetComponent<FormationBondDetailView>();
+                if (detailView == null)
+                {
+                    detailView = detailGo.AddComponent<FormationBondDetailView>();
+                }
+            }
+            else
+            {
+                detailGo = CreateUiPanel(detailParent, "BondDetailModal", new Color(0.08f, 0.1f, 0.14f, 0.96f));
+                Place(
+                    detailGo.GetComponent<RectTransform>(),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(720f, 520f));
+                detailView = detailGo.AddComponent<FormationBondDetailView>();
+                var title = CreateUiText(detailGo.transform, "Title", "阵容羁绊", 24, TextAnchor.UpperCenter);
+                Place(title.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0f, -12f), new Vector2(0f, 40f));
+                var body = CreateUiText(detailGo.transform, "Body", string.Empty, 16, TextAnchor.UpperLeft);
+                Place(body.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f),
+                    new Vector2(16f, 56f), new Vector2(-32f, -72f));
+                body.horizontalOverflow = HorizontalWrapMode.Wrap;
+                var closeBtn = CreateUiButton(detailGo.transform, "CloseButton", "关闭",
+                    new Color(0.35f, 0.4f, 0.5f, 1f));
+                Place(closeBtn.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(140f, 40f));
+                detailView.Configure(detailGo, title, body, closeBtn.GetComponent<Button>());
+                detailGo.SetActive(false);
+            }
+
+            var viewBtn = CreateUiButton(hudGo.transform, "ViewBondsButton", "查看阵容羁绊",
+                new Color(0.28f, 0.36f, 0.48f, 1f));
+            Place(viewBtn.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(0f, 0f), new Vector2(160f, 36f));
+
+            var iconRowGo = new GameObject(
+                "ActiveBondIconsRow",
+                typeof(RectTransform),
+                typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
+            iconRowGo.transform.SetParent(hudGo.transform, false);
+            Place(iconRowGo.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(0f, -42f), new Vector2(40f, 0f));
+            var iconVlg = iconRowGo.GetComponent<VerticalLayoutGroup>();
+            iconVlg.spacing = 6f;
+            iconVlg.childAlignment = TextAnchor.UpperLeft;
+            iconVlg.childControlWidth = false;
+            iconVlg.childControlHeight = false;
+            iconVlg.childForceExpandWidth = false;
+            iconVlg.childForceExpandHeight = false;
+            var iconFitter = iconRowGo.GetComponent<ContentSizeFitter>();
+            iconFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            iconFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var hudView = hudGo.GetComponent<FormationBondHudView>();
+            hudView.Configure(viewBtn.GetComponent<Button>(), iconRowGo.GetComponent<RectTransform>(), detailView);
+            hudGo.SetActive(false);
+            return hudView;
         }
 
         private static void Stretch(RectTransform rt)

@@ -1,36 +1,77 @@
-SkillEffectId,Notes
-SkillEffect_01,
-SkillEffect_02,
-SkillEffect_03,
-SkillEffect_04,
-SkillEffect_05,
-SkillEffect_06,
-SkillEffect_07,
-SkillEffect_08,
-SkillEffect_09,
-SkillEffect_10,
-SkillEffect_01_1,格挡 Lv1：敌人普攻命中 Self 时 10% 伤害→0（仍判命中）
-SkillEffect_01_2,格挡 Lv2：15%
-SkillEffect_01_3,格挡 Lv3：20%
-SkillEffect_01_4,格挡 Lv4：25%
-SkillEffect_01_5,格挡 Lv5：30%
-SkillEffect_02_1,舒适 Lv1：Self 满血（自身血量=100%）时伤害 +5%
-SkillEffect_02_2,舒适 Lv2：+10%
-SkillEffect_02_3,舒适 Lv3：+15%
-SkillEffect_02_4,舒适 Lv4：+20%
-SkillEffect_02_5,舒适 Lv5：+25%
-SkillEffect_03_1,连发 Lv1：EnemySingle、无 ExtraActivationCondition；攻击目标时连续攻击 3 次；BaseCD=50s
-SkillEffect_03_2,连发 Lv2：同 3 次；BaseCD=40s
-SkillEffect_03_3,连发 Lv3：同 3 次；BaseCD=30s
-SkillEffect_03_4,连发 Lv4：同 3 次；BaseCD=20s
-SkillEffect_03_5,连发 Lv5：同 3 次；BaseCD=10s
-SkillEffect_04_1,先发制人 Lv1：EnemySingle；普攻攻击新目标敌人的第一次；攻击伤害 +20%
-SkillEffect_04_2,先发制人 Lv2：同条件；+30%
-SkillEffect_04_3,先发制人 Lv3：同条件；+40%
-SkillEffect_04_4,先发制人 Lv4：同条件；+50%
-SkillEffect_04_5,先发制人 Lv5：同条件；+60%
-SkillEffect_05_1,坚挺 Lv1：Self、敌人的本次攻击导致Self死亡；HP 强制变为 1，无敌 1 秒；BaseCD=60s
-SkillEffect_05_2,坚挺 Lv2：同触发；无敌 2 秒
-SkillEffect_05_3,坚挺 Lv3：同触发；无敌 3 秒
-SkillEffect_05_4,坚挺 Lv4：同触发；无敌 4 秒
-SkillEffect_05_5,坚挺 Lv5：同触发；无敌 5 秒
+SkillEffectId,Notes,EffectKind,EffectParams,TriggerHook
+SkillEffect_01,,,,
+SkillEffect_02,,,,
+SkillEffect_03,,,,
+SkillEffect_04,,,,
+SkillEffect_05,,,,
+SkillEffect_06,,,,
+SkillEffect_07,,,,
+SkillEffect_08,,,,
+SkillEffect_09,,,,
+SkillEffect_10,,,,
+SkillEffect_01_1,格挡 Lv1：敌人普攻命中 Self 时 10% 伤害→0（仍判命中）,,,
+SkillEffect_01_2,格挡 Lv2：15%,,,
+SkillEffect_01_3,格挡 Lv3：20%,,,
+SkillEffect_01_4,格挡 Lv4：25%,,,
+SkillEffect_01_5,格挡 Lv5：30%,,,
+SkillEffect_02_1,舒适 Lv1：Self 满血（自身血量=100%）时伤害 +5%,,,
+SkillEffect_02_2,舒适 Lv2：+10%,,,
+SkillEffect_02_3,舒适 Lv3：+15%,,,
+SkillEffect_02_4,舒适 Lv4：+20%,,,
+SkillEffect_02_5,舒适 Lv5：+25%,,,
+SkillEffect_03_1,连发 Lv1：EnemySingle、无 ExtraActivationCondition；攻击目标时连续攻击 3 次；BaseCD=50s,,,
+SkillEffect_03_2,连发 Lv2：同 3 次；BaseCD=40s,,,
+SkillEffect_03_3,连发 Lv3：同 3 次；BaseCD=30s,,,
+SkillEffect_03_4,连发 Lv4：同 3 次；BaseCD=20s,,,
+SkillEffect_03_5,连发 Lv5：同 3 次；BaseCD=10s,,,
+SkillEffect_04_1,先发制人 Lv1：EnemySingle；普攻攻击新目标敌人的第一次；攻击伤害 +20%,OutgoingMulOnNewTargetFirstHit,Mul=1.2,OnOutgoingDamageSettle
+SkillEffect_04_2,先发制人 Lv2：同条件；+30%,OutgoingMulOnNewTargetFirstHit,Mul=1.3,OnOutgoingDamageSettle
+SkillEffect_04_3,先发制人 Lv3：同条件；+40%,OutgoingMulOnNewTargetFirstHit,Mul=1.4,OnOutgoingDamageSettle
+SkillEffect_04_4,先发制人 Lv4：同条件；+50%,OutgoingMulOnNewTargetFirstHit,Mul=1.5,OnOutgoingDamageSettle
+SkillEffect_04_5,先发制人 Lv5：同条件；+60%,OutgoingMulOnNewTargetFirstHit,Mul=1.6,OnOutgoingDamageSettle
+SkillEffect_05_1,坚挺 Lv1：Self、敌人的本次攻击导致Self死亡；HP 强制变为 1，无敌 1 秒；BaseCD=60s,CheatDeathInvincible,InvincibleSeconds=1,OnWarriorWouldDie
+SkillEffect_05_2,坚挺 Lv2：同触发；无敌 2 秒,CheatDeathInvincible,InvincibleSeconds=2,OnWarriorWouldDie
+SkillEffect_05_3,坚挺 Lv3：同触发；无敌 3 秒,CheatDeathInvincible,InvincibleSeconds=3,OnWarriorWouldDie
+SkillEffect_05_4,坚挺 Lv4：同触发；无敌 4 秒,CheatDeathInvincible,InvincibleSeconds=4,OnWarriorWouldDie
+SkillEffect_05_5,坚挺 Lv5：同触发；无敌 5 秒,CheatDeathInvincible,InvincibleSeconds=5,OnWarriorWouldDie
+SkillEffect_06_1,震晕 Lv1：10% AOE 击晕 1s；半径 1.5,OnAaHitChanceAoeStun,Chance=0.1|Radius=1.5|StunSeconds=1,OnWarriorAaHitConfirm
+SkillEffect_06_2,震晕 Lv2：击晕 2s,OnAaHitChanceAoeStun,Chance=0.1|Radius=1.5|StunSeconds=2,OnWarriorAaHitConfirm
+SkillEffect_06_3,震晕 Lv3：击晕 3s,OnAaHitChanceAoeStun,Chance=0.1|Radius=1.5|StunSeconds=3,OnWarriorAaHitConfirm
+SkillEffect_06_4,震晕 Lv4：击晕 4s,OnAaHitChanceAoeStun,Chance=0.1|Radius=1.5|StunSeconds=4,OnWarriorAaHitConfirm
+SkillEffect_06_5,震晕 Lv5：击晕 5s,OnAaHitChanceAoeStun,Chance=0.1|Radius=1.5|StunSeconds=5,OnWarriorAaHitConfirm
+SkillEffect_07_1,冰冻 Lv1：AOE 减速 2s；内置 CD 10s,OnAaHitAoeSlow,Radius=1.5|SlowMoveMul=0.5|SlowAttackMul=0.5|DurationSeconds=2|InternalCooldownSeconds=10,OnWarriorAaHitConfirm
+SkillEffect_07_2,冰冻 Lv2：减速 3s,OnAaHitAoeSlow,Radius=1.5|SlowMoveMul=0.5|SlowAttackMul=0.5|DurationSeconds=3|InternalCooldownSeconds=10,OnWarriorAaHitConfirm
+SkillEffect_07_3,冰冻 Lv3：减速 4s,OnAaHitAoeSlow,Radius=1.5|SlowMoveMul=0.5|SlowAttackMul=0.5|DurationSeconds=4|InternalCooldownSeconds=10,OnWarriorAaHitConfirm
+SkillEffect_07_4,冰冻 Lv4：减速 5s,OnAaHitAoeSlow,Radius=1.5|SlowMoveMul=0.5|SlowAttackMul=0.5|DurationSeconds=5|InternalCooldownSeconds=10,OnWarriorAaHitConfirm
+SkillEffect_07_5,冰冻 Lv5：减速 6s,OnAaHitAoeSlow,Radius=1.5|SlowMoveMul=0.5|SlowAttackMul=0.5|DurationSeconds=6|InternalCooldownSeconds=10,OnWarriorAaHitConfirm
+SkillEffect_08_1,精英克制 Lv1：EnemySingle Elite +50%,OutgoingMulVsMonsterType,MonsterType=Elite|Mul=1.5,OnOutgoingDamageSettle
+SkillEffect_08_2,精英克制 Lv2：Elite +60%,OutgoingMulVsMonsterType,MonsterType=Elite|Mul=1.6,OnOutgoingDamageSettle
+SkillEffect_08_3,精英克制 Lv3：Elite +70%,OutgoingMulVsMonsterType,MonsterType=Elite|Mul=1.7,OnOutgoingDamageSettle
+SkillEffect_08_4,精英克制 Lv4：Elite +80%,OutgoingMulVsMonsterType,MonsterType=Elite|Mul=1.8,OnOutgoingDamageSettle
+SkillEffect_08_5,精英克制 Lv5：Elite +90%,OutgoingMulVsMonsterType,MonsterType=Elite|Mul=1.9,OnOutgoingDamageSettle
+SkillEffect_09_1,渐入佳境 Lv1：+3%/10s，cap 60%,StackingOutgoingMulTimed,StackBonus=0.03|MaxTotalBonus=0.6|TickSeconds=10,OnSkillInternalCooldown
+SkillEffect_09_2,渐入佳境 Lv2：+5%/10s，cap 60%,StackingOutgoingMulTimed,StackBonus=0.05|MaxTotalBonus=0.6|TickSeconds=10,OnSkillInternalCooldown
+SkillEffect_09_3,渐入佳境 Lv3：+7%/10s，cap 60%,StackingOutgoingMulTimed,StackBonus=0.07|MaxTotalBonus=0.6|TickSeconds=10,OnSkillInternalCooldown
+SkillEffect_09_4,渐入佳境 Lv4：+9%/10s，cap 60%,StackingOutgoingMulTimed,StackBonus=0.09|MaxTotalBonus=0.6|TickSeconds=10,OnSkillInternalCooldown
+SkillEffect_09_5,渐入佳境 Lv5：+12%/10s，cap 60%,StackingOutgoingMulTimed,StackBonus=0.12|MaxTotalBonus=0.6|TickSeconds=10,OnSkillInternalCooldown
+SkillEffect_10_1,贯穿 Lv1：再穿 1 名；100%,RangedPierceExtraHits,ExtraHitCount=1|DamageMul=1,OnProjectileHit
+SkillEffect_10_2,贯穿 Lv2：再穿 2 名；100%,RangedPierceExtraHits,ExtraHitCount=2|DamageMul=1,OnProjectileHit
+SkillEffect_10_3,贯穿 Lv3：再穿 3 名；100%,RangedPierceExtraHits,ExtraHitCount=3|DamageMul=1,OnProjectileHit
+SkillEffect_10_4,贯穿 Lv4：再穿 4 名；100%,RangedPierceExtraHits,ExtraHitCount=4|DamageMul=1,OnProjectileHit
+SkillEffect_10_5,贯穿 Lv5：再穿 5 名；100%,RangedPierceExtraHits,ExtraHitCount=5|DamageMul=1,OnProjectileHit
+SkillEffect_11_1,灼烧 Lv1：20% NAP/1s × 2s；叠时,OnAaHitApplyBurn,TickDamageMul=0.2|TickIntervalSeconds=1|DurationSeconds=2|StackMode=RefreshDuration,OnWarriorAaHitConfirm
+SkillEffect_11_2,灼烧 Lv2：持续 3s,OnAaHitApplyBurn,TickDamageMul=0.2|TickIntervalSeconds=1|DurationSeconds=3|StackMode=RefreshDuration,OnWarriorAaHitConfirm
+SkillEffect_11_3,灼烧 Lv3：持续 4s,OnAaHitApplyBurn,TickDamageMul=0.2|TickIntervalSeconds=1|DurationSeconds=4|StackMode=RefreshDuration,OnWarriorAaHitConfirm
+SkillEffect_11_4,灼烧 Lv4：持续 5s,OnAaHitApplyBurn,TickDamageMul=0.2|TickIntervalSeconds=1|DurationSeconds=5|StackMode=RefreshDuration,OnWarriorAaHitConfirm
+SkillEffect_11_5,灼烧 Lv5：持续 6s,OnAaHitApplyBurn,TickDamageMul=0.2|TickIntervalSeconds=1|DurationSeconds=6|StackMode=RefreshDuration,OnWarriorAaHitConfirm
+SkillEffect_12_1,瞬移 Lv1：最远敌背后；BaseCD=60,RetargetFarthestTeleportBehind,,OnWarriorTargetAcquired
+SkillEffect_12_2,瞬移 Lv2：BaseCD=50,RetargetFarthestTeleportBehind,,OnWarriorTargetAcquired
+SkillEffect_12_3,瞬移 Lv3：BaseCD=40,RetargetFarthestTeleportBehind,,OnWarriorTargetAcquired
+SkillEffect_12_4,瞬移 Lv4：BaseCD=30,RetargetFarthestTeleportBehind,,OnWarriorTargetAcquired
+SkillEffect_12_5,瞬移 Lv5：BaseCD=20,RetargetFarthestTeleportBehind,,OnWarriorTargetAcquired
+BondEffect_IronWall_1,铜墙铁壁 I：战士 MaxHP +3%（展示；Handler 未接线）,,,
+BondEffect_IronWall_2,铜墙铁壁 II：战士 MaxHP +5%（展示；Handler 未接线）,,,
+BondEffect_HumanLegion_1,人类军团：展示用羁绊（Handler 未接线）,,,
+BondEffect_FullArmy_1,满编：展示用羁绊（Handler 未接线）,,,
+BondEffect_StrStrength_1,力之共鸣：展示用羁绊（Handler 未接线）,,,
+BondEffect_PreciseClass_1,近卫专精：展示用羁绊（Handler 未接线）,,,

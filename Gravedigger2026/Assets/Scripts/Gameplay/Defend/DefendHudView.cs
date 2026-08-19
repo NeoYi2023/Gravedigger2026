@@ -1,4 +1,5 @@
 using System;
+using Gravedigger2026.Gameplay.Formation;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,6 +17,9 @@ namespace Gravedigger2026.Gameplay.Defend
         [SerializeField] private Text _combatStatusText;
         [SerializeField] private Button _startBattleButton;
         [SerializeField] private Text _hintText;
+        [SerializeField] private FormationBondHudView _combatBondHud;
+
+        public FormationBondHudView CombatBondHud => _combatBondHud;
 
         public event Action StartBattleRequested;
 
@@ -88,6 +92,14 @@ namespace Gravedigger2026.Gameplay.Defend
             if (_hintText != null)
             {
                 _hintText.text = text ?? string.Empty;
+            }
+        }
+
+        public void SetCombatBondHudVisible(bool visible)
+        {
+            if (_combatBondHud != null)
+            {
+                _combatBondHud.gameObject.SetActive(visible);
             }
         }
 

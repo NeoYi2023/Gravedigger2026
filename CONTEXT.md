@@ -23,9 +23,11 @@
 | MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/VisualStyleId/Priority/IntensityAdd/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；下标 0→5=左→右；可 TrySwap（含空槽）；IsUnique 限制叠装；无独立仓库 | [§3.15](SPEC_03_GameRules.md) |
 | EquipmentWarehousePanel | 装备仓弹窗 | InSaveShell 左下「装备」打开的只读 Modal；展示 OwnedEquip（名/等级/描述/图标）；不升级、不卸下（UI-022 / D-067） | [§3.6](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md) |
-| MagicBookSlotsPanel | 魔法书槽弹窗 | InSaveShell 左下「魔法书」打开；共享 BookRow；拖拽 TrySwap 含空槽；无仓库；本轮不卸下（UI-023 / D-068） | [§3.6](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
+| MagicBookSlotsPanel | 魔法书槽弹窗 | InSaveShell 左下「魔法书」打开；共享 BookRow；拖拽 TrySwap 含空槽；点占用槽槽下「删除」须确认后 TryUnequip（UI-023 / D-068 / D-072） | [§3.6](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
 | BookRow | 魔法书槽行 | 6×BookSlot 共享 Prefab；AM 演出与魔法书弹窗嵌套同一份 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
+| FormationBond | 阵容羁绊 | 上阵士兵属性统计激活的战斗增益；同 BondId 多等级互斥；Buff→SkillEffectConfig | [§3.17](SPEC_03_GameRules.md)、[SPEC_04 §9.26](SPEC_04_Technical.md) |
+| BondBuff | 羁绊Buff | FormationBondConfig.BondBuff FK→SkillEffectConfig；本 Demo 片仅配置与 UI | [§3.17](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentConfig | 主角装备配置表 | EquipId+EquipLevel → 名/图标/升下一级经验/转化经验/生效域/效果/描述 | [SPEC_04 §9.25](SPEC_04_Technical.md) |
 | EquipCommonExp | 装备公共经验 | 独立池，专供主角装备升级；≠ LifetimeExperience | [§3.16](SPEC_03_GameRules.md) |
@@ -114,7 +116,8 @@
 | SoulConfig | 灵魂配置表 | SoulId → ClassId、AttackMode、Skills（`SkillId;Level|…`）、AttackPriority（同 TargetSelect）、MoveStyle、SpiritCost、ControlPowerCost；含系统默认 `Soul_00` | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | Class | 职业 | 实例 ClassId（有灵魂取自灵魂；无灵魂 Class_Servants）；ClassName/PrimaryStat/五维→战斗参数换算系数 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassId | 职业ID | 职业主键；有灵魂取自灵魂；无灵魂强制 Class_Servants；写入士兵实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PromoteClass（转职职业，可选文字，预留）、PrimaryStat、CombatConvertCoeffs、AttackRange/前摇/弹速/超时、AttackMode、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PromoteClass（转职职业，可选文字，预留）、PrimaryStat、CombatConvertCoeffs、BaseMoveSpeed（基础移速）、AttackRange/前摇/弹速/超时、ChaseMoveSpeedMult、AttackMode、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| BaseMoveSpeed | 基础移速 | ClassConfig 列；士兵 MoveSpeed 维 Base；缺/≤0 → 3.5 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassName | 职业名 | 职业表字段；参与 WarriorName 与外观 ClassAffinity；可为「战士」等，**不是**单位称谓「士兵」 | [§3.11](SPEC_03_GameRules.md) |
 | BaseClass | 基础职业 | ClassConfig 列；CSV 中文战士/射手/法师/刺客（加载器仍接受旧值盗贼）；空或非法→Unspecified；预留魔法书等条件；不参与命名/外观/战斗；不烘进实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | PromoteClass | 转职职业 | ClassConfig 可选文字列；空=无；本轮仅填表/加载；不参与命名/外观/战斗；应用点 TBD | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
@@ -132,9 +135,12 @@
 | SkillBuffCoeff | 技能 Buff 系数 | 仅战斗运行时；FinalStat 公式 | [§3.11](SPEC_03_GameRules.md) |
 | SoldierSkill | 士兵技能 | 绑定士兵实例；职业默认授予；Mode2 魔法书可改等级；无经验升级；PermanentDeath 删除 | [§3.11](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
 | SoldierSkills | 士兵技能列表 | 实例 `{SkillId,SkillLevel}[]`；制造烘进；CombatDead 保留 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| SkillCast | 士兵技能施放 | Combat 内按 SoldierSkills+SkillConfig 自动施放；PushMap `Skill_03` 占用普攻通道 3×方案 D；`Skill_01` 独立被动格挡钩子（命中伤害→0 仍判命中）；`Skill_02` 满血 Outgoing 倍率（NAP×(1+5%～25%)）；Mode2 提交后进 CD（仅主动技） | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.21](SPEC_04_Technical.md) |
-| SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/CD/失控加成；PushMap `Skill_03`/`Skill_01`/`Skill_02` 见 D-069 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
-| SkillEffectConfig | 技能效果配置表 | SkillEffectId 主键；`Skill_03` 硬映射 3 连发；`Skill_01` 硬映射格挡概率；`Skill_02` 硬映射满血增伤（D-069）；其余效果列仍骨架 | [SPEC_04 §9.21b](SPEC_04_Technical.md) |
+| SkillCast | 士兵技能施放 | Combat 内按 SoldierSkills+SkillConfig 自动施放；PushMap `Skill_03` 占用普攻通道 3×方案 D；`Skill_01` 独立被动格挡钩子；`Skill_02` 满血 Outgoing 倍率；`Skill_04`～`Skill_12` 走 EffectKind 管线（D-073）；Mode2 提交后进 CD（仅 BaseCD>0） | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.21](SPEC_04_Technical.md) |
+| CombatSkillIcon | 战斗技能图标 | PushMap 头顶 35×35 静止 0.6s 后 +Z 上飘 0.3s；持续脚下 20×20；`Skill_03`/`Skill_01` 头顶；`Skill_02` 满血脚下+生效头顶飘；D-071 / UI-025；D-073 Handler 复用同一对事件 | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| EffectKind | 技能效果种类 | `SkillEffectConfig` 登记制 PascalCase Token（对齐 MagicBook `EffectPayload`）；空=未实现；Session 禁止按 SkillId 硬分支 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21b](SPEC_04_Technical.md) |
+| CombatStatusService | 战斗状态服务 | 无敌 / 击晕 / 减速 / 灼烧 DoT 的统一 Tick + 查询；士兵与怪物分 bucket | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/`EffectImplemented`(UI-021 绿/红)/CD/失控加成；PushMap `Skill_03`/`Skill_01`/`Skill_02` 见 D-069；`Skill_04`～`Skill_12` 见 D-073 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |
+| SkillEffectConfig | 技能效果配置表 | SkillEffectId 主键；`EffectKind`/`EffectParams`/`TriggerHook` 登记制（D-073）；`Skill_01`～`Skill_03` 仍 D-069 硬映射（Kind 可空） | [SPEC_04 §9.21b](SPEC_04_Technical.md) |
 | ControlPower | 控制力 | 上阵占用；本版上限=等级行 ControlPowerCap；超额失控 | [§3.11](SPEC_03_GameRules.md) |
 | LossOfControl | 失控 | Degree 分档；开战锁定；各士兵独立 roll；成功→叛变 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | LossOfControlDegree | 失控程度 | ΣCost/Cap−1；≤0 未失控；开战锁定 | [§3.11](SPEC_03_GameRules.md) |
@@ -144,7 +150,7 @@
 | BattleFormation | 战斗布阵 | 连续坐标；共享 `FormationEditor`；与士兵池同槽 PlayerPrefs 持久化 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | WarriorPool | 士兵可上阵池 | 存档级已造士兵实例集合；制造入池；布阵/Defend/PushMap 共用；按槽持久化 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | FormationEditor | 布阵编辑器 | Prefab `FormationEditorRoot`；底栏士兵格（上阵保留+变亮）+ Idle 跟手拖放；UM 返回 / Defend 开战 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
-| SoldierHoverTooltip | 士兵栏悬浮框 | Mode2 布阵：指针停在有兵 `SoldierSlot` 上展示职业/种族/静态属性/技能（UI-021 / D-065）；图标 `Resources/UI/Skills/{SkillId}`；Mode1 无 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| SoldierHoverTooltip | 士兵栏悬浮框 | Mode2 布阵：指针停在有兵 `SoldierSlot` 上展示职业/种族/静态属性/技能（UI-021 / D-065）；图标 `Resources/UI/Skills/{SkillId}`；`Icon` 右上角 5×5 按 `EffectImplemented` 绿/红（D-070）；Mode1 无 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Defend | 防守 / 保卫战 | Prepare→开战→Combat；亦可作战斗模式1；见专节 | [§3.12](SPEC_03_GameRules.md) |
 | BattleMode | 战斗模式 | Defend（保卫战）/ PushMap（推图战；规则 §3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
 | BattleModeSelect | 战斗模式选关 | 进入 Defend 后选模式+关卡（UI-013 / D-044；模式2确认→§3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |

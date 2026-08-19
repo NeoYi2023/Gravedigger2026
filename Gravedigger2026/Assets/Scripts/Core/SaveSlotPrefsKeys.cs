@@ -13,6 +13,7 @@ namespace Gravedigger2026.Core
         public const string AutoManufactureBatchSuffix = ".AutoManufactureBatch";
         public const string EquipCommonExpSuffix = ".EquipCommonExp";
         public const string ProtagonistEquipmentWarehouseSuffix = ".ProtagonistEquipmentWarehouse";
+        public const string ShopProgressSuffix = ".ShopProgress";
 
         public static string ModeSegment(CampaignMode mode)
         {

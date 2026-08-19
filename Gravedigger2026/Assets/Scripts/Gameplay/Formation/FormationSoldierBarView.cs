@@ -12,7 +12,8 @@ namespace Gravedigger2026.Gameplay.Formation
     [DefaultExecutionOrder(-100)]
     public sealed class FormationSoldierBarView : MonoBehaviour
     {
-        public const float SlotSize = 80f;
+        private const float DefaultSlotWidth = 80f;
+        private const float DefaultSlotHeight = 80f;
         private const float SlotSpacing = 8f;
         private const float DecideThresholdPx = 8f;
 
@@ -39,6 +40,7 @@ namespace Gravedigger2026.Gameplay.Formation
         private string _hoverWarriorId;
         private bool _liftNotified;
         private Canvas _canvas;
+        private Vector2 _slotSize = new Vector2(DefaultSlotWidth, DefaultSlotHeight);
 
         public RectTransform BarRoot => _barRoot != null ? _barRoot : (RectTransform)transform;
 
@@ -55,6 +57,7 @@ namespace Gravedigger2026.Gameplay.Formation
             _canvas = GetComponentInParent<Canvas>();
             EnsureScrollHierarchy();
             DisablePointerCatcherRaycast();
+            ResolveSlotSizeFromTemplate();
         }
 
         private void Update()
@@ -76,7 +79,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
                 _pressScreen = mouse;
                 _lastScreen = mouse;
-                _pressedSlot = FindSlotAt(mouse) ?? FindNearestSlot(mouse, SlotSize * 1.75f);
+                _pressedSlot = FindSlotAt(mouse) ?? FindNearestSlot(mouse, Mathf.Max(_slotSize.x, _slotSize.y) * 1.75f);
                 _mode = PointerMode.Pressed;
                 _liftNotified = false;
                 return;
@@ -147,6 +150,7 @@ namespace Gravedigger2026.Gameplay.Formation
         {
             EnsureScrollHierarchy();
             DisablePointerCatcherRaycast();
+            ResolveSlotSizeFromTemplate();
 
             var count = warriorIds != null ? warriorIds.Count : 0;
             EnsureSlotCount(count);
@@ -170,10 +174,10 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_content != null)
             {
                 var width = Mathf.Max(
-                    SlotSize,
-                    count * (SlotSize + SlotSpacing) + SlotSpacing + 8f);
+                    _slotSize.x,
+                    count * (_slotSize.x + SlotSpacing) + SlotSpacing + 8f);
                 _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, SlotSize);
+                _content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _slotSize.y);
             }
 
             Canvas.ForceUpdateCanvases();
@@ -481,23 +485,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 go.name = $"SoldierSlot_{_slots.Count}";
                 go.SetActive(true);
 
-                var rt = go.transform as RectTransform;
-                if (rt != null)
-                {
-                    rt.sizeDelta = new Vector2(SlotSize, SlotSize);
-                }
-
-                var layout = go.GetComponent<LayoutElement>();
-                if (layout == null)
-                {
-                    layout = go.AddComponent<LayoutElement>();
-                }
-
-                layout.preferredWidth = SlotSize;
-                layout.preferredHeight = SlotSize;
-                layout.minWidth = SlotSize;
-                layout.minHeight = SlotSize;
-
+                ApplySlotCellSize(go);
                 var slot = go.GetComponent<FormationSoldierSlotView>();
                 if (slot == null)
                 {
@@ -506,6 +494,85 @@ namespace Gravedigger2026.Gameplay.Formation
 
                 _slots.Add(slot);
             }
+
+            for (var i = 0; i < _slots.Count; i++)
+            {
+                if (_slots[i] != null)
+                {
+                    ApplySlotCellSize(_slots[i].gameObject);
+                }
+            }
+        }
+
+        private void ResolveSlotSizeFromTemplate()
+        {
+            if (_slotTemplate == null)
+            {
+                return;
+            }
+
+            var rt = _slotTemplate.transform as RectTransform;
+            if (rt == null)
+            {
+                return;
+            }
+
+            var size = ReadRectSize(rt);
+            if (size.x > 1f)
+            {
+                _slotSize.x = size.x;
+            }
+
+            if (size.y > 1f)
+            {
+                _slotSize.y = size.y;
+            }
+
+            ApplySlotCellSize(_slotTemplate.gameObject);
+        }
+
+        private void ApplySlotCellSize(GameObject go)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var rt = go.transform as RectTransform;
+            if (rt != null)
+            {
+                rt.sizeDelta = _slotSize;
+            }
+
+            var layout = go.GetComponent<LayoutElement>();
+            if (layout == null)
+            {
+                layout = go.AddComponent<LayoutElement>();
+            }
+
+            layout.preferredWidth = _slotSize.x;
+            layout.preferredHeight = _slotSize.y;
+            layout.minWidth = _slotSize.x;
+            layout.minHeight = _slotSize.y;
+        }
+
+        private static Vector2 ReadRectSize(RectTransform rt)
+        {
+            var stretchedX = Mathf.Abs(rt.anchorMax.x - rt.anchorMin.x) > 0.001f;
+            var stretchedY = Mathf.Abs(rt.anchorMax.y - rt.anchorMin.y) > 0.001f;
+            var w = stretchedX ? rt.rect.width : rt.sizeDelta.x;
+            var h = stretchedY ? rt.rect.height : rt.sizeDelta.y;
+            if (w <= 1f)
+            {
+                w = rt.rect.width;
+            }
+
+            if (h <= 1f)
+            {
+                h = rt.rect.height;
+            }
+
+            return new Vector2(w, h);
         }
 
         private static void Stretch(RectTransform rt)

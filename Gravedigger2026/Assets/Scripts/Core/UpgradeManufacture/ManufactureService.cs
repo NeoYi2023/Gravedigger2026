@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using UnityEngine;
 
@@ -529,8 +530,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 ref raceAdjust,
                 className);
 
+            var classBaseMoveSpeed = WarriorCombatMath.ResolveClassBaseMoveSpeed(aggregate.Class);
             var staticStats = WarriorStatMath.ComputeStaticStats(
-                aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
+                aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust, classBaseMoveSpeed);
             var bodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
 
             var minMet = aggregate.TorsoCount >= 1
@@ -671,8 +673,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 ref raceAdjust,
                 className);
 
+            var classBaseMoveSpeed = WarriorCombatMath.ResolveClassBaseMoveSpeed(aggregate.Class);
             var staticStats = WarriorStatMath.ComputeStaticStats(
-                aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust);
+                aggregate.Base, aggregate.Equip, aggregate.GemMult, raceAdjust, classBaseMoveSpeed);
             var bodyLife = WarriorStatMath.ComputeBodyLife(aggregate.Base, aggregate.Equip);
             var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());
 

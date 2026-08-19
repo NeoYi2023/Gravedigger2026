@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
@@ -288,7 +289,9 @@ namespace Gravedigger2026.Core.Defend
                 return false;
             }
 
-            var battleStats = WarriorCombatMath.ComputeBattleStats(warrior);
+            var battleStats = WarriorCombatMath.ComputeBattleStats(
+                warrior,
+                WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow));
             var coeffDefaults = _configs != null
                 ? _configs.GetCombatConvertCoeffDefaults()
                 : CombatConvertCoeffs.SafetyDefaults;
@@ -823,6 +826,14 @@ namespace Gravedigger2026.Core.Defend
         /// <summary>Computed SkillCooldown duration (seconds); 0 if no active skill.</summary>
         public float SkillCooldownSeconds;
         public float SkillCdRemaining;
+        /// <summary>Last monster runtimeId hit by normal attack (D-073 Skill_04 new-target first hit).</summary>
+        public string LastNormalAttackTargetRuntimeId;
+        /// <summary>Per-skill internal CD remaining (Skill_05 / Skill_07 / Skill_12); keyed by SkillId.</summary>
+        public Dictionary<string, float> SkillInternalCdRemaining;
+        /// <summary>Precomputed internal CD duration per SkillId at register (Mode2 formula).</summary>
+        public Dictionary<string, float> SkillInternalCooldownSeconds;
+        /// <summary>Per-EffectKind stack state (D-073 Skill_09 / StackingOutgoingMulTimed).</summary>
+        public Dictionary<string, EffectStackState> EffectStackByKind;
     }
 
     public sealed class DefendCombatMonsterState

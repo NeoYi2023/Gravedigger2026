@@ -1,0 +1,7 @@
+BondId,BondLevel,DisplayName,IconAssetId,Description,ActivationCondition,BondBuff
+Bond_IronWall,1,铜墙铁壁 I,Bond_IronWall,上阵3名战士：战士 MaxHP +3%（展示）,DeployClassCount|BaseClass=战士|Min=3,BondEffect_IronWall_1
+Bond_IronWall,2,铜墙铁壁 II,Bond_IronWall,上阵5名战士：战士 MaxHP +5%（展示）,DeployClassCount|BaseClass=战士|Min=5,BondEffect_IronWall_2
+Bond_HumanLegion,1,人类军团,Bond_HumanLegion,上阵4名人类：展示用羁绊,DeployRaceCount|RaceId=Race_Human|Min=4,BondEffect_HumanLegion_1
+Bond_FullArmy,1,满编,Bond_FullArmy,上阵8名士兵：展示用羁绊,DeployTotalCount|Min=8,BondEffect_FullArmy_1
+Bond_StrStrength,1,力之共鸣,Bond_StrStrength,上阵4名力量主属性士兵：展示用羁绊,DeployPrimaryStatCount|Stat=Strength|Min=4,BondEffect_StrStrength_1
+Bond_PreciseClass,1,近卫专精,Bond_PreciseClass,上阵2名近卫：展示用羁绊,DeployClassCount|ClassId=Class_Guardian|Min=2,BondEffect_PreciseClass_1

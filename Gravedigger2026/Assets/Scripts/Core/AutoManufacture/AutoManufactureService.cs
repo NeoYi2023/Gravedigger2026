@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
@@ -116,8 +117,9 @@ namespace Gravedigger2026.Core.AutoManufacture
             warrior.RaceId = raceId;
             warrior.RaceAdjustCoeff = raceAdjust;
 
+            var classBaseMoveSpeed = WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow);
             var staticStats = WarriorStatMath.ComputeStaticStats(
-                warrior.BaseStats, warrior.EquipStats, warrior.GemMult, warrior.RaceAdjustCoeff);
+                warrior.BaseStats, warrior.EquipStats, warrior.GemMult, warrior.RaceAdjustCoeff, classBaseMoveSpeed);
             warrior.BodyLife = WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats);
             var maxHp = WarriorStatMath.ComputeMaxHP(warrior.BodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());
             warrior.RemainingHP = maxHp;
@@ -648,8 +650,9 @@ namespace Gravedigger2026.Core.AutoManufacture
             draft.RaceId = raceId;
             draft.RaceAdjustCoeff = raceAdjust;
 
+            var classBaseMoveSpeed = WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow);
             var staticStats = WarriorStatMath.ComputeStaticStats(
-                draft.BaseStats, draft.EquipStats, draft.GemMult, draft.RaceAdjustCoeff);
+                draft.BaseStats, draft.EquipStats, draft.GemMult, draft.RaceAdjustCoeff, classBaseMoveSpeed);
             draft.BodyLife = WarriorStatMath.ComputeBodyLife(draft.BaseStats, draft.EquipStats);
             draft.MaxHP = WarriorStatMath.ComputeMaxHP(draft.BodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());
             draft.WarriorName = BuildWarriorName(raceRow, draft.RaceId, className);

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.AutoManufacture;
+using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
@@ -31,9 +33,11 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Button _returnButton;
         [SerializeField] private Button _startBattleButton;
         [SerializeField] private Button _completeButton;
+        private Button _oneClickDeployButton;
         [SerializeField] private RectTransform _dragGhost;
         [SerializeField] private Image _dragGhostImage;
         [SerializeField] private FormationSoldierHoverTooltipView _hoverTooltip;
+        [SerializeField] private FormationBondHudView _bondHud;
 
         private readonly List<string> _barIds = new List<string>();
         private readonly List<string> _barDisplayNames = new List<string>();
@@ -62,6 +66,9 @@ namespace Gravedigger2026.Gameplay.Formation
         private bool _leftBar;
         private bool _wasDeployedBeforeDrag;
         private GameObject _worldDragPreview;
+
+        private bool _suppressAutoDeployRefresh;
+        private readonly List<FormationClassZoneSnapshot> _zonesScratch = new List<FormationClassZoneSnapshot>();
 
         public event Action ReturnRequested;
         public event Action StartBattleRequested;
@@ -109,6 +116,7 @@ namespace Gravedigger2026.Gameplay.Formation
             _dragWarriorId = null;
             _leftBar = false;
             _wasDeployedBeforeDrag = false;
+            _suppressAutoDeployRefresh = false;
 
             EnsureWorldRoot();
             if (existingMapOrNull != null)
@@ -162,6 +170,12 @@ namespace Gravedigger2026.Gameplay.Formation
                 _completeButton.onClick.AddListener(HandleComplete);
             }
 
+            EnsureOneClickDeployButton();
+            if (_oneClickDeployButton != null)
+            {
+                _oneClickDeployButton.onClick.AddListener(HandleOneClickDeploy);
+            }
+
             if (_soldierBar != null)
             {
                 _soldierBar.SlotLiftStarted += HandleBarSlotLiftStarted;
@@ -182,6 +196,11 @@ namespace Gravedigger2026.Gameplay.Formation
             HideHoverTooltip();
             HideUiGhost();
             ClearWorldDragPreview();
+            if (_bondHud != null)
+            {
+                _bondHud.BindServices(_formation, _pool, _configs);
+            }
+
             RefreshAll();
         }
 
@@ -205,6 +224,11 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_completeButton != null)
             {
                 _completeButton.onClick.RemoveListener(HandleComplete);
+            }
+
+            if (_oneClickDeployButton != null)
+            {
+                _oneClickDeployButton.onClick.RemoveListener(HandleOneClickDeploy);
             }
 
             if (_soldierBar != null)
@@ -252,6 +276,11 @@ namespace Gravedigger2026.Gameplay.Formation
             _progress = null;
             _active = false;
             _dragKind = DragKind.None;
+            if (_oneClickDeployButton != null)
+            {
+                Destroy(_oneClickDeployButton.gameObject);
+                _oneClickDeployButton = null;
+            }
             HideUiGhost();
         }
 
@@ -523,12 +552,112 @@ namespace Gravedigger2026.Gameplay.Formation
 
         private void HandleFormationChanged()
         {
-            if (_dragKind != DragKind.None)
+            if (_dragKind != DragKind.None || _suppressAutoDeployRefresh)
             {
                 return;
             }
 
             RefreshAll();
+        }
+
+        private void EnsureOneClickDeployButton()
+        {
+            if (_oneClickDeployButton != null)
+            {
+                return;
+            }
+
+            if (_formation == null || _formation.BoundCampaignMode != CampaignMode.Mode2)
+            {
+                return;
+            }
+
+            if (_completeButton == null)
+            {
+                return;
+            }
+
+            var canvasParent = _completeButton.transform.parent;
+            if (canvasParent == null)
+            {
+                return;
+            }
+
+            var completeRt = _completeButton.GetComponent<RectTransform>();
+            if (completeRt == null)
+            {
+                return;
+            }
+
+            const float gap = 8f;
+            const float width = 180f;
+
+            // Runtime-UI: create the button next to CompleteButton to avoid prefab authoring dependency.
+            var go = new GameObject("OneClickDeployButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(canvasParent, false);
+
+            var img = go.GetComponent<Image>();
+            img.color = new Color(0.25f, 0.4f, 0.62f, 1f);
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = completeRt.anchorMin;
+            rect.anchorMax = completeRt.anchorMax;
+            rect.pivot = completeRt.pivot;
+            rect.anchoredPosition = new Vector2(
+                completeRt.anchoredPosition.x - completeRt.sizeDelta.x - gap,
+                completeRt.anchoredPosition.y);
+            rect.sizeDelta = new Vector2(width, completeRt.sizeDelta.y);
+
+            var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(go.transform, false);
+            var txt = textGo.GetComponent<Text>();
+            txt.text = "一键上阵";
+            txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.fontSize = 20;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+
+            var textRt = txt.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+
+            _oneClickDeployButton = go.GetComponent<Button>();
+            _oneClickDeployButton.interactable = true;
+        }
+
+        private void HandleOneClickDeploy()
+        {
+            if (_pool == null || _formation == null || _configs == null)
+            {
+                return;
+            }
+
+            if (_formation.BoundCampaignMode != CampaignMode.Mode2 || _suppressAutoDeployRefresh)
+            {
+                return;
+            }
+
+            var hasZones = TryCollectClassZones(_zonesScratch);
+            if (!hasZones || _zonesScratch.Count == 0)
+            {
+                Debug.LogWarning("[FormationEditor] OneClickDeploy: no FormationClassZone on current map.");
+                return;
+            }
+
+            _suppressAutoDeployRefresh = true;
+            try
+            {
+                var deployService = new OneClickFormationDeployService(_configs, _pool, _formation);
+                var deployed = deployService.DeployNotYetDeployedRandom(_zonesScratch);
+                Debug.Log($"[FormationEditor] OneClickDeploy deployed={deployed} (zones={_zonesScratch.Count})");
+            }
+            finally
+            {
+                _suppressAutoDeployRefresh = false;
+                RefreshAll();
+            }
         }
 
         private void RefreshAll()
@@ -544,6 +673,11 @@ namespace Gravedigger2026.Gameplay.Formation
                 && (_mode == FormationEditorMode.DefendPrepare || _mode == FormationEditorMode.PushMapPrepare))
             {
                 _startBattleButton.interactable = _formation != null && _formation.Entries.Count >= 1;
+            }
+
+            if (_bondHud != null)
+            {
+                _bondHud.RefreshLive();
             }
         }
 
@@ -668,7 +802,8 @@ namespace Gravedigger2026.Gameplay.Formation
                 warrior.BaseStats,
                 warrior.EquipStats,
                 warrior.GemMult,
-                warrior.RaceAdjustCoeff);
+                warrior.RaceAdjustCoeff,
+                WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow));
             content.MaxHp = WarriorStatMath.ComputeMaxHP(
                 warrior.BodyLife,
                 staticStats.Strength,
@@ -689,17 +824,23 @@ namespace Gravedigger2026.Gameplay.Formation
                     }
 
                     var displayName = entry.SkillId;
+                    var effectImplemented = false;
                     if (_configs.TryGetSkill(entry.SkillId, entry.SkillLevel, out var skillRow) &&
-                        skillRow != null &&
-                        !string.IsNullOrEmpty(skillRow.DisplayName))
+                        skillRow != null)
                     {
-                        displayName = skillRow.DisplayName;
+                        if (!string.IsNullOrEmpty(skillRow.DisplayName))
+                        {
+                            displayName = skillRow.DisplayName;
+                        }
+
+                        effectImplemented = skillRow.EffectImplemented;
                     }
 
                     content.Skills.Add(new FormationSoldierHoverTooltipView.SkillItem
                     {
                         DisplayName = displayName,
-                        Icon = FormationSoldierHoverTooltipView.LoadSkillIcon(entry.SkillId)
+                        Icon = FormationSoldierHoverTooltipView.LoadSkillIcon(entry.SkillId),
+                        EffectImplemented = effectImplemented
                     });
                 }
             }

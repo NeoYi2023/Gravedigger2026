@@ -117,6 +117,18 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
         }
 
+        private static bool IsFxOverlayRenderer(Renderer renderer)
+        {
+            if (renderer == null)
+            {
+                return true;
+            }
+
+            var n = renderer.gameObject.name;
+            return n == "AllyFootCircle" ||
+                   (n != null && n.StartsWith(WarriorSkillIconHudView.IconObjectPrefix, System.StringComparison.Ordinal));
+        }
+
         private void EnsureRenderers()
         {
             if (_renderers != null)
@@ -124,7 +136,19 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            _renderers = GetComponentsInChildren<Renderer>(true);
+            var all = GetComponentsInChildren<Renderer>(true);
+            var filtered = new List<Renderer>(all.Length);
+            for (var i = 0; i < all.Length; i++)
+            {
+                if (IsFxOverlayRenderer(all[i]))
+                {
+                    continue;
+                }
+
+                filtered.Add(all[i]);
+            }
+
+            _renderers = filtered.ToArray();
             _spriteOriginals = new Dictionary<SpriteRenderer, Color>();
             for (var i = 0; i < _renderers.Length; i++)
             {

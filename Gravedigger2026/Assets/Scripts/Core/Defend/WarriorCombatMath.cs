@@ -9,7 +9,7 @@ namespace Gravedigger2026.Core.Defend
     /// </summary>
     public static class WarriorCombatMath
     {
-        public static StatBlock ComputeBattleStats(WarriorInstance warrior)
+        public static StatBlock ComputeBattleStats(WarriorInstance warrior, float classBaseMoveSpeed)
         {
             if (warrior == null)
             {
@@ -20,7 +20,15 @@ namespace Gravedigger2026.Core.Defend
                 warrior.BaseStats,
                 warrior.EquipStats,
                 warrior.GemMult,
-                warrior.RaceAdjustCoeff);
+                warrior.RaceAdjustCoeff,
+                classBaseMoveSpeed);
+        }
+
+        public static float ResolveClassBaseMoveSpeed(ClassConfigRow classRow)
+        {
+            return classRow != null
+                ? classRow.ResolveBaseMoveSpeed()
+                : ClassConfigRow.DefaultBaseMoveSpeed;
         }
 
         public static float ResolvePrimary(in StatBlock stats, StatKind primaryStat)

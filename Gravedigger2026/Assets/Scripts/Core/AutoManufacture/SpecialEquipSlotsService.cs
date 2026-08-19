@@ -7,7 +7,7 @@ namespace Gravedigger2026.Core.AutoManufacture
     /// <summary>
     /// Protagonist MagicBook 6-slot persistence + equip gate (SPEC_03 §3.15 / SPEC_04 §6 / §9.24).
     /// PlayerPrefs JSON per slot + CampaignMode; mutate → immediate write when bound.
-    /// TryEquip / TrySwap / Unequip raise <see cref="Changed"/> (UI-023 / D-068).
+    /// TryEquip / TrySwap / TryUnequip raise <see cref="Changed"/> (UI-023 / D-068 / D-072).
     /// </summary>
     public sealed class SpecialEquipSlotsService
     {

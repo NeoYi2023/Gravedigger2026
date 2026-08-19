@@ -13,9 +13,12 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             in StatBlock baseStats,
             in StatBlock equip,
             in StatBlock gemMult,
-            in StatBlock raceAdjust)
+            in StatBlock raceAdjust,
+            float classBaseMoveSpeed)
         {
-            var b = baseStats.Get(kind);
+            var b = kind == StatKind.MoveSpeed
+                ? ResolveMoveSpeedBase(classBaseMoveSpeed)
+                : baseStats.Get(kind);
             var raw = b + equip.Get(kind) + b * gemMult.Get(kind) + b * raceAdjust.Get(kind);
             return Math.Max(0f, raw);
         }
@@ -24,15 +27,23 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             in StatBlock baseStats,
             in StatBlock equip,
             in StatBlock gemMult,
-            in StatBlock raceAdjust)
+            in StatBlock raceAdjust,
+            float classBaseMoveSpeed)
         {
             var result = new StatBlock();
             for (var kind = StatKind.MaxHP; kind <= StatKind.Intelligence; kind++)
             {
-                result.Set(kind, ComputeStaticStat(kind, baseStats, equip, gemMult, raceAdjust));
+                result.Set(
+                    kind,
+                    ComputeStaticStat(kind, baseStats, equip, gemMult, raceAdjust, classBaseMoveSpeed));
             }
 
             return result;
+        }
+
+        public static float ResolveMoveSpeedBase(float classBaseMoveSpeed)
+        {
+            return classBaseMoveSpeed > 0.01f ? classBaseMoveSpeed : ClassConfigRow.DefaultBaseMoveSpeed;
         }
 
         /// <summary>

@@ -3,11 +3,11 @@ using System;
 namespace Gravedigger2026.Gameplay.Pathing
 {
     /// <summary>
-    /// Demo Debug toggle for soldier GoalKind foot labels (SPEC_04 §9.7). Default on.
+    /// Demo Debug toggle for soldier GoalKind foot labels (SPEC_04 §9.7). Default off.
     /// </summary>
     public static class WarriorTaskLabelSettings
     {
-        private static bool _enabled = true;
+        private static bool _enabled = false;
 
         public static event Action<bool> EnabledChanged;
 

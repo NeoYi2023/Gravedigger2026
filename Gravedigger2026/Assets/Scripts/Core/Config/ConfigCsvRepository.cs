@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using UnityEngine;
@@ -26,6 +27,8 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, MaterialConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, CurrencyConfigRow> _currencyById =
             new Dictionary<string, CurrencyConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, ItemCatalogConfigRow> _itemCatalogById =
+            new Dictionary<string, ItemCatalogConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<int, ProtagonistLevelConfigRow> _protagonistLevelById =
             new Dictionary<int, ProtagonistLevelConfigRow>();
         private readonly Dictionary<string, BodyPartConfigRow> _bodyPartById =
@@ -38,6 +41,8 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, SkillConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, SkillLevelRange> _skillLevelRangeById =
             new Dictionary<string, SkillLevelRange>(StringComparer.Ordinal);
+        private readonly Dictionary<string, SkillEffectConfigRow> _skillEffectById =
+            new Dictionary<string, SkillEffectConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, MagicBookConfigRow> _magicBookById =
             new Dictionary<string, MagicBookConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, ProtagonistEquipmentConfigRow> _protagonistEquipmentByKey =
@@ -65,6 +70,21 @@ namespace Gravedigger2026.Core.Config
         private readonly Dictionary<string, PushMapGameplayConfigRow> _pushMapById =
             new Dictionary<string, PushMapGameplayConfigRow>(StringComparer.Ordinal);
         private readonly List<PushMapSpawnConfigRow> _pushMapSpawnRows = new List<PushMapSpawnConfigRow>();
+        private readonly Dictionary<string, FormationBondConfigRow> _formationBondByKey =
+            new Dictionary<string, FormationBondConfigRow>(StringComparer.Ordinal);
+        private readonly List<FormationBondConfigRow> _formationBondRows = new List<FormationBondConfigRow>();
+        private readonly Dictionary<string, List<FormationBondConfigRow>> _formationBondRowsByBondId =
+            new Dictionary<string, List<FormationBondConfigRow>>(StringComparer.Ordinal);
+        private readonly Dictionary<string, BondActivationCondition> _bondConditionByBondKey =
+            new Dictionary<string, BondActivationCondition>(StringComparer.Ordinal);
+
+        private readonly Dictionary<string, ShopPoolConfigRow> _shopPoolById =
+            new Dictionary<string, ShopPoolConfigRow>(StringComparer.Ordinal);
+
+        private readonly List<ShopPoolConfigRow> _shopPoolRows = new List<ShopPoolConfigRow>();
+
+        private readonly Dictionary<int, ShopRefreshPriceConfigRow> _shopRefreshPriceByCount =
+            new Dictionary<int, ShopRefreshPriceConfigRow>();
 
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
@@ -101,12 +121,14 @@ namespace Gravedigger2026.Core.Config
             _graveById.Clear();
             _materialById.Clear();
             _currencyById.Clear();
+            _itemCatalogById.Clear();
             _protagonistLevelById.Clear();
             _bodyPartById.Clear();
             _soulById.Clear();
             _classById.Clear();
             _skillByKey.Clear();
             _skillLevelRangeById.Clear();
+            _skillEffectById.Clear();
             _magicBookById.Clear();
             _protagonistEquipmentByKey.Clear();
             _raceById.Clear();
@@ -122,6 +144,14 @@ namespace Gravedigger2026.Core.Config
             _techEffectById.Clear();
             _pushMapById.Clear();
             _pushMapSpawnRows.Clear();
+            _formationBondByKey.Clear();
+            _formationBondRows.Clear();
+            _formationBondRowsByBondId.Clear();
+            _bondConditionByBondKey.Clear();
+
+            _shopPoolById.Clear();
+            _shopPoolRows.Clear();
+            _shopRefreshPriceByCount.Clear();
 
             try
             {
@@ -140,8 +170,18 @@ namespace Gravedigger2026.Core.Config
                 LoadSouls();
                 LoadClasses();
                 LoadSkills();
+                LoadSkillEffects();
+                LoadFormationBonds();
                 LoadMagicBooks();
                 LoadProtagonistEquipment();
+
+                if (mode == CampaignMode.Mode2)
+                {
+                    LoadShopPoolConfig();
+                    LoadShopRefreshPriceConfig();
+                }
+
+                LoadItemCatalog();
                 LoadRaces();
                 LoadGems();
                 LoadExtraEquipment();
@@ -154,7 +194,7 @@ namespace Gravedigger2026.Core.Config
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -382,12 +422,79 @@ namespace Gravedigger2026.Core.Config
 
         public IEnumerable<SkillConfigRow> Skills => _skillByKey.Values;
 
+        /// <summary>PK lookup (SPEC_04 §9.21b): SkillEffectId.</summary>
+        public bool TryGetSkillEffect(string skillEffectId, out SkillEffectConfigRow row)
+        {
+            return _skillEffectById.TryGetValue(skillEffectId ?? string.Empty, out row);
+        }
+
+        public IEnumerable<SkillEffectConfigRow> SkillEffects => _skillEffectById.Values;
+
+        /// <summary>Composite PK lookup (SPEC_04 §9.26): BondId + BondLevel.</summary>
+        public bool TryGetFormationBond(string bondId, int bondLevel, out FormationBondConfigRow row)
+        {
+            row = null;
+            if (string.IsNullOrEmpty(bondId) || bondLevel < 1)
+            {
+                return false;
+            }
+
+            return _formationBondByKey.TryGetValue(MakeFormationBondKey(bondId, bondLevel), out row);
+        }
+
+        public IReadOnlyList<FormationBondConfigRow> GetFormationBondRowsForBondId(string bondId)
+        {
+            if (string.IsNullOrEmpty(bondId)
+                || !_formationBondRowsByBondId.TryGetValue(bondId, out var rows))
+            {
+                return Array.Empty<FormationBondConfigRow>();
+            }
+
+            return rows;
+        }
+
+        public IReadOnlyList<FormationBondConfigRow> GetAllFormationBondRows()
+        {
+            return _formationBondRows;
+        }
+
+        public bool TryGetBondActivationCondition(
+            FormationBondConfigRow row,
+            out BondActivationCondition condition)
+        {
+            condition = null;
+            if (row == null || string.IsNullOrEmpty(row.BondId) || row.BondLevel < 1)
+            {
+                return false;
+            }
+
+            var key = MakeFormationBondKey(row.BondId, row.BondLevel);
+            return _bondConditionByBondKey.TryGetValue(key, out condition);
+        }
+
         public bool TryGetMagicBook(string magicBookId, out MagicBookConfigRow row)
         {
             return _magicBookById.TryGetValue(magicBookId ?? string.Empty, out row);
         }
 
         public IEnumerable<MagicBookConfigRow> MagicBooks => _magicBookById.Values;
+
+        public bool TryGetShopPool(string shopPoolId, out ShopPoolConfigRow row)
+        {
+            return _shopPoolById.TryGetValue(shopPoolId ?? string.Empty, out row);
+        }
+
+        public IReadOnlyList<ShopPoolConfigRow> ShopPoolRows => _shopPoolRows;
+
+        public bool TryGetShopRefreshPrice(int refreshCount, out ShopRefreshPriceConfigRow row)
+        {
+            return _shopRefreshPriceByCount.TryGetValue(refreshCount, out row);
+        }
+
+        public bool TryGetItemCatalog(string itemId, out ItemCatalogConfigRow row)
+        {
+            return _itemCatalogById.TryGetValue(itemId ?? string.Empty, out row);
+        }
 
         /// <summary>Composite PK lookup (SPEC_04 §9.25): EquipId + EquipLevel.</summary>
         public bool TryGetProtagonistEquipment(string equipId, int equipLevel, out ProtagonistEquipmentConfigRow row)
@@ -1232,6 +1339,7 @@ namespace Gravedigger2026.Core.Config
                     MeleeWindupSeconds = OptionalFloat(raw, "MeleeWindupSeconds"),
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
                     RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
+                    BaseMoveSpeed = OptionalFloat(raw, "BaseMoveSpeed"),
                     ChaseMoveSpeedMult = ParseOptionalNonNegFloat(
                         raw,
                         "ChaseMoveSpeedMult",
@@ -1288,6 +1396,7 @@ namespace Gravedigger2026.Core.Config
                     Description = OptionalText(raw, "Description"),
                     IconAssetId = OptionalText(raw, "IconAssetId"),
                     SkillEffectId = OptionalText(raw, "SkillEffectId"),
+                    EffectImplemented = ParseOptionalBool01(raw, "EffectImplemented"),
                     BaseCooldownSeconds = OptionalFloat(raw, "BaseCooldownSeconds"),
                     LossOfControlChanceBonus = OptionalFloat(raw, "LossOfControlChanceBonus")
                 };
@@ -1323,6 +1432,105 @@ namespace Gravedigger2026.Core.Config
                     break;
                 }
             }
+        }
+
+        private void LoadSkillEffects()
+        {
+            const string table = "Combat_SkillEffectConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var skillEffectId = SimpleCsv.Require(raw, "SkillEffectId", table, rowIndex);
+                if (_skillEffectById.ContainsKey(skillEffectId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate SkillEffectId '{skillEffectId}'.");
+                }
+
+                _skillEffectById[skillEffectId] = new SkillEffectConfigRow
+                {
+                    SkillEffectId = skillEffectId,
+                    Notes = OptionalText(raw, "Notes"),
+                    EffectKind = OptionalText(raw, "EffectKind"),
+                    EffectParams = OptionalText(raw, "EffectParams"),
+                    TriggerHook = OptionalText(raw, "TriggerHook")
+                };
+            }
+        }
+
+        private void LoadFormationBonds()
+        {
+            const string table = "Combat_FormationBondConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var bondId = SimpleCsv.Require(raw, "BondId", table, rowIndex);
+                var levelText = SimpleCsv.Require(raw, "BondLevel", table, rowIndex);
+                if (!int.TryParse(levelText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var level)
+                    || level < 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal BondLevel '{levelText}' (expect ≥ 1).");
+                }
+
+                var key = MakeFormationBondKey(bondId, level);
+                if (_formationBondByKey.ContainsKey(key))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate composite PK ({bondId}, {level}).");
+                }
+
+                var activationCondition = SimpleCsv.Require(raw, "ActivationCondition", table, rowIndex);
+                if (!BondActivationCondition.TryParse(activationCondition, out var parsed, out var parseError))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: {parseError}");
+                }
+
+                var bondBuff = OptionalText(raw, "BondBuff");
+                if (!string.IsNullOrEmpty(bondBuff) && !_skillEffectById.ContainsKey(bondBuff))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: BondBuff '{bondBuff}' not found in Combat_SkillEffectConfig.");
+                }
+
+                var row = new FormationBondConfigRow
+                {
+                    BondId = bondId,
+                    BondLevel = level,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    IconAssetId = OptionalText(raw, "IconAssetId"),
+                    Description = OptionalText(raw, "Description"),
+                    ActivationCondition = activationCondition,
+                    BondBuff = bondBuff
+                };
+
+                _formationBondByKey[key] = row;
+                _formationBondRows.Add(row);
+                _bondConditionByBondKey[key] = parsed;
+
+                if (!_formationBondRowsByBondId.TryGetValue(bondId, out var byId))
+                {
+                    byId = new List<FormationBondConfigRow>();
+                    _formationBondRowsByBondId[bondId] = byId;
+                }
+
+                byId.Add(row);
+            }
+
+            foreach (var pair in _formationBondRowsByBondId)
+            {
+                pair.Value.Sort((a, b) => a.BondLevel.CompareTo(b.BondLevel));
+            }
+        }
+
+        private static string MakeFormationBondKey(string bondId, int bondLevel)
+        {
+            return bondId + "\u001f" + bondLevel.ToString(CultureInfo.InvariantCulture);
         }
 
         private static string MakeSkillKey(string skillId, int skillLevel)
@@ -1490,6 +1698,37 @@ namespace Gravedigger2026.Core.Config
                         $"(got [{string.Join(",", pair.Value)}]).");
                     break;
                 }
+            }
+        }
+
+        private void LoadItemCatalog()
+        {
+            const string table = "Item_ItemCatalogConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var itemId = SimpleCsv.Require(raw, "ItemId", table, rowIndex);
+                if (_itemCatalogById.ContainsKey(itemId))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: duplicate ItemId '{itemId}'.");
+                }
+
+                var itemType = SimpleCsv.Require(raw, "ItemType", table, rowIndex);
+                var sourceTable = SimpleCsv.Require(raw, "SourceTable", table, rowIndex);
+                ValidateItemCatalogSource(itemId, itemType, sourceTable, table, rowIndex);
+
+                _itemCatalogById[itemId] = new ItemCatalogConfigRow
+                {
+                    ItemId = itemId,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    IconAssetId = OptionalText(raw, "IconAssetId"),
+                    ItemType = itemType,
+                    SourceTable = sourceTable,
+                    Description = OptionalText(raw, "Description"),
+                    SellPrice = ParseOptionalNonNegInt(raw, "SellPrice", table, rowIndex)
+                };
             }
         }
 
@@ -1832,6 +2071,211 @@ namespace Gravedigger2026.Core.Config
             }
         }
 
+        private void LoadShopPoolConfig()
+        {
+            // SPEC_04 §9.27：Mode2 shop pools with PoolItemsRaw parsing + basic validation.
+            var equipIdSet = BuildProtagonistEquipIdSet();
+            var magicBookIdSet = new HashSet<string>(_magicBookById.Keys, StringComparer.Ordinal);
+
+            const string table = "Shop_ShopPoolConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+
+                var shopPoolId = SimpleCsv.Require(raw, "ShopPoolId", table, rowIndex);
+                if (_shopPoolById.ContainsKey(shopPoolId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate ShopPoolId '{shopPoolId}'.");
+                }
+
+                var requiredText = SimpleCsv.Require(raw, "RequiredMaxLevelNumber", table, rowIndex);
+                if (!int.TryParse(requiredText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var required)
+                    || required < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RequiredMaxLevelNumber '{requiredText}'.");
+                }
+
+                var extraUnlockCondition = OptionalText(raw, "ExtraUnlockCondition");
+                var poolItemsRaw = SimpleCsv.Require(raw, "PoolItemsRaw", table, rowIndex);
+
+                var poolItems = ParseShopPoolItemsRaw(
+                    poolItemsRaw,
+                    table,
+                    rowIndex,
+                    equipIdSet,
+                    magicBookIdSet);
+
+                var row = new ShopPoolConfigRow
+                {
+                    ShopPoolId = shopPoolId,
+                    RequiredMaxLevelNumber = required,
+                    ExtraUnlockCondition = extraUnlockCondition,
+                    PoolItemsRaw = poolItemsRaw,
+                    PoolItems = poolItems
+                };
+
+                _shopPoolById[shopPoolId] = row;
+                _shopPoolRows.Add(row);
+            }
+        }
+
+        private void LoadShopRefreshPriceConfig()
+        {
+            // SPEC_04 §9.28：Mode2 shop manual refresh price progression.
+            const string table = "Shop_ShopRefreshPriceConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+
+                var refreshCountText = SimpleCsv.Require(raw, "RefreshCount", table, rowIndex);
+                if (!int.TryParse(refreshCountText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var refreshCount)
+                    || refreshCount < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RefreshCount '{refreshCountText}'.");
+                }
+
+                if (_shopRefreshPriceByCount.ContainsKey(refreshCount))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate RefreshCount '{refreshCount}'.");
+                }
+
+                var refreshPriceText = SimpleCsv.Require(raw, "RefreshPrice", table, rowIndex);
+                if (!int.TryParse(refreshPriceText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var refreshPrice)
+                    || refreshPrice < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RefreshPrice '{refreshPriceText}'.");
+                }
+
+                _shopRefreshPriceByCount[refreshCount] = new ShopRefreshPriceConfigRow
+                {
+                    RefreshCount = refreshCount,
+                    RefreshPrice = refreshPrice
+                };
+            }
+        }
+
+        private static List<ShopPoolItemCandidate> ParseShopPoolItemsRaw(
+            string poolItemsRaw,
+            string table,
+            int rowIndex,
+            HashSet<string> equipIdSet,
+            HashSet<string> magicBookIdSet)
+        {
+            var result = new List<ShopPoolItemCandidate>();
+            if (string.IsNullOrWhiteSpace(poolItemsRaw))
+            {
+                return result;
+            }
+
+            var segments = poolItemsRaw.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < segments.Length; i++)
+            {
+                var segment = segments[i];
+                var parts = segment.Split(new[] { ';' }, StringSplitOptions.None);
+                if (parts.Length != 3)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: PoolItemsRaw segment '{segment}' must be 'itemId;category;weight'.");
+                }
+
+                var itemId = parts[0]?.Trim() ?? string.Empty;
+                var categoryText = parts[1]?.Trim() ?? string.Empty;
+                var weightText = parts[2]?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrEmpty(itemId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: PoolItemsRaw segment '{segment}' has empty itemId.");
+                }
+
+                ShopPoolItemCategory category;
+                if (string.Equals(categoryText, "A", StringComparison.Ordinal))
+                {
+                    category = ShopPoolItemCategory.A;
+                }
+                else if (string.Equals(categoryText, "B", StringComparison.Ordinal))
+                {
+                    category = ShopPoolItemCategory.B;
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: PoolItemsRaw segment '{segment}' has illegal category '{categoryText}' (expected A|B).");
+                }
+
+                if (!float.TryParse(weightText, NumberStyles.Float, CultureInfo.InvariantCulture, out var weight) || weight < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: PoolItemsRaw segment '{segment}' has illegal weight '{weightText}' (expected non-negative).");
+                }
+
+                // Basic type validation (SS-01): A→ProtagonistEquipmentConfig EquipId, B→MagicBookConfig MagicBookId.
+                if (category == ShopPoolItemCategory.A)
+                {
+                    if (!equipIdSet.Contains(itemId))
+                    {
+                        throw new InvalidOperationException(
+                            $"{table} row {rowIndex}: PoolItemsRaw segment '{segment}' category=A but itemId '{itemId}' not in ProtagonistEquipmentConfig EquipId set.");
+                    }
+                }
+                else
+                {
+                    if (!magicBookIdSet.Contains(itemId))
+                    {
+                        throw new InvalidOperationException(
+                            $"{table} row {rowIndex}: PoolItemsRaw segment '{segment}' category=B but itemId '{itemId}' not in Manufacture_MagicBookConfig MagicBookId set.");
+                    }
+                }
+
+                // weight=0 is treated as absent.
+                if (weight == 0f)
+                {
+                    continue;
+                }
+
+                result.Add(new ShopPoolItemCandidate
+                {
+                    ItemId = itemId,
+                    Category = category,
+                    Weight = weight
+                });
+            }
+
+            return result;
+        }
+
+        private HashSet<string> BuildProtagonistEquipIdSet()
+        {
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var key in _protagonistEquipmentByKey.Keys)
+            {
+                if (string.IsNullOrEmpty(key))
+                {
+                    continue;
+                }
+
+                var idx = key.IndexOf('\u001f');
+                var equipId = idx >= 0 ? key.Substring(0, idx) : key;
+                if (!string.IsNullOrEmpty(equipId))
+                {
+                    set.Add(equipId);
+                }
+            }
+
+            return set;
+        }
+
         private static int ParseFacingYawFlip(Dictionary<string, string> raw, string table, int rowIndex)
         {
             var text = OptionalText(raw, "FacingYawFlip");
@@ -1880,6 +2324,72 @@ namespace Gravedigger2026.Core.Config
             return raw.TryGetValue(column, out var value) ? (value ?? string.Empty).Trim() : string.Empty;
         }
 
+        private void ValidateItemCatalogSource(string itemId, string itemType, string sourceTable, string table, int rowIndex)
+        {
+            if (string.Equals(itemType, "Currency", StringComparison.Ordinal))
+            {
+                if (!string.Equals(sourceTable, "Dig_CurrencyConfig", StringComparison.Ordinal) ||
+                    !_currencyById.ContainsKey(itemId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: ItemId '{itemId}' Currency must map to Dig_CurrencyConfig.");
+                }
+
+                return;
+            }
+
+            if (string.Equals(itemType, "Material", StringComparison.Ordinal))
+            {
+                if (!string.Equals(sourceTable, "Dig_MaterialConfig", StringComparison.Ordinal) ||
+                    !_materialById.ContainsKey(itemId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: ItemId '{itemId}' Material must map to Dig_MaterialConfig.");
+                }
+
+                return;
+            }
+
+            if (string.Equals(itemType, "BodyPart", StringComparison.Ordinal))
+            {
+                if (!string.Equals(sourceTable, "Manufacture_BodyPartConfig", StringComparison.Ordinal) ||
+                    !_bodyPartById.ContainsKey(itemId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: ItemId '{itemId}' BodyPart must map to Manufacture_BodyPartConfig.");
+                }
+
+                return;
+            }
+
+            if (string.Equals(itemType, "MagicBook", StringComparison.Ordinal))
+            {
+                if (!string.Equals(sourceTable, "Manufacture_MagicBookConfig", StringComparison.Ordinal) ||
+                    !_magicBookById.ContainsKey(itemId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: ItemId '{itemId}' MagicBook must map to Manufacture_MagicBookConfig.");
+                }
+
+                return;
+            }
+
+            if (string.Equals(itemType, "ProtagonistEquipment", StringComparison.Ordinal))
+            {
+                if (!string.Equals(sourceTable, "Protagonist_ProtagonistEquipmentConfig", StringComparison.Ordinal) ||
+                    !_protagonistEquipmentByKey.ContainsKey(MakeProtagonistEquipmentKey(itemId, 1)))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: ItemId '{itemId}' ProtagonistEquipment must map to Protagonist_ProtagonistEquipmentConfig Level 1.");
+                }
+
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"{table} row {rowIndex}: unsupported ItemType '{itemType}' for ItemId '{itemId}'.");
+        }
+
         private static float OptionalFloat(Dictionary<string, string> raw, string column)
         {
             var text = OptionalText(raw, column);
@@ -1889,6 +2399,14 @@ namespace Gravedigger2026.Core.Config
             }
 
             return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : 0f;
+        }
+
+        /// <summary>Missing/empty → false. "1" or "true" → true (SPEC_04 §9.21 EffectImplemented).</summary>
+        private static bool ParseOptionalBool01(Dictionary<string, string> raw, string column)
+        {
+            var text = OptionalText(raw, column);
+            return string.Equals(text, "1", StringComparison.Ordinal)
+                   || string.Equals(text, "true", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>Missing/empty VisualIntensityAdd → 1 (SPEC_04 §9.24).</summary>

@@ -17,6 +17,7 @@ namespace Gravedigger2026.Editor.Meta
     /// EM-01: Ensure InSaveEquipMagicBookPanels (UI-022/023).
     /// EM-02: Ensure EquipmentWarehouse list (UI-022 / D-067).
     /// EM-03: Nest shared BookRow into MagicBookSlotsPanel (UI-023 / D-068).
+    /// D-072: MagicBookSlotsPanel floating DeleteButton + TryUnequip confirm.
     /// </summary>
     public static class MetaShellAssetBuilder
     {
@@ -379,6 +380,14 @@ namespace Gravedigger2026.Editor.Meta
                     if (magicPanelProp != null)
                     {
                         magicPanelProp.objectReferenceValue = magicPanel;
+                    }
+                }
+                else
+                {
+                    var box = magicPanel.transform.Find("Box");
+                    if (box != null)
+                    {
+                        EnsureMagicBookDeleteButton(box, magicPanel);
                     }
                 }
 
@@ -1168,6 +1177,7 @@ namespace Gravedigger2026.Editor.Meta
             Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(180f, 44f));
 
             var view = root.AddComponent<MagicBookSlotsPanelView>();
+            EnsureMagicBookDeleteButton(box.transform, view);
             BookRowView nestedRow = null;
             var bookRowPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(AmAssetBuilder.BookRowPrefabPath);
             if (bookRowPrefab != null)
@@ -1189,6 +1199,55 @@ namespace Gravedigger2026.Editor.Meta
             so.ApplyModifiedPropertiesWithoutUndo();
             root.SetActive(false);
             return view;
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure MagicBook DeleteButton (UI-023 / D-072)")]
+        public static void EnsureMagicBookDeleteButtonMenu()
+        {
+            EnsureInSaveEquipMagicBookPanelsOnExistingPrefab();
+        }
+
+        private static void EnsureMagicBookDeleteButton(Transform box, MagicBookSlotsPanelView view)
+        {
+            if (box == null || view == null)
+            {
+                return;
+            }
+
+            var existing = box.Find("DeleteButton");
+            GameObject deleteGo;
+            if (existing != null)
+            {
+                deleteGo = existing.gameObject;
+            }
+            else
+            {
+                deleteGo = CreateButton(box, "DeleteButton", "删除", new Color(0.65f, 0.28f, 0.28f, 1f));
+                Place(
+                    deleteGo.GetComponent<RectTransform>(),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(0.5f, 0.5f),
+                    Vector2.zero,
+                    new Vector2(120f, 36f));
+            }
+
+            deleteGo.SetActive(false);
+
+            var so = new SerializedObject(view);
+            var deleteBtnProp = so.FindProperty("_deleteButton");
+            if (deleteBtnProp != null)
+            {
+                deleteBtnProp.objectReferenceValue = deleteGo.GetComponent<Button>();
+            }
+
+            var deleteRtProp = so.FindProperty("_deleteButtonRect");
+            if (deleteRtProp != null)
+            {
+                deleteRtProp.objectReferenceValue = deleteGo.GetComponent<RectTransform>();
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void NestBookRowIntoMagicPanel(MagicBookSlotsPanelView panel, GameObject bookRowPrefab)

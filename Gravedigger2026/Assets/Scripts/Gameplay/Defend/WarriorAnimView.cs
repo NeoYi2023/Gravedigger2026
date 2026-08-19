@@ -414,6 +414,14 @@ namespace Gravedigger2026.Gameplay.Defend
             return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
         }
 
+        /// <summary>Presentation facing as a planar unit vector (+X east, +Z north).</summary>
+        public bool TryGetFacingUnitXZ(out Vector3 unitXZ)
+        {
+            var dir = _facingDirIndex >= 0 ? _facingDirIndex : _defaultDirIndex;
+            unitXZ = DirIndexToUnitXZ(dir);
+            return unitXZ.sqrMagnitude > 1e-8f;
+        }
+
         /// <summary>
         /// Applies FacingYawFlip: 1 → (dirIndex+4)%8.
         /// </summary>
@@ -689,7 +697,14 @@ namespace Gravedigger2026.Gameplay.Defend
         /// </summary>
         private static bool IsAllyFootCircleRenderer(SpriteRenderer renderer)
         {
-            return renderer != null && renderer.gameObject.name == "AllyFootCircle";
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            var n = renderer.gameObject.name;
+            return n == "AllyFootCircle" ||
+                   (n != null && n.StartsWith("SkillIcon", System.StringComparison.Ordinal));
         }
 
         private void CacheParamHashes()

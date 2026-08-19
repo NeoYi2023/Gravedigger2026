@@ -33,6 +33,7 @@ namespace Gravedigger2026.Gameplay.Defend
         [SerializeField] private GameObject _battleProtagonistPrefab;
         [SerializeField] private GameObject _projectilePrefab;
         [SerializeField] private GameObject _damagePopupPrefab;
+        [SerializeField] private GameObject _skillIconHudPrefab;
         [SerializeField] private List<MapEntry> _maps = new List<MapEntry>();
         [SerializeField] private List<WarriorAppearanceEntry> _warriorAppearances = new List<WarriorAppearanceEntry>();
         [SerializeField] private List<MonsterModelEntry> _monsterModels = new List<MonsterModelEntry>();
@@ -43,6 +44,8 @@ namespace Gravedigger2026.Gameplay.Defend
         public GameObject ProjectilePrefab => _projectilePrefab;
         /// <summary>PushMap DamagePopup (PM-12/13); not reset by EditorSet — bound by catalog asset.</summary>
         public GameObject DamagePopupPrefab => _damagePopupPrefab;
+        /// <summary>PushMap CombatSkillIcon slot (D-071); not reset by EditorSet — bound by catalog asset.</summary>
+        public GameObject SkillIconHudPrefab => _skillIconHudPrefab;
         public WarriorVisualStyleCatalog VisualStyleCatalog => _visualStyleCatalog;
         public bool TryGetMap(string mapId, out GameObject prefab)
         {

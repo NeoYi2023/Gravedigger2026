@@ -359,7 +359,18 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 Sprite icon = null;
                 if (!string.IsNullOrEmpty(row.IconAssetId))
                 {
-                    icon = Resources.Load<Sprite>(row.IconAssetId);
+                    var assetPath = row.IconAssetId.Trim();
+                    if (assetPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                    {
+                        assetPath = assetPath.Substring(0, assetPath.Length - 4);
+                    }
+
+                    // CSV/IconAssetId 可能是两种写法：
+                    // 1) 仅文件名：MagicBook_Restore -> Resources/UI/MagicBooks/MagicBook_Restore
+                    // 2) 已是 Resources 相对路径：UI/MagicBooks/MagicBook_Restore -> 直接 Resources.Load
+                    icon = assetPath.Contains("/")
+                        ? Resources.Load<Sprite>(assetPath)
+                        : Resources.Load<Sprite>($"UI/MagicBooks/{assetPath}");
                 }
 
                 var name = !string.IsNullOrEmpty(row.DisplayName) ? row.DisplayName : bookId;

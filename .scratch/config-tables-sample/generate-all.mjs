@@ -293,7 +293,7 @@ const outline = (q) => `Outline_${q}`;
       RangedTimeoutSeconds: ranged ? 2.5 : 0,
       // Demo 不施放；SkillId 含下划线时与 SkillId_Cd 编码易歧义，案例留空
       Skills: "",
-      LootDrop: i % 2 === 0 ? `Iron_${1 + (i % 3)}|Spirit_${5 + i}` : `Bone_1|Spirit_${3 + i}`,
+      LootDrop: i % 2 === 0 ? `Iron;${1 + (i % 3)}|Spirit;${5 + i}` : `Bone;1|Spirit;${3 + i}`,
     };
   });
   writeTable("防守_怪物配置表_Defend_MonsterConfig", "Defend_MonsterConfig", headers, rows);

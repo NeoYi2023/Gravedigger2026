@@ -20,6 +20,7 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _backToSaveSelectButton;
         [SerializeField] private Button _equipmentButton;
         [SerializeField] private Button _magicBookButton;
+        [SerializeField] private Button _shopButton;
         [SerializeField] private Button _debugCycleStateButton;
         [SerializeField] private Button _debugAdvanceStageButton;
         [SerializeField] private Button _debugWarriorTaskLabelButton;
@@ -38,6 +39,7 @@ namespace Gravedigger2026.UI
         public event Action BackToSaveSelectRequested;
         public event Action EquipmentRequested;
         public event Action MagicBookRequested;
+        public event Action ShopRequested;
         public event Action DebugCycleStateRequested;
         public event Action DebugAdvanceStageRequested;
         public event Action SettingsRequested;
@@ -94,6 +96,12 @@ namespace Gravedigger2026.UI
             EnsureGmAddSoldierPanel();
             EnsureEquipmentWarehouseList();
             EnsureMagicBookRow();
+            EnsureShopButton();
+            if (_shopButton != null)
+            {
+                _shopButton.onClick.RemoveAllListeners();
+                _shopButton.onClick.AddListener(() => ShopRequested?.Invoke());
+            }
             if (_debugWarriorTaskLabelButton != null)
             {
                 _debugWarriorTaskLabelButton.onClick.AddListener(HandleWarriorTaskLabelToggleClicked);
@@ -250,12 +258,15 @@ namespace Gravedigger2026.UI
             }
         }
 
-        public void BindMagicBookSlots(SpecialEquipSlotsService slots, ConfigCsvRepository configs)
+        public void BindMagicBookSlots(
+            SpecialEquipSlotsService slots,
+            ConfigCsvRepository configs,
+            ConfirmDialogView confirmDialog = null)
         {
             if (_magicBookSlotsPanel != null)
             {
                 _magicBookSlotsPanel.EnsureBookRow();
-                _magicBookSlotsPanel.Bind(slots, configs);
+                _magicBookSlotsPanel.Bind(slots, configs, confirmDialog);
             }
         }
 
@@ -424,6 +435,55 @@ namespace Gravedigger2026.UI
             {
                 _magicBookSlotsPanel.EnsureBookRow();
             }
+        }
+
+        private void EnsureShopButton()
+        {
+            if (_shopButton != null)
+            {
+                return;
+            }
+
+            if (_equipmentButton == null)
+            {
+                return;
+            }
+
+            // SS-04：运行时克隆“装备”按钮作为“商店”入口，避免 prefab 修改耦合。
+            var template = _equipmentButton.gameObject;
+            var clone = Instantiate(template, template.transform.parent);
+            clone.name = "ShopButton";
+            clone.SetActive(true);
+
+            var btn = clone.GetComponent<Button>();
+            if (btn == null)
+            {
+                DestroyImmediate(clone);
+                return;
+            }
+
+            btn.onClick.RemoveAllListeners();
+
+            var label = clone.GetComponentInChildren<Text>(true);
+            if (label != null)
+            {
+                label.text = "商店";
+            }
+
+            var rt = clone.GetComponent<RectTransform>();
+            var eqRt = _equipmentButton.GetComponent<RectTransform>();
+            if (rt != null && eqRt != null)
+            {
+                rt.anchoredPosition = new Vector2(eqRt.anchoredPosition.x, eqRt.anchoredPosition.y + eqRt.sizeDelta.y + 8f);
+            }
+
+            var img = clone.GetComponent<Image>();
+            if (img != null)
+            {
+                img.color = new Color(0.25f, 0.45f, 0.55f, 1f);
+            }
+
+            _shopButton = btn;
         }
 
         private void EnsureGmGrantListPanel()

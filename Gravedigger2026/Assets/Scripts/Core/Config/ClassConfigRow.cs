@@ -10,6 +10,9 @@ namespace Gravedigger2026.Core.Config
         /// <summary>Chase move-speed mult default (SPEC_04 §9.9b).</summary>
         public const float DefaultChaseMoveSpeedMult = 1f;
 
+        /// <summary>Soldier base move speed when ClassConfig.BaseMoveSpeed missing/≤0 (SPEC_04 §9.9b).</summary>
+        public const float DefaultBaseMoveSpeed = 3.5f;
+
         /// <summary>Monster death knockback distance mult default (SPEC_04 §9.9b).</summary>
         public const float DefaultDeathKnockbackMult = 1f;
 
@@ -33,6 +36,8 @@ namespace Gravedigger2026.Core.Config
         public float MeleeWindupSeconds;
         public float RangedProjectileSpeed;
         public float RangedTimeoutSeconds;
+        /// <summary>≥0; soldier MoveSpeed Base (SPEC_04 §9.9b); missing/≤0 → DefaultBaseMoveSpeed.</summary>
+        public float BaseMoveSpeed;
         /// <summary>≥0; × FinalStat(MoveSpeed) only when GoalKind=AttackSlot; default 1.</summary>
         public float ChaseMoveSpeedMult;
         /// <summary>≥0; scales monster death knockback displacement (T−M); default 1.</summary>
@@ -52,5 +57,10 @@ namespace Gravedigger2026.Core.Config
         /// Duplicates keep first. Unknown SkillId kept (warn at grant, not load).
         /// </summary>
         public string[] DefaultSkillIds = Array.Empty<string>();
+
+        public float ResolveBaseMoveSpeed()
+        {
+            return BaseMoveSpeed > 0.01f ? BaseMoveSpeed : DefaultBaseMoveSpeed;
+        }
     }
 }

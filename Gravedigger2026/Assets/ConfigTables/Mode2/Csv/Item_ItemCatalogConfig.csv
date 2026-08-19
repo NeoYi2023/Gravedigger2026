@@ -1,0 +1,13 @@
+ItemId,DisplayName,IconAssetId,ItemType,SourceTable,Description,SellPrice
+Spirit,精魂,Icons/Currency_Spirit,Currency,Dig_CurrencyConfig,基础货币资源,1
+Iron,铁矿,Icons/Iron,Material,Dig_MaterialConfig,基础制造材料,5
+Bone,骨头,Icons/Bone,Material,Dig_MaterialConfig,基础制造材料,3
+BP_Head_Undead_0,亡灵头部,Art_BP_Head_Undead_1,BodyPart,Manufacture_BodyPartConfig,基础亡灵头部材料,8
+Equip_IronShovel,铁铲,Icon_IronShovel,ProtagonistEquipment,Protagonist_ProtagonistEquipmentConfig,增加挖坟半径的主角装备,20
+MagicBook_Restore,还原,MagicBook_Restore,MagicBook,Manufacture_MagicBookConfig,装备后制造时按部位 RaceId 加权随机定种族,1
+MagicBook_WarriorEnhance,战士强化,MagicBook_WarriorEnhance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造的枯骨战士/战士主属性增加躯体该维之和的 15%（可叠），至彻底死亡,1
+MagicBook_SoldierSkillLevel,士兵技能升级,MagicBook_SoldierSkillLevel,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造时若士兵已有 Skill_01 则等级 +1（钳制到表内最大级）,1
+MagicBook_WarriorAdvance,战士进阶,MagicBook_WarriorAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseWarrior 的士兵时，变为 Class_Warrior,1
+MagicBook_ArcherAdvance,射手进阶,MagicBook_ArcherAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseArcher 的士兵时，25% 概率变为 Class_Archer,1
+MagicBook_MageAdvance,法师进阶,MagicBook_MageAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseMage 的士兵时，25% 概率变为 Class_Mage,1
+MagicBook_RogueAdvance,刺客进阶,MagicBook_RogueAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseRogue 的士兵时，25% 概率变为 Class_Rogue,1

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -6,9 +7,11 @@ using UnityEngine.UI;
 namespace Gravedigger2026.Gameplay.AutoManufacture
 {
     /// <summary>
-    /// LMB drag reorder for MagicBookSlotsPanel BookRow (UI-023 / D-068). AM presentation does not mount this.
+    /// LMB drag reorder + click select for MagicBookSlotsPanel BookRow (UI-023 / D-068 / D-072).
+    /// AM presentation does not mount this.
     /// </summary>
-    public sealed class MagicBookSlotDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    public sealed class MagicBookSlotDragHandler
+        : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
     {
         private static readonly List<RaycastResult> RaycastBuffer = new List<RaycastResult>(8);
 
@@ -18,6 +21,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private CanvasGroup _sourceGroup;
         private float _sourceAlpha = 1f;
         private bool _dragging;
+        private Action<int> _onSlotClicked;
+        private Action _onBeginDrag;
 
         public int SlotIndex => _slotIndex;
 
@@ -27,6 +32,22 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _slotIndex = slotIndex;
         }
 
+        public void SetInteractionCallbacks(Action<int> onSlotClicked, Action onBeginDrag)
+        {
+            _onSlotClicked = onSlotClicked;
+            _onBeginDrag = onBeginDrag;
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (!isActiveAndEnabled || eventData.button != PointerEventData.InputButton.Left || _dragging)
+            {
+                return;
+            }
+
+            _onSlotClicked?.Invoke(_slotIndex);
+        }
+
         public void OnBeginDrag(PointerEventData eventData)
         {
             if (!isActiveAndEnabled || eventData.button != PointerEventData.InputButton.Left || _row == null)
@@ -34,6 +55,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 return;
             }
 
+            _onBeginDrag?.Invoke();
             _dragging = true;
             _sourceGroup = GetComponent<CanvasGroup>();
             if (_sourceGroup == null)

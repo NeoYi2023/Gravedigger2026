@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
-using UnityEngine;
+using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.UpgradeManufacture;
 
 namespace Gravedigger2026.Core.UpgradeManufacture
 {
@@ -19,7 +21,6 @@ namespace Gravedigger2026.Core.UpgradeManufacture
     public sealed class GmSoldierGrantService
     {
         public const float DemoBaseMaxHp = 100f;
-        public const float DemoBaseMoveSpeed = 3f;
         public const float DemoBasePrimary = 20f;
 
         private readonly ConfigCsvRepository _configs;
@@ -168,7 +169,6 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var baseStats = new StatBlock
             {
                 MaxHP = DemoBaseMaxHp,
-                MoveSpeed = DemoBaseMoveSpeed,
                 Strength = DemoBasePrimary,
                 Agility = DemoBasePrimary,
                 Intelligence = DemoBasePrimary
@@ -176,7 +176,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             var equip = default(StatBlock);
             var gemMult = default(StatBlock);
             var raceAdjust = raceRow.RaceAdjustCoeff;
-            var staticStats = WarriorStatMath.ComputeStaticStats(baseStats, equip, gemMult, raceAdjust);
+            var classBaseMoveSpeed = WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow);
+            var staticStats = WarriorStatMath.ComputeStaticStats(
+                baseStats, equip, gemMult, raceAdjust, classBaseMoveSpeed);
             var bodyLife = WarriorStatMath.ComputeBodyLife(baseStats, equip);
             var maxHp = WarriorStatMath.ComputeMaxHP(
                 bodyLife, staticStats.Strength, _configs.GetMaxHpStrengthMult());

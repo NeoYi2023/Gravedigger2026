@@ -19,6 +19,8 @@ namespace Gravedigger2026.Core.Config
         public string IconAssetId;
         /// <summary>FK → SkillEffectConfig; effect body not loaded this slice.</summary>
         public string SkillEffectId;
+        /// <summary>UI-021 tint only (D-070). Missing/empty column → false. Does not drive combat.</summary>
+        public bool EffectImplemented;
         /// <summary>≥ 0; feeds SkillCooldown formula when the skill is cast (D-069).</summary>
         public float BaseCooldownSeconds;
         /// <summary>+/- ; missing → 0.</summary>

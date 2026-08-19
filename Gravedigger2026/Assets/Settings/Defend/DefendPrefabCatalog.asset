@@ -17,6 +17,7 @@ MonoBehaviour:
   _battleProtagonistPrefab: {fileID: 4104538918496031396, guid: 8a7dab25f0ea1134a82ffc108f6fdfc6, type: 3}
   _projectilePrefab: {fileID: 7104538918496031401, guid: c4e8a1b2d3f5467890abcdef12345678, type: 3}
   _damagePopupPrefab: {fileID: 5195272429028053599, guid: c8f5b2d0e3a6597f0b1c2d3e4f5a6b7c, type: 3}
+  _skillIconHudPrefab: {fileID: 6195272429028053711, guid: f1a9c2e4b6d84f73a0c5e8d1b2f39457, type: 3}
   _visualStyleCatalog: {fileID: 11400000, guid: 9a3c1e6d4f0b42c3d8e5f2a1b0c30401, type: 2}
   _maps:
   - MapId: Ground_01

@@ -1,0 +1,2 @@
+BondId,BondLevel,DisplayName,IconAssetId,Description,ActivationCondition,BondBuff
+Bond_Demo,1,演示羁绊,Bond_Demo,Mode1 占位羁绊,DeployTotalCount|Min=1,BondEffect_Demo_1

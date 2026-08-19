@@ -264,6 +264,23 @@ namespace Gravedigger2026.Core.Pathing
             _agents[index] = agent;
         }
 
+        /// <summary>
+        /// Instant relocate (Skill_12 Warp). Zeros steer so LateUpdate does not walk back
+        /// toward a stale AttackSlot dest on the same frame.
+        /// </summary>
+        public void SnapPosition(int id, Vector2 positionXZ)
+        {
+            if (!_indexById.TryGetValue(id, out var index))
+            {
+                return;
+            }
+
+            var agent = _agents[index];
+            agent.Position = positionXZ;
+            agent.Steer = Vector2.zero;
+            _agents[index] = agent;
+        }
+
         private void ApplySamples(IReadOnlyList<MassMoveSample> samples)
         {
             if (samples == null)
