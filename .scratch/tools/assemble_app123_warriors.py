@@ -35,8 +35,6 @@ IDS = []
 for race_digit in ("1", "2", "3"):
     for suf in ("02", "03", "12", "13", "22", "23", "32", "33"):
         aid = f"App_{race_digit}_{suf}"
-        if aid == "App_1_32":
-            continue
         IDS.append(aid)
 
 

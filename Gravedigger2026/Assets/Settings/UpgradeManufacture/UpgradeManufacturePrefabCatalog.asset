@@ -103,6 +103,8 @@ MonoBehaviour:
     Prefab: {fileID: 3927253789114556784, guid: b28105c6da244028b271922766544d8b, type: 3}
   - AppearanceId: App_1_23
     Prefab: {fileID: 3927253789114556784, guid: 3c79117693be48f3b2cb100963ef9223, type: 3}
+  - AppearanceId: App_1_32
+    Prefab: {fileID: 3927253789114556784, guid: e6e3f61ebcc8416f8b1e6732e7424dcc, type: 3}
   - AppearanceId: App_1_33
     Prefab: {fileID: 3927253789114556784, guid: 183ed84235004a308cbe4479a59a1ae1, type: 3}
   - AppearanceId: App_2_02
