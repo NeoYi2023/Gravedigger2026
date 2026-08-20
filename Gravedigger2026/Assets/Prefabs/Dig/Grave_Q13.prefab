@@ -61,16 +61,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _localXZ:
-  - {x: -0.5000001, y: -0.21999998}
-  - {x: -0.46000013, y: -0.39000002}
-  - {x: -0.1900001, y: -0.46}
-  - {x: 0.03999996, y: -0.50000006}
-  - {x: 0.4700001, y: -0.43000007}
-  - {x: 0.46000007, y: -0.19000007}
-  - {x: -0.029999988, y: 0.21000002}
-  - {x: -0.25000003, y: 0.23000003}
-  - {x: -0.29000002, y: 0.18000004}
-  _boundingRadius: 0.63702446
+  - {x: -0.5100001, y: -0.12499997}
+  - {x: -0.2800001, y: -0.33499998}
+  - {x: -0.16000006, y: -0.365}
+  - {x: -0.000000033657773, y: -0.38500005}
+  - {x: 0.26000002, y: -0.39500007}
+  - {x: 0.35000002, y: -0.39500007}
+  - {x: 0.5200001, y: -0.15500006}
+  - {x: 0.47000012, y: -0.035000045}
+  - {x: -0.06999998, y: 0.38500005}
+  - {x: -0.11999999, y: 0.38500005}
+  - {x: -0.47000012, y: -0.014999961}
+  _boundingRadius: 0.5426096
 --- !u!114 &8700001300000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -157,12 +159,12 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 200
-  m_Sprite: {fileID: 21300000, guid: 61d7d9f2994d9314c91b1bb954212223, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 3c4f3bd384cddbd4dadeea08eb90a56e, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 1.04, y: 0.81}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1

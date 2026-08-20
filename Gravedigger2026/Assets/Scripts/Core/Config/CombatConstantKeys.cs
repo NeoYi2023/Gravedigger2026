@@ -45,6 +45,7 @@ namespace Gravedigger2026.Core.Config
         public const string StuckHoldSeconds = "StuckHoldSeconds";
         public const string ProjectileDefaultHitRadius = "ProjectileDefaultHitRadius";
         public const string DefendVictoryStageExp = "DefendVictoryStageExp";
+        public const string NewSaveInitialSpiritCount = "NewSaveInitialSpiritCount";
 
         // P2 — pathing / perf
         public const string FlowFieldDefaultCellSize = "FlowFieldDefaultCellSize";
@@ -101,6 +102,7 @@ namespace Gravedigger2026.Core.Config
             public const float StuckHoldSeconds = 1f;
             public const float ProjectileDefaultHitRadius = 0.55f;
             public const float DefendVictoryStageExp = 100f;
+            public const float NewSaveInitialSpiritCount = 30f;
 
             public const float FlowFieldDefaultCellSize = 0.5f;
             public const float FlowFieldMinCellSize = 0.25f;

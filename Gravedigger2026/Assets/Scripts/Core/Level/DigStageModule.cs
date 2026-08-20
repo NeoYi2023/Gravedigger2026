@@ -6,6 +6,8 @@ using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.Tech;
+using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using UnityEngine;
 
@@ -24,6 +26,8 @@ namespace Gravedigger2026.Core.Level
         private readonly TechTreeService _techTree;
         private readonly SpecialEquipSlotsService _specialEquipSlots;
         private readonly ProtagonistEquipmentService _protagonistEquipment;
+        private readonly GmSoldierGrantService _soldierGrant;
+        private readonly DefendPrefabCatalog _defendCatalog;
         private readonly Action _onSummaryConfirmed;
         private readonly Action<bool> _onDigPresentationActive;
 
@@ -39,7 +43,9 @@ namespace Gravedigger2026.Core.Level
             Action onSummaryConfirmed,
             Action<bool> onDigPresentationActive = null,
             SpecialEquipSlotsService specialEquipSlots = null,
-            ProtagonistEquipmentService protagonistEquipment = null)
+            ProtagonistEquipmentService protagonistEquipment = null,
+            GmSoldierGrantService soldierGrant = null,
+            DefendPrefabCatalog defendCatalog = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -50,6 +56,8 @@ namespace Gravedigger2026.Core.Level
             _onDigPresentationActive = onDigPresentationActive;
             _specialEquipSlots = specialEquipSlots;
             _protagonistEquipment = protagonistEquipment;
+            _soldierGrant = soldierGrant;
+            _defendCatalog = defendCatalog;
         }
 
         public GameplayState HandledState => GameplayState.Dig;
@@ -94,7 +102,7 @@ namespace Gravedigger2026.Core.Level
             _controller.Begin(context, _configs, _warehouse, caps, () =>
             {
                 _onSummaryConfirmed?.Invoke();
-            }, _specialEquipSlots, _protagonistEquipment);
+            }, _specialEquipSlots, _protagonistEquipment, _soldierGrant, _defendCatalog);
 
             if (_techTree != null)
             {

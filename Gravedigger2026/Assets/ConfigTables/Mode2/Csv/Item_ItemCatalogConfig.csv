@@ -11,3 +11,4 @@ MagicBook_WarriorAdvance,战士进阶,MagicBook_WarriorAdvance,MagicBook,Manufac
 MagicBook_ArcherAdvance,射手进阶,MagicBook_ArcherAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseArcher 的士兵时，25% 概率变为 Class_Archer,1
 MagicBook_MageAdvance,法师进阶,MagicBook_MageAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseMage 的士兵时，25% 概率变为 Class_Mage,1
 MagicBook_RogueAdvance,刺客进阶,MagicBook_RogueAdvance,MagicBook,Manufacture_MagicBookConfig,装备后，Mode2 制造职业为 Class_BaseRogue 的士兵时，25% 概率变为 Class_Rogue,1
+Equip_Detector,探测器,Icon_Detector,ProtagonistEquipment,Protagonist_ProtagonistEquipmentConfig,增加过程生成坟墓数量的主角装备,20

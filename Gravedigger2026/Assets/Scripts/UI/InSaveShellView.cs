@@ -50,6 +50,7 @@ namespace Gravedigger2026.UI
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
         public event Action<string> GmGrantItemPicked;
+        public event Action<int> GmGrantLevelPicked;
         public event Action GmGrantListClosed;
         public event Action GmAddSoldierAddClicked;
         public event Action GmAddSoldierClosed;
@@ -129,6 +130,7 @@ namespace Gravedigger2026.UI
             if (_gmGrantListPanel != null)
             {
                 _gmGrantListPanel.ItemPicked += id => GmGrantItemPicked?.Invoke(id);
+                _gmGrantListPanel.LevelPicked += level => GmGrantLevelPicked?.Invoke(level);
                 _gmGrantListPanel.Closed += () => GmGrantListClosed?.Invoke();
             }
 
@@ -223,6 +225,14 @@ namespace Gravedigger2026.UI
             if (_gmGrantListPanel != null)
             {
                 _gmGrantListPanel.Hide();
+            }
+        }
+
+        public void ShowGmGrantLevelPicker(string title, IReadOnlyList<int> levels)
+        {
+            if (_gmGrantListPanel != null)
+            {
+                _gmGrantListPanel.ShowLevelPicker(title, levels);
             }
         }
 

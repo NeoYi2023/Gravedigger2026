@@ -10,6 +10,8 @@ namespace Gravedigger2026.Core
         Defend = 2,
         PushMap = 3,
         /// <summary>Mode2 Dig→AutoManufacture→UM pipeline (SPEC_03 §3.15).</summary>
-        AutoManufacture = 4
+        AutoManufacture = 4,
+        /// <summary>Mode2 shop stage (SPEC_03 §3.5 / §3.9 / D-075).</summary>
+        Shop = 5
     }
 }

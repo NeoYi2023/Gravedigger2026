@@ -1,6 +1,6 @@
 # Mode2 商店系统（Shop System）
 
-**状态：** SS-00 规则关合 **done**；其余切片待做 / pending。
+**状态：** SS-00～SS-06 **done**；D-075 全屏 Prefab + `GameplayType=Shop` 关卡接线 **done**。
 
 | Issue | 状态 | 说明 |
 |-------|------|------|
@@ -11,4 +11,4 @@
 | SS-04 | done | `ShopStageRoot` UI：玩家信息/6 槽商品/刷新按钮/购买按钮（UI 交互与状态显示） |
 | SS-05 | done | 购买扣精魂与入账/入仓：A 类装备 `TryAcquire`、B 类魔法书 `TryEquip`、slot sold 状态 |
 | SS-06 | done | 新关卡解锁触发：Meta 层在 Mode2 PushMap 结算后调用 shop unlock + auto refresh once |
-
+| D-075 | done | 全屏 Prefab + `ShopStageModule` + Mode2 Stage1=`Shop`；局外 overlay 保留 |

@@ -328,6 +328,7 @@ namespace Gravedigger2026.Core.Tech
             dest.DigDurationReductionSum = source.DigDurationReductionSum;
             dest.DigCursorRadius = source.DigCursorRadius;
             dest.DigStageDurationBonus = source.DigStageDurationBonus;
+            dest.DigProcessSpawnCountBonus = source.DigProcessSpawnCountBonus;
             dest.BaseDigDuration = source.BaseDigDuration;
             dest.DigActionDurationFloor = source.DigActionDurationFloor;
             dest.DiggableQualityIds.Clear();
@@ -379,6 +380,11 @@ namespace Gravedigger2026.Core.Tech
                 }
 
                 var key = segment.Substring(0, underscore);
+                if (IsDigEventOrPayloadKey(key))
+                {
+                    continue;
+                }
+
                 var valueText = segment.Substring(underscore + 1);
                 if (!float.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
                 {
@@ -395,6 +401,24 @@ namespace Gravedigger2026.Core.Tech
                     sums[key] = value;
                 }
             }
+        }
+
+        /// <summary>
+        /// Dig event tokens (D-077) must not merge into DigProtagonistCapabilities.
+        /// </summary>
+        private static bool IsDigEventOrPayloadKey(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            if (string.Equals(key, "DigOnGraveClear", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return key.StartsWith("Explosive", StringComparison.Ordinal);
         }
     }
 

@@ -7,6 +7,8 @@ using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
+using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Dig
@@ -18,9 +20,15 @@ namespace Gravedigger2026.Gameplay.Dig
     {
         public const string IronShovelEquipId = "Equip_IronShovel";
         public const string MinerLampEquipId = "Equip_MinerLamp";
+        public const string ExplosivesEquipId = "Equip_Explosives";
+        public const string LightningEquipId = "Equip_Elctr";
+        public const string DetectorEquipId = "Equip_Detector";
         private const int GmEquipCommonExpAmount = 50;
         private const int GmSpendIronShovelExpAmount = 1;
         private const int GmSpendMinerLampExpAmount = 1;
+        private const int GmSpendExplosivesExpAmount = 1;
+        private const int GmSpendLightningExpAmount = 1;
+        private const int GmSpendDetectorExpAmount = 1;
 
         [SerializeField] private DigPrefabCatalog _catalog;
         [SerializeField] private Transform _worldRoot;
@@ -33,8 +41,12 @@ namespace Gravedigger2026.Gameplay.Dig
         private ConfigCsvRepository _configs;
         private SpecialEquipSlotsService _specialEquipSlots;
         private ProtagonistEquipmentService _protagonistEquipment;
+        private DefendPrefabCatalog _defendCatalog;
         private Action _onSummaryConfirmed;
         private readonly Dictionary<int, DigGraveView> _graveViews = new Dictionary<int, DigGraveView>();
+        private readonly Dictionary<int, DigExplosiveBarrelView> _barrelViews =
+            new Dictionary<int, DigExplosiveBarrelView>();
+        private Transform _effectsParent;
         private GameObject _mapInstance;
         private Transform _gravesParent;
         private float _mapPlaneY;
@@ -55,7 +67,9 @@ namespace Gravedigger2026.Gameplay.Dig
             DigProtagonistCapabilities caps,
             Action onSummaryConfirmed,
             SpecialEquipSlotsService specialEquipSlots = null,
-            ProtagonistEquipmentService protagonistEquipment = null)
+            ProtagonistEquipmentService protagonistEquipment = null,
+            GmSoldierGrantService soldierGrant = null,
+            DefendPrefabCatalog defendCatalog = null)
         {
             EndInternal(destroyWorld: true);
 
@@ -75,6 +89,7 @@ namespace Gravedigger2026.Gameplay.Dig
             _configs = configs;
             _specialEquipSlots = specialEquipSlots;
             _protagonistEquipment = protagonistEquipment;
+            _defendCatalog = defendCatalog;
 
             if (!_catalog.TryGetMap(context.DigConfig.DigMapId, out var mapPrefab))
             {
@@ -93,9 +108,11 @@ namespace Gravedigger2026.Gameplay.Dig
             _mapPlaneY = center.y;
             _gravesParent = new GameObject("Graves").transform;
             _gravesParent.SetParent(_worldRoot, false);
+            _effectsParent = new GameObject("DigEffects").transform;
+            _effectsParent.SetParent(_worldRoot, false);
 
             var ledger = new DigStageRewardLedger();
-            _session = new DigSessionService(configs, warehouse, ledger, caps);
+            _session = new DigSessionService(configs, warehouse, ledger, caps, protagonistEquipment, soldierGrant);
             SubscribeSession(_session);
 
             if (_digCamera != null)
@@ -134,6 +151,12 @@ namespace Gravedigger2026.Gameplay.Dig
                 _hudView.SpendDigRingCommonExpRequested += HandleGmSpendDigRingCommonExp;
                 _hudView.AcquireMinerLampRequested += HandleGmAcquireMinerLamp;
                 _hudView.SpendMinerLampCommonExpRequested += HandleGmSpendMinerLampCommonExp;
+                _hudView.AcquireExplosivesRequested += HandleGmAcquireExplosives;
+                _hudView.SpendExplosivesCommonExpRequested += HandleGmSpendExplosivesCommonExp;
+                _hudView.AcquireLightningRequested += HandleGmAcquireLightning;
+                _hudView.SpendLightningCommonExpRequested += HandleGmSpendLightningCommonExp;
+                _hudView.AcquireDetectorRequested += HandleGmAcquireDetector;
+                _hudView.SpendDetectorCommonExpRequested += HandleGmSpendDetectorCommonExp;
             }
 
             _session.Begin(context.DigConfig, center, half);
@@ -211,6 +234,11 @@ namespace Gravedigger2026.Gameplay.Dig
             session.DigActionStarted += HandleDigStarted;
             session.DigActionEnded += HandleDigEnded;
             session.GraveClearedForReward += HandleGraveCleared;
+            session.ExplosiveBarrelQueued += HandleExplosiveBarrelQueued;
+            session.ExplosiveBlastStarted += HandleExplosiveBlastStarted;
+            session.GraveRemovedWithoutLoot += HandleGraveRemovedWithoutLoot;
+            session.LightningStrikeQueued += HandleLightningStrikeQueued;
+            session.LightningSoldierPreview += HandleLightningSoldierPreview;
             session.StageTimeUp += HandleTimeUp;
             session.WarehouseChanged += RefreshWarehouseHud;
         }
@@ -228,6 +256,11 @@ namespace Gravedigger2026.Gameplay.Dig
             session.DigActionStarted -= HandleDigStarted;
             session.DigActionEnded -= HandleDigEnded;
             session.GraveClearedForReward -= HandleGraveCleared;
+            session.ExplosiveBarrelQueued -= HandleExplosiveBarrelQueued;
+            session.ExplosiveBlastStarted -= HandleExplosiveBlastStarted;
+            session.GraveRemovedWithoutLoot -= HandleGraveRemovedWithoutLoot;
+            session.LightningStrikeQueued -= HandleLightningStrikeQueued;
+            session.LightningSoldierPreview -= HandleLightningSoldierPreview;
             session.StageTimeUp -= HandleTimeUp;
             session.WarehouseChanged -= RefreshWarehouseHud;
         }
@@ -313,6 +346,89 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             SpawnRewardFlyer(grave.WorldPosition, lootEncoded);
+        }
+
+        private void HandleGraveRemovedWithoutLoot(DigGraveRuntime grave)
+        {
+            if (grave == null)
+            {
+                return;
+            }
+
+            if (_graveViews.TryGetValue(grave.InstanceId, out var view))
+            {
+                _graveViews.Remove(grave.InstanceId);
+                Destroy(view.gameObject);
+            }
+        }
+
+        private void HandleLightningStrikeQueued(Vector3 worldPosition, float frameSeconds)
+        {
+            var go = new GameObject("LightningBolt");
+            if (_effectsParent != null)
+            {
+                go.transform.SetParent(_effectsParent, false);
+            }
+
+            var view = go.AddComponent<DigLightningBoltView>();
+            view.Play(worldPosition, _catalog != null ? _catalog.LightningFrames : null, frameSeconds);
+        }
+
+        private void HandleLightningSoldierPreview(string appearanceId, Vector3 worldPosition, float previewSeconds)
+        {
+            GameObject prefab = null;
+            if (_defendCatalog != null)
+            {
+                _defendCatalog.TryGetWarriorAppearance(appearanceId, out prefab);
+            }
+
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[DigStageController] Lightning soldier preview missing appearance '{appearanceId}'.");
+                return;
+            }
+
+            var go = new GameObject("LightningSoldierPreview");
+            if (_effectsParent != null)
+            {
+                go.transform.SetParent(_effectsParent, false);
+            }
+
+            var preview = go.AddComponent<DigSoldierIdlePreviewView>();
+            preview.Play(prefab, worldPosition, previewSeconds);
+        }
+
+        private void HandleExplosiveBarrelQueued(int barrelId, Vector3 origin, Vector3 target, float flightSeconds)
+        {
+            if (_effectsParent == null)
+            {
+                return;
+            }
+
+            var go = new GameObject("ExplosiveBarrel_" + barrelId);
+            go.transform.SetParent(_effectsParent, false);
+            var view = go.AddComponent<DigExplosiveBarrelView>();
+            view.Launch(origin, target, flightSeconds, _catalog != null ? _catalog.ExplosiveBarrelSprite : null);
+            _barrelViews[barrelId] = view;
+        }
+
+        private void HandleExplosiveBlastStarted(int barrelId, Vector3 center, float blastRadius, float ringSeconds)
+        {
+            if (_barrelViews.TryGetValue(barrelId, out var barrel) && barrel != null)
+            {
+                _barrelViews.Remove(barrelId);
+                Destroy(barrel.gameObject);
+            }
+
+            if (_effectsParent == null)
+            {
+                return;
+            }
+
+            var ringGo = new GameObject("ExplosionRadius_" + barrelId);
+            ringGo.transform.SetParent(_effectsParent, false);
+            var ring = ringGo.AddComponent<DigExplosionRadiusView>();
+            ring.Play(center, blastRadius, ringSeconds);
         }
 
         private void SpawnRewardFlyer(Vector3 from, string lootEncoded)
@@ -534,20 +650,161 @@ namespace Gravedigger2026.Gameplay.Dig
             LogProtagonistEquipmentGmState("Spend Miner Lamp CommonExp");
         }
 
+        private void HandleGmAcquireExplosives()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire Explosives — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(ExplosivesEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire Explosives failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire Explosives");
+        }
+
+        private void HandleGmSpendExplosivesCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend Explosives — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(ExplosivesEquipId, GmSpendExplosivesExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend Explosives failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend Explosives CommonExp");
+        }
+
+        private void HandleGmAcquireLightning()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire Lightning — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(LightningEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire Lightning failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire Lightning");
+        }
+
+        private void HandleGmSpendLightningCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend Lightning — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(LightningEquipId, GmSpendLightningExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend Lightning failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend Lightning CommonExp");
+        }
+
+        private void HandleGmAcquireDetector()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire Detector — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(DetectorEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire Detector failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire Detector");
+        }
+
+        private void HandleGmSpendDetectorCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend Detector — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(DetectorEquipId, GmSpendDetectorExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend Detector failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend Detector CommonExp");
+        }
+
         private void LogProtagonistEquipmentGmState(string action)
         {
             var caps = _session != null ? _session.Capabilities : null;
             var cursor = caps != null ? caps.DigCursorRadius : -1f;
+            var spawnBonus = caps != null ? caps.DigProcessSpawnCountBonus : 0f;
             var q4 = caps != null ? caps.GetGraveSpawnWeightBonus("Q4") : 0f;
             var q5 = caps != null ? caps.GetGraveSpawnWeightBonus("Q5") : 0f;
             var q6 = caps != null ? caps.GetGraveSpawnWeightBonus("Q6") : 0f;
             var common = _protagonistEquipment != null ? _protagonistEquipment.EquipCommonExp : -1;
             var shovel = FormatOwnedSummary(IronShovelEquipId);
             var lamp = FormatOwnedSummary(MinerLampEquipId);
+            var explosives = FormatOwnedSummary(ExplosivesEquipId);
+            var lightning = FormatOwnedSummary(LightningEquipId);
+            var detector = FormatOwnedSummary(DetectorEquipId);
+            var blast = FormatExplosiveBlastDamage();
+            var interval = FormatLightningInterval();
             Debug.Log(
-                $"[DigStageController] GM {action} → {shovel}; {lamp}; " +
-                $"EquipCommonExp={common} DigCursorRadius={cursor:0.###} " +
+                $"[DigStageController] GM {action} → {shovel}; {lamp}; {explosives}; {lightning}; {detector}; " +
+                $"EquipCommonExp={common} DigCursorRadius={cursor:0.###} ExplosiveBlastDamage={blast} " +
+                $"DigLightningIntervalSec={interval} DigProcessSpawnCountBonus={spawnBonus:0.###} " +
                 $"GraveSpawnWeightBonus Q4={q4:0.###} Q5={q5:0.###} Q6={q6:0.###}");
+        }
+
+        private string FormatExplosiveBlastDamage()
+        {
+            if (_protagonistEquipment == null ||
+                !_protagonistEquipment.TryGetOwned(ExplosivesEquipId, out var owned) ||
+                owned == null ||
+                _configs == null ||
+                !_configs.TryGetProtagonistEquipment(owned.EquipId, owned.Level, out var row) ||
+                row == null ||
+                !DigExplosiveEffectConfig.TryParse(row, out var effect))
+            {
+                return "n/a";
+            }
+
+            return effect.BlastDamage.ToString("0.###");
+        }
+
+        private string FormatLightningInterval()
+        {
+            if (_protagonistEquipment == null ||
+                !_protagonistEquipment.TryGetOwned(LightningEquipId, out var owned) ||
+                owned == null ||
+                _configs == null ||
+                !_configs.TryGetProtagonistEquipment(owned.EquipId, owned.Level, out var row) ||
+                row == null ||
+                !DigLightningEffectConfig.TryParse(row, out var effect))
+            {
+                return "n/a";
+            }
+
+            return effect.IntervalSeconds.ToString("0.###");
         }
 
         private string FormatOwnedSummary(string equipId)
@@ -605,6 +862,12 @@ namespace Gravedigger2026.Gameplay.Dig
                 _hudView.SpendDigRingCommonExpRequested -= HandleGmSpendDigRingCommonExp;
                 _hudView.AcquireMinerLampRequested -= HandleGmAcquireMinerLamp;
                 _hudView.SpendMinerLampCommonExpRequested -= HandleGmSpendMinerLampCommonExp;
+                _hudView.AcquireExplosivesRequested -= HandleGmAcquireExplosives;
+                _hudView.SpendExplosivesCommonExpRequested -= HandleGmSpendExplosivesCommonExp;
+                _hudView.AcquireLightningRequested -= HandleGmAcquireLightning;
+                _hudView.SpendLightningCommonExpRequested -= HandleGmSpendLightningCommonExp;
+                _hudView.AcquireDetectorRequested -= HandleGmAcquireDetector;
+                _hudView.SpendDetectorCommonExpRequested -= HandleGmSpendDetectorCommonExp;
             }
 
             UnsubscribeSession(_session);
@@ -624,6 +887,7 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             _graveViews.Clear();
+            _barrelViews.Clear();
 
             if (destroyWorld && _worldRoot != null)
             {
@@ -635,10 +899,12 @@ namespace Gravedigger2026.Gameplay.Dig
 
             _mapInstance = null;
             _gravesParent = null;
+            _effectsParent = null;
             _onSummaryConfirmed = null;
             _configs = null;
             _specialEquipSlots = null;
             _protagonistEquipment = null;
+            _defendCatalog = null;
         }
     }
 }

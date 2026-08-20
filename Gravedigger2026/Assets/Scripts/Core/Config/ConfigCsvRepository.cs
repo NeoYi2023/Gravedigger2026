@@ -2598,6 +2598,12 @@ namespace Gravedigger2026.Core.Config
                 return true;
             }
 
+            if (string.Equals(text, "Shop", StringComparison.Ordinal))
+            {
+                state = GameplayState.Shop;
+                return true;
+            }
+
             state = default;
             return false;
         }

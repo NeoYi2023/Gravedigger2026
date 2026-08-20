@@ -86,6 +86,8 @@ namespace Gravedigger2026.UI
             {
                 case GameplayState.Dig:
                     return "当前玩法：挖坟（Dig）";
+                case GameplayState.Shop:
+                    return "当前玩法：商店（Shop）";
                 case GameplayState.AutoManufacture:
                     return "当前玩法：自动制造（AutoManufacture）";
                 case GameplayState.UpgradeManufacture:

@@ -41,6 +41,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private Func<Transform> _protagonistProvider;
         private GameObject _projectilePrefab;
         private Transform _projectileParent;
+        private DefendPrefabCatalog _projectileCatalog;
         private Vector3 _formationHome;
         private bool _hasFormationHome;
         private float _retargetInterval = 1f;
@@ -128,6 +129,7 @@ namespace Gravedigger2026.Gameplay.Defend
             float retargetIntervalSeconds,
             GameObject projectilePrefab = null,
             Transform projectileParent = null,
+            DefendPrefabCatalog projectileCatalog = null,
             Func<IReadOnlyList<WarriorAgentView>> warriorsProvider = null,
             Func<Transform> protagonistProvider = null,
             Vector3? formationHomeWorld = null,
@@ -148,6 +150,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _protagonistProvider = protagonistProvider;
             _projectilePrefab = projectilePrefab;
             _projectileParent = projectileParent;
+            _projectileCatalog = projectileCatalog;
             _hasFormationHome = formationHomeWorld.HasValue;
             _formationHome = formationHomeWorld ?? Vector3.zero;
             _retargetInterval = Mathf.Max(0.1f, retargetIntervalSeconds);
@@ -714,7 +717,22 @@ namespace Gravedigger2026.Gameplay.Defend
                 state.RangedProjectileSpeed,
                 state.RangedTimeoutSeconds);
 
+            TryApplyProjectileVisual(view, state.BaseClass);
+
             _scheduler?.SetPaused(_moveId, false);
+        }
+
+        private void TryApplyProjectileVisual(ProjectileView view, BaseClassKind baseClass)
+        {
+            if (view == null || _projectileCatalog == null)
+            {
+                return;
+            }
+
+            if (_projectileCatalog.TryGetProjectileSprite(baseClass, out var sprite))
+            {
+                view.ApplyVisual(sprite);
+            }
         }
 
         private void BeginWindup(RebelTargetKind kind, string targetId, DefendCombatWarriorState state)

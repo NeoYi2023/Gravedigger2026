@@ -15,6 +15,10 @@ namespace Gravedigger2026.Core.Dig
         public float DigCursorRadius;
         public HashSet<string> DiggableQualityIds = new HashSet<string>(StringComparer.Ordinal);
         public float DigStageDurationBonus;
+        /// <summary>
+        /// Additive to DigGameplayConfig SpawnRate M (process spawn count per interval); does not change N.
+        /// </summary>
+        public float DigProcessSpawnCountBonus;
         public Dictionary<string, float> GraveSpawnWeightBonus =
             new Dictionary<string, float>(StringComparer.Ordinal);
 
@@ -68,6 +72,11 @@ namespace Gravedigger2026.Core.Dig
                 if (sums.TryGetValue("DigStageDurationBonus", out var stageBonus))
                 {
                     caps.DigStageDurationBonus = stageBonus;
+                }
+
+                if (sums.TryGetValue("DigProcessSpawnCountBonus", out var spawnCountBonus))
+                {
+                    caps.DigProcessSpawnCountBonus = spawnCountBonus;
                 }
 
                 foreach (var kv in sums)

@@ -225,7 +225,9 @@ namespace Gravedigger2026.UI
                 Sprite sprite = null;
                 if (configRow != null && !string.IsNullOrEmpty(configRow.IconAssetId))
                 {
-                    sprite = Resources.Load<Sprite>(configRow.IconAssetId);
+                    sprite = ItemIconLoader.Load(
+                        configRow.IconAssetId,
+                        ItemIconLoader.EquipmentResourcesFolder);
                 }
 
                 icon.sprite = sprite;

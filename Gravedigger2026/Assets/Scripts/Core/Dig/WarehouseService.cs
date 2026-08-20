@@ -26,6 +26,31 @@ namespace Gravedigger2026.Core.Dig
             _spiritEssence = 0f;
         }
 
+        /// <summary>
+        /// Credits initial Spirit on new SaveSlot create (SPEC_03 §3.4 / SPEC_04 §9.20b).
+        /// </summary>
+        public void ApplyNewSaveGrants(ConfigCsvRepository configs)
+        {
+            if (configs == null)
+            {
+                return;
+            }
+
+            var count = (int)configs.GetCombatConstantOrFallback(
+                CombatConstantKeys.NewSaveInitialSpiritCount,
+                CombatConstantKeys.Safety.NewSaveInitialSpiritCount);
+            if (count <= 0)
+            {
+                return;
+            }
+
+            CreditLootEntry(
+                new LootDropEntry(LootDropParser.SpiritId, count),
+                configs,
+                (_, __) => { },
+                _ => { });
+        }
+
         public void AddSpirit(float amount)
         {
             if (amount > 0f)

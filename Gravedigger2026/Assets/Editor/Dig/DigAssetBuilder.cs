@@ -28,7 +28,7 @@ namespace Gravedigger2026.Editor.Dig
         private const string UiCursorRingPath = PrefabDigDir + "/UiDigCursorRing.prefab";
         private const string CircleSpritePath = ArtUiDigDir + "/Ui_DigCursor_Circle.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v0464";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08296";
 
         private static readonly string[] MapIds =
         {
@@ -148,7 +148,15 @@ namespace Gravedigger2026.Editor.Dig
                 AssetDatabase.CreateAsset(catalog, CatalogPath);
             }
 
-            catalog.EditorSet(stagePrefab, diggerPrefab, rewardPrefab, cursorRingView, mapPrefabs, graveEntries);
+            catalog.EditorSet(
+                stagePrefab,
+                diggerPrefab,
+                rewardPrefab,
+                cursorRingView,
+                AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Defend/Projectile/ZYT_1.png"),
+                LoadLightningFrames(),
+                mapPrefabs,
+                graveEntries);
             EditorUtility.SetDirty(catalog);
 
             // Re-bind catalog + cursor prefab on DigStageRoot controller / DigCursorView
@@ -526,6 +534,22 @@ namespace Gravedigger2026.Editor.Dig
             ctrlSo.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
+        }
+
+        private static Sprite[] LoadLightningFrames()
+        {
+            var frames = new Sprite[4];
+            for (var i = 0; i < frames.Length; i++)
+            {
+                var path = $"Assets/Art/Defend/Projectile/ShanDian_1/Elctr_{i}.png";
+                frames[i] = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                if (frames[i] == null)
+                {
+                    Debug.LogWarning($"[DigAssetBuilder] Lightning frame missing: {path}");
+                }
+            }
+
+            return frames;
         }
 
         private static void EnsureFolders()

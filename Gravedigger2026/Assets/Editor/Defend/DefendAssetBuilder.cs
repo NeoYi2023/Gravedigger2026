@@ -33,6 +33,8 @@ namespace Gravedigger2026.Editor.Defend
         private const string BattleModeSelectRootPath = PrefabDefendDir + "/BattleModeSelectRoot.prefab";
         private const string BattleProtagonistPath = PrefabDefendDir + "/BattleProtagonist.prefab";
         private const string ProjectilePath = PrefabDefendDir + "/Projectile.prefab";
+        private const string ArcherProjectileArtPath = "Assets/Art/Defend/Projectile/JianShi_1.png";
+        private const string MageProjectileArtPath = "Assets/Art/Defend/Projectile/MoFa_1.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
         private const string MonsterCsv = "Defend_MonsterConfig.csv";
@@ -161,6 +163,8 @@ namespace Gravedigger2026.Editor.Defend
 
             var warriorEntries = BuildWarriorAppearanceEntries();
             var monsterEntries = BuildMonsterModelEntries();
+            var archerProjectileSprite = AssetDatabase.LoadAssetAtPath<Sprite>(ArcherProjectileArtPath);
+            var mageProjectileSprite = AssetDatabase.LoadAssetAtPath<Sprite>(MageProjectileArtPath);
 
             var catalog = AssetDatabase.LoadAssetAtPath<DefendPrefabCatalog>(CatalogPath);
             if (catalog == null)
@@ -176,7 +180,9 @@ namespace Gravedigger2026.Editor.Defend
                 projectilePrefab,
                 mapEntries,
                 warriorEntries,
-                monsterEntries);
+                monsterEntries,
+                archerProjectileSprite,
+                mageProjectileSprite);
             EditorUtility.SetDirty(catalog);
 
             var stageContents = PrefabUtility.LoadPrefabContents(StageRootPath);
@@ -733,19 +739,11 @@ namespace Gravedigger2026.Editor.Defend
         private static GameObject BuildProjectile()
         {
             var root = new GameObject("Projectile");
-            var body = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            body.name = "Body";
-            body.transform.SetParent(root.transform, false);
-            body.transform.localScale = new Vector3(0.28f, 0.28f, 0.28f);
-            UnityEngine.Object.DestroyImmediate(body.GetComponent<Collider>());
-            var renderer = body.GetComponent<MeshRenderer>();
-            if (renderer != null)
-            {
-                var mat = new Material(Shader.Find("Standard"));
-                mat.color = new Color(0.95f, 0.85f, 0.25f);
-                renderer.sharedMaterial = mat;
-            }
-
+            var visual = new GameObject("Visual");
+            visual.transform.SetParent(root.transform, false);
+            visual.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
+            var renderer = visual.AddComponent<SpriteRenderer>();
+            renderer.sortingOrder = 210;
             root.AddComponent<ProjectileView>();
             return root;
         }

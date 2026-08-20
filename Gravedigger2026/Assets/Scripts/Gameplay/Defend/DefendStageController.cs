@@ -847,6 +847,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     retarget,
                     _catalog != null ? _catalog.ProjectilePrefab : null,
                     _worldRoot,
+                    _catalog,
                     () => _warriorAgents,
                     () => _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null,
                     formationHome,

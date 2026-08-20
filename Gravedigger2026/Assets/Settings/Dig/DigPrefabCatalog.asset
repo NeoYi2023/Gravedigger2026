@@ -16,6 +16,12 @@ MonoBehaviour:
   _diggerPrefab: {fileID: 3802795665642611284, guid: 236c4ae71a9652d4cb693606aea6cfbc, type: 3}
   _rewardFlyerPrefab: {fileID: 939440366962044377, guid: 4a3d8089761ec6c459686c85d053b951, type: 3}
   _uiDigCursorRingPrefab: {fileID: 9100000100000000003, guid: f4d0a2b5c7e19d6371b4f8250a3de6c4, type: 3}
+  _explosiveBarrelSprite: {fileID: 21300000, guid: 23607bacb7e6082448f528f7f0d7893f, type: 3}
+  _lightningFrames:
+  - {fileID: 21300000, guid: e54d2b201fca2a44680d129af369efcf, type: 3}
+  - {fileID: 21300000, guid: 5a949995224b5fa45976fd61bf8a6113, type: 3}
+  - {fileID: 21300000, guid: 1e3f15c7ca0a9f740b947d8b4f8632e0, type: 3}
+  - {fileID: 21300000, guid: fbb7f8214a19ec243b1999ed81738f47, type: 3}
   _maps:
   - MapId: Ground_01
     Prefab: {fileID: 2120705586636139558, guid: 2b55ec59d080c0c4a95b02b760b12e4b, type: 3}

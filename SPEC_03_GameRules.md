@@ -12,7 +12,7 @@
 
 | 术语 (EN) | 中文 | 定义 |
 |-----------|------|------|
-| GameplayState | 玩法状态 | 局内主状态枚举：`Dig`（挖坟）、`AutoManufacture`（自动制造；Mode2 流水线）、`UpgradeManufacture`（升级与制造；原占位名 `SewRevive`）、`Defend`（防守）、`PushMap`（推图战）。关卡运行时由当前阶段的玩法类型决定（§3.9）；壳层默认占位仍为 Dig。 |
+| GameplayState | 玩法状态 | 局内主状态枚举：`Shop`（商店；Mode2 关卡第一阶段）、`Dig`（挖坟）、`AutoManufacture`（自动制造；Mode2 流水线）、`UpgradeManufacture`（升级与制造；原占位名 `SewRevive`）、`Defend`（防守）、`PushMap`（推图战）。关卡运行时由当前阶段的玩法类型决定（§3.9）；壳层默认占位仍为 Dig。 |
 | SaveSlot | 存档槽 | 固定数量的本地存档位；本版 **3 槽**（索引 0–2）。空槽可新建，占用槽可进入或删除。占用旗按槽共享；士兵池/布阵/副本解锁等进度按槽 **且按 `CampaignMode`** 隔离（§3.4）。 |
 | CampaignMode | 玩法模式 | 存档级玩法门闩：`Mode1` / `Mode2`。每次新建或进入均经 `CampaignModeSelect` 选择；同槽两模式进度完全隔离；Mode2 使用独立配置表根（[SPEC_04 §14](SPEC_04_Technical.md)）。Mode2 与 Mode1 共用战斗与挖坟机制；**士兵制造**：Mode1 手动（§3.11），Mode2 自动制造（§3.15）。**勿与** `BattleMode`（保卫战/推图战）混淆。 |
 | AutoManufacture | 自动制造 | Mode2 关卡玩法类型 / `GameplayState`：DigStageSummary 确认后进入；按规则自动选料→造兵→临时仓库→清空布阵后按职业区上阵；结束后进 `UpgradeManufacture`（§3.15）。 |
@@ -42,16 +42,16 @@
 | AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 `WarriorId` 列表；下一批覆盖；按槽 + CampaignMode 持久化（§3.15，[SPEC_04 §6](SPEC_04_Technical.md)）。 |
 | AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现层（UI-016）：规则跑批后播 Step1–2，再进 UM 并自动开布阵（§3.15）。 |
 | CampaignModeSelect | 玩法模式选择 | 点击「新建」或「进入」后弹出的选模式 UI（UI-014）；取消则留在存档界面（§3.2、§3.6）。 |
-| InSaveShell | 进档壳层 | 选定存档 **且选定 `CampaignMode`** 进入后的常驻壳：承载当前 `GameplayState` 占位、浮动「工具」入口，以及左下「装备」「魔法书」（UI-022 / UI-023）。 |
+| InSaveShell | 进档壳层 | 选定存档 **且选定 `CampaignMode`** 进入后的常驻壳：承载当前 `GameplayState` 占位、浮动「工具」入口，以及左下「商店」（Mode2 / UI-026）、「装备」「魔法书」（UI-022 / UI-023）。 |
 | ToolsPanel | 工具面板 | Demo 调试/设置壳层 UI；由浮动「工具」按钮打开。本期含「设置」「关卡」入口（关卡→列表选关），以及 Demo GM「增加主角装备」「增加魔法书」（→ GmGrantListPanel，UI-019 / D-061）与「添加士兵」（→ GmAddSoldierPanel，UI-020 / D-064）。 |
-| ShopSystem | 商店系统 | Mode2 全屏商店系统：展示玩家信息与 6 项待售商品（归类 A=装备、归类 B=魔法书），支持基于关卡解锁的开放、自动刷新/手动刷新，以及点击购买扣精魂并入账。 |
+| ShopSystem | 商店系统 | Mode2 全屏商店：既是关卡 `GameplayType=Shop`（样例 Stage1），也可由 InSaveShell 左下按钮作为局外 overlay 打开；共用 Prefab `ShopStageRoot`。展示玩家信息与 6 项待售商品（归类 A=装备、归类 B=魔法书），支持基于关卡解锁的开放、自动刷新/手动刷新，以及点击购买扣精魂并入账。 |
 | ShopProgress | 商店进度 | 存档持久化状态：最高解锁关卡号、是否触发本次开放、当前刷新次数、当前待售商品 6 项及其已售/空状态。 |
 | ShopOffer | 待售商品条目 | 单项待售信息：slotIndex（0..5）、itemId、归类（A|B）、精魂售价、可购买/已售/空状态；用于展示与购买扣款。 |
 | ShopPoolConfig | 商店商品池配置表 | `Shop_ShopPoolConfig.csv` 行：ShopPoolId、RequiredMaxLevelNumber（关卡进度门槛）、ExtraUnlockCondition（预留）、以及 PoolItemsRaw（商品池道具串：`itemId;归类;出现权重|...`）。 |
 | ShopRefreshPriceConfig | 刷新商品配置表 | `Shop_ShopRefreshPriceConfig.csv` 行：RefreshCount（刷新次数）与 RefreshPrice（刷新精魂价格）；用于手动刷新递进定价。 |
 | ShopCategory | 商品归类 | A 类=装备（对应主角装备 EquipId），B 类=魔法书（对应魔法书 MagicBookId）；同归类内按“道具ID相同→出现权重相加”聚合后做加权抽样。 |
 | PlayerPointer | 运行时光标 | 整段 Play 的系统硬件鼠标外观（UI-024）；源图 `Art/UI/Cursor.png`；点击热点为锁尖。**勿与** Dig 圆圈范围（`DigCursorRadius` / `UiDigCursorRing`）混淆。 |
-| Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每阶段指定玩法类型与玩法配置 ID（§3.9；UM 阶段 ConfigId **忽略**）。工具「关卡」打开列表选关（去重 LevelId → Stage 1）；场景绑定 **TBD**。 |
+| Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每阶段指定玩法类型与玩法配置 ID（§3.9；`Shop` / UM / AutoManufacture 阶段 ConfigId **忽略**）。工具「关卡」打开列表选关（去重 LevelId → Stage 1）；场景绑定 **TBD**。 |
 | LevelOperation | 关卡运作 | 关卡运作表一行：关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID。 |
 | DigGameplayConfig | 挖坟配置 | 挖坟配置表一行：时长、开局坟数、过程生成速率、品质权重（零权重项剔除）等（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | Grave | 坟墓 | 挖坟地图上的可生成实体；带坟墓品质 ID；落点须避开已有坟与障碍物。 |
@@ -61,7 +61,7 @@
 | DigAction | 挖掘流程 | 圆圈光标与坟 DigHitShape 相交且停留 ≥0.2s 触发；半径内全部满足条件的坟**同时**各启 DigAction；每坟独立 `DigActionDuration` 后结算扣血；该坟挖掘中不可重复触发（§3.10）。 |
 | DigObstacle | 挖坟障碍物 | Dig 阶段**仅**未消除 Grave；圆形障碍半径在坟预制体上配置（§3.10）。**不含**地图中心主角。 |
 | DigHitShape | 挖坟命中形 | Grave Prefab 离线烘焙本地 XZ 凸包（贴近精灵轮廓）；光标圆相交判定；与 DigObstacle 分离（§3.10）。 |
-| DigProtagonistCapabilities | 挖坟主角能力 | 存档主角派生：挖坟伤害、挖坟阶段时长加成、时长缩短和、光标半径、可挖品质集合、坟墓生成权重加成；由**科技树**学会与**主角装备**（`EffectDomain` 含 `Dig`）效果按键加法重算（§3.10、§3.13、§3.16）。 |
+| DigProtagonistCapabilities | 挖坟主角能力 | 存档主角派生：挖坟伤害、挖坟阶段时长加成、时长缩短和、光标半径、可挖品质集合、坟墓生成权重加成、过程生成数量加成；由**科技树**学会与**主角装备**（`EffectDomain` 含 `Dig`）效果按键加法重算（§3.10、§3.13、§3.16）。 |
 | GraveHP | 坟墓血量 | 坟墓当前/最大生命；maxHP 来自坟墓品质定义表；扣至 0 触发挖掘成功与奖励（§3.10）。 |
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP% 切换：>65% 样式1；30%–65% 样式2；<30% 样式3（§3.10）。 |
 | GraveQualityConfig | 坟墓品质定义表 | 品质 ID → maxHP、掉落等；被挖坟权重引用（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
@@ -217,7 +217,7 @@
 
 | Term (EN) | ZH | Definition |
 |-----------|-----|------------|
-| GameplayState | 玩法状态 | In-session main state enum: `Dig`, `AutoManufacture` (Mode2 pipeline), `UpgradeManufacture` (was placeholder `SewRevive`), `Defend`, `PushMap`. During a Level, set by the current stage's gameplay type (§3.9); shell default placeholder remains Dig. |
+| GameplayState | 玩法状态 | In-session main state enum: `Shop` (shop; Mode2 Level stage 1), `Dig`, `AutoManufacture` (Mode2 pipeline), `UpgradeManufacture` (was placeholder `SewRevive`), `Defend`, `PushMap`. During a Level, set by the current stage's gameplay type (§3.9); shell default placeholder remains Dig. |
 | SaveSlot | 存档槽 | Fixed local slots; this version **3 slots** (indices 0–2). Empty → create; occupied → enter or delete. Occupied flag is shared per slot; WarriorPool / BattleFormation / DungeonUnlocks progress is isolated per slot **and** `CampaignMode` (§3.4). |
 | CampaignMode | 玩法模式 | Save-level play gate: `Mode1` / `Mode2`. Every create/enter goes through `CampaignModeSelect`; progress fully isolated per mode in the same slot; Mode2 uses a separate config-table root ([SPEC_04 §14](SPEC_04_Technical.md)). Mode2 shares Dig/Defend mechanics with Mode1; **soldier manufacture**: Mode1 manual (§3.11), Mode2 AutoManufacture (§3.15). **Do not confuse** with `BattleMode` (Defend/PushMap). |
 | AutoManufacture | 自动制造 | Mode2 stage type / `GameplayState`: after DigStageSummary confirm; auto pick parts → craft → temp warehouse → clear formation then deploy by class zones; then enter `UpgradeManufacture` (§3.15). |
@@ -247,16 +247,16 @@
 | AutoManufactureBatchRecord | 自动制造批次记录 | Save-scoped last-batch `WarriorId` list; next batch overwrites; persist per slot + CampaignMode (§3.15, [SPEC_04 §6](SPEC_04_Technical.md)). |
 | AutoManufacturePresentation | AutoManufacture presentation | Mode2 AutoManufacture stage presentation (UI-016): after rule batch play Step1–2, then UM + auto-open Formation (§3.15). |
 | CampaignModeSelect | 玩法模式选择 | Mode-pick UI after Create/Enter (UI-014); cancel stays on save select (§3.2, §3.6). |
-| InSaveShell | 进档壳层 | Persistent shell after entering a save **with a chosen `CampaignMode`**: hosts current `GameplayState` placeholder, floating Tools, and bottom-left Equipment / MagicBook (UI-022 / UI-023). |
+| InSaveShell | 进档壳层 | Persistent shell after entering a save **with a chosen `CampaignMode`**: hosts current `GameplayState` placeholder, floating Tools, and bottom-left Shop (Mode2 / UI-026) / Equipment / MagicBook (UI-022 / UI-023). |
 | ToolsPanel | 工具面板 | Demo settings/debug shell UI opened by floating Tools. This version: Settings + Level (Level → pick list) + Demo GM Grant Protagonist Equipment / Grant MagicBook (→ GmGrantListPanel, §3.5 / UI-019 / D-061) + Add Soldier (→ GmAddSoldierPanel, UI-020 / D-064). |
-| ShopSystem | 商店系统 | Mode2 full-screen shop system: shows player info and 6 offers (category A=equipment, category B=magicbooks). Supports level-unlock gating, auto/manual refresh, and click-to-buy that deducts Spirit and grants inventory/equipment. |
+| ShopSystem | 商店系统 | Mode2 full-screen shop: a Level `GameplayType=Shop` (sample Stage1) **and** an out-of-level InSaveShell overlay from the bottom-left button; both instantiate the same Prefab `ShopStageRoot`. Shows player info and 6 offers (category A=equipment, category B=magicbooks). Supports level-unlock gating, auto/manual refresh, and click-to-buy that deducts Spirit and grants inventory/equipment. |
 | ShopProgress | 商店进度 | Save-persisted state: max unlocked level marker, whether this unlock triggers current opening, current refresh count, current 6 offers and their sold/empty status. |
 | ShopOffer | 待售商品条目 | Single offer info: slotIndex (0..5), itemId, category (A|B), Spirit price, purchasable/sold/empty state; used for display and Spirit deduction. |
 | ShopPoolConfig | 商店商品池配置表 | `Shop_ShopPoolConfig.csv` row: ShopPoolId, RequiredMaxLevelNumber (level progress gate), ExtraUnlockCondition (reserved), and PoolItemsRaw (pool items string: `itemId;category;weight|...`). |
 | ShopRefreshPriceConfig | 刷新商品配置表 | `Shop_ShopRefreshPriceConfig.csv` row: RefreshCount (how many manual refreshes) and RefreshPrice (Spirit cost); used for manual refresh pricing progression. |
 | ShopCategory | 商品归类 | Category A=equipment (protagonist gear EquipId), category B=magicbooks (MagicBookId). Inside a category, identical itemId weights are summed before weighted sampling. |
 | PlayerPointer | 运行时光标 | Whole-Play hardware mouse look (UI-024); source `Art/UI/Cursor.png`; hotspot = shovel tip. **Distinct from** Dig circle range (`DigCursorRadius` / `UiDigCursorRing`). |
-| Level | 关卡 | Multi-stage flow defined by Level Operation table; each stage has gameplay type + config ID (§3.9; UM stage ConfigId **ignored**). Tools Level opens LevelSelectPanel (distinct LevelIds → Stage 1); scene binding **TBD**. |
+| Level | 关卡 | Multi-stage flow defined by Level Operation table; each stage has gameplay type + config ID (§3.9; `Shop` / UM / AutoManufacture stage ConfigId **ignored**). Tools Level opens LevelSelectPanel (distinct LevelIds → Stage 1); scene binding **TBD**. |
 | LevelOperation | 关卡运作 | One Level Operation row: LevelId + StageNumber + GameplayType + GameplayConfigId. |
 | DigGameplayConfig | 挖坟配置 | One Dig config row: duration, initial grave count, spawn rate, quality weights (zero-weight entries dropped) (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | Grave | 坟墓 | Spawnable Dig-map entity with Grave Quality Id; placement must avoid existing graves and obstacles. |
@@ -266,7 +266,7 @@
 | DigAction | 挖掘流程 | Circle cursor dwell ≥0.2s over diggable graves intersecting DigHitShape triggers dig; **all** eligible graves start DigAction **in parallel**; each resolves damage after its own `DigActionDuration`; busy grave cannot re-trigger (§3.10). |
 | DigObstacle | 挖坟障碍物 | Dig-stage obstacles are **only** uncleared Graves; circle obstacle radius on Grave Prefabs (§3.10). **No** map-center protagonist obstacle. |
 | DigHitShape | Dig hit shape | Offline-baked local-XZ convex hull on Grave Prefab (silhouette-approx); cursor-circle intersection; separate from DigObstacle (§3.10). |
-| DigProtagonistCapabilities | 挖坟主角能力 | Save-slot protagonist derived stats: dig damage, Dig stage duration bonus, duration-reduction sum, cursor radius, diggable quality set, grave spawn-weight bonuses; recalculated additively from **tech-tree** learns **and** protagonist gear whose `EffectDomain` includes `Dig` (§3.10, §3.13, §3.16). |
+| DigProtagonistCapabilities | 挖坟主角能力 | Save-slot protagonist derived stats: dig damage, Dig stage duration bonus, duration-reduction sum, cursor radius, diggable quality set, grave spawn-weight bonuses, process-spawn count bonus; recalculated additively from **tech-tree** learns **and** protagonist gear whose `EffectDomain` includes `Dig` (§3.10, §3.13, §3.16). |
 | GraveHP | 坟墓血量 | Current/max HP; maxHP from GraveQualityConfig; 0 HP → dig success + reward (§3.10). |
 | GraveIconStyle | 坟墓图标样式 | By remaining HP%: >65% style1; 30%–65% style2; <30% style3 (§3.10). |
 | GraveQualityConfig | 坟墓品质定义表 | Quality Id → maxHP, loot, etc.; referenced by Dig spawn weights (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
@@ -432,7 +432,7 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 | 进档壳层 | 点击左下「装备」 | 打开装备仓只读弹窗（UI-022 / D-067） |
 | 进档壳层 | 点击左下「魔法书」 | 打开魔法书 6 槽弹窗（UI-023 / D-068 / D-072）；可拖拽排序；点占用槽 → 槽下「删除」→ 二次确认后清槽 |
 | 工具面板 | 点击「设置」「关卡」 | 设置→科技树；关卡→LevelSelectPanel |
-| 工具面板 | 点击「增加主角装备」「增加魔法书」 | 关闭 ToolsPanel → GmGrantListPanel（UI-019）；点一次发放（装备 `TryAcquire` / 魔法书 `TryEquip`） |
+| 工具面板 | 点击「增加主角装备」「增加魔法书」 | 关闭 ToolsPanel → GmGrantListPanel（UI-019）；装备点行→嵌套选等级→`DebugGrantAtLevel`；魔法书点一次 `TryEquip` |
 | 三玩法状态 | — | **TBD**（后续专门补充） |
 
 ### English
@@ -450,7 +450,7 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 | InSaveShell | Bottom-left Equipment | Open read-only warehouse popup (UI-022 / D-067) |
 | InSaveShell | Bottom-left MagicBook | Open 6-slot popup (UI-023 / D-068 / D-072); drag to reorder; click occupied slot → Delete under slot → confirm then clear |
 | ToolsPanel | Settings / Level | Settings → TechTree; Level → LevelSelectPanel (distinct LevelIds) |
-| ToolsPanel | Grant Protagonist Equipment / Grant MagicBook | Hide ToolsPanel → GmGrantListPanel (UI-019); one click grants (`TryAcquire` / `TryEquip`) |
+| ToolsPanel | Grant Protagonist Equipment / Grant MagicBook | Hide ToolsPanel → GmGrantListPanel (UI-019); equipment: pick row → nested level picker → `DebugGrantAtLevel`; MagicBook: one click `TryEquip` |
 | Three gameplay states | — | **TBD** |
 
 ---
@@ -500,6 +500,15 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 持久化 | 本地、按槽索引 + `CampaignMode`；至少持久化「是否占用」。**本片已锁定：** 士兵可上阵池（`WarriorPool`）+ 战斗布阵（`BattleFormation`）随槽**与模式**读写（见 [SPEC_04 §6](SPEC_04_Technical.md)）；其余字段（仓库 / 经验 / 科技等）schema 仍 **TBD** |
 | Mode2 合成 | Mode2 士兵制造 = **自动制造**（§3.15）；Mode2 UM 关闭手动制造 |
 
+**新建档初始资源**
+
+| 规则 | 说明 |
+|------|------|
+| 触发 | `CampaignModeSelect` 确认且为**新建**（非进入已有档） |
+| 发放 | 向当前存档仓库入账 `ItemId=Spirit`（精魂），数量 ← **`CombatConstantConfig.NewSaveInitialSpiritCount`**（样例 **30**） |
+| 边界 | 常量 `Value ≤ 0` 时不发放；进入已有档不重复发放 |
+| Demo | 仓库/精魂尚未持久化；本规则保证新建档首次进壳即有可消费精魂（商店/制造等） |
+
 **槽位展示（最小）**
 
 | 字段 | 要求 |
@@ -523,6 +532,15 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | Persistence | Local, by slot index + `CampaignMode`; at least occupied flag. **This slice locked:** deployable soldier pool (`WarriorPool`) + `BattleFormation` read/write per slot **and mode** ([SPEC_04 §6](SPEC_04_Technical.md)); other fields (Warehouse / Exp / Tech, …) schema still **TBD** |
 | Mode2 manufacture | Mode2 soldier craft = **AutoManufacture** (§3.15); Mode2 UM hides manual manufacture |
 
+**Initial resources (new save)**
+
+| Rule | Notes |
+|------|-------|
+| When | `CampaignModeSelect` confirmed for **create** (not enter existing slot) |
+| Grant | Credit warehouse `ItemId=Spirit` (SpiritEssence); count ← **`CombatConstantConfig.NewSaveInitialSpiritCount`** (sample **30**) |
+| Boundary | No grant when constant `Value ≤ 0`; no repeat grant on enter existing slot |
+| Demo | Warehouse/Spirit not yet persisted; ensures new save has spendable Spirit on first InSaveShell entry (Shop / manufacture, etc.) |
+
 **Minimal display**
 
 | Field | Requirement |
@@ -544,21 +562,23 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 进档壳左下入口 | 左下 `BackButton`（「返回存档」）正上方竖排：**上「商店」、中「装备」、下「魔法书」、最下「返回存档」**。各 **160×48**，间距 **8**；Mode1/Mode2 均显示「返回存档」；商店为 Mode2（见下方规则）。点「商店」→ UI-026；点「装备」→ UI-022；点「魔法书」→ UI-023。弹窗/全屏对齐 UI-008 的遮罩风格（全屏遮罩 + 中框/全屏框 + 关闭）；`sortingOrder` ≥ 100 以盖住 AM 演出。Tools GM（UI-019）与 Dig HUD GM **保留**。 |
 | 本期条目 | **设置**（含科技树画布入口，见 §3.13 / UI-012）、**关卡**（打开关卡列表，见 UI-008）、**商店**（Mode2 全屏商店：开放/自动刷新/刷新价格递进/购买扣精魂）、**增加主角装备**、**增加魔法书**（Demo GM，见 UI-019 / D-061）、**添加士兵**（Demo GM，见 UI-020 / D-064） |
 | 关卡语义 | 工具「关卡」入口 **不等于** 直接切换三种 `GameplayState`；关卡多阶段规则见 §3.9。点击「关卡」→ 打开 **LevelSelectPanel**（Prefab）：列出当前 `CampaignMode` 已加载的 `Level_LevelOperationConfig` 中全部 **去重 `LevelId`**（同 Id 只显示一行）；点选某行 → `LevelOperationDriver.TryEnterLevel(levelId)`，从该关 **`StageNumber=1`**（升序第一阶段）进入。关列表空则 Toast 提示。 |
-| Demo GM：增加主角装备 | 点击 → 关闭 ToolsPanel → 打开 **GmGrantListPanel**：列出当前模式 `ProtagonistEquipmentConfig` **按 EquipId 去重**（取 Level 1 行 `DisplayName`，空则 Id）。点一次 → `ProtagonistEquipmentService.TryAcquire(equipId)`（首次入仓 L1；重复=转化经验）。成功/失败 Toast + 日志；列表保持打开可连点。 |
+| Demo GM：增加主角装备 | 点击 → 关闭 ToolsPanel → 打开 **GmGrantListPanel**：列出当前模式 `ProtagonistEquipmentConfig` **按 EquipId 去重**（取 Level 1 行 `DisplayName`，空则 Id）。点行 → **嵌套 LevelPicker**（该 EquipId 全部 `EquipLevel` 升序按钮，文案 `Lv.{n}`）→ `ProtagonistEquipmentService.DebugGrantAtLevel(equipId, level)`（未拥有则入仓该级 `CurrentExp=0`；已拥有则覆盖 `Level` 且 `CurrentExp=0`）。成功/失败 Toast + 日志；关 LevelPicker；**列表保持打开**。Dig HUD「获得铁铲/矿灯/炸药」仍 `TryAcquire`。 |
 | Demo GM：增加魔法书 | 点击 → 关闭 ToolsPanel → 同一 **GmGrantListPanel**：列出当前模式 `MagicBookConfig` 全表（`DisplayName`，空则 Id）。点一次 → `SpecialEquipSlotsService.TryEquip(magicBookId)`（装入第一个空槽；**无**独立仓库）。`IsUnique=1` 已装或 6 槽满 → 失败 Toast。Dig HUD「装备战士强化」等 GM **保留**。 |
 | Demo GM：添加士兵 | 点击 → 关闭 ToolsPanel。**仅**当 UM「布阵」编辑器已打开（`FormationEditorMode.UpgradeManufacture`）可用；否则 Toast「请先打开布阵界面」、不打开面板。可用时打开左侧 **GmAddSoldierPanel**（UI-020）：职业下拉=`ClassConfig` 全表；种族下拉=`RaceConfig` 全表；数量输入（默认 1，钳制 1～999）；「自动上阵」默认勾选；底「关闭」「添加」。「添加」**不关面板**：在当前模式 `BodyAppearanceConfig` 中查找 `RaceId` 精确匹配 **且** `ClassAffinity` 含该职业 `ClassName`（`|` 分隔，与制造亲和一致）的外观行；**无匹配** → Toast「找不到此种士兵！」且不入池（**不**回退 `DefaultAppearanceId`）。**多条匹配不得均匀随机**：优先匹配集内 `AppearanceId` 等于该职业 `DefaultAppearanceId` 的行；否则 `AppearanceLevel` 等于该职业 `ClassLevel` 的行；再否则取表内首次出现。有匹配 → 不耗材料/精魂，由 `GmSoldierGrantService` 按 Demo 固定 `BaseStats` + 职业/种族行构造实例入 `WarriorPool`（授予 `DefaultSkillIds`@Lv1）；若勾选自动上阵 → 对本批 Id 调 `AutoFormationDeployService.DeployBatch`（缺职业区则留池，不弹「找不到士兵」）。Defend/PushMap Prepare **不可用**。 |
 | Demo Debug：士兵任务标签 | 进档壳 **Debug** 区提供开关（**默认开**）：Defend / PushMap Combat 中士兵脚下 TextMesh 显示当前 `GoalKind` 中文简标（推进 / 回阵 / 追击 / 追击锚）；仅目标类，不含攻击前摇等细态；见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | 后续条目 | 装备升级 / 划入 `EquipCommonExp` / 卸下 UI、魔法书从弹窗装入，其余 TBD。装备仓只读见 D-067；魔法书排序见 D-068；弹窗删除见 D-072；GM 见 D-061 / D-064（P1） |
 
-点击「设置」：进入设置页并承载科技树画布（§3.13）；其它设置项清单仍 **TBD**；科技树画布完整验收本版可选后置。点击「关卡」：关闭工具面板 → 打开 LevelSelectPanel → 点选进入对应关卡 Stage 1。点击「商店」：打开 Mode2 全屏商店（UI-026；商店开放门闩见下方规则）。点击「增加主角装备」/「增加魔法书」：关闭工具面板 → GmGrantListPanel → 点一次发放。点击「添加士兵」：仅 UM 布阵打开时 → GmAddSoldierPanel。点击进档壳左下「装备」/「魔法书」：打开对应居中 Modal（不关 ToolsPanel）。
+点击「设置」：进入设置页并承载科技树画布（§3.13）；其它设置项清单仍 **TBD**；科技树画布完整验收本版可选后置。点击「关卡」：关闭工具面板 → 打开 LevelSelectPanel → 点选进入对应关卡 Stage 1。点击「商店」：打开 Mode2 全屏商店（UI-026；**局外 overlay**；商店开放门闩见下方规则）。点击「增加主角装备」：关闭工具面板 → GmGrantListPanel → 点行选等级后 `DebugGrantAtLevel`。点击「增加魔法书」：关闭工具面板 → GmGrantListPanel → 点一次 `TryEquip`。点击「添加士兵」：仅 UM 布阵打开时 → GmAddSoldierPanel。点击进档壳左下「装备」/「魔法书」：打开对应居中 Modal（不关 ToolsPanel）。
 
 ### Mode2 商店系统（本片规则）
 
-1) 入口按钮与全屏 UI
+1) 双入口与全屏 UI
 - 仅在 `CampaignMode=Mode2` 时「商店」按钮有意义。
-- 点击「商店」打开全屏 `ShopStageRoot`：左侧“玩家信息”、右侧“待售商品信息”，并按当前 `ShopProgress` 显示精魂总值、装备栏、魔法书栏、以及 6 项待售商品。
- - `ShopStageRoot` 打开后（首次渲染前），应调用 `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)` 消化 pending 并确保 `progress.CurrentOffers` 已更新（若 pending 已在解锁回调阶段消化，则不会重复生成）。
-- 关闭按钮销毁 `ShopStageRoot` 并返回 InSaveShell；`ShopProgress` 必须持久化，下次打开仍可复用当前商品栏（直到下一次新关卡解锁触发自动刷新一次）。
+- **关卡阶段入口：** Mode2 样例运作表 Stage1 `GameplayType=Shop`。`ShopStageModule` Instantiate 全屏 Prefab `Assets/Prefabs/Shop/ShopStageRoot.prefab`（内容区 stretch 铺满，**不是** 980×650 居中弹窗）。阶段内点关闭/继续 → **无独立阶段结算** → `LevelOperationDriver.TryAdvanceStage`（进入 Dig）。
+- **局外 overlay 入口：** InSaveShell 左下「商店」在关卡未运行、或当前阶段 **不是** Shop 时，Instantiate **同一** Prefab 盖在壳上。关闭销毁实例并返回 InSaveShell，**不**推进关卡。若当前关卡已处于 Shop 阶段（全屏已开），按钮 **no-op**。
+- 打开后（首次渲染前）调用 `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)` 消化 pending（若解锁回调已消化则不会重复生成）。
+- 布局：左侧“玩家信息”、右侧“待售商品信息”，按当前 `ShopProgress` 显示精魂总值、装备栏、魔法书栏、以及 6 项待售商品。左侧保留 `EquipSummaryText` / `MagicBookSummaryText`（`装备：n/6`、`魔法书槽：n/6`），其下分别展示已拥有装备图标与已装备魔法书图标（见第 6 条）。
+- `ShopProgress` 必须持久化；下次打开仍可复用当前商品栏（直到下一次新关卡解锁触发自动刷新一次）。
 
 2) 商店开放规则与自动刷新
 - 商店“可打开”的门闩：`CampaignMode=Mode2` 时按钮可用；但只有发生“新的关卡解锁”时才会触发 `ShopProgress.pendingOpenOnNewUnlock=true`，并由 `ShopOfferRefreshService.TryAutoRefreshOnceIfPending` 完成一次 offers 自动生成与刷新计数重置（解锁回调阶段立即触发，或在 `ShopStageRoot` 首次渲染前置消化）。
@@ -598,6 +618,16 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
   - B 类（魔法书）：调用 `SpecialEquipSlotsService.TryEquip(itemId)`
 - 更新 slot：标记为已售并清空/禁用该 slot 的购买入口；不自动触发刷新（只能由「刷新商品」或下一次“新关卡解锁自动刷新”改变商品栏）。
 
+6) 已拥有展示与出售闭环（D-076）
+- 装备图标：读取 `ProtagonistEquipmentService.OwnedEquips`（每种 `EquipId` 至多 1 件，最多 6）；魔法书图标：读取 `SpecialEquipSlotsService` 6 槽，空槽不显示可点图标。
+- 图标优先 `Item_ItemCatalogConfig.IconAssetId`；缺则回退 `ProtagonistEquipmentConfig` / `MagicBookConfig` 的 `IconAssetId`。加载：仅文件名时装备走 `Resources/UI/Equipment/{IconAssetId}`、魔法书走 `Resources/UI/MagicBooks/{IconAssetId}`（与 UI-022 / UI-023 同目录）；含 `/` 则按 Resources 相对路径直载；缺图空框，名称/价格仍显示。
+- 点击占用图标：该图标正下方出现「出售」按钮与 `Item_ItemCatalogConfig.SellPrice`（获得精魂）；再点同一图标收起；点另一图标切换；空槽不出现。
+- 点击「出售」须 `ConfirmDialog`（文案含道具名与获得精魂）；商店 Canvas `sortingOrder` ≥ 200，确认框 `overrideSorting` ≥ 201。取消则库存与精魂不变。
+- 确认后由 `ShopSellService` 执行：先校验 catalog 行且 `SellPrice ≥ 0`（缺行或负值失败 Toast、不移除）；再移除道具；成功后 `Warehouse.AddSpirit(SellPrice)`。`SellPrice=0` 允许出售（入账 0）。
+- 装备：`ProtagonistEquipmentService.TryRemove` 整件删除；**不**退 `CurrentExp` / `EquipCommonExp`；`Changed` 触发 Dig caps 重算。UI-022 仓只读弹窗**不**提供出售。
+- 魔法书：`SpecialEquipSlotsService.TryUnequip(slotIndex)`（不补位、无仓库=从当前存档删除）。与 UI-023 删除的差异是商店会发精魂。
+- 购买仍可用 catalog `SellPrice` 作为待售 `priceSpirit`（本片不拆买卖价字段）。
+
 ### English
 
 | Rule | Notes |
@@ -607,21 +637,23 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | InSaveShell bottom-left | Above `BackButton` ("Return to saves"), vertical stack: **Shop (top, Mode2), Equipment (next), MagicBook (next), Back (bottom)**. Each **160×48**, gap **8**; Mode1/Mode2 show Back button; Shop enabled for Mode2 (see rules below). Shop → UI-026; Equipment → UI-022; MagicBook → UI-023. Popups/full-screen align with UI-008 dim style (full-screen dim + center/full-screen frame + close); `sortingOrder` ≥ 100 to cover AM presentation. Tools GM (UI-019) and Dig HUD GM **kept**. |
 | This version | **Settings** (hosts TechTree canvas, §3.13 / UI-012), **Level** (opens level list, UI-008), **Shop** (Mode2 full-screen shop: unlock/open + auto refresh + refresh price progression + buy with Spirit cost), **Grant Protagonist Equipment**, **Grant MagicBook** (Demo GM, UI-019 / D-061), **Add Soldier** (Demo GM, UI-020 / D-064) |
 | Level meaning | Tools Level entry is **not** a direct three-state switch; multi-stage Level rules in §3.9. Level click → **LevelSelectPanel** Prefab: lists all **distinct `LevelId`** from the current `CampaignMode`'s loaded `Level_LevelOperationConfig` (one row per Id); picking a row → `LevelOperationDriver.TryEnterLevel(levelId)` starting at **`StageNumber=1`** (first ascending stage). Empty list → Toast. |
-| Demo GM: Grant Protagonist Equipment | Click → hide ToolsPanel → **GmGrantListPanel**: distinct `EquipId` from current-mode `ProtagonistEquipmentConfig` (Level 1 `DisplayName`, else Id). One click → `ProtagonistEquipmentService.TryAcquire(equipId)` (first acquire L1; duplicate converts Exp). Success/fail Toast + log; list stays open. |
+| Demo GM: Grant Protagonist Equipment | Click → hide ToolsPanel → **GmGrantListPanel**: distinct `EquipId` from current-mode `ProtagonistEquipmentConfig` (Level 1 `DisplayName`, else Id). Pick a row → nested **LevelPicker** (all `EquipLevel` rows for that Id, ascending, label `Lv.{n}`) → `ProtagonistEquipmentService.DebugGrantAtLevel(equipId, level)` (not owned → add at that level `CurrentExp=0`; owned → overwrite `Level` and `CurrentExp=0`). Success/fail Toast + log; close LevelPicker; **list stays open**. Dig HUD Grant Iron Shovel / Miner Lamp / Explosives still `TryAcquire`. |
 | Demo GM: Grant MagicBook | Click → hide ToolsPanel → same **GmGrantListPanel**: all current-mode `MagicBookConfig` rows (`DisplayName`, else Id). One click → `SpecialEquipSlotsService.TryEquip(magicBookId)` (first empty slot; **no** warehouse). Unique already equipped or 6 slots full → fail Toast. Dig HUD GM (e.g. Equip Warrior Enhance) **kept**. |
 | Demo GM: Add Soldier | Click → hide ToolsPanel. **Only** when UM Formation editor is open (`FormationEditorMode.UpgradeManufacture`); else Toast「请先打开布阵界面」and do not open panel. When allowed → left **GmAddSoldierPanel** (UI-020): class dropdown = full `ClassConfig`; race dropdown = full `RaceConfig`; count input (default 1, clamp 1–999); Auto-deploy default on; bottom Close / Add. Add **keeps panel open**: find current-mode `BodyAppearanceConfig` rows with exact `RaceId` **and** `ClassAffinity` containing that class `ClassName` (`|`-split, same as manufacture affinity); **no match** → Toast「找不到此种士兵！」and no pool add (**no** `DefaultAppearanceId` fallback). **If several rows match, do not pick uniformly at random**: prefer the match whose `AppearanceId` equals that class's `DefaultAppearanceId`; else `AppearanceLevel` equals `ClassLevel`; else first table order. On match → no material/Spirit cost; `GmSoldierGrantService` builds instances with Demo fixed `BaseStats` + class/race rows into `WarriorPool` (`DefaultSkillIds`@Lv1); if Auto-deploy → `AutoFormationDeployService.DeployBatch` for batch Ids (missing class zone → leave in pool; not「找不到士兵」). Defend/PushMap Prepare **not** allowed. |
 | Demo Debug: soldier task label | InSaveShell **Debug** toggle (**default on**): during Defend / PushMap Combat, TextMesh under each soldier shows current `GoalKind` short ZH label (advance / home / chase / chase-anchor); goal-kind only — no attack windup detail; see [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | Future entries | Equipment level-up / spend `EquipCommonExp` / unequip UI, MagicBook grant-from-popup, other TBD. Warehouse read-only = D-067; MagicBook reorder = D-068; popup delete = D-072; GM = D-061 / D-064 (P1) |
 
-Settings click → Settings page hosting TechTree canvas (§3.13); other settings items still **TBD**; full TechTree canvas acceptance optional this Demo. Level click → hide Tools → LevelSelectPanel → pick enters that level at Stage 1. Shop click → open Mode2 full-screen shop (UI-026; open-gate rules below). Grant Equipment / Grant MagicBook → hide Tools → GmGrantListPanel → one click grants. Add Soldier → only when UM Formation open → GmAddSoldierPanel. InSaveShell bottom-left Equipment / MagicBook → open the matching centered Modal (does not hide ToolsPanel).
+Settings click → Settings page hosting TechTree canvas (§3.13); other settings items still **TBD**; full TechTree canvas acceptance optional this Demo. Level click → hide Tools → LevelSelectPanel → pick enters that level at Stage 1. Shop click → open Mode2 full-screen shop as an **out-of-level overlay** (UI-026; open-gate rules below). Grant Equipment → hide Tools → GmGrantListPanel → pick row then level → `DebugGrantAtLevel`. Grant MagicBook → hide Tools → GmGrantListPanel → one click `TryEquip`. Add Soldier → only when UM Formation open → GmAddSoldierPanel. InSaveShell bottom-left Equipment / MagicBook → open the matching centered Modal (does not hide ToolsPanel).
 
 ### Mode2 Shop System (This Slice Rules)
 
-1) Entry button & full-screen UI
+1) Dual entry & full-screen UI
 - Shop button is meaningful only for `CampaignMode=Mode2`.
-- Clicking Shop opens full-screen `ShopStageRoot`: left “Player Info”, right “Shop Offers”.
- - After `ShopStageRoot` opens (before first render), it should call `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)` to consume pending and ensure `progress.CurrentOffers` is updated (if pending was consumed during unlock callback, it will not generate twice).
-- Closing destroys `ShopStageRoot` and returns to InSaveShell; `ShopProgress` must be persisted so offers remain until the next “new level unlock” auto refresh.
+- **Level-stage entry:** Mode2 sample LevelOperation Stage1 `GameplayType=Shop`. `ShopStageModule` instantiates full-screen Prefab `Assets/Prefabs/Shop/ShopStageRoot.prefab` (content stretch-fills the screen; **not** a 980×650 centered dialog). In-stage Close/Continue → **no independent stage settlement** → `LevelOperationDriver.TryAdvanceStage` (enters Dig).
+- **Out-of-level overlay entry:** InSaveShell bottom-left Shop, when no Level is running **or** the current stage is **not** Shop, instantiates the **same** Prefab over the shell. Close destroys the instance and returns to InSaveShell without advancing the Level. If the Shop stage is already open, the button is a **no-op**.
+- After open (before first render) call `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)` to consume pending (no second generate if unlock callback already consumed it).
+- Layout: left “Player Info”, right “Shop Offers”, driven by current `ShopProgress`. Left keeps `EquipSummaryText` / `MagicBookSummaryText` (`装备：n/6`, `魔法书槽：n/6`) and, below each, owned equipment icons and equipped MagicBook icons (see rule 6).
+- Persist `ShopProgress` so offers remain until the next “new level unlock” auto refresh.
 
 2) Shop open rule & auto refresh
 - Shop button is enabled for `CampaignMode=Mode2`, but only a new level unlock triggers `ShopProgress.pendingOpenOnNewUnlock=true`. The pending flag is consumed exactly once by `ShopOfferRefreshService.TryAutoRefreshOnceIfPending` to generate offers and reset refresh counters (either immediately in unlock callback, or just before the first shop render).
@@ -654,6 +686,16 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
   - category B: `SpecialEquipSlotsService.TryEquip(itemId)`
 - Mark slot sold/empty and disable purchase for that slot; do not auto-trigger refresh.
 
+6) Owned display & sell close-loop (D-076)
+- Equipment icons: `ProtagonistEquipmentService.OwnedEquips` (at most one per `EquipId`, max 6). MagicBook icons: 6 `SpecialEquipSlotsService` slots; empty slots are not clickable icons.
+- Icon: prefer `Item_ItemCatalogConfig.IconAssetId`; else fall back to `ProtagonistEquipmentConfig` / `MagicBookConfig` `IconAssetId`. Load: filename-only equipment → `Resources/UI/Equipment/{IconAssetId}`, MagicBook → `Resources/UI/MagicBooks/{IconAssetId}` (same folders as UI-022 / UI-023); if the id contains `/`, load as a Resources-relative path; missing sprite = empty frame, name/price still shown.
+- Click occupied icon → “Sell” + `Item_ItemCatalogConfig.SellPrice` (Spirit gained) under that icon; click same again to hide; click another to switch; empty slots never show it.
+- Sell requires `ConfirmDialog` (name + Spirit gain). Shop Canvas `sortingOrder` ≥ 200; confirm overlay `overrideSorting` ≥ 201. Cancel leaves inventory and Spirit unchanged.
+- On confirm `ShopSellService`: require catalog row with `SellPrice ≥ 0` (missing/negative → Toast, no remove); then remove; then `Warehouse.AddSpirit(SellPrice)`. `SellPrice=0` is allowed (gain 0).
+- Equipment: `TryRemove` deletes the whole piece; **no** refund of `CurrentExp` / `EquipCommonExp`; `Changed` recalcs Dig caps. UI-022 warehouse stays read-only (no sell there).
+- MagicBook: `TryUnequip(slotIndex)` (no compact; no warehouse = delete from save). Unlike UI-023 delete, shop sell credits Spirit.
+- Shop buy may still use catalog `SellPrice` as offer `priceSpirit` (this slice does not split buy/sell columns).
+
 ---
 
 ## 3.6 UI 清单
@@ -680,14 +722,14 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-016 | 自动制造演出 | 已定义（Demo / Mode2） | AutoManufacture 阶段：Step1 中央士兵行（默认 150×200，「?」42 + 职业名 32 + 其下 `Lv.{ClassLevel}` 24，横滑传送带）+ 上方 6 魔法书槽（120×160）；进入第一张从视口中心右侧一格滑入；Step2 逐兵加强后揭示：先 Taunt 一遍再循环默认 Idle（Camera+RT）；传送带左移不等 Taunt；每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过；Mode1 **无**；验收见 §3.8 D-055 |
 | UI-017 | 推图战斗结算 | 已定义（Demo / PushMap） | 胜负均弹：上部「胜利/失败」；中部「战斗耗时」「击杀怪物总数」；底中「继续」。失败 Continue → LevelSelectPanel；胜利 Continue → UI-018；见 §3.14 |
 | UI-018 | 推图奖励弹窗 | 已定义（Demo / PushMap） | 仅展示本场已入账：`StageExpReward` + 占领 `CaptureLoot` 汇总；`CaptureLoot` 先经 `ItemCatalogConfig` 解析为统一道具展示名/图标来源；无额外发放；底中「继续」→ 关闭后打开 LevelSelectPanel；见 §3.14 |
-| UI-019 | GM 发放列表 | 已定义（Demo GM） | Prefab `GmGrantListPanel`（InSaveShell 子级；布局对齐 UI-008）；Tools「增加主角装备」/「增加魔法书」打开；按钮文案 DisplayName（空则 Id）；点一次发放；关闭按钮；验收见 §3.8 D-061 |
+| UI-019 | GM 发放列表 | 已定义（Demo GM） | Prefab `GmGrantListPanel`（InSaveShell 子级；布局对齐 UI-008）；Tools「增加主角装备」/「增加魔法书」打开；按钮文案 DisplayName（空则 Id）；装备点行→嵌套 LevelPicker（等级按钮）→`DebugGrantAtLevel`；魔法书点一次 `TryEquip`；关闭按钮；验收见 §3.8 D-061 |
 | UI-020 | GM 添加士兵 | 已定义（Demo GM） | Prefab `GmAddSoldierPanel`（InSaveShell 子级；画面左侧靠边）；Tools「添加士兵」打开；职业/种族下拉 + 数量 + 自动上阵 + 关闭/添加；仅 UM 布阵打开可用；验收见 §3.8 D-064 |
 | UI-021 | 士兵栏悬浮框 | 已定义（Demo / Mode2） | 仅 `FormationEditorRoot_Mode2`：指针停在有兵 `SoldierSlot` 上展示职业信息/静态属性/技能图标与名；每个技能 `Icon` 右上角 5×5 指示器按 `SkillConfig.EffectImplemented` 绿/红；离槽、横滑、拖起上阵则隐藏；Mode1 **无**；验收见 §3.8 D-065 / D-070 |
-| UI-022 | 主角装备仓弹窗 | 已定义（Demo） | InSaveShell 左下「装备」打开居中 Modal（对齐 UI-008：全屏遮罩 + 中框 + 关闭；`sortingOrder` ≥ 100）；只读 `OwnedEquips`：`DisplayName`（空则 `EquipId`）+ `Lv.{Level}` + 当前等级行 `Description` + `IconAssetId`（有则 `Resources.Load<Sprite>`）；空态「尚未拥有装备」；订阅 `Changed`；**不**升级、**不**划 `EquipCommonExp`、**不**卸下；Mode1/Mode2 均有；验收见 §3.8 D-067 |
+| UI-022 | 主角装备仓弹窗 | 已定义（Demo） | InSaveShell 左下「装备」打开居中 Modal（对齐 UI-008：全屏遮罩 + 中框 + 关闭；`sortingOrder` ≥ 100）；只读 `OwnedEquips`：`DisplayName`（空则 `EquipId`）+ `Lv.{Level}` + 当前等级行 `Description` + `IconAssetId`（有则 `Resources.Load<Sprite>("UI/Equipment/"+IconAssetId)`，含 `/` 则按相对路径直载）；空态「尚未拥有装备」；订阅 `Changed`；**不**升级、**不**划 `EquipCommonExp`、**不**卸下；Mode1/Mode2 均有；验收见 §3.8 D-067 |
 | UI-023 | 魔法书槽弹窗 | 已定义（Demo） | InSaveShell 左下「魔法书」打开居中 Modal（同 UI-022 壳）；嵌套共享 `Assets/Prefabs/AutoManufacture/BookRow.prefab`（6×`BookSlot_0`…`_5`，120×160）；下标 **0→5 = 左→右**（与 UI-016 Step2 启动顺序相同）；每个槽位 `Icon` 从 `Resources/UI/MagicBooks/{IconAssetId}` 加载（`Resources.Load<Sprite>`，缺/空则不显示）；左键拖拽任意两槽 `SpecialEquipSlotsService.TrySwap`（含空槽=搬书）；成功立即 persist + `Changed`；左键点占用槽 → 该槽正下方浮动「删除」（空槽不出现；再点同一槽收起；拖拽开始隐藏）；点「删除」须二次确认（`ConfirmDialog`，`sortingOrder` 110）；确认后 `TryUnequip` 清该槽（**不补位**；无仓库=从当前存档删除；不可恢复）立即 persist + `Changed`；AM 演出 BookRow 订阅 `Changed` 同步；**无**独立魔法书仓库；装入仍 Tools GM `TryEquip`（UI-019）；Mode1/Mode2 均有；验收见 §3.8 D-068 / D-072 |
 | UI-024 | 运行时光标 | 已定义（Demo） | 整段 Play（Boot 存档选择起）硬件指针 = `Assets/Art/UI/Cursor.png`；`PlayerSettings.defaultCursor` + hotspot 对齐锁尖（贴图左上）；**不**隐藏系统鼠标；Dig 圆圈仅作范围指示 |
 | UI-025 | 战斗技能图标 | 已定义（Demo / PushMap） | CombatSkillIcon：头顶瞬时 35×35 静止 0.6s 后世界 +Z 上飘 0.3s 淡出；同兵右排间距 4px；脚下持续 20×20；图标 `Resources/UI/Skills/{SkillId}`（缺图空框）；验收 D-071；Defend **无** |
-| UI-026 | Mode2 商店全屏界面 | 已定义（Demo / Mode2） | 全屏 Prefab `ShopStageRoot`（运行时实例化/销毁）；Mode2 进档壳左下「商店」按钮入口。布局：左侧「玩家信息」（精魂总值 `SpiritEssence`、当前装备栏摘要、当前魔法书栏 6 槽占用）；右侧「待售商品」（共 6 项：slot0..2 归类 A 装备、slot3..5 归类 B 魔法书；每项显示道具图标+道具名+精魂售价，支持点击购买；购买成功后该 slot 标记已售/禁用且不自动刷新）。下侧「刷新商品」按钮显示当前刷新价格并支持手动刷新递进定价；每次刷新重新生成 6 项（不足留空、不补齐）。商店在「新关卡解锁」时自动刷新一次并重置刷新价格进度；关闭返回 InSaveShell。 |
+| UI-026 | Mode2 商店全屏界面 | 已定义（Demo / Mode2） | 全屏 Prefab `Assets/Prefabs/Shop/ShopStageRoot.prefab`（内容区 stretch 铺满；运行时实例化/销毁）。**双入口：** ① Mode2 关卡 Stage1 `GameplayType=Shop`（`ShopStageModule`；关闭 → `TryAdvanceStage`）；② InSaveShell 左下「商店」局外 overlay（关闭回壳、不推进阶段；Shop 阶段已开则 no-op）。布局：左侧「玩家信息」（精魂总值 `SpiritEssence`、`EquipSummaryText`/`MagicBookSummaryText` 占用摘要、其下已拥有装备/魔法书 ICON；点占用 ICON 在图标下方出现「出售」+ `SellPrice`，确认后出售入账精魂，见 D-076）；右侧「待售商品」（共 6 项：slot0..2 归类 A 装备、slot3..5 归类 B 魔法书；每项显示道具图标+道具名+精魂售价，支持点击购买；图标加载同 §3.5：A→`Resources/UI/Equipment/{IconAssetId}`、B→`Resources/UI/MagicBooks/{IconAssetId}`；购买成功后该 slot 标记已售/禁用且不自动刷新）。下侧「刷新商品」按钮显示当前刷新价格并支持手动刷新递进定价；每次刷新重新生成 6 项（不足留空、不补齐）。商店在「新关卡解锁」时自动刷新一次并重置刷新价格进度。验收见 §3.8 D-075 / D-076。 |
 
 ### English
 
@@ -711,14 +753,14 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-016 | AutoManufacture presentation | Defined (Demo / Mode2) | AutoManufacture stage: Step1 center soldier row (default 150×200, "?" 42 + class name 32 + `Lv.{ClassLevel}` 24 below, conveyor scroll) + 6 MagicBook slots above (120×160); enter: first card slides from one pitch right of viewport center; Step2 amplify then reveal: Taunt once then loop default Idle (Camera+RT); conveyor does not wait for Taunt; +25% speed every 3; Step3 enter UM then auto-open Formation; 0 craft skips; Mode1 **none**; accept §3.8 D-055 |
 | UI-017 | PushMap battle settlement | Defined (Demo / PushMap) | Always on win/lose: top Victory/Defeat; mid combat time + monsters killed; bottom Continue. Fail Continue → LevelSelectPanel; Win Continue → UI-018; §3.14 |
 | UI-018 | PushMap reward popup | Defined (Demo / PushMap) | Show already-credited StageExpReward + CaptureLoot aggregate only; `CaptureLoot` first resolves through `ItemCatalogConfig` for shared display-name/icon sourcing; no extra grants; bottom Continue → LevelSelectPanel; §3.14 |
-| UI-019 | GM grant list | Defined (Demo GM) | Prefab `GmGrantListPanel` under InSaveShell (layout aligned with UI-008); Tools Grant Equipment / Grant MagicBook; label DisplayName (else Id); one click grants; close button; accept §3.8 D-061 |
+| UI-019 | GM grant list | Defined (Demo GM) | Prefab `GmGrantListPanel` under InSaveShell (layout aligned with UI-008); Tools Grant Equipment / Grant MagicBook; label DisplayName (else Id); equipment pick → nested LevelPicker (level buttons) → `DebugGrantAtLevel`; MagicBook one click `TryEquip`; close button; accept §3.8 D-061 |
 | UI-020 | GM add soldier | Defined (Demo GM) | Prefab `GmAddSoldierPanel` under InSaveShell (left dock); Tools Add Soldier; class/race dropdowns + count + auto-deploy + Close/Add; UM Formation only; accept §3.8 D-064 |
 | UI-021 | Soldier-bar hover tooltip | Defined (Demo / Mode2) | `FormationEditorRoot_Mode2` only: pointer over occupied `SoldierSlot` shows class info / static stats / skill icons+names; each skill `Icon` top-right 5×5 indicator green/red from `SkillConfig.EffectImplemented`; hide on leave, horizontal scroll, or lift-to-deploy; Mode1 **none**; accept §3.8 D-065 / D-070 |
-| UI-022 | Protagonist equipment warehouse popup | Defined (Demo) | InSaveShell bottom-left Equipment opens centered Modal (align UI-008: full-screen dim + center box + close; `sortingOrder` ≥ 100); read-only `OwnedEquips`: `DisplayName` (else `EquipId`) + `Lv.{Level}` + current-level `Description` + `IconAssetId` (`Resources.Load<Sprite>` if set); empty 「尚未拥有装备」; subscribe `Changed`; **no** level-up / spend `EquipCommonExp` / unequip; Mode1 and Mode2; accept §3.8 D-067 |
+| UI-022 | Protagonist equipment warehouse popup | Defined (Demo) | InSaveShell bottom-left Equipment opens centered Modal (align UI-008: full-screen dim + center box + close; `sortingOrder` ≥ 100); read-only `OwnedEquips`: `DisplayName` (else `EquipId`) + `Lv.{Level}` + current-level `Description` + `IconAssetId` (`Resources.Load<Sprite>("UI/Equipment/"+IconAssetId)` if set; slash in id → load as Resources-relative path); empty 「尚未拥有装备」; subscribe `Changed`; **no** level-up / spend `EquipCommonExp` / unequip; Mode1 and Mode2; accept §3.8 D-067 |
 | UI-023 | MagicBook slots popup | Defined (Demo) | InSaveShell bottom-left MagicBook opens centered Modal (same shell as UI-022); nested shared `Assets/Prefabs/AutoManufacture/BookRow.prefab` (6×`BookSlot_0`…`_5`, 120×160); index **0→5 = left→right** (same start order as UI-016 Step2); each slot `Icon` loaded from `Resources/UI/MagicBooks/{IconAssetId}` (`Resources.Load<Sprite>`; missing/empty => hidden); LMB-drag any two slots `SpecialEquipSlotsService.TrySwap` (empty slot = move book); success persists immediately + `Changed`; LMB click occupied slot → floating Delete under that slot (empty slots hide it; click same slot again hides; BeginDrag hides); Delete requires confirm (`ConfirmDialog`, `sortingOrder` 110); confirm → `TryUnequip` clears that index (**no compact**; no warehouse = delete from current save; irreversible) persist immediately + `Changed`; AM presentation BookRow subscribes `Changed`; **no** MagicBook warehouse; grant still Tools GM `TryEquip` (UI-019); Mode1 and Mode2; accept §3.8 D-068 / D-072 |
 | UI-024 | Runtime pointer | Defined (Demo) | Whole-Play (from Boot save-select) hardware cursor = `Assets/Art/UI/Cursor.png`; `PlayerSettings.defaultCursor` + hotspot at shovel tip (texture top-left); do **not** hide OS cursor; Dig ring is range overlay only |
 | UI-025 | Combat skill icon | Defined (Demo / PushMap) | CombatSkillIcon: overhead 35×35 holds 0.6s then world +Z rise 0.3s fade; stack screen-right 4px; persist 20×20 at feet; icons `Resources/UI/Skills/{SkillId}` (missing → empty frame); accept D-071; Defend **none** |
-| UI-026 | Mode2 shop full-screen UI | Defined (Demo / Mode2) | Full-screen Prefab `ShopStageRoot` (runtime instantiate/destroy); entry from the Mode2 InSaveShell bottom-left Shop button. Layout: left "Player Info" (`SpiritEssence`, current equipment summary, current 6-slot MagicBook occupancy); right "Shop Offers" (6 offers total: slot0..2 category A equipment, slot3..5 category B magicbooks; each shows item icon + item name + Spirit price and supports click-to-buy; successful purchase marks that slot sold/disabled and does not auto-refresh). Bottom "Refresh Offers" button shows the current refresh price and supports manual refresh-price progression; each refresh regenerates all 6 offers (leave empty if insufficient, no backfill). The shop auto-refreshes once on each "new level unlock" and resets the refresh-price progression; close returns to InSaveShell. |
+| UI-026 | Mode2 shop full-screen UI | Defined (Demo / Mode2) | Full-screen Prefab `Assets/Prefabs/Shop/ShopStageRoot.prefab` (content stretch-fills; runtime instantiate/destroy). **Dual entry:** (1) Mode2 Level Stage1 `GameplayType=Shop` (`ShopStageModule`; close → `TryAdvanceStage`); (2) InSaveShell bottom-left Shop overlay (close returns to shell, does not advance; no-op while Shop stage is open). Layout: left "Player Info" (`SpiritEssence`, `EquipSummaryText`/`MagicBookSummaryText`, owned equipment/MagicBook ICONs below; click occupied ICON → Sell + `SellPrice` under it, confirm to sell for Spirit, D-076); right "Shop Offers" (6 offers total: slot0..2 category A equipment, slot3..5 category B magicbooks; each shows item icon + item name + Spirit price and supports click-to-buy; successful purchase marks that slot sold/disabled and does not auto-refresh). Bottom "Refresh Offers" button shows the current refresh price and supports manual refresh-price progression; each refresh regenerates all 6 offers (leave empty if insufficient, no backfill). The shop auto-refreshes once on each "new level unlock" and resets the refresh-price progression. Accept §3.8 D-075 / D-076. |
 
 ---
 
@@ -779,18 +821,18 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-043 | Defend 胜负与结算：清场胜利可入账阶段经验并交还关卡驱动；`Shield ≤ 0` → LevelFailure（可验） | P0 | 已实现（方案 A：开战 Degree/Tier 锁定 + `FinalLossChance` roll→Rebel 就近扣盾；清场 Ended 入账 Demo Exp=100→`TryAdvanceStage`；护盾归零 LevelFailure 不入账并 `AbortLevel`） |
 | D-044 | 战斗模式选关闸门：进入 Defend 须先 `ModeSelect`；可选保卫战全部 `DefendGameplayConfig`；模式2列出全部 `PushMapGameplayConfig`，确认后交接进 §3.14 Prepare；任一模式通关→`TryAdvanceStage` | P0 | 已实现（方案 A：`BattleModeSelectRoot` + Mode2→`TryHandoffModeSelectToPushMap`→`PushMapStageModule`） |
 | D-045 | 玩法模式门闩：新建/进入均弹出 `CampaignModeSelect`（Mode1/Mode2/取消）；同槽两模式进度隔离；Mode2 只读 `ConfigTables/Mode2/Csv`；删档清双模数据；**勿与** D-044 混淆 | P0 | 本片实现（方案 A） |
-| D-050 | Mode2：样例关卡运作含 Dig → **AutoManufacture** → UpgradeManufacture；DigStageSummary 确认后进入自动制造；阶段无玩家确认、自动交还驱动 | P1 | 已实现（AM-03～08：`AutoManufactureStageModule` 自动 `TryAdvanceStage`；Mode2 `Level_01` Dig→AutoManufacture→UM→PushMap；Excel/CSV 对齐；0 兵 Tips「无士兵可制造」；手验清单 `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`） |
+| D-050 | Mode2：样例关卡运作含 **Shop** → Dig → **AutoManufacture** → UpgradeManufacture → PushMap；DigStageSummary 确认后进入自动制造；自动制造阶段无玩家确认、自动交还驱动 | P1 | 已实现（AM-03～08：`AutoManufactureStageModule` 自动 `TryAdvanceStage`；Mode2 `Level_01` Shop→Dig→AutoManufacture→UM→PushMap；Excel/CSV 对齐；0 兵 Tips「无士兵可制造」；手验清单 `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`；Shop 阶段见 D-075） |
 | D-051 | Mode2 AutoManufacture：按最低配方（头+躯干+臂×2含主要手+腿×2）循环造兵入临时仓库；不计 Spirit/Control；职业由双手 ClassRestrict；余料留仓库 | P1 | 已实现（AM-03～06：选料/职业/属性→钩子→外观+命名→临时仓 flush→`WarriorPool`→清阵上阵；SoulId 空、Control=0、AttackMode←ClassConfig；手验见 AM-08） |
 | D-052 | Mode2：批结束后清空布阵，按 `PlacementOrder` + `FormationClassZone` 自动上阵（碰撞挤开）；再进 UM | P1 | 已实现（AM-06 方案 A：区内螺旋采样 + BodyRadius；`FormationClassZone` **IsoDiamond**（同 WalkSurface；废止 OBB/IsoTileYaw）；仅本批 Id；手验见 AM-08 / FZ-01～02） |
 | D-053 | Mode2 UM：隐藏手动制造；保留升级 Modal 与可编辑布阵；控制力 HUD 屏蔽；布阵内 `CompleteButton`（SoldierBar 上右，UM/Prepare 均显示；UM 接线结束阶段）；Prepare `StartBattleButton` 叠于 Complete 正上方 | P1 | 已实现（方案 C：`UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`；Catalog 按 CampaignMode Resolve；手验见 AM-08；Complete 见 Mode2 差分） |
 | D-054 | Mode2 UM：布阵右侧「制造记录」打开只读弹窗；展示最近一批 AutoManufacture 士兵摘要（名字/种族/职业）；0 兵空态「本批无士兵」；下一批覆盖；同档再进仍可见；Mode1 无此按钮 | P1 | 已实现（方案 A：`AutoManufactureBatchRecordService` + Mode2 Modal；`UmAssetBuilder` Mode2 追加 / 运行时 Ensure） |
 | D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；进入时第一张从视口水平中心右侧一格滑入中心；Step2 逐兵加强/单槽脉冲套该书/书槽峰值同步士兵卡 VisualStyle live preview（Camera+RT；未烘进仍「?」）/6 槽结束揭示（Taunt 一遍→循环默认 Idle）后整行左移一格（末张不再移；传送带不等 Taunt）；每 3 兵加速；播完后按 final ClassId 上阵再进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | **更新**（Step2 脉冲峰值同步 VisualStyle 预览；方案 B Camera+RT） |
-| D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`、`App_0_01`…`App_0_33`、`App_4_41`、`App_5_51`） |
+| D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_*`/`App_4_41`/`App_5_51`，并扩展人/精/兽 `App_1_*`/`App_2_*`/`App_3_*`） |
 | D-057 | 样例 `Ground_*` 的 `FormationClassZone` 覆盖当前模式 `ClassConfig` **全部** ClassId（缺区→自动上阵留池）；Mode2 须含 `Class_DarkMage`/`Class_Guardian` 等 | P1 | 已实现（全量 ClassId 同步 + 样例 HalfExtents 锁定 `(3.85, 2)`：Ensure 读 Mode2 `Manufacture_ClassConfig`；已有区保留世界 XZ；缺补/表外删；未调用 GenerateAll） |
 | D-058 | Mode2 魔法书「战士强化」：装备 `MagicBook_WarriorEnhance` 后 AutoManufacture **Step2 该书槽脉冲**仅对 `Class_BaseWarrior` / `Class_Warrior` 将主属性 Base 增加躯体该维 Σ StatBonus 的 15%（可叠；种族不过滤）；其它职业不变；写入实例至彻底死亡；Dig HUD GM 可装备 | P1 | **更新**（生效点改为 Step2 单槽脉冲；职业含枯骨战士） |
 | D-059 | 主角装备 Dig 垂直：`ProtagonistEquipmentConfig` 表加载（Mode1+Mode2）+ 装备仓 Service/存档 + Dig caps 科技与装备加法合并 + Dig HUD GM 手验（发放 `Equip_IronShovel` / 公共经验）；仓只读 UI 见 D-067；升级/划公共经验/卸下 UI 与制造·战斗 Token **后置** | P1 | **完成**（PE-01～PE-04；方案 A；issues `.scratch/protagonist-equipment/`；Demo 装备=`Equip_IronShovel` 铁铲） |
 | D-060 | 主角装备「矿灯」`Equip_MinerLamp`：表 5 级（升下一级/转化经验均为 1）+ Q4/Q5/Q6 生成权重按当前行累计 +10（缺席视为 0）+ Dig HUD GM 发放/划入手验 | P1 | **完成**（PE-05～PE-08；方案 A；issues `.scratch/protagonist-equipment/`） |
-| D-061 | ToolsPanel Demo GM：增加主角装备（当前模式表按 EquipId 去重，点一次 `TryAcquire`）+ 增加魔法书（MagicBookConfig 全表，点一次 `TryEquip`；唯一已装/槽满失败）；GmGrantListPanel（UI-019）；Dig HUD GM 保留；仓只读 / 魔法书排序见 D-067 / D-068 | P1 | **完成**（TP-00～02；方案 A；issues `.scratch/tools-panel-gm-grant/`） |
+| D-061 | ToolsPanel Demo GM：增加主角装备（当前模式表按 EquipId 去重；点行嵌套选等级 → `DebugGrantAtLevel` 写死等级/`CurrentExp=0`）+ 增加魔法书（MagicBookConfig 全表，点一次 `TryEquip`；唯一已装/槽满失败）；GmGrantListPanel + LevelPicker（UI-019）；Dig HUD GM 仍 `TryAcquire`；仓只读 / 魔法书排序见 D-067 / D-068 | P1 | **完成**（TP-00～02 + 等级弹窗迭代；方案 A） |
 | D-062 | 士兵技能垂直：`SkillConfig` 表加载（Mode1+Mode2，含 `IconAssetId`）+ `ClassConfig.DefaultSkillIds` + 池持久化 + Mode1 制造授予 + Mode2 造兵授予/`SoldierSkillLevelAdd`（Step2 该书槽脉冲）；战斗施放见 **D-069** | P1 | **完成**（SS-01～04；施放垂直 = D-069） |
 | D-063 | Mode2 魔法书职业进阶：装备 `MagicBook_WarriorAdvance` 等四本后 AutoManufacture **Step2 该书槽脉冲**仅对对应 `Class_*_0` 以 25% 改为 `Class_*`（精确 ClassId；日志 hit/miss）；命中后重授 `DefaultSkillIds`；外观/命名/上阵区跟最终职业；其它职业不变；手验 Tools「增加魔法书」 | P1 | **更新**（生效点改为 Step2 单槽脉冲；Deploy 用最终 ClassId） |
 | D-064 | ToolsPanel Demo GM「添加士兵」（UI-020）：仅 UM 布阵打开可用；左侧面板选职业/种族/数量(1–999)/自动上阵；`BodyAppearance` 无 RaceId+ClassAffinity(ClassName) 匹配 → Tips「找不到此种士兵！」且不关面板、不入池；多匹配确定选取（`DefaultAppearanceId`∈匹配集 > `AppearanceLevel==ClassLevel` > 表序首条，禁止匹配集内随机）；匹配则免材料入池并可 DeployBatch；UM「返回」在右下（Mode2 在 Complete 上方） | P1 | **完成**（方案 A；外形选取修复） |
@@ -805,6 +847,11 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-073 | PushMap 士兵技能 `Skill_04`～`Skill_12` 战斗效果（方案 B+）：`SkillEffectKind` 登记制 + `EffectParams` 表驱动 + `CombatStatusService` + `SkillEffectPipeline`；Session **禁止**按 `SkillId` `if/switch`；9 技能 Lv1～5 可手验；Mode2 `EffectImplemented=1`（UI-021 绿）；与 D-069 / D-071 共存；`Skill_01`/`Skill_02`/`Skill_03` 本片保留 `SoldierSkillCast` 硬映射 | P1 | **完成**（SE-00～09；方案 B+；issues `.scratch/soldier-skill-effects/`） |
 
 | D-074 | Mode2 布阵编辑器内“一键上阵”：`FormationEditorRoot_Mode2` 左侧 `CompleteButton` 左邻按钮；点击后收集当前地图 `FormationClassZone`；将**尚未上阵**的士兵按其 `WarriorInstance.ClassId` 分组并随机放入对应职业区（区内非重叠，按区内候选点遍历+占用 Footprint 分离；遇无区/无空位则留池）；已在战场上的士兵不被重置 | P1 | TBD（新增按钮 + 随机区内上阵） |
+| D-075 | Mode2 商店关卡玩法类型：样例运作表 Stage1 `GameplayType=Shop`；全屏 Prefab `ShopStageRoot`；`ShopStageModule` 关闭 → `TryAdvanceStage` 进入 Dig；InSaveShell 左下「商店」保留局外 overlay（Shop 阶段已开 no-op）；`GameplayConfigId` 忽略 | P1 | **完成**（方案 A：Prefab-first + `IStageModule`） |
+| D-076 | Mode2 商店左侧已拥有 ICON + 出售：摘要文本下展示装备/魔法书图标；点占用图标出现「出售」+ `ItemCatalog.SellPrice`；`ConfirmDialog`（sorting ≥ 201）确认后 `ShopSellService` 移除并发精魂；装备整件删除不退经验；魔法书 `TryUnequip` 不补位；UI-022 仍只读 | P1 | **完成**（方案 B：`ShopSellService`） |
+| D-077 | 主角装备「炸药」`Equip_Explosives`：5 级表行 + Dig 事件 Token（玩家 DigAction 消除坟墓 100% 投掷炸药桶；**爆炸清坟不连锁**）+ 抛物线 0.5s / 引信 0.8s / 半径 2 伤害 13/18/23/28/33 + `ZYT_1` 精灵 + 贴地红圈 0.5s + Dig HUD GM 发放/划入 | P1 | **完成**（方案 B：`DigExplosiveScheduler` + Dig Views） |
+| D-078 | 主角装备「引雷」`Equip_Elctr`：5 级表行 + Dig 定时事件 Token（间隔 15/13/11/9/7s，阶段开始后先等完整间隔）+ 随机坟或随机可放点落雷 + 命中坟无 LootDrop / 不触发炸药 + LootDrop 扫描 `IsPrimaryHand=1` 等权随机 → `ClassRestrict`+`RaceId` 入士兵池 + `Elctr_0`～`Elctr_3` 序列帧（0.05s/帧）+ 坟位待机 2s + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：`DigLightningScheduler` + Dig Views） |
+| D-079 | 主角装备「探测器」`Equip_Detector`：5 级表行 + 静态键 `DigProcessSpawnCountBonus`（L1～5 = +1～+5，并入 Dig caps）+ 过程生成 `SpawnRate` 的 **M** 加法（**不**改 N、**不**改开局坟数）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：caps 静态键） |
 **Demo 范围外（仍排除）：**
 
 - 魔法书从弹窗装入（装入仍 Tools GM `TryEquip`；槽排序见 D-068；弹窗删除见 D-072）；其余未实现效果行（「还原」`RaceWeightPick`、「战士强化」`StatMul`/`Primary`、职业进阶 `ForceClass` 已实现）
@@ -814,7 +861,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 - 完整存档序列化 schema（超出槽占用、士兵池、布阵及流水线所需的最小持久化字段；仓库/经验/科技等仍 TBD）
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
 - 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
-- 工具面板「设置」「关卡」及 D-061 / D-064 GM、D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 以外的后续功能；完整 polish；未写入本表的需求
+- 工具面板「设置」「关卡」及 D-061 / D-064 GM、D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 以外的后续功能；完整 polish；未写入本表的需求
 - 打表全量 §9 列/类型校验（[SPEC_04 §14](SPEC_04_Technical.md) Demo 仅文件名+表头；schema 校验后置）
 
 实现边界对照：[SPEC_04 §6](SPEC_04_Technical.md)。
@@ -842,18 +889,18 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-043 | Defend win/lose: clear-spawn victory credits stage Exp and returns to Level driver; `Shield ≤ 0` → LevelFailure (verifiable) | P0 | Done (Approach A: StartBattle Degree/Tier lock + `FinalLossChance`→Rebel nearest Shield hit; clear Ended credits Demo Exp=100→`TryAdvanceStage`; Shield 0 LevelFailure no Exp + `AbortLevel`) |
 | D-044 | Battle ModeSelect gate: entering Defend requires `ModeSelect` first; list all DefendGameplayConfig for Mode1; Mode2 lists all PushMapGameplayConfig then handoff → §3.14 Prepare; either-mode clear→`TryAdvanceStage` | P0 | Done (Approach A: `BattleModeSelectRoot` + Mode2→`TryHandoffModeSelectToPushMap`→`PushMapStageModule`) |
 | D-045 | CampaignMode gate: create/enter always shows `CampaignModeSelect` (Mode1/Mode2/cancel); per-slot progress isolated by mode; Mode2 reads only `ConfigTables/Mode2/Csv`; delete clears both modes; **not** D-044 | P0 | This slice (Approach A) |
-| D-050 | Mode2: sample LevelOperation Dig → **AutoManufacture** → UpgradeManufacture; after DigStageSummary enter auto craft; stage ends without player confirm | P1 | Done (AM-03–08: `AutoManufactureStageModule` auto `TryAdvanceStage`; Mode2 `Level_01` Dig→AutoManufacture→UM→PushMap; Excel/CSV aligned; zero-craft Tips「无士兵可制造」; handcheck `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`) |
+| D-050 | Mode2: sample LevelOperation **Shop** → Dig → **AutoManufacture** → UpgradeManufacture → PushMap; after DigStageSummary enter auto craft; AutoManufacture ends without player confirm | P1 | Done (AM-03–08: `AutoManufactureStageModule` auto `TryAdvanceStage`; Mode2 `Level_01` Shop→Dig→AutoManufacture→UM→PushMap; Excel/CSV aligned; zero-craft Tips「无士兵可制造」; handcheck `.scratch/mode2-auto-manufacture/issues/08-level-sample-handcheck.md`; Shop stage = D-075) |
 | D-051 | Mode2 AutoManufacture: loop craft into temp warehouse with min recipe (Head+Torso+2Arm incl. PrimaryHand+2Leg); no Spirit/Control; class from hand ClassRestrict; leftovers stay in Warehouse | P1 | Done (AM-03–06: pick/class/base→hook→appearance+name→temp flush→`WarriorPool`→clear+deploy; empty SoulId, Control=0, AttackMode←ClassConfig; handcheck AM-08) |
 | D-052 | Mode2: after batch, clear formation; auto-deploy by `PlacementOrder` + `FormationClassZone` (separation); then enter UM | P1 | Done (AM-06 Approach A: in-zone spiral + BodyRadius; `FormationClassZone` **IsoDiamond** (same as WalkSurface; drop OBB/IsoTileYaw); batch Ids only; handcheck AM-08 / FZ-01–02) |
 | D-053 | Mode2 UM: hide manual manufacture; keep upgrade Modal + editable formation; hide ControlPower HUD; in-editor `CompleteButton` (above SoldierBar right; visible UM+Prepare; UM wires stage end); Prepare `StartBattleButton` stacked above Complete | P1 | Done (Approach C: `UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`; Catalog Resolve by CampaignMode; handcheck AM-08; Complete in Mode2 diffs) |
 | D-054 | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only popup; last AutoManufacture batch summaries (name/race/class); empty 「本批无士兵」; next batch overwrites; survives re-enter save; Mode1 has no button | P1 | Done (Approach A: `AutoManufactureBatchRecordService` + Mode2 Modal; `UmAssetBuilder` Mode2 append / runtime Ensure) |
 | D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; enter: first card slides from one pitch right of viewport center; Step2 per-soldier amplify / per-slot pulse applies that book / pulse peak syncs soldier-card VisualStyle live preview (Camera+RT; "?" until baked) / after 6 slots reveal (Taunt once → loop default Idle) then row shifts left one pitch (last card stays; conveyor does not wait for Taunt); +25% speed every 3; then deploy by final ClassId → UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | **Updated** (Step2 pulse peak syncs VisualStyle preview; Approach B Camera+RT) |
-| D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_00`/`App_0_10`/`App_0_20`/`App_0_30`, `App_0_01`…`App_0_33`, `App_4_41`, `App_5_51`) |
+| D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_*`/`App_4_41`/`App_5_51`, extended Human/Elf/Orc `App_1_*`/`App_2_*`/`App_3_*`) |
 | D-057 | Sample `Ground_*` `FormationClassZone` covers **every** current-mode `ClassConfig.ClassId` (no zone → auto-deploy stays in pool); Mode2 must include `Class_DarkMage`/`Class_Guardian` etc. | P1 | Done (full ClassId sync + sample HalfExtents locked `(3.85, 2)`: Ensure reads Mode2 `Manufacture_ClassConfig`; existing zones keep world XZ; add missing / remove orphans; no GenerateAll) |
 | D-058 | Mode2 MagicBook Warrior Enhance: equipped `MagicBook_WarriorEnhance` on AutoManufacture **Step2 that slot's pulse** adds 15% of body Σ StatBonus(class PrimaryStat) to Base for `Class_BaseWarrior` / `Class_Warrior` only (stackable; no race filter); other classes unchanged; baked until PermanentDeath; Dig HUD GM can equip | P1 | **Updated** (apply point → Step2 per-slot pulse; includes bone warrior) |
 | D-059 | ProtagonistEquipment Dig vertical: load `ProtagonistEquipmentConfig` (Mode1+Mode2) + warehouse Service/persist + Dig caps tech+equip additive merge + Dig HUD GM handcheck (grant `Equip_IronShovel` / common Exp); warehouse read-only UI = D-067; level-up / spend common Exp / unequip UI and Manufacture·Combat tokens **deferred** | P1 | **Done** (PE-01–PE-04; Approach A; issues `.scratch/protagonist-equipment/`; Demo gear=`Equip_IronShovel` Iron Shovel) |
 | D-060 | ProtagonistEquipment Miner Lamp `Equip_MinerLamp`: 5-level table (ExpToNext/ConvertExp=1) + Q4/Q5/Q6 spawn-weight cumulative +10 at current row (absent treated as 0) + Dig HUD GM grant/spend handcheck | P1 | **Done** (PE-05–PE-08; Approach A; issues `.scratch/protagonist-equipment/`) |
-| D-061 | ToolsPanel Demo GM: Grant Protagonist Equipment (distinct EquipId, one click `TryAcquire`) + Grant MagicBook (full MagicBookConfig, one click `TryEquip`; unique already equipped / slots full fail); GmGrantListPanel (UI-019); Dig HUD GM kept; warehouse read-only / MagicBook reorder = D-067 / D-068 | P1 | **Done** (TP-00–02; Approach A; issues `.scratch/tools-panel-gm-grant/`) |
+| D-061 | ToolsPanel Demo GM: Grant Protagonist Equipment (distinct EquipId; pick row → nested level picker → `DebugGrantAtLevel` overwrite level / `CurrentExp=0`) + Grant MagicBook (full MagicBookConfig, one click `TryEquip`; unique already equipped / slots full fail); GmGrantListPanel + LevelPicker (UI-019); Dig HUD GM still `TryAcquire`; warehouse read-only / MagicBook reorder = D-067 / D-068 | P1 | **Done** (TP-00–02 + level-picker iteration; Approach A) |
 | D-062 | Soldier-skill vertical: load `SkillConfig` (Mode1+Mode2, incl. `IconAssetId`) + `ClassConfig.DefaultSkillIds` + pool persist + Mode1 manufacture grant + Mode2 craft grant/`SoldierSkillLevelAdd` (Step2 that slot's pulse); combat cast = **D-069** | P1 | **Done** (SS-01–04; cast vertical = D-069) |
 | D-063 | Mode2 MagicBook class advance: equipped `MagicBook_WarriorAdvance` (and siblings) on AutoManufacture **Step2 that slot's pulse** promotes matching `Class_*_0` to `Class_*` at 25% (exact ClassId; log hit/miss); on hit re-grant `DefaultSkillIds`; appearance/name/deploy zone follow final class; other classes unchanged; hand-check Tools Grant MagicBook | P1 | **Updated** (apply point → Step2 per-slot pulse; Deploy uses final ClassId) |
 | D-064 | ToolsPanel Demo GM Add Soldier (UI-020): UM Formation only; left panel class/race/count(1–999)/auto-deploy; no BodyAppearance RaceId+ClassAffinity(ClassName) match → Tips「找不到此种士兵！」keep panel / no pool; multi-match deterministic pick (`DefaultAppearanceId` in set > `AppearanceLevel==ClassLevel` > first table order; no uniform random in set); match → free grant + optional DeployBatch; UM Return bottom-right (Mode2 above Complete) | P1 | **Done** (Approach A; appearance pick fix) |
@@ -868,6 +915,11 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-073 | PushMap soldier skills `Skill_04`–`Skill_12` combat effects (Approach B+): `SkillEffectKind` registry + table-driven `EffectParams` + `CombatStatusService` + `SkillEffectPipeline`; Session **must not** `if/switch` on `SkillId`; all 9 skills Lv1–5 hand-checkable; Mode2 `EffectImplemented=1` (UI-021 green); coexists with D-069 / D-071; `Skill_01`/`Skill_02`/`Skill_03` keep `SoldierSkillCast` hard-map this slice | P1 | **Done** (SE-00–09; Approach B+; issues `.scratch/soldier-skill-effects/`) |
 
 | D-074 | Mode2 formation editor “One-click deploy”: the `FormationEditorRoot_Mode2` button placed left of `CompleteButton`; click collects current-map `FormationClassZone`; deploy only not-yet deployed soldiers grouped by their `WarriorInstance.ClassId` and randomly place them into the matching class zone (in-zone non-overlap via candidate-point traversal + occupied Footprint separation; no zone / no free slot leaves them in pool); already-deployed soldiers are not reset | P1 | TBD (button + randomized in-zone deploy) |
+| D-075 | Mode2 shop as Level gameplay type: sample Stage1 `GameplayType=Shop`; full-screen Prefab `ShopStageRoot`; `ShopStageModule` close → `TryAdvanceStage` into Dig; InSaveShell Shop button remains overlay (no-op while Shop stage open); ignore `GameplayConfigId` | P1 | **Done** (Approach A: Prefab-first + `IStageModule`) |
+| D-076 | Mode2 shop owned ICON + sell on left panel: ICONs under summary; click → Sell + `ItemCatalog.SellPrice`; ConfirmDialog (sorting ≥ 201) → `ShopSellService` removes item and credits Spirit; equipment `TryRemove` without Exp refund; MagicBook `TryUnequip` no compact; UI-022 stays read-only | P1 | **Done** (Approach B: `ShopSellService`) |
+| D-077 | ProtagonistEquipment Explosives `Equip_Explosives`: 5-level rows + Dig event token (100% throw barrel on player DigAction grave clear; **no chain from blast clears**) + parabola 0.5s / fuse 0.8s / radius 2 damage 13/18/23/28/33 + `ZYT_1` sprite + ground red ring 0.5s + Dig HUD GM grant/spend | P1 | **Done** (Approach B: `DigExplosiveScheduler` + Dig Views) |
+| D-078 | ProtagonistEquipment Lightning `Equip_Elctr`: 5-level rows + Dig timed event tokens (interval 15/13/11/9/7s, first strike after a full wait) + random grave or random placeable point + hit grave skips LootDrop and explosives + scan LootDrop `IsPrimaryHand=1` equal-random → `ClassRestrict`+`RaceId` into WarriorPool + `Elctr_0`–`Elctr_3` (0.05s/frame) + 2s idle preview + Dig HUD GM grant/spend | P1 | **Done** (Approach A: `DigLightningScheduler` + Dig Views) |
+| D-079 | ProtagonistEquipment Detector `Equip_Detector`: 5-level rows + static key `DigProcessSpawnCountBonus` (L1–5 = +1–+5, merges into Dig caps) + additive to process-spawn `SpawnRate` **M** (**not** N, **not** initial grave count) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend | P1 | **Done** (Approach A: static cap key) |
 **Out of Demo scope (still excluded):**
 
 - MagicBook grant-from-popup (grant still Tools GM `TryEquip`; slot reorder = D-068; popup delete = D-072); remaining unimplemented effect rows (Restore `RaceWeightPick`, Warrior Enhance `StatMul`/`Primary`, and class-advance `ForceClass` done)
@@ -877,7 +929,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - Full save schema beyond occupied flag + warrior pool + BattleFormation + minimal pipeline fields (Warehouse / Exp / Tech still TBD)
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
 - Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
-- Tools entries beyond Settings / Level / D-061 / D-064 GM / D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073; full polish; anything not in this table
+- Tools entries beyond Settings / Level / D-061 / D-064 GM / D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079; full polish; anything not in this table
 - Bake full §9 column/type validation ([SPEC_04 §14](SPEC_04_Technical.md) Demo: filename + header only; schema validation deferred)
 
 Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
@@ -890,7 +942,7 @@ Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 
 **状态：已定义（规则库；Demo 流水线垂直切片须实现，见 §3.8 D-010）**
 
-关卡由「关卡运作表」驱动。同一 `关卡ID` 的多行按 `阶段编号` **升序**执行。每阶段以 `玩法类型` 设置当前 `GameplayState`，并以 `玩法配置ID` 加载对应玩法配置（挖坟见 §3.10；自动制造见 §3.15；升级与制造见 §3.11；防守见 §3.12；推图战见 §3.14；配置编码见 [SPEC_04 §9](SPEC_04_Technical.md)）。
+关卡由「关卡运作表」驱动。同一 `关卡ID` 的多行按 `阶段编号` **升序**执行。每阶段以 `玩法类型` 设置当前 `GameplayState`，并以 `玩法配置ID` 加载对应玩法配置（商店见 §3.5 / UI-026；挖坟见 §3.10；自动制造见 §3.15；升级与制造见 §3.11；防守见 §3.12；推图战见 §3.14；配置编码见 [SPEC_04 §9](SPEC_04_Technical.md)）。
 
 **表 1 — 关卡运作表字段（规则语义）**
 
@@ -898,15 +950,15 @@ Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 |------|------|
 | 关卡ID | 关卡标识；同 ID 多行组成该关的全部阶段 |
 | 阶段编号 | 同关卡内执行顺序（升序） |
-| 玩法类型 | 本阶段玩法（如 `Dig` / `AutoManufacture` / `UpgradeManufacture` / `Defend` / `PushMap`）；映射到 `GameplayState` |
-| 玩法配置ID | **Dig** → 查 `DigGameplayConfig` 主键；**Defend** → **RecommendedConfigId**（选关默认高亮；UM 下一战斗地图预览仍可解析；**不**强制为唯一开战配置——开战配置由玩家在 `ModeSelect` 从该模式全部玩法配置中选择，见 §3.12）；**PushMap** → 查 `PushMapGameplayConfig` 主键（亦可经 ModeSelect 模式2 选关，见 §3.12 / §3.14）；**UpgradeManufacture** / **AutoManufacture** → **忽略**（可不空；运行时**不**查任何玩法配置表、不解析为 Dig/Defend/PushMap 行；本阶段读全局表如 `ProtagonistLevelConfig` / `BodyPartConfig` 等，见 §3.11 / §3.15 / [SPEC_04 §9.1](SPEC_04_Technical.md)）。**本版不另开** `UpgradeManufactureGameplayConfig` / `AutoManufactureGameplayConfig` |
+| 玩法类型 | 本阶段玩法（如 `Shop` / `Dig` / `AutoManufacture` / `UpgradeManufacture` / `Defend` / `PushMap`）；映射到 `GameplayState` |
+| 玩法配置ID | **Dig** → 查 `DigGameplayConfig` 主键；**Defend** → **RecommendedConfigId**（选关默认高亮；UM 下一战斗地图预览仍可解析；**不**强制为唯一开战配置——开战配置由玩家在 `ModeSelect` 从该模式全部玩法配置中选择，见 §3.12）；**PushMap** → 查 `PushMapGameplayConfig` 主键（亦可经 ModeSelect 模式2 选关，见 §3.12 / §3.14）；**Shop** / **UpgradeManufacture** / **AutoManufacture** → **忽略**（可不空；运行时**不**查任何玩法配置表、不解析为 Dig/Defend/PushMap 行；Shop 读 `ShopProgress` + 商店配置表，见 §3.5；UM/AM 读全局表如 `ProtagonistLevelConfig` / `BodyPartConfig` 等，见 §3.11 / §3.15 / [SPEC_04 §9.1](SPEC_04_Technical.md)）。**本版不另开** `ShopGameplayConfig` / `UpgradeManufactureGameplayConfig` / `AutoManufactureGameplayConfig` |
 
 **阶段流转**
 
 1. 进入关卡：按 `关卡ID` 加载关卡运作行 → 按阶段编号升序排序。
 2. 运行当前阶段：应用玩法类型与玩法配置 ID。
-3. 阶段结束：由该玩法的结束条件触发。挖坟阶段：有效挖坟时长倒计时归零 → 本阶段结束（§3.10；**无胜负**）。**自动制造**：算法跑完（造到不能再造 + 自动上阵）后播演出（UI-016；0 兵跳过），再 **自动**结束（§3.15；无玩家确认；**无独立阶段结算**）。升级与制造阶段：玩家主动确认「完成 / 进入下一阶段」→ 本阶段结束（§3.11；无强制倒计时；**无独立阶段结算**）。防守/战斗阶段：玩家在 `ModeSelect` 所选模式的关卡胜利 → 阶段结束（§3.12；保卫战护盾归零 → **关卡失败**）；`GameplayType=PushMap` 或模式2：BOSS 通关 → 阶段结束；护盾归零 **或** 无忠诚存活士兵 → **关卡失败**（§3.14）。
-4. 阶段结算：若该玩法定义了阶段结算则触发（挖坟：**DigStageSummary** 仅汇总本阶段已获奖励、无额外发放，玩家确认后继续；**自动制造跳过**；升级与制造 **跳过**；防守阶段胜利时至少含 **经验入账**，其余 **TBD**；推图战：先 **战斗结算（UI-017）**，胜利再 **奖励弹窗（UI-018）** 后打开关卡选择（**不**自动 `TryAdvanceStage` / VictorySettlement 占位），见 §3.14），再进入下一阶段（非 PushMap Demo 路由时）。
+3. 阶段结束：由该玩法的结束条件触发。**商店**：玩家点关闭/继续 → 本阶段结束（§3.5；**无独立阶段结算**）。挖坟阶段：有效挖坟时长倒计时归零 → 本阶段结束（§3.10；**无胜负**）。**自动制造**：算法跑完（造到不能再造 + 自动上阵）后播演出（UI-016；0 兵跳过），再 **自动**结束（§3.15；无玩家确认；**无独立阶段结算**）。升级与制造阶段：玩家主动确认「完成 / 进入下一阶段」→ 本阶段结束（§3.11；无强制倒计时；**无独立阶段结算**）。防守/战斗阶段：玩家在 `ModeSelect` 所选模式的关卡胜利 → 阶段结束（§3.12；保卫战护盾归零 → **关卡失败**）；`GameplayType=PushMap` 或模式2：BOSS 通关 → 阶段结束；护盾归零 **或** 无忠诚存活士兵 → **关卡失败**（§3.14）。
+4. 阶段结算：若该玩法定义了阶段结算则触发（**商店跳过**；挖坟：**DigStageSummary** 仅汇总本阶段已获奖励、无额外发放，玩家确认后继续；**自动制造跳过**；升级与制造 **跳过**；防守阶段胜利时至少含 **经验入账**，其余 **TBD**；推图战：先 **战斗结算（UI-017）**，胜利再 **奖励弹窗（UI-018）** 后打开关卡选择（**不**自动 `TryAdvanceStage` / VictorySettlement 占位），见 §3.14），再进入下一阶段（非 PushMap Demo 路由时）。
 5. **无下一阶段**（已是最后一阶段结束后）：触发关卡级 **胜利结算（VictorySettlement）**（PushMap Demo 胜负后改走 UI-017/018 → LevelSelectPanel，见 §3.14）。
 6. **关卡失败（LevelFailure）**：任意阶段触发关卡失败（如 Defend 中护盾归零；PushMap 护盾归零或无忠诚存活）→ **结束关卡**；**不**触发 VictorySettlement / **无关卡结算奖励**；**不**入账本阶段失败阶段经验；此前已入账的 Experience、材料/精魂、士兵、TechPoint 等 **不扣除**；PushMap Demo：先 UI-017 再 Continue → LevelSelectPanel（§3.14）；Defend 失败结算 UI 仍 **TBD**。
 
@@ -916,6 +968,7 @@ EnterLevel
   → Sort by StageNumber ascending
   → Run stage (GameplayType + GameplayConfigId)
   → Stage end condition
+       Shop: player close/continue (no stage settlement; §3.5 / D-075)
        Dig: EffectiveDigDuration countdown = 0 (no win/lose)
        AutoManufacture: algo done + presentation (UI-016; skip if 0); no player confirm (§3.15)
        UpgradeManufacture: player confirm
@@ -923,6 +976,7 @@ EnterLevel
        PushMap: Boss clear per §3.14  OR  LevelFailure → abort Level
   → If LevelFailure → no VictorySettlement / no stage Exp credit; keep already-owned; LevelFailure settlement UI TBD; stop
   → Stage settlement if any
+       Shop: skip
        Dig: DigStageSummary (aggregate only; no extra grants) → player confirm
        AutoManufacture: skip
        UpgradeManufacture: skip
@@ -935,7 +989,7 @@ EnterLevel
 
 **Status: Defined (rules library; Demo pipeline vertical must implement — §3.8 D-010)**
 
-A Level is driven by the Level Operation table. Rows sharing a `LevelId` run in ascending `StageNumber`. Each stage sets `GameplayState` from `GameplayType` and loads config via `GameplayConfigId` (Dig: §3.10; AutoManufacture: §3.15; UpgradeManufacture: §3.11; Defend: §3.12; PushMap: §3.14; encodings: [SPEC_04 §9](SPEC_04_Technical.md)).
+A Level is driven by the Level Operation table. Rows sharing a `LevelId` run in ascending `StageNumber`. Each stage sets `GameplayState` from `GameplayType` and loads config via `GameplayConfigId` (Shop: §3.5 / UI-026; Dig: §3.10; AutoManufacture: §3.15; UpgradeManufacture: §3.11; Defend: §3.12; PushMap: §3.14; encodings: [SPEC_04 §9](SPEC_04_Technical.md)).
 
 **Table 1 — Level Operation fields (rules semantics)**
 
@@ -943,15 +997,15 @@ A Level is driven by the Level Operation table. Rows sharing a `LevelId` run in 
 |-------|-------|
 | LevelId | Level id; multiple rows = all stages |
 | StageNumber | Execution order within the Level (ascending) |
-| GameplayType | Stage mode (e.g. `Dig` / `AutoManufacture` / `UpgradeManufacture` / `Defend` / `PushMap`) → `GameplayState` |
-| GameplayConfigId | **Dig** → lookup `DigGameplayConfig` PK; **Defend** → **RecommendedConfigId** (default highlight in ModeSelect; UM next-battle map preview may still resolve; **not** the sole start config — player picks from all mode configs in `ModeSelect`, §3.12); **PushMap** → lookup `PushMapGameplayConfig` PK (or ModeSelect Mode2 pick, §3.12 / §3.14); **UpgradeManufacture** / **AutoManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config table / Dig/Defend/PushMap rows; stage reads global tables such as `ProtagonistLevelConfig` / `BodyPartConfig` — §3.11 / §3.15 / [SPEC_04 §9.1](SPEC_04_Technical.md)). **No** separate `UpgradeManufactureGameplayConfig` / `AutoManufactureGameplayConfig` this version |
+| GameplayType | Stage mode (e.g. `Shop` / `Dig` / `AutoManufacture` / `UpgradeManufacture` / `Defend` / `PushMap`) → `GameplayState` |
+| GameplayConfigId | **Dig** → lookup `DigGameplayConfig` PK; **Defend** → **RecommendedConfigId** (default highlight in ModeSelect; UM next-battle map preview may still resolve; **not** the sole start config — player picks from all mode configs in `ModeSelect`, §3.12); **PushMap** → lookup `PushMapGameplayConfig` PK (or ModeSelect Mode2 pick, §3.12 / §3.14); **Shop** / **UpgradeManufacture** / **AutoManufacture** → **ignore** (may be non-empty; runtime must **not** resolve against any mode config table / Dig/Defend/PushMap rows; Shop reads `ShopProgress` + shop tables — §3.5; UM/AM read global tables such as `ProtagonistLevelConfig` / `BodyPartConfig` — §3.11 / §3.15 / [SPEC_04 §9.1](SPEC_04_Technical.md)). **No** separate `ShopGameplayConfig` / `UpgradeManufactureGameplayConfig` / `AutoManufactureGameplayConfig` this version |
 
 **Stage flow**
 
 1. Enter Level: load rows by LevelId → sort by StageNumber ascending.
 2. Run current stage: apply GameplayType + GameplayConfigId.
-3. Stage end: per-mode end condition. Dig: effective Dig duration countdown hits 0 → stage ends (§3.10; **no win/lose**). **AutoManufacture**: algorithm finishes (craft until cannot + auto-deploy) → play presentation (UI-016; skip if 0 craft) → stage ends automatically (§3.15; no player confirm; **no independent stage settlement**). UpgradeManufacture: player confirms "Complete / Next stage" → stage ends (§3.11; no forced countdown; **no independent stage settlement**). Defend: see §3.12 (clear-spawn victory → stage end; Shield reaches 0 → **LevelFailure**, no next stage). PushMap: see §3.14 (Boss clear → stage end; Shield reaches 0 → **LevelFailure**).
-4. Stage settlement: if the mode defines one, run it (Dig: **DigStageSummary** — aggregate rewards earned this stage only, no extra grants, then player confirm; **AutoManufacture skips**; UpgradeManufacture **skips**; Defend victory at least **credits Experience**, other content **TBD**), then advance.
+3. Stage end: per-mode end condition. **Shop**: player taps Close/Continue → stage ends (§3.5; **no independent stage settlement**). Dig: effective Dig duration countdown hits 0 → stage ends (§3.10; **no win/lose**). **AutoManufacture**: algorithm finishes (craft until cannot + auto-deploy) → play presentation (UI-016; skip if 0 craft) → stage ends automatically (§3.15; no player confirm; **no independent stage settlement**). UpgradeManufacture: player confirms "Complete / Next stage" → stage ends (§3.11; no forced countdown; **no independent stage settlement**). Defend: see §3.12 (clear-spawn victory → stage end; Shield reaches 0 → **LevelFailure**, no next stage). PushMap: see §3.14 (Boss clear → stage end; Shield reaches 0 → **LevelFailure**).
+4. Stage settlement: if the mode defines one, run it (**Shop skips**; Dig: **DigStageSummary** — aggregate rewards earned this stage only, no extra grants, then player confirm; **AutoManufacture skips**; UpgradeManufacture **skips**; Defend victory at least **credits Experience**, other content **TBD**), then advance.
 5. **No next stage** (after last stage ends): trigger level-level **VictorySettlement**.
 6. **LevelFailure**: any stage that triggers LevelFailure (e.g. Shield reaches 0 in Defend) → **abort the Level immediately**; **no** VictorySettlement / **no level settlement rewards**; **no** Defend stage Exp credit for the failed stage; already-owned Experience, materials/SpiritEssence, soldiers, TechPoints, etc. are **not clawed back**; failure settlement UI/fields **TBD**.
 
@@ -961,6 +1015,7 @@ EnterLevel
   → Sort by StageNumber ascending
   → Run stage (GameplayType + GameplayConfigId)
   → Stage end condition
+       Shop: player close/continue (no stage settlement; §3.5 / D-075)
        Dig: EffectiveDigDuration countdown = 0 (no win/lose)
        AutoManufacture: algo done + presentation (UI-016; skip if 0); no player confirm (§3.15)
        UpgradeManufacture: player confirm
@@ -968,6 +1023,7 @@ EnterLevel
        PushMap: Boss clear per §3.14  OR  LevelFailure → abort Level
   → If LevelFailure → no VictorySettlement / no stage Exp credit; keep already-owned; LevelFailure settlement UI TBD; stop
   → Stage settlement if any
+       Shop: skip
        Dig: DigStageSummary (aggregate only; no extra grants) → player confirm
        AutoManufacture: skip
        UpgradeManufacture: skip
@@ -1037,9 +1093,10 @@ EnterLevel
 
 **过程生成**
 
-- 倒计时进行中，按「倒计时过程中生成坟墓速率」：每 N 秒尝试生成 M 座坟。
+- 倒计时进行中，按「倒计时过程中生成坟墓速率」`SpawnRate`（编码 `N;M`）：每 **N** 秒尝试生成 **effectiveM** 座坟。
+- **`effectiveM = max(0, tableM + DigProtagonistCapabilities.DigProcessSpawnCountBonus)`**（整数加法；**不**改 N；**不**影响开局 `InitialGraveCount`）。
 - 每一座仍：表权重 + caps 加成 → 过滤 →（空有效列表则放弃）→ 加权抽品质 ID → 可放置区随机落点（同上重试规则）→ 按品质表初始化 HP。
-- 与开局共用同一套有效权重算法；**每次抽取读活 caps**（本阶段中装备升级立即影响后续刷坟）。
+- 与开局共用同一套有效权重算法；**每次抽取 / 每次过程生成 tick 读活 caps**（本阶段中装备升级立即影响后续刷坟数量与权重）。
 
 **主角（Digger）表现**
 
@@ -1061,6 +1118,7 @@ EnterLevel
 | DiggableQualityIds | 已解锁、可触发挖掘的坟墓品质 ID 集合 |
 | DigStageDurationBonus | 挖坟阶段有效时长的科技加成（秒，加法；见「有效挖坟时长」） |
 | GraveSpawnWeightBonus | 按 QualityId 的生成权重加法；编码键 `GraveSpawnWeightBonus_{QualityId}`（见 [SPEC_04 §9.17](SPEC_04_Technical.md)）；表 `GraveSpawnWeights` 缺席该 Id 视为 0 再加成 |
+| DigProcessSpawnCountBonus | 对过程生成 `SpawnRate` 的 **M** 加法（整数）；编码键 `DigProcessSpawnCountBonus`（见 [SPEC_04 §9.17](SPEC_04_Technical.md)）；**不**改 N；**不**影响开局坟数 |
 
 **单次挖掘时长（挖坟单次速度）：**
 
@@ -1146,6 +1204,12 @@ EnterLevel
 | 划入铁铲升级 | 点一次：`TrySpendCommonExp("Equip_IronShovel", 1)`（池不足或未拥有则日志失败）；与每级 `ExpToNextLevel=1` 对齐，便于手验公共经验→升级 |
 | 获得矿灯 | 点一次：`TryAcquire("Equip_MinerLamp")`（首获 / 同 Id 转化连升 / 满级转公共池）；日志打印 Level / CurrentExp / Q4·Q5·Q6 `GraveSpawnWeightBonus`。仓只读见 UI-022 / D-067；手验 D-060 |
 | 划入矿灯升级 | 点一次：`TrySpendCommonExp("Equip_MinerLamp", 1)`（池不足或未拥有则日志失败）；与每级 `ExpToNextLevel=1` 对齐 |
+| 获得炸药 | 点一次：`TryAcquire("Equip_Explosives")`；日志打印 Level / CurrentExp / `ExplosiveBlastDamage`。手验 D-077 |
+| 划入炸药升级 | 点一次：`TrySpendCommonExp("Equip_Explosives", 1)`（池不足或未拥有则日志失败） |
+| 获得引雷 | 点一次：`TryAcquire("Equip_Elctr")`；日志打印 Level / CurrentExp / `DigLightningIntervalSec`。手验 D-078 |
+| 划入引雷升级 | 点一次：`TrySpendCommonExp("Equip_Elctr", 1)`（池不足或未拥有则日志失败） |
+| 获得探测器 | 点一次：`TryAcquire("Equip_Detector")`；日志打印 Level / CurrentExp / `DigProcessSpawnCountBonus`。手验 D-079 |
+| 划入探测器升级 | 点一次：`TrySpendCommonExp("Equip_Detector", 1)`（池不足或未拥有则日志失败） |
 
 - 仅 Dig 进行中（未归零 / 未弹 Summary）可用；为 Demo/手验工具。
 - GM 直接写入仓库的躯体材料 **不**计入 DigStageSummary「本阶段已获奖励」。
@@ -1214,9 +1278,10 @@ Only this type this stage (no other obstacle types yet):
 
 **Ongoing spawn**
 
-- While countdown runs, every N seconds attempt to spawn M graves per the rate field.
-- Each grave: filter weights → (abandon if effective list empty) → weighted quality pick → random placeable position (same retry rule) → HP from quality table.
-- Same weight field and zero-weight drop rule as initial spawn.
+- While countdown runs, every N seconds attempt to spawn **effectiveM** graves per `SpawnRate` (`N;M`).
+- **`effectiveM = max(0, tableM + DigProtagonistCapabilities.DigProcessSpawnCountBonus)`** (integer add; **does not** change N; **does not** affect initial `InitialGraveCount`).
+- Each grave: table weights + caps bonus → filter → (abandon if effective list empty) → weighted quality pick → random placeable position (same retry rule) → HP from quality table.
+- Same weight field and zero-weight drop rule as initial spawn; **each pick / each process-spawn tick reads live caps**.
 
 **Digger presentation**
 
@@ -1238,6 +1303,7 @@ Bound to the **save-slot protagonist**; written by tech-tree learns (rules & tab
 | DiggableQualityIds | Set of Grave Quality Ids that may trigger DigAction |
 | DigStageDurationBonus | Additive Dig-stage effective-duration bonus (seconds; see Effective Dig duration) |
 | GraveSpawnWeightBonus | Per-QualityId additive spawn-weight map; attr key `GraveSpawnWeightBonus_{QualityId}` (see [SPEC_04 §9.17](SPEC_04_Technical.md)); missing Id in table `GraveSpawnWeights` treated as 0 then bonus |
+| DigProcessSpawnCountBonus | Additive to process-spawn `SpawnRate` **M** (integer); attr key `DigProcessSpawnCountBonus` (see [SPEC_04 §9.17](SPEC_04_Technical.md)); **does not** change N; **does not** affect initial grave count |
 
 **Dig action duration (dig speed):**
 
@@ -1323,6 +1389,12 @@ For each settled `Id_Count` (not the raw table `Id;Weight;Count`):
 | Spend Into Iron Shovel | One click: `TrySpendCommonExp("Equip_IronShovel", 1)` (fail log if pool short / not owned); matches per-level `ExpToNextLevel=1`; hand-check common Exp → level-up |
 | Grant Miner Lamp | One click: `TryAcquire("Equip_MinerLamp")` (first / same-Id convert level-up / maxed→common pool); log Level / CurrentExp / Q4·Q5·Q6 `GraveSpawnWeightBonus`. Warehouse read-only = UI-022 / D-067; hand-check D-060 |
 | Spend Into Miner Lamp | One click: `TrySpendCommonExp("Equip_MinerLamp", 1)` (fail log if pool short / not owned); matches per-level `ExpToNextLevel=1` |
+| Grant Explosives | One click: `TryAcquire("Equip_Explosives")`; log Level / CurrentExp / `ExplosiveBlastDamage`. Hand-check D-077 |
+| Spend Into Explosives | One click: `TrySpendCommonExp("Equip_Explosives", 1)` (fail log if pool short / not owned) |
+| Grant Lightning | One click: `TryAcquire("Equip_Elctr")`; log Level / CurrentExp / `DigLightningIntervalSec`. Hand-check D-078 |
+| Spend Into Lightning | One click: `TrySpendCommonExp("Equip_Elctr", 1)` (fail log if pool short / not owned) |
+| Grant Detector | One click: `TryAcquire("Equip_Detector")`; log Level / CurrentExp / `DigProcessSpawnCountBonus`. Hand-check D-079 |
+| Spend Into Detector | One click: `TrySpendCommonExp("Equip_Detector", 1)` (fail log if pool short / not owned) |
 
 - Available only while Dig is active (before duration zero / Summary). Demo / hand-check tools.
 - Body parts granted via GM **do not** count toward DigStageSummary “rewards earned this stage”.
@@ -3713,8 +3785,8 @@ AutoManufacture stage
 | 规则 | 说明 |
 |------|------|
 | 效果域 | 表列 `EffectDomain`：`Dig` \| `SoldierManufacture` \| `Combat`（可多值 `\|`） |
-| Dig | `EffectDomain` 含 `Dig` 时，解析当前等级行 `EquipEffect`（编码同科技 `AttributeModifiers`：`Attr_Value\|…`；键见 [SPEC_04 §9.17](SPEC_04_Technical.md)，含 `DigCursorRadius` 等） |
-| 能力叠加 | `DigProtagonistCapabilities` 重算 = Σ 已学会科技 `AttributeModifiers` **+** Σ 仓内各装备当前行 Dig 域 `EquipEffect`（**按键加法**） |
+| Dig | `EffectDomain` 含 `Dig` 时，解析当前等级行 `EquipEffect`（编码同科技 `AttributeModifiers`：`Attr_Value\|…`）。**静态键**（`DigDamage` / `DigCursorRadius` / `DigStageDurationBonus` / `GraveSpawnWeightBonus_{QualityId}` / `DigProcessSpawnCountBonus` 等）并入 `DigProtagonistCapabilities`；**事件键** `DigOnGraveClear`、`Explosive*`、`DigLightningIntervalSec` / `DigLightningFrameSec` / `DigLightningPreviewSec` **不**并入 caps（见下「Dig 事件型效果」） |
+| 能力叠加 | `DigProtagonistCapabilities` 重算 = Σ 已学会科技 `AttributeModifiers` **+** Σ 仓内各装备当前行 Dig 域**静态** `EquipEffect`（**按键加法**） |
 | 制造 / 战斗 | 域枚举已锁；`SoldierManufacture` / `Combat` 的 Token 登记表与 handler **TBD**（**不**复用 MagicBook `EffectPayload` 列名空间；另立 `ProtagonistEquipEffect` Token 表） |
 | 触发时机 | 获得 / 转化 / 划入公共经验升级 / 卸除（若日后支持）后重算；进档加载后亦重算 |
 
@@ -3725,7 +3797,15 @@ AutoManufacture stage
 | `EquipCommonExp` | 非负整数（或 number） |
 | `OwnedEquip[]` | `{ EquipId, Level, CurrentExp }[]` |
 
-键名意图见 [SPEC_04 §6](SPEC_04_Technical.md)；**PE-02 已实现**（`ProtagonistEquipmentService` + PlayerPrefs）。Dig caps 合并 **PE-03 已实现**（`TechTreeService` 科技+Dig 装备加法）。
+键名意图见 [SPEC_04 §6](SPEC_04_Technical.md)；**PE-02 已实现**（`ProtagonistEquipmentService` + PlayerPrefs）。Dig caps 合并 **PE-03 已实现**（`TechTreeService` 科技+Dig 装备加法）。炸药事件调度 **D-077 已实现**（`DigExplosiveScheduler`）。引雷落雷调度 **D-078 已实现**（`DigLightningScheduler`）。
+
+**Dig 事件型效果（炸药）**
+
+仓内拥有且 `EffectDomain` 含 `Dig`、当前行含 `DigOnGraveClear` 时生效（Demo 装备=`Equip_Explosives`）。**仅**玩家 DigAction 直接消除的坟墓 HP 归零时按 Token 值掷概率（`_1` = 100%）；**爆炸伤害清坟不触发**新炸药桶。命中则：以该坟 `WorldPosition` 为圆心，在半径 `ExplosiveThrowRadius` 的圆环上均匀随机角度采样落点；落点须在地图可放置 IsoDiamond 内（`MapFootprintMath.ContainsXZ`），不合格重试至 `PlacementMaxRetries`；仍失败则 Warning 且本次不投掷。炸药桶飞行 `ExplosiveFlightSec` 后落地，再经 `ExplosiveFuseSec` 引信，对半径 `ExplosiveBlastRadius` 内未清除坟墓造成 `ExplosiveBlastDamage`（**独立于** `DigDamage`；爆炸清坟仍正常结算掉落/奖励）。爆炸瞬间在落点显示与地板同倾角的红色半透明圆圈，持续 `ExplosiveRingSec` 后消失。表现精灵 `ZYT_1`（`Art/Defend/Projectile/ZYT_1.png`）。**引雷 `ClearGraveByLightning` 删除的坟墓不走本流程。**
+
+**Dig 事件型效果（引雷）**
+
+仓内拥有且 `EffectDomain` 含 `Dig`、当前行可解析 `DigLightningIntervalSec`（>0）时生效（Demo 装备=`Equip_Elctr`）。仅在 Dig **有效倒计时未归零** 期间 Tick。阶段 `Begin` 后先等待 **完整** 当前间隔再落第一次（Lv1=15s，Lv2=13s，Lv3=11s，Lv4=9s，Lv5=7s）；之后每满一间隔再落。升级即时改间隔：等待剩余大于新间隔则钳制到新间隔。每次落雷：若场上有未清除坟墓，等权随机一座；否则在可放置 IsoDiamond 内随机一点（避障规则同坟墓生成采样，`PlacementMaxRetries`）。命中坟墓时：按该坟品质 `LootDrop` **表项扫描**（`LootDropParser.ParseWeighted`，**不**掷 `DropMode`）收集 `IsPrimaryHand=1` 的躯体材料；多件等权随机一件；取其 `ClassRestrict`（多值 `|` 则等权随机一个 ClassId）与 `RaceId`，按 GM 发兵同款写入 `WarriorPool`（Dig 中 **不**自动布阵）。无主要手或 `ClassRestrict` 空 → **仍删除该坟、不产兵**。删除走 `ClearGraveByLightning`：**不**结算 LootDrop 入仓、**不**飞 DigReward、**不**触发 `DigOnGraveClear`/炸药。无坟落点只播闪电、不产兵。表现：落点播放一次序列帧 `Art/Defend/Projectile/ShanDian_1/Elctr_0`～`Elctr_3`（**4 帧**，`DigLightningFrameSec` 默认 0.05s，总约 0.20s）；**每一帧**以其 Sprite **CustomPivot** 锚定在落点（坟墓中心 / 无坟随机点）；若产兵则在坟位 Instantiate 该兵 `AppearanceId` 模型（预览 **Scale XYZ=2**）、待机 `DigLightningPreviewSec`（默认 2s）后销毁 **View**（士兵实例保留；预览放大不写入实例）。
 
 **正式仓 UI（本轮只读；UI-022 / D-067）**
 
@@ -3734,7 +3814,7 @@ AutoManufacture stage
 | 入口 | InSaveShell 左下「装备」打开居中 Modal（Mode1/Mode2 均有） |
 | 展示 | 只读 `ProtagonistEquipmentService.OwnedEquips`：当前等级行 `DisplayName`（空则 `EquipId`）+ `Lv.{Level}` + `Description` + `IconAssetId`（非空则加载图标） |
 | 空态 | 仓空 → 文案「尚未拥有装备」 |
-| 刷新 | 订阅 `Changed`（Tools GM `TryAcquire` 后列表更新） |
+| 刷新 | 订阅 `Changed`（Tools GM `DebugGrantAtLevel` / Dig HUD `TryAcquire` 后列表更新） |
 | 生效 | 仓内拥有即按当前等级行生效（无需再装配；同「定位」表） |
 | 本轮不做 | 升级、划入 `EquipCommonExp`、卸下、从弹窗发放 |
 
@@ -3746,6 +3826,9 @@ AutoManufacture stage
 |---------|-------------|------|--------------|----------------------|----------------|-----------------|
 | `Equip_IronShovel` | 铁铲 | 1～5 | `Dig` | 相对基数每级 +10%：L1 `DigCursorRadius_0.06` … L5 `_0.30`（满级 +科技根项 = **0.90**） | L1–4 = **1**；L5 空 | 每级 **1** |
 | `Equip_MinerLamp` | 矿灯 | 1～5 | `Dig` | 每级 Q4/Q5/Q6 生成权重累计 +10：L1 `GraveSpawnWeightBonus_Q4_10\|…_Q5_10\|…_Q6_10` … L5 `_50`；表中缺席视为 0 再加成 | L1–4 = **1**；L5 空 | 每级 **1** |
+| `Equip_Explosives` | 炸药 | 1～5 | `Dig` | 事件：`DigOnGraveClear_1` + `ExplosiveThrowRadius_4` + `ExplosiveBlastRadius_2` + `ExplosiveBlastDamage_{13/18/23/28/33}` + `ExplosiveFlightSec_0.5` + `ExplosiveFuseSec_0.8` + `ExplosiveRingSec_0.5` | L1–4 = **1**；L5 空 | 每级 **1** |
+| `Equip_Elctr` | 引雷 | 1～5 | `Dig` | 事件：`DigLightningIntervalSec_{15/13/11/9/7}` + `DigLightningFrameSec_0.05` + `DigLightningPreviewSec_2` | L1–4 = **1**；L5 空 | 每级 **1**（Mode2 样例 ConvertExp 为 1～5） |
+| `Equip_Detector` | 探测器 | 1～5 | `Dig` | 静态：过程生成 M 累计 +1/级：L1 `DigProcessSpawnCountBonus_1` … L5 `_5`（**不**改 N） | L1–4 = **1**；L5 空 | 每级 **1**（Mode2 样例 ConvertExp 为 1～5） |
 
 **明确非范围（本轮规则录入）**
 
@@ -3808,8 +3891,8 @@ RecalcCaps
 | Rule | Notes |
 |------|-------|
 | Domains | `EffectDomain`: `Dig` \| `SoldierManufacture` \| `Combat` (multi `\|`) |
-| Dig | When domain includes `Dig`, parse current-row `EquipEffect` (same encoding as tech `AttributeModifiers`; keys in [SPEC_04 §9.17](SPEC_04_Technical.md), e.g. `DigCursorRadius`) |
-| Cap stack | `DigProtagonistCapabilities` = Σ learned tech modifiers **+** Σ owned current-row Dig `EquipEffect` (**additive per key**) |
+| Dig | When domain includes `Dig`, parse current-row `EquipEffect` (same encoding as tech `AttributeModifiers`). **Static keys** (`DigDamage` / `DigCursorRadius` / `DigStageDurationBonus` / `GraveSpawnWeightBonus_{QualityId}` / `DigProcessSpawnCountBonus` etc.) merge into `DigProtagonistCapabilities`; **event keys** `DigOnGraveClear`, `Explosive*`, `DigLightningIntervalSec` / `DigLightningFrameSec` / `DigLightningPreviewSec` **do not** merge into caps (see “Dig event effects” below) |
+| Cap stack | `DigProtagonistCapabilities` = Σ learned tech modifiers **+** Σ owned current-row Dig **static** `EquipEffect` (**additive per key**) |
 | Manufacture / Combat | Domain enum locked; Token registry / handlers **TBD** (**not** MagicBook `EffectPayload` namespace; separate `ProtagonistEquipEffect` token table) |
 | When | Recalc after acquire / convert / common-Exp spend / (future unequip); also after save load |
 
@@ -3820,7 +3903,15 @@ RecalcCaps
 | `EquipCommonExp` | Non-negative |
 | `OwnedEquip[]` | `{ EquipId, Level, CurrentExp }[]` |
 
-Key intent: [SPEC_04 §6](SPEC_04_Technical.md); **PE-02 implemented** (`ProtagonistEquipmentService` + PlayerPrefs). Dig caps merge **PE-03 implemented** (`TechTreeService` tech + Dig gear additive).
+Key intent: [SPEC_04 §6](SPEC_04_Technical.md); **PE-02 implemented** (`ProtagonistEquipmentService` + PlayerPrefs). Dig caps merge **PE-03 implemented** (`TechTreeService` tech + Dig gear additive). Explosive event scheduler **D-077 implemented** (`DigExplosiveScheduler`). Lightning scheduler **D-078 implemented** (`DigLightningScheduler`).
+
+**Dig event effects (Explosives)**
+
+Applies while owned, `EffectDomain` includes `Dig`, and the current row contains `DigOnGraveClear` (Demo gear = `Equip_Explosives`). On **player DigAction** grave HP reaching 0 only, roll the token value (`_1` = 100%); **graves cleared by blast damage do not** trigger a new barrel. On hit: sample a landing point on the circle of radius `ExplosiveThrowRadius` around that grave’s `WorldPosition`; the point must lie in the placeable IsoDiamond (`MapFootprintMath.ContainsXZ`); retry up to `PlacementMaxRetries`; if all fail, Warning and skip this throw. The barrel flies for `ExplosiveFlightSec`, then fuses for `ExplosiveFuseSec`, then deals `ExplosiveBlastDamage` to uncleared graves within `ExplosiveBlastRadius` (**independent of** `DigDamage`; blast clears still settle loot/rewards normally). At blast, show a red translucent disc matching floor tilt for `ExplosiveRingSec`. Sprite `ZYT_1` (`Art/Defend/Projectile/ZYT_1.png`). Graves removed by lightning `ClearGraveByLightning` **do not** enter this path.
+
+**Dig event effects (Lightning)**
+
+Applies while owned, `EffectDomain` includes `Dig`, and the current row parses `DigLightningIntervalSec` > 0 (Demo gear = `Equip_Elctr`). Ticks only while Dig effective duration has not reached 0. After stage `Begin`, wait a **full** current interval before the first strike (Lv1=15s, Lv2=13s, Lv3=11s, Lv4=9s, Lv5=7s); then repeat each interval. Level-up updates the interval immediately (clamp remaining wait to the new interval if larger). Each strike: if any uncleared grave exists, pick one uniformly; else sample a placeable IsoDiamond point (same obstacle retries as grave spawn, `PlacementMaxRetries`). On a grave: scan that quality’s `LootDrop` **table entries** (`LootDropParser.ParseWeighted`, **no** `DropMode` roll) for `IsPrimaryHand=1` body parts; if several, pick one uniformly; take `ClassRestrict` (if `|`-separated, pick one ClassId uniformly) and `RaceId`, grant via the same path as GM soldier grant into `WarriorPool` (**no** auto-deploy during Dig). No primary hand or empty `ClassRestrict` → **still delete the grave, spawn no soldier**. Deletion uses `ClearGraveByLightning`: **no** LootDrop warehouse credit, **no** DigReward flyer, **no** `DigOnGraveClear`/explosives. A no-grave landing plays lightning only. Presentation: play sequence `Art/Defend/Projectile/ShanDian_1/Elctr_0`–`Elctr_3` (**4 frames**, `DigLightningFrameSec` default 0.05s, ~0.20s total) once at the point; **each frame** anchors its Sprite **CustomPivot** to the strike point (grave center / no-grave sample); if a soldier was granted, Instantiate its `AppearanceId` model at the grave (preview **Scale XYZ=2**), idle for `DigLightningPreviewSec` (default 2s), then destroy the **View** (instance remains in the pool; preview scale is View-only).
 
 **Formal warehouse UI (read-only this round; UI-022 / D-067)**
 
@@ -3829,7 +3920,7 @@ Key intent: [SPEC_04 §6](SPEC_04_Technical.md); **PE-02 implemented** (`Protago
 | Entry | InSaveShell bottom-left Equipment opens centered Modal (Mode1 and Mode2) |
 | Display | Read-only `ProtagonistEquipmentService.OwnedEquips`: current-level `DisplayName` (else `EquipId`) + `Lv.{Level}` + `Description` + `IconAssetId` (load sprite if set) |
 | Empty | Empty warehouse → 「尚未拥有装备」 |
-| Refresh | Subscribe `Changed` (Tools GM `TryAcquire` updates the list) |
+| Refresh | Subscribe `Changed` (Tools GM `DebugGrantAtLevel` / Dig HUD `TryAcquire` updates the list) |
 | Apply | Owned applies at current-level row (no extra slot; same as Positioning) |
 | Not this round | Level-up, spend `EquipCommonExp`, unequip, grant-from-popup |
 
@@ -3841,6 +3932,9 @@ Only the current-level row applies, so `EquipEffect` is the **cumulative** bonus
 |---------|-------------|--------|--------------|---------------------------|----------------|-----------------|
 | `Equip_IronShovel` | Iron Shovel | 1–5 | `Dig` | +10% of base per level: L1 `DigCursorRadius_0.06` … L5 `_0.30` (max + tech root = **0.90**) | L1–4 = **1**; L5 empty | **1** each level |
 | `Equip_MinerLamp` | Miner Lamp | 1–5 | `Dig` | Q4/Q5/Q6 spawn-weight cumulative +10 per level: L1 `GraveSpawnWeightBonus_Q4_10\|…_Q5_10\|…_Q6_10` … L5 `_50`; missing table Id treated as 0 then bonus | L1–4 = **1**; L5 empty | **1** each level |
+| `Equip_Explosives` | Explosives | 1–5 | `Dig` | Event: `DigOnGraveClear_1` + `ExplosiveThrowRadius_4` + `ExplosiveBlastRadius_2` + `ExplosiveBlastDamage_{13/18/23/28/33}` + `ExplosiveFlightSec_0.5` + `ExplosiveFuseSec_0.8` + `ExplosiveRingSec_0.5` | L1–4 = **1**; L5 empty | **1** each level |
+| `Equip_Elctr` | Lightning (引雷) | 1–5 | `Dig` | Event: `DigLightningIntervalSec_{15/13/11/9/7}` + `DigLightningFrameSec_0.05` + `DigLightningPreviewSec_2` | L1–4 = **1**; L5 empty | **1** each level (Mode2 sample ConvertExp 1–5) |
+| `Equip_Detector` | Detector | 1–5 | `Dig` | Static: process-spawn M cumulative +1/level: L1 `DigProcessSpawnCountBonus_1` … L5 `_5` (**does not** change N) | L1–4 = **1**; L5 empty | **1** each level (Mode2 sample ConvertExp 1–5) |
 
 **Out of scope this rules pass**
 
@@ -4036,7 +4130,10 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 - [x] 主角装备（ProtagonistEquipment）规则关闭：装备仓库 / 同 Id 转化 / EquipCommonExp / 等级 / Dig 与科技加法叠加（§3.16 / SPEC_04 §9.25）；获取来源与制造·战斗 Token **TBD**
 - [x] 主角装备 Dig 垂直 D-059（PE-01～PE-04：表加载 + 仓/存档 + Dig caps 合并 + Dig HUD GM）
 - [x] 主角装备矿灯 D-060（PE-05～PE-08：SPEC + 5 级表行 + 生成权重活叠加 + Dig HUD GM）
-- [ ] 主角装备获取来源（Dig 掉落 / 商店等）与升级/划公共经验/卸下 UI（仓只读见 D-067；GM 手验属 D-059 / D-060）
+- [x] 主角装备炸药 D-077（EXP-01～03：事件 Token + 调度/AoE + 抛物线/`ZYT_1`/贴地红圈 + Dig HUD GM）
+- [x] 主角装备引雷 D-078（事件 Token + 定时落雷清坟入兵 + 序列帧/待机预览 + Dig HUD GM）
+- [x] 主角装备探测器 D-079（静态键 `DigProcessSpawnCountBonus` + 过程生成 M 加法 + ItemCatalog/商店池 + Dig HUD GM）
+- [ ] 主角装备获取来源（Dig 掉落 / 商店等）与升级/划公共经验/卸下 UI（仓只读见 D-067；GM 手验属 D-059 / D-060 / D-077 / D-078 / D-079）
 - [ ] 主角装备 `SoldierManufacture` / `Combat` 效果 Token 登记表
 - [x] PushMap 边界锁定：到达 `CaptureZone` 即占领（无计时/无「无怪」条件）；占领后已刷怪保留；全队共当前目标；无陷阱开战刷；无倒计时刷怪；仅 BOSS 通关入账经验；MapId=`Ground_*`|`PushMap_*`
 - [x] 大规模战斗寻路（方案 B）规则锁定：FlowField（共享目标）+ AttackSlot（追击/攻击）+ LocalDetour（友军左右绕）；容量双方约 200；实现见 `.scratch/mass-pathing/issues/`（§3.12 / SPEC_04 §9.7）
@@ -4120,7 +4217,10 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 - [x] ProtagonistEquipment rules closed: equipment warehouse / same-Id convert / EquipCommonExp / levels / Dig additive with tech (§3.16 / SPEC_04 §9.25); acquire sources and Manufacture/Combat tokens **TBD**
 - [x] ProtagonistEquipment Dig vertical D-059 (PE-01–PE-04: table load + warehouse/persist + Dig caps merge + Dig HUD GM)
 - [x] ProtagonistEquipment Miner Lamp D-060 (PE-05–PE-08: SPEC + 5-level rows + live spawn-weight overlay + Dig HUD GM)
-- [ ] ProtagonistEquipment acquire sources (Dig loot / shop) and level-up / spend common Exp / unequip UI (warehouse read-only = D-067; GM handcheck is D-059 / D-060)
+- [x] ProtagonistEquipment Explosives D-077 (EXP-01–03: event token + scheduler/AoE + parabola/`ZYT_1`/ground ring + Dig HUD GM)
+- [x] ProtagonistEquipment Lightning D-078 (event token + timed strike/clear/grant + sequence/idle preview + Dig HUD GM)
+- [x] ProtagonistEquipment Detector D-079 (static key `DigProcessSpawnCountBonus` + process-spawn M bonus + ItemCatalog/shop pool + Dig HUD GM)
+- [ ] ProtagonistEquipment acquire sources (Dig loot / shop) and level-up / spend common Exp / unequip UI (warehouse read-only = D-067; GM handcheck is D-059 / D-060 / D-077 / D-078 / D-079)
 - [ ] ProtagonistEquipment `SoldierManufacture` / `Combat` effect Token registry
 - [x] PushMap boundary locks: Capture on arrive to `CaptureZone` (no timer / no “clear monsters” condition); keep living after Capture; shared current objective; non-trap spawn at StartBattle; no countdown spawn; Exp only on Boss clear; MapId=`Ground_*`|`PushMap_*`
 - [x] Mass combat pathing (Approach B) rules locked: FlowField (shared goals) + AttackSlot (chase/attack) + LocalDetour (friendly L/R); ~200/side capacity; impl `.scratch/mass-pathing/issues/` (§3.12 / SPEC_04 §9.7)

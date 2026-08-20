@@ -27,6 +27,7 @@ namespace Gravedigger2026.Editor.Meta
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
         private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
+        private const string GmGrantLevelPickerRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08297_gmGrantLevelPicker";
         private const string GmAddSoldierRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08239_gmAddSoldier";
         private const string EquipMagicBookRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08270_equipMagicBook";
         private const string EquipWarehouseListRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08271_equipWarehouseList";
@@ -63,6 +64,13 @@ namespace Gravedigger2026.Editor.Meta
                 {
                     EnsureGmGrantListPanelOnExistingPrefab();
                     EditorPrefs.SetBool(GmGrantRegenPrefsKey, true);
+                }
+
+                var needsGmGrantLevelPickerRegen = !EditorPrefs.GetBool(GmGrantLevelPickerRegenPrefsKey, false);
+                if (needsGmGrantLevelPickerRegen)
+                {
+                    EnsureGmGrantListPanelOnExistingPrefab();
+                    EditorPrefs.SetBool(GmGrantLevelPickerRegenPrefsKey, true);
                 }
 
                 var needsGmAddSoldierRegen = !EditorPrefs.GetBool(GmAddSoldierRegenPrefsKey, false);
@@ -162,6 +170,7 @@ namespace Gravedigger2026.Editor.Meta
         {
             EnsureGmGrantListPanelOnExistingPrefab();
             EditorPrefs.SetBool(GmGrantRegenPrefsKey, true);
+            EditorPrefs.SetBool(GmGrantLevelPickerRegenPrefsKey, true);
         }
 
         /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureGmGrantListPanelBatch</summary>
@@ -220,6 +229,10 @@ namespace Gravedigger2026.Editor.Meta
                         panelProp.objectReferenceValue = grantPanel;
                         so.ApplyModifiedPropertiesWithoutUndo();
                     }
+                }
+                else
+                {
+                    AttachLevelPicker(grantPanel);
                 }
 
                 PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
@@ -1545,8 +1558,94 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
             so.FindProperty("_emptyHintText").objectReferenceValue = emptyHint;
             so.ApplyModifiedPropertiesWithoutUndo();
+            AttachLevelPicker(view);
             root.SetActive(false);
             return view;
+        }
+
+        private static void AttachLevelPicker(GmGrantListPanelView view)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            var so = new SerializedObject(view);
+            var pickerProp = so.FindProperty("_levelPickerRoot");
+            if (pickerProp != null && pickerProp.objectReferenceValue != null)
+            {
+                return;
+            }
+
+            var host = view.transform;
+            var existing = host.Find("LevelPicker");
+            if (existing != null)
+            {
+                Object.DestroyImmediate(existing.gameObject);
+            }
+
+            var picker = CreatePanel(host, "LevelPicker", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(picker.GetComponent<RectTransform>());
+            var canvas = picker.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 111;
+            picker.AddComponent<GraphicRaycaster>();
+
+            var box = CreatePanel(picker.transform, "Box", new Color(0.16f, 0.18f, 0.22f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(360f, 420f));
+
+            var title = CreateText(box.transform, "Title", "选择等级", 24, TextAnchor.MiddleCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -16f), new Vector2(320f, 36f));
+
+            var scrollGo = new GameObject("LevelScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollGo.transform.SetParent(box.transform, false);
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            Place(scrollRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 16f), new Vector2(300f, 280f));
+            scrollGo.GetComponent<Image>().color = new Color(0.10f, 0.11f, 0.14f, 1f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRt = content.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = new Vector2(0f, 0f);
+            var vlg = content.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(8, 8, 8, 8);
+            vlg.spacing = 8f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRt;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(140f, 40f));
+
+            so.Update();
+            so.FindProperty("_levelPickerRoot").objectReferenceValue = picker;
+            so.FindProperty("_levelPickerTitleText").objectReferenceValue = title;
+            so.FindProperty("_levelPickerContent").objectReferenceValue = content.transform;
+            so.FindProperty("_levelPickerCloseButton").objectReferenceValue = close.GetComponent<Button>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+            picker.SetActive(false);
         }
 
         private static ConfirmDialogView BuildConfirmDialog(Transform parent)

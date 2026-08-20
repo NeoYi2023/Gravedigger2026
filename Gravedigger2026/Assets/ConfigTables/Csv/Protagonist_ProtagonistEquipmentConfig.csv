@@ -9,3 +9,8 @@ Equip_MinerLamp,2,矿灯,Icon_MinerLamp,1,1,Dig,GraveSpawnWeightBonus_Q4_20|Grav
 Equip_MinerLamp,3,矿灯,Icon_MinerLamp,1,1,Dig,GraveSpawnWeightBonus_Q4_30|GraveSpawnWeightBonus_Q5_30|GraveSpawnWeightBonus_Q6_30,每级增加Q4/Q5/Q6生成权重10（3级）
 Equip_MinerLamp,4,矿灯,Icon_MinerLamp,1,1,Dig,GraveSpawnWeightBonus_Q4_40|GraveSpawnWeightBonus_Q5_40|GraveSpawnWeightBonus_Q6_40,每级增加Q4/Q5/Q6生成权重10（4级）
 Equip_MinerLamp,5,矿灯,Icon_MinerLamp,,1,Dig,GraveSpawnWeightBonus_Q4_50|GraveSpawnWeightBonus_Q5_50|GraveSpawnWeightBonus_Q6_50,每级增加Q4/Q5/Q6生成权重10（满级）
+Equip_Detector,1,探测器,Icon_Detector,1,1,Dig,DigProcessSpawnCountBonus_1,每级增加过程生成坟墓数量+1（1级）
+Equip_Detector,2,探测器,Icon_Detector,1,1,Dig,DigProcessSpawnCountBonus_2,每级增加过程生成坟墓数量+1（2级）
+Equip_Detector,3,探测器,Icon_Detector,1,1,Dig,DigProcessSpawnCountBonus_3,每级增加过程生成坟墓数量+1（3级）
+Equip_Detector,4,探测器,Icon_Detector,1,1,Dig,DigProcessSpawnCountBonus_4,每级增加过程生成坟墓数量+1（4级）
+Equip_Detector,5,探测器,Icon_Detector,,1,Dig,DigProcessSpawnCountBonus_5,每级增加过程生成坟墓数量+1（满级）

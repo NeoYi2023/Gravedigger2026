@@ -32,6 +32,11 @@ namespace Gravedigger2026.UI
 
         public void Show(string message, Action onConfirm, Action onCancel = null)
         {
+            Show(message, onConfirm, onCancel, ConfirmDialogSortingOrder);
+        }
+
+        public void Show(string message, Action onConfirm, Action onCancel, int sortingOrder)
+        {
             _onConfirm = onConfirm;
             _onCancel = onCancel;
 
@@ -43,7 +48,7 @@ namespace Gravedigger2026.UI
             if (_root != null)
             {
                 _root.transform.SetAsLastSibling();
-                ApplyModalSorting(_root);
+                ApplyModalSorting(_root, sortingOrder);
                 _root.SetActive(true);
             }
         }
@@ -59,7 +64,7 @@ namespace Gravedigger2026.UI
             _onCancel = null;
         }
 
-        private static void ApplyModalSorting(GameObject root)
+        private static void ApplyModalSorting(GameObject root, int sortingOrder = ConfirmDialogSortingOrder)
         {
             var canvas = root.GetComponent<Canvas>();
             if (canvas == null)
@@ -68,7 +73,7 @@ namespace Gravedigger2026.UI
             }
 
             canvas.overrideSorting = true;
-            canvas.sortingOrder = ConfirmDialogSortingOrder;
+            canvas.sortingOrder = sortingOrder;
             if (root.GetComponent<GraphicRaycaster>() == null)
             {
                 root.AddComponent<GraphicRaycaster>();

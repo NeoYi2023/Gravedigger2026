@@ -30,6 +30,45 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _ballistic;
         private Vector3 _lastKnownTargetPos;
         private Vector3 _lastMoveDir = Vector3.forward;
+        private SpriteRenderer _visualRenderer;
+
+        /// <summary>
+        /// Applies BaseClass-specific projectile art. Sprite tip faces +Y in texture (SPEC_04 §15 Visual child).
+        /// </summary>
+        public void ApplyVisual(Sprite sprite)
+        {
+            if (sprite == null)
+            {
+                return;
+            }
+
+            var visual = transform.Find("Visual");
+            if (visual == null)
+            {
+                var legacyBody = transform.Find("Body");
+                if (legacyBody != null)
+                {
+                    legacyBody.gameObject.SetActive(false);
+                }
+
+                var go = new GameObject("Visual");
+                go.transform.SetParent(transform, false);
+                go.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
+                _visualRenderer = go.AddComponent<SpriteRenderer>();
+                _visualRenderer.sortingOrder = 210;
+            }
+            else
+            {
+                _visualRenderer = visual.GetComponent<SpriteRenderer>();
+                if (_visualRenderer == null)
+                {
+                    _visualRenderer = visual.gameObject.AddComponent<SpriteRenderer>();
+                    _visualRenderer.sortingOrder = 210;
+                }
+            }
+
+            _visualRenderer.sprite = sprite;
+        }
 
         public void Launch(
             IProjectileCombatSession session,

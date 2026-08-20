@@ -712,6 +712,7 @@ namespace Gravedigger2026.Core.PushMap
             state = new DefendCombatWarriorState
             {
                 WarriorId = warrior.Id,
+                BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
                 AttackMode = warrior.AttackMode,
                 MaxHp = maxHp,
                 RemainingHp = remaining,

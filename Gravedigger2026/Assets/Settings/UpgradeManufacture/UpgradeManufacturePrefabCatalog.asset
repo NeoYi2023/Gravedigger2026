@@ -91,3 +91,49 @@ MonoBehaviour:
     Prefab: {fileID: 3927253789114556784, guid: d6736df5e8c97f4394307aa0da38bc7c, type: 3}
   - AppearanceId: App_5_51
     Prefab: {fileID: 3927253789114556784, guid: e84b89450b1bf7569baae768eeda0e66, type: 3}
+  - AppearanceId: App_1_02
+    Prefab: {fileID: 3927253789114556784, guid: f597d3156c124619824fe809b6b57190, type: 3}
+  - AppearanceId: App_1_03
+    Prefab: {fileID: 3927253789114556784, guid: d1ea364754844b2c9daa717f04c31eda, type: 3}
+  - AppearanceId: App_1_12
+    Prefab: {fileID: 3927253789114556784, guid: 835e9e3c89e24de3be74fea1709f32f2, type: 3}
+  - AppearanceId: App_1_13
+    Prefab: {fileID: 3927253789114556784, guid: 06e9f8a885e343fca0b8c05ffd9f9e55, type: 3}
+  - AppearanceId: App_1_22
+    Prefab: {fileID: 3927253789114556784, guid: b28105c6da244028b271922766544d8b, type: 3}
+  - AppearanceId: App_1_23
+    Prefab: {fileID: 3927253789114556784, guid: 3c79117693be48f3b2cb100963ef9223, type: 3}
+  - AppearanceId: App_1_33
+    Prefab: {fileID: 3927253789114556784, guid: 183ed84235004a308cbe4479a59a1ae1, type: 3}
+  - AppearanceId: App_2_02
+    Prefab: {fileID: 3927253789114556784, guid: eb4f2b1969004bd2a2342619260e2b2b, type: 3}
+  - AppearanceId: App_2_03
+    Prefab: {fileID: 3927253789114556784, guid: ec6ba2d3b3684c4ca03efb119db2d032, type: 3}
+  - AppearanceId: App_2_12
+    Prefab: {fileID: 3927253789114556784, guid: 1038dc18185f4508a5d4242523e85b6f, type: 3}
+  - AppearanceId: App_2_13
+    Prefab: {fileID: 3927253789114556784, guid: ac0ae8746d3c4fcd828b979b9fac148f, type: 3}
+  - AppearanceId: App_2_22
+    Prefab: {fileID: 3927253789114556784, guid: b2e1c10c393a4a59b6b6f1389095d73a, type: 3}
+  - AppearanceId: App_2_23
+    Prefab: {fileID: 3927253789114556784, guid: 7a641e0cbd174d4fa7ed35d7244c7006, type: 3}
+  - AppearanceId: App_2_32
+    Prefab: {fileID: 3927253789114556784, guid: 5ad2db3ba8a04bd4a5cc484ea5108cfe, type: 3}
+  - AppearanceId: App_2_33
+    Prefab: {fileID: 3927253789114556784, guid: 9178e9c2183747ebae58c506822b7de6, type: 3}
+  - AppearanceId: App_3_02
+    Prefab: {fileID: 3927253789114556784, guid: abcc60628c9e43ba8b1dd064eeb365bc, type: 3}
+  - AppearanceId: App_3_03
+    Prefab: {fileID: 3927253789114556784, guid: db3a66f102604c4597babbb39dedfc51, type: 3}
+  - AppearanceId: App_3_12
+    Prefab: {fileID: 3927253789114556784, guid: c2dd408de2ea4d74afee5cdee2ec385c, type: 3}
+  - AppearanceId: App_3_13
+    Prefab: {fileID: 3927253789114556784, guid: 13eae84b87b94b9cb428ca72725c7119, type: 3}
+  - AppearanceId: App_3_22
+    Prefab: {fileID: 3927253789114556784, guid: 722baa902f47408d899170e79495f28c, type: 3}
+  - AppearanceId: App_3_23
+    Prefab: {fileID: 3927253789114556784, guid: 1e35134cc3b44e8facccdb8bdefab8f4, type: 3}
+  - AppearanceId: App_3_32
+    Prefab: {fileID: 3927253789114556784, guid: afccdd4ed5a4453cbf45e93b50c42ced, type: 3}
+  - AppearanceId: App_3_33
+    Prefab: {fileID: 3927253789114556784, guid: a64348e8b70c423681529f2573822898, type: 3}

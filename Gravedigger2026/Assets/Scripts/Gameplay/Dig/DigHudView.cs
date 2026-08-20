@@ -19,6 +19,12 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private Button _spendDigRingCommonExpButton;
         [SerializeField] private Button _acquireMinerLampButton;
         [SerializeField] private Button _spendMinerLampCommonExpButton;
+        [SerializeField] private Button _acquireExplosivesButton;
+        [SerializeField] private Button _spendExplosivesCommonExpButton;
+        [SerializeField] private Button _acquireLightningButton;
+        [SerializeField] private Button _spendLightningCommonExpButton;
+        [SerializeField] private Button _acquireDetectorButton;
+        [SerializeField] private Button _spendDetectorCommonExpButton;
         [SerializeField] private RectTransform _portraitFrame;
         [SerializeField] private Image _portraitImage;
         [SerializeField] private Sprite _portraitSprite;
@@ -31,6 +37,12 @@ namespace Gravedigger2026.Gameplay.Dig
         public event Action SpendDigRingCommonExpRequested;
         public event Action AcquireMinerLampRequested;
         public event Action SpendMinerLampCommonExpRequested;
+        public event Action AcquireExplosivesRequested;
+        public event Action SpendExplosivesCommonExpRequested;
+        public event Action AcquireLightningRequested;
+        public event Action SpendLightningCommonExpRequested;
+        public event Action AcquireDetectorRequested;
+        public event Action SpendDetectorCommonExpRequested;
 
         public RectTransform PortraitFrame => _portraitFrame;
 
@@ -46,6 +58,12 @@ namespace Gravedigger2026.Gameplay.Dig
             Wire(_spendDigRingCommonExpButton, HandleSpendDigRingCommonExp);
             Wire(_acquireMinerLampButton, HandleAcquireMinerLamp);
             Wire(_spendMinerLampCommonExpButton, HandleSpendMinerLampCommonExp);
+            Wire(_acquireExplosivesButton, HandleAcquireExplosives);
+            Wire(_spendExplosivesCommonExpButton, HandleSpendExplosivesCommonExp);
+            Wire(_acquireLightningButton, HandleAcquireLightning);
+            Wire(_spendLightningCommonExpButton, HandleSpendLightningCommonExp);
+            Wire(_acquireDetectorButton, HandleAcquireDetector);
+            Wire(_spendDetectorCommonExpButton, HandleSpendDetectorCommonExp);
         }
 
         private void OnDisable()
@@ -58,6 +76,12 @@ namespace Gravedigger2026.Gameplay.Dig
             Unwire(_spendDigRingCommonExpButton, HandleSpendDigRingCommonExp);
             Unwire(_acquireMinerLampButton, HandleAcquireMinerLamp);
             Unwire(_spendMinerLampCommonExpButton, HandleSpendMinerLampCommonExp);
+            Unwire(_acquireExplosivesButton, HandleAcquireExplosives);
+            Unwire(_spendExplosivesCommonExpButton, HandleSpendExplosivesCommonExp);
+            Unwire(_acquireLightningButton, HandleAcquireLightning);
+            Unwire(_spendLightningCommonExpButton, HandleSpendLightningCommonExp);
+            Unwire(_acquireDetectorButton, HandleAcquireDetector);
+            Unwire(_spendDetectorCommonExpButton, HandleSpendDetectorCommonExp);
         }
 
         public void Show()
@@ -169,6 +193,36 @@ namespace Gravedigger2026.Gameplay.Dig
             SpendMinerLampCommonExpRequested?.Invoke();
         }
 
+        private void HandleAcquireExplosives()
+        {
+            AcquireExplosivesRequested?.Invoke();
+        }
+
+        private void HandleSpendExplosivesCommonExp()
+        {
+            SpendExplosivesCommonExpRequested?.Invoke();
+        }
+
+        private void HandleAcquireLightning()
+        {
+            AcquireLightningRequested?.Invoke();
+        }
+
+        private void HandleSpendLightningCommonExp()
+        {
+            SpendLightningCommonExpRequested?.Invoke();
+        }
+
+        private void HandleAcquireDetector()
+        {
+            AcquireDetectorRequested?.Invoke();
+        }
+
+        private void HandleSpendDetectorCommonExp()
+        {
+            SpendDetectorCommonExpRequested?.Invoke();
+        }
+
         public void SetWarriorEnhanceGmVisible(bool visible)
         {
             EnsureGmButtons();
@@ -213,6 +267,36 @@ namespace Gravedigger2026.Gameplay.Dig
             if (_spendMinerLampCommonExpButton != null)
             {
                 _spendMinerLampCommonExpButton.gameObject.SetActive(visible);
+            }
+
+            if (_acquireExplosivesButton != null)
+            {
+                _acquireExplosivesButton.gameObject.SetActive(visible);
+            }
+
+            if (_spendExplosivesCommonExpButton != null)
+            {
+                _spendExplosivesCommonExpButton.gameObject.SetActive(visible);
+            }
+
+            if (_acquireLightningButton != null)
+            {
+                _acquireLightningButton.gameObject.SetActive(visible);
+            }
+
+            if (_spendLightningCommonExpButton != null)
+            {
+                _spendLightningCommonExpButton.gameObject.SetActive(visible);
+            }
+
+            if (_acquireDetectorButton != null)
+            {
+                _acquireDetectorButton.gameObject.SetActive(visible);
+            }
+
+            if (_spendDetectorCommonExpButton != null)
+            {
+                _spendDetectorCommonExpButton.gameObject.SetActive(visible);
             }
 
             if (_equipWarriorEnhanceButton != null && !visible)
@@ -371,10 +455,70 @@ namespace Gravedigger2026.Gameplay.Dig
                     new Vector2(-24f, -450f));
             }
 
+            if (_acquireExplosivesButton == null)
+            {
+                _acquireExplosivesButton = FindOrCreateGmButton(
+                    parent,
+                    "GmAcquireExplosivesButton",
+                    "获得炸药",
+                    new Vector2(-24f, -502f));
+            }
+
+            if (_spendExplosivesCommonExpButton == null)
+            {
+                _spendExplosivesCommonExpButton = FindOrCreateGmButton(
+                    parent,
+                    "GmSpendExplosivesCommonExpButton",
+                    "划入炸药升级",
+                    new Vector2(-24f, -554f));
+            }
+
+            if (_acquireLightningButton == null)
+            {
+                _acquireLightningButton = FindOrCreateGmButton(
+                    parent,
+                    "GmAcquireLightningButton",
+                    "获得引雷",
+                    new Vector2(-24f, -606f));
+            }
+
+            if (_spendLightningCommonExpButton == null)
+            {
+                _spendLightningCommonExpButton = FindOrCreateGmButton(
+                    parent,
+                    "GmSpendLightningCommonExpButton",
+                    "划入引雷升级",
+                    new Vector2(-24f, -658f));
+            }
+
+            if (_acquireDetectorButton == null)
+            {
+                _acquireDetectorButton = FindOrCreateGmButton(
+                    parent,
+                    "GmAcquireDetectorButton",
+                    "获得探测器",
+                    new Vector2(-24f, -710f));
+            }
+
+            if (_spendDetectorCommonExpButton == null)
+            {
+                _spendDetectorCommonExpButton = FindOrCreateGmButton(
+                    parent,
+                    "GmSpendDetectorCommonExpButton",
+                    "划入探测器升级",
+                    new Vector2(-24f, -762f));
+            }
+
             SetGmButtonLabel(_acquireDigRingButton, "获得铁铲");
             SetGmButtonLabel(_spendDigRingCommonExpButton, "划入铁铲升级");
             SetGmButtonLabel(_acquireMinerLampButton, "获得矿灯");
             SetGmButtonLabel(_spendMinerLampCommonExpButton, "划入矿灯升级");
+            SetGmButtonLabel(_acquireExplosivesButton, "获得炸药");
+            SetGmButtonLabel(_spendExplosivesCommonExpButton, "划入炸药升级");
+            SetGmButtonLabel(_acquireLightningButton, "获得引雷");
+            SetGmButtonLabel(_spendLightningCommonExpButton, "划入引雷升级");
+            SetGmButtonLabel(_acquireDetectorButton, "获得探测器");
+            SetGmButtonLabel(_spendDetectorCommonExpButton, "划入探测器升级");
         }
 
         private static Button FindOrCreateGmButton(Transform parent, string name, string label, Vector2 anchoredPos)

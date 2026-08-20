@@ -96,6 +96,47 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             return true;
         }
 
+        /// <summary>Grant a single soldier into the pool without formation deploy (D-078 Dig lightning).</summary>
+        public bool TryGrantOne(
+            string classId,
+            string raceId,
+            out WarriorInstance instance,
+            out GmSoldierGrantError error)
+        {
+            instance = null;
+            error = GmSoldierGrantError.None;
+
+            if (string.IsNullOrEmpty(classId) || string.IsNullOrEmpty(raceId))
+            {
+                error = GmSoldierGrantError.InvalidArgs;
+                return false;
+            }
+
+            if (!_configs.TryGetClass(classId, out var classRow) || classRow == null)
+            {
+                error = GmSoldierGrantError.SoldierNotFound;
+                return false;
+            }
+
+            if (!_configs.TryGetRace(raceId, out var raceRow) || raceRow == null)
+            {
+                error = GmSoldierGrantError.SoldierNotFound;
+                return false;
+            }
+
+            if (!TryPickAppearance(raceId, classRow, out var appearanceId))
+            {
+                error = GmSoldierGrantError.SoldierNotFound;
+                return false;
+            }
+
+            instance = BuildInstance(classRow, raceRow, appearanceId);
+            _warriorPool.Add(instance);
+            Debug.Log(
+                $"[GmSoldierGrant] one class={classId} race={raceId} appearance={appearanceId} id={instance.Id}");
+            return true;
+        }
+
         /// <summary>
         /// SPEC_03 §3.5 / D-064: RaceId + ClassAffinity(ClassName) match set.
         /// Multi-match: DefaultAppearanceId in set, else AppearanceLevel==ClassLevel, else first table order.

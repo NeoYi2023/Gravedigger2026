@@ -13,6 +13,7 @@ using Gravedigger2026.Gameplay.AutoManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Formation;
+using Gravedigger2026.Gameplay.Shop;
 using Gravedigger2026.Gameplay.UpgradeManufacture;
 using Gravedigger2026.UI;
 using UnityEngine;
@@ -39,6 +40,7 @@ namespace Gravedigger2026.Meta
         [SerializeField] private Transform _defendWorldParent;
         [SerializeField] private AutoManufacturePrefabCatalog _autoMfgPrefabCatalog;
         [SerializeField] private Transform _autoMfgWorldParent;
+        [SerializeField] private ShopPrefabCatalog _shopPrefabCatalog;
 
         private readonly SaveSlotService _saveSlots = new SaveSlotService();
         private readonly GameplayStateService _gameplayState = new GameplayStateService();
@@ -57,7 +59,9 @@ namespace Gravedigger2026.Meta
         private readonly ShopProgressService _shopProgress = new ShopProgressService();
         private readonly ShopOfferRefreshService _shopOfferRefresh = new ShopOfferRefreshService();
         private ShopPurchaseService _shopPurchase;
+        private ShopSellService _shopSell;
         private ShopStageRootView _shopStageRootView;
+        private ShopStageModule _shopModule;
         private readonly AutoManufactureBatchRecordService _autoManufactureBatchRecord =
             new AutoManufactureBatchRecordService();
         private BattleFormationService _formation;
@@ -91,6 +95,7 @@ namespace Gravedigger2026.Meta
             _specialEquipSlots = new SpecialEquipSlotsService(_configs);
             _protagonistEquipment = new ProtagonistEquipmentService(_configs);
             _shopPurchase = new ShopPurchaseService(_warehouse, _protagonistEquipment, _specialEquipSlots);
+            _shopSell = new ShopSellService(_warehouse, _protagonistEquipment, _specialEquipSlots, _configs);
             _techTree.BindEquipment(_protagonistEquipment);
             var magicBookHook = new SoldierManufactureMagicBookHook(_specialEquipSlots, _configs);
             _autoManufacture = new AutoManufactureService(
@@ -100,6 +105,27 @@ namespace Gravedigger2026.Meta
             _gmSoldierGrant = new GmSoldierGrantService(_configs, _warriorPool, _autoDeploy);
             _levelDriver = new LevelOperationDriver(_configs, _gameplayState);
             _levelDriver.RegisterDefaultPlaceholders();
+            _shopModule = new ShopStageModule(
+                _shopPrefabCatalog,
+                transform,
+                _shopProgress,
+                _protagonistEquipment,
+                _specialEquipSlots,
+                _warehouse,
+                _configs,
+                _shopOfferRefresh,
+                _shopPurchase,
+                _shopSell,
+                _confirmDialog,
+                _toastView,
+                HandleShopStageComplete,
+                SetStagePresentationActive);
+            _levelDriver.RegisterModule(_shopModule);
+            if (_shopPrefabCatalog == null)
+            {
+                Debug.LogWarning("[MetaShell] ShopPrefabCatalog missing — Shop stage uses runtime full-screen fallback.");
+            }
+
             _levelDriver.RegisterModule(
                 new AutoManufactureStageModule(
                     _autoManufacture,
@@ -127,7 +153,9 @@ namespace Gravedigger2026.Meta
                         HandleDigSummaryConfirmed,
                         SetStagePresentationActive,
                         _specialEquipSlots,
-                        _protagonistEquipment));
+                        _protagonistEquipment,
+                        _gmSoldierGrant,
+                        _defendPrefabCatalog));
             }
             else
             {
@@ -230,6 +258,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.GrantAddSoldierRequested += HandleGrantAddSoldier;
                 _inSaveShellView.LevelSelectPicked += HandleLevelSelectPicked;
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
+                _inSaveShellView.GmGrantLevelPicked += HandleGmGrantLevelPicked;
                 _inSaveShellView.GmAddSoldierAddClicked += HandleGmAddSoldierAdd;
             }
 
@@ -286,8 +315,7 @@ namespace Gravedigger2026.Meta
 
             if (_shopStageRootView != null)
             {
-                Destroy(_shopStageRootView.gameObject);
-                _shopStageRootView = null;
+                DestroyShopOverlay();
             }
 
             if (_saveSelectView != null)
@@ -296,7 +324,7 @@ namespace Gravedigger2026.Meta
             }
         }
 
-        private void EnterShell(int slotIndex, CampaignMode mode)
+        private void EnterShell(int slotIndex, CampaignMode mode, bool isNewSave)
         {
             _levelDriver?.StopCurrentLevel();
             _warehouse.Clear();
@@ -313,6 +341,11 @@ namespace Gravedigger2026.Meta
             {
                 Debug.LogError(
                     $"[MetaShell] Config load failed for CampaignMode={mode}: {_configs.LastError}");
+            }
+
+            if (isNewSave)
+            {
+                _warehouse.ApplyNewSaveGrants(_configs);
             }
 
             // Legacy JsonUtility dropped non-[Serializable] StatBlock; rebuild from SourceItemIds.
@@ -379,7 +412,7 @@ namespace Gravedigger2026.Meta
                     }
                 }
 
-                EnterShell(slotIndex, CampaignMode.Mode1);
+                EnterShell(slotIndex, CampaignMode.Mode1, isCreate);
                 return;
             }
 
@@ -396,7 +429,7 @@ namespace Gravedigger2026.Meta
                         }
                     }
 
-                    EnterShell(slotIndex, mode);
+                    EnterShell(slotIndex, mode, isCreate);
                 });
         }
 
@@ -490,18 +523,39 @@ namespace Gravedigger2026.Meta
                 return;
             }
 
+            if (IsShopStageOpen())
+            {
+                return;
+            }
+
             if (_shopStageRootView != null)
             {
                 return;
             }
 
+            if (_shopPrefabCatalog == null || _shopPrefabCatalog.StageRoot == null)
+            {
+                Debug.LogWarning("[MetaShell] ShopStageRoot prefab missing — runtime full-screen fallback.");
+                var fallback = new GameObject("ShopStageRoot(Overlay)");
+                fallback.transform.SetParent(_inSaveShellView.transform, false);
+                _shopStageRootView = fallback.AddComponent<ShopStageRootView>();
+                _shopStageRootView.BuildFullscreenHierarchy();
+            }
+            else
+            {
+                var go = Instantiate(_shopPrefabCatalog.StageRoot, _inSaveShellView.transform);
+                go.name = "ShopStageRoot(Overlay)";
+                go.SetActive(true);
+                _shopStageRootView = go.GetComponent<ShopStageRootView>();
+                if (_shopStageRootView == null)
+                {
+                    _shopStageRootView = go.AddComponent<ShopStageRootView>();
+                }
+            }
+
             HideSiblingInSaveOverlays();
             _inSaveShellView.HideEquipmentWarehousePanel();
             _inSaveShellView.HideMagicBookSlotsPanel();
-
-            var go = new GameObject("ShopStageRoot");
-            go.transform.SetParent(_inSaveShellView.transform, false);
-            _shopStageRootView = go.AddComponent<ShopStageRootView>();
 
             _shopStageRootView.Bind(
                 _shopProgress,
@@ -511,10 +565,44 @@ namespace Gravedigger2026.Meta
                 _configs,
                 _shopOfferRefresh,
                 _shopPurchase,
+                _shopSell,
+                _confirmDialog,
                 _toastView);
 
-            _shopStageRootView.Closed += () => { _shopStageRootView = null; };
+            _shopStageRootView.Closed += HandleShopOverlayClosed;
             _shopStageRootView.Open();
+        }
+
+        private void HandleShopOverlayClosed()
+        {
+            if (_shopStageRootView != null)
+            {
+                _shopStageRootView.Closed -= HandleShopOverlayClosed;
+            }
+
+            _shopStageRootView = null;
+        }
+
+        private void HandleShopStageComplete()
+        {
+            AdvanceStageFromGameplay();
+        }
+
+        private bool IsShopStageOpen()
+        {
+            return _shopModule != null && _shopModule.IsOpen;
+        }
+
+        private void DestroyShopOverlay()
+        {
+            if (_shopStageRootView == null)
+            {
+                return;
+            }
+
+            _shopStageRootView.Closed -= HandleShopOverlayClosed;
+            Destroy(_shopStageRootView.gameObject);
+            _shopStageRootView = null;
         }
 
         private void HideSiblingInSaveOverlays()
@@ -812,6 +900,7 @@ namespace Gravedigger2026.Meta
         }
 
         private GmGrantKind _gmGrantKind;
+        private string _pendingGmGrantEquipId;
 
         private void HandleGrantProtagonistEquipment()
         {
@@ -968,6 +1057,7 @@ namespace Gravedigger2026.Meta
             }
 
             _gmGrantKind = kind;
+            _pendingGmGrantEquipId = null;
             var title = kind == GmGrantKind.Equip ? "增加主角装备" : "增加魔法书";
             var items = kind == GmGrantKind.Equip
                 ? BuildProtagonistEquipmentGrantItems()
@@ -1067,24 +1157,21 @@ namespace Gravedigger2026.Meta
 
             if (_gmGrantKind == GmGrantKind.Equip)
             {
-                if (_protagonistEquipment == null)
-                {
-                    return;
-                }
-
-                if (!_protagonistEquipment.TryAcquire(id, out var error))
+                var levels = CollectEquipLevels(id);
+                if (levels.Count == 0)
                 {
                     if (_toastView != null)
                     {
-                        _toastView.Show(string.IsNullOrEmpty(error) ? "获得装备失败" : error);
+                        _toastView.Show($"装备 {id} 无可用等级");
                     }
 
                     return;
                 }
 
-                if (_toastView != null)
+                _pendingGmGrantEquipId = id;
+                if (_inSaveShellView != null)
                 {
-                    _toastView.Show($"已获得装备 {id}");
+                    _inSaveShellView.ShowGmGrantLevelPicker("选择等级", levels);
                 }
 
                 return;
@@ -1111,6 +1198,70 @@ namespace Gravedigger2026.Meta
             }
         }
 
+        private void HandleGmGrantLevelPicked(int level)
+        {
+            if (_gmGrantKind != GmGrantKind.Equip || string.IsNullOrEmpty(_pendingGmGrantEquipId))
+            {
+                return;
+            }
+
+            if (_protagonistEquipment == null)
+            {
+                return;
+            }
+
+            var id = _pendingGmGrantEquipId;
+            if (!_protagonistEquipment.DebugGrantAtLevel(id, level, out var error))
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show(string.IsNullOrEmpty(error) ? "发放装备失败" : error);
+                }
+
+                return;
+            }
+
+            if (_toastView != null)
+            {
+                _toastView.Show($"已发放装备 {id} Lv.{level}");
+            }
+        }
+
+        private List<int> CollectEquipLevels(string equipId)
+        {
+            var levels = new List<int>();
+            if (string.IsNullOrEmpty(equipId))
+            {
+                return levels;
+            }
+
+            foreach (var row in _configs.ProtagonistEquipmentRows)
+            {
+                if (row == null || string.IsNullOrEmpty(row.EquipId))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(row.EquipId.Trim(), equipId, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (row.EquipLevel < 1)
+                {
+                    continue;
+                }
+
+                if (!levels.Contains(row.EquipLevel))
+                {
+                    levels.Add(row.EquipLevel);
+                }
+            }
+
+            levels.Sort();
+            return levels;
+        }
+
         private void HandleLevelSelectPicked(string levelId)
         {
             if (_levelDriver == null)
@@ -1130,6 +1281,8 @@ namespace Gravedigger2026.Meta
 
             _progress.EnsureLoaded(_configs);
             _progress.ResetToLevelOne(_configs);
+
+            DestroyShopOverlay();
 
             if (!_levelDriver.TryEnterLevel(levelId, out var error))
             {

@@ -70,6 +70,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private PushMapSessionService _session;
         private GameObject _projectilePrefab;
         private Transform _projectileParent;
+        private DefendPrefabCatalog _projectileCatalog;
         private float _attackStartCooldown;
         private float _windupRemaining;
         private string _windupTargetId;
@@ -141,6 +142,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             PushMapSessionService session = null,
             GameObject projectilePrefab = null,
             Transform projectileParent = null,
+            DefendPrefabCatalog projectileCatalog = null,
             float bodyRadius = BodyAppearanceConfigRow.DefaultBodyRadius,
             bool facingYawFlip = false,
             float pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient,
@@ -160,6 +162,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _engageStickHysteresisMargin = CombatRuntimeTuning.EngageStickHysteresisMargin;
             _projectilePrefab = projectilePrefab;
             _projectileParent = projectileParent;
+            _projectileCatalog = projectileCatalog;
             _bodyRadius = Mathf.Max(0.05f, bodyRadius);
             _pushCoefficient = Mathf.Max(0f, pushCoefficient);
             _repulsionScale = Mathf.Max(0f, repulsionScale);
@@ -851,10 +854,25 @@ namespace Gravedigger2026.Gameplay.PushMap
                 hitRadius: -1f,
                 enumerateAliveTargets: EnumerateAliveMonsterRuntimeIds);
 
+            TryApplyProjectileVisual(view, state.BaseClass);
+
             _scheduler?.SetPaused(_moveId, false);
             if (fromBurst)
             {
                 AfterBurstHit(melee: false);
+            }
+        }
+
+        private void TryApplyProjectileVisual(ProjectileView view, BaseClassKind baseClass)
+        {
+            if (view == null || _projectileCatalog == null)
+            {
+                return;
+            }
+
+            if (_projectileCatalog.TryGetProjectileSprite(baseClass, out var sprite))
+            {
+                view.ApplyVisual(sprite);
             }
         }
 

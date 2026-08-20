@@ -313,6 +313,7 @@ namespace Gravedigger2026.Core.Defend
             state = new DefendCombatWarriorState
             {
                 WarriorId = warrior.Id,
+                BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
                 AttackMode = warrior.AttackMode,
                 MaxHp = maxHp,
                 RemainingHp = remaining,
@@ -803,6 +804,7 @@ namespace Gravedigger2026.Core.Defend
     public sealed class DefendCombatWarriorState
     {
         public string WarriorId;
+        public BaseClassKind BaseClass;
         public AttackMode AttackMode;
         public float MaxHp;
         public float RemainingHp;

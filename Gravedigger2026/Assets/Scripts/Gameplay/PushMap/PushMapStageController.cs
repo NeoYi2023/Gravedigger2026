@@ -1119,6 +1119,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     _session,
                     _catalog != null ? _catalog.ProjectilePrefab : null,
                     _worldRoot,
+                    _catalog,
                     bodyRadius,
                     facingYawFlip,
                     pushCoefficient,

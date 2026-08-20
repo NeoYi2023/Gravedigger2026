@@ -157,6 +157,94 @@ namespace Gravedigger2026.Core.ProtagonistEquipment
             return true;
         }
 
+        /// <summary>
+        /// Demo GM (UI-019): set owned piece to an exact config level (CurrentExp=0).
+        /// Not owned → add at that level. Does not use convert Exp / TryAcquire.
+        /// </summary>
+        public bool DebugGrantAtLevel(string equipId, int level, out string error)
+        {
+            error = null;
+            if (_slotIndex < 0)
+            {
+                error = "No save slot bound.";
+                return false;
+            }
+
+            var id = NormalizeId(equipId);
+            if (id == null)
+            {
+                error = "EquipId is empty.";
+                return false;
+            }
+
+            if (level < 1)
+            {
+                error = "EquipLevel must be ≥ 1.";
+                return false;
+            }
+
+            if (!_configs.TryGetProtagonistEquipment(id, level, out var row) || row == null)
+            {
+                error = $"EquipId '{id}' L{level} not in ProtagonistEquipmentConfig.";
+                return false;
+            }
+
+            var existing = FindOwned(id);
+            if (existing == null)
+            {
+                _owned.Add(new OwnedEquip
+                {
+                    EquipId = id,
+                    Level = level,
+                    CurrentExp = 0
+                });
+            }
+            else
+            {
+                existing.Level = level;
+                existing.CurrentExp = 0;
+            }
+
+            Persist();
+            Debug.Log(
+                $"[ProtagonistEquipment] GM GrantAtLevel '{id}' → L{level} Exp0 " +
+                $"slot={_slotIndex} mode={_campaignMode}");
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Remove one owned piece entirely (D-076 shop sell). Does not refund CurrentExp / EquipCommonExp.</summary>
+        public bool TryRemove(string equipId, out string error)
+        {
+            error = null;
+            if (_slotIndex < 0)
+            {
+                error = "No save slot bound.";
+                return false;
+            }
+
+            var id = NormalizeId(equipId);
+            if (id == null)
+            {
+                error = "EquipId is empty.";
+                return false;
+            }
+
+            var existing = FindOwned(id);
+            if (existing == null)
+            {
+                error = $"Equip '{id}' is not owned.";
+                return false;
+            }
+
+            _owned.Remove(existing);
+            Persist();
+            Debug.Log(
+                $"[ProtagonistEquipment] Remove '{id}' slot={_slotIndex} mode={_campaignMode} owned={_owned.Count}");
+            Changed?.Invoke();
+            return true;
+        }
+
         /// <summary>Demo GM: inject into EquipCommonExp (SPEC_03 §3.10 Dig HUD / D-059).</summary>
         public bool DebugGrantCommonExp(int amount, out string error)
         {

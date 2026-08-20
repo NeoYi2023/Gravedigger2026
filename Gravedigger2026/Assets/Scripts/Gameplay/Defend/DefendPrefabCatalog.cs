@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
+
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
@@ -32,6 +34,8 @@ namespace Gravedigger2026.Gameplay.Defend
         [SerializeField] private GameObject _battleModeSelectRootPrefab;
         [SerializeField] private GameObject _battleProtagonistPrefab;
         [SerializeField] private GameObject _projectilePrefab;
+        [SerializeField] private Sprite _archerProjectileSprite;
+        [SerializeField] private Sprite _mageProjectileSprite;
         [SerializeField] private GameObject _damagePopupPrefab;
         [SerializeField] private GameObject _skillIconHudPrefab;
         [SerializeField] private List<MapEntry> _maps = new List<MapEntry>();
@@ -42,6 +46,22 @@ namespace Gravedigger2026.Gameplay.Defend
         public GameObject BattleModeSelectRootPrefab => _battleModeSelectRootPrefab;
         public GameObject BattleProtagonistPrefab => _battleProtagonistPrefab;
         public GameObject ProjectilePrefab => _projectilePrefab;
+        public bool TryGetProjectileSprite(BaseClassKind baseClass, out Sprite sprite)
+        {
+            switch (baseClass)
+            {
+                case BaseClassKind.Archer:
+                    sprite = _archerProjectileSprite;
+                    return sprite != null;
+                case BaseClassKind.Mage:
+                    sprite = _mageProjectileSprite;
+                    return sprite != null;
+                default:
+                    sprite = null;
+                    return false;
+            }
+        }
+
         /// <summary>PushMap DamagePopup (PM-12/13); not reset by EditorSet — bound by catalog asset.</summary>
         public GameObject DamagePopupPrefab => _damagePopupPrefab;
         /// <summary>PushMap CombatSkillIcon slot (D-071); not reset by EditorSet — bound by catalog asset.</summary>
@@ -109,12 +129,16 @@ namespace Gravedigger2026.Gameplay.Defend
             GameObject projectile,
             List<MapEntry> maps,
             List<WarriorAppearanceEntry> warriorAppearances,
-            List<MonsterModelEntry> monsterModels)
+            List<MonsterModelEntry> monsterModels,
+            Sprite archerProjectileSprite = null,
+            Sprite mageProjectileSprite = null)
         {
             _defendStageRootPrefab = stageRoot;
             _battleModeSelectRootPrefab = battleModeSelectRoot;
             _battleProtagonistPrefab = battleProtagonist;
             _projectilePrefab = projectile;
+            _archerProjectileSprite = archerProjectileSprite;
+            _mageProjectileSprite = mageProjectileSprite;
             _maps = maps ?? new List<MapEntry>();
             _warriorAppearances = warriorAppearances ?? new List<WarriorAppearanceEntry>();
             _monsterModels = monsterModels ?? new List<MonsterModelEntry>();
