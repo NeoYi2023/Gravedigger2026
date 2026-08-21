@@ -28,7 +28,7 @@ namespace Gravedigger2026.Editor.Dig
         private const string UiCursorRingPath = PrefabDigDir + "/UiDigCursorRing.prefab";
         private const string CircleSpritePath = ArtUiDigDir + "/Ui_DigCursor_Circle.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08296";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08301";
 
         private static readonly string[] MapIds =
         {
@@ -38,7 +38,8 @@ namespace Gravedigger2026.Editor.Dig
         private static readonly string[] QualityIds =
         {
             "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
-            "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20"
+            "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20",
+            "Q21", "Q22", "Q23", "Q24", "Q25", "Q26", "Q27"
         };
 
         [InitializeOnLoadMethod]
@@ -108,6 +109,13 @@ namespace Gravedigger2026.Editor.Dig
                             keepSprite = existingSr.sprite;
                         }
                     }
+                }
+
+                // Mode2 Q21–Q27: placeholder art falls back to Q20 until dedicated sprites land.
+                if (keepSprite == null)
+                {
+                    keepSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                        "Assets/Art/Dig/Graves/Grave_Q20/Grave_Q20.png");
                 }
 
                 var go = BuildGrave(q, i, keepSprite);

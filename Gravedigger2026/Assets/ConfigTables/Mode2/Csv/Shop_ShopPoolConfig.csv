@@ -1,5 +1,5 @@
 ShopPoolId,RequiredMaxLevelNumber,ExtraUnlockCondition,PoolItemsRaw
-Pool_01,1,,Equip_IronShovel;A;10|Equip_Detector;A;10|MagicBook_Restore;B;5|Equip_MinerLamp;A;10|MagicBook_SoldierSkillLevel;B;5
-Pool_02,2,,Equip_MinerLamp;A;20|MagicBook_WarriorAdvance;B;10|Equip_IronShovel;A;5|MagicBook_ArcherAdvance;B;8|Equip_Detector;A;10
-Pool_03,2,,Equip_MinerLamp;A;20|MagicBook_WarriorAdvance;B;10|Equip_IronShovel;A;5|MagicBook_ArcherAdvance;B;8|Equip_Detector;A;10
-Pool_04,2,,Equip_MinerLamp;A;20|MagicBook_WarriorAdvance;B;10|Equip_IronShovel;A;5|MagicBook_ArcherAdvance;B;8|Equip_Detector;A;10
+Pool_01,1,,Equip_IronShovel;A;10|Equip_Detector;A;10|MagicBook_Restore;B;5|Equip_MinerLamp;A;10|MagicBook_SoldierSkillLevel;B;5|Equip_HumanToken;A;10|Equip_ElfToken;A;10|Equip_OrcToken;A;10
+Pool_02,2,,Equip_MinerLamp;A;20|MagicBook_WarriorAdvance;B;10|Equip_IronShovel;A;5|MagicBook_ArcherAdvance;B;8|Equip_Detector;A;10|Equip_HumanToken;A;10|Equip_ElfToken;A;10|Equip_OrcToken;A;10
+Pool_03,2,,Equip_MinerLamp;A;20|MagicBook_WarriorAdvance;B;10|Equip_IronShovel;A;5|MagicBook_ArcherAdvance;B;8|Equip_Detector;A;10|Equip_HumanToken;A;10|Equip_ElfToken;A;10|Equip_OrcToken;A;10
+Pool_04,2,,Equip_MinerLamp;A;20|MagicBook_WarriorAdvance;B;10|Equip_IronShovel;A;5|MagicBook_ArcherAdvance;B;8|Equip_Detector;A;10|Equip_HumanToken;A;10|Equip_ElfToken;A;10|Equip_OrcToken;A;10

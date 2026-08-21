@@ -852,6 +852,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-077 | 主角装备「炸药」`Equip_Explosives`：5 级表行 + Dig 事件 Token（玩家 DigAction 消除坟墓 100% 投掷炸药桶；**爆炸清坟不连锁**）+ 抛物线 0.5s / 引信 0.8s / 半径 2 伤害 13/18/23/28/33 + `ZYT_1` 精灵 + 贴地红圈 0.5s + Dig HUD GM 发放/划入 | P1 | **完成**（方案 B：`DigExplosiveScheduler` + Dig Views） |
 | D-078 | 主角装备「引雷」`Equip_Elctr`：5 级表行 + Dig 定时事件 Token（间隔 15/13/11/9/7s，阶段开始后先等完整间隔）+ 随机坟或随机可放点落雷 + 命中坟无 LootDrop / 不触发炸药 + LootDrop 扫描 `IsPrimaryHand=1` 等权随机 → `ClassRestrict`+`RaceId` 入士兵池 + `Elctr_0`～`Elctr_3` 序列帧（0.05s/帧）+ 坟位待机 2s + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：`DigLightningScheduler` + Dig Views） |
 | D-079 | 主角装备「探测器」`Equip_Detector`：5 级表行 + 静态键 `DigProcessSpawnCountBonus`（L1～5 = +1～+5，并入 Dig caps）+ 过程生成 `SpawnRate` 的 **M** 加法（**不**改 N、**不**改开局坟数）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：caps 静态键） |
+| D-080 | 主角装备种族信物 `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`：各 5 级表行 + 静态键 `GraveSpawnWeightBonus`（L1～5 对应品质带权重累计 10/15/20/25/30；表缺席视为 0 再插入）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入；Mode2 Prefab/Catalog 覆盖 Q16–Q27（Q21–Q27 可占位） | P1 | **完成**（方案 A：复用矿灯 `GraveSpawnWeightBonus`） |
 **Demo 范围外（仍排除）：**
 
 - 魔法书从弹窗装入（装入仍 Tools GM `TryEquip`；槽排序见 D-068；弹窗删除见 D-072）；其余未实现效果行（「还原」`RaceWeightPick`、「战士强化」`StatMul`/`Primary`、职业进阶 `ForceClass` 已实现）
@@ -861,7 +862,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 - 完整存档序列化 schema（超出槽占用、士兵池、布阵及流水线所需的最小持久化字段；仓库/经验/科技等仍 TBD）
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
 - 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
-- 工具面板「设置」「关卡」及 D-061 / D-064 GM、D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 以外的后续功能；完整 polish；未写入本表的需求
+- 工具面板「设置」「关卡」及 D-061 / D-064 GM、D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 / D-080 以外的后续功能；完整 polish；未写入本表的需求
 - 打表全量 §9 列/类型校验（[SPEC_04 §14](SPEC_04_Technical.md) Demo 仅文件名+表头；schema 校验后置）
 
 实现边界对照：[SPEC_04 §6](SPEC_04_Technical.md)。
@@ -920,6 +921,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-077 | ProtagonistEquipment Explosives `Equip_Explosives`: 5-level rows + Dig event token (100% throw barrel on player DigAction grave clear; **no chain from blast clears**) + parabola 0.5s / fuse 0.8s / radius 2 damage 13/18/23/28/33 + `ZYT_1` sprite + ground red ring 0.5s + Dig HUD GM grant/spend | P1 | **Done** (Approach B: `DigExplosiveScheduler` + Dig Views) |
 | D-078 | ProtagonistEquipment Lightning `Equip_Elctr`: 5-level rows + Dig timed event tokens (interval 15/13/11/9/7s, first strike after a full wait) + random grave or random placeable point + hit grave skips LootDrop and explosives + scan LootDrop `IsPrimaryHand=1` equal-random → `ClassRestrict`+`RaceId` into WarriorPool + `Elctr_0`–`Elctr_3` (0.05s/frame) + 2s idle preview + Dig HUD GM grant/spend | P1 | **Done** (Approach A: `DigLightningScheduler` + Dig Views) |
 | D-079 | ProtagonistEquipment Detector `Equip_Detector`: 5-level rows + static key `DigProcessSpawnCountBonus` (L1–5 = +1–+5, merges into Dig caps) + additive to process-spawn `SpawnRate` **M** (**not** N, **not** initial grave count) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend | P1 | **Done** (Approach A: static cap key) |
+| D-080 | ProtagonistEquipment race tokens `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`: 5-level rows each + static `GraveSpawnWeightBonus` (L1–5 cumulative weights 10/15/20/25/30 on quality bands; missing table Id = 0 then insert) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend; Mode2 Prefab/Catalog covers Q16–Q27 (Q21–Q27 may be placeholders) | P1 | **Done** (Approach A: reuse Miner Lamp `GraveSpawnWeightBonus`) |
 **Out of Demo scope (still excluded):**
 
 - MagicBook grant-from-popup (grant still Tools GM `TryEquip`; slot reorder = D-068; popup delete = D-072); remaining unimplemented effect rows (Restore `RaceWeightPick`, Warrior Enhance `StatMul`/`Primary`, and class-advance `ForceClass` done)
@@ -929,7 +931,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - Full save schema beyond occupied flag + warrior pool + BattleFormation + minimal pipeline fields (Warehouse / Exp / Tech still TBD)
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
 - Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
-- Tools entries beyond Settings / Level / D-061 / D-064 GM / D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079; full polish; anything not in this table
+- Tools entries beyond Settings / Level / D-061 / D-064 GM / D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 / D-080; full polish; anything not in this table
 - Bake full §9 column/type validation ([SPEC_04 §14](SPEC_04_Technical.md) Demo: filename + header only; schema validation deferred)
 
 Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
@@ -1210,6 +1212,12 @@ EnterLevel
 | 划入引雷升级 | 点一次：`TrySpendCommonExp("Equip_Elctr", 1)`（池不足或未拥有则日志失败） |
 | 获得探测器 | 点一次：`TryAcquire("Equip_Detector")`；日志打印 Level / CurrentExp / `DigProcessSpawnCountBonus`。手验 D-079 |
 | 划入探测器升级 | 点一次：`TrySpendCommonExp("Equip_Detector", 1)`（池不足或未拥有则日志失败） |
+| 获得人类信物 | 点一次：`TryAcquire("Equip_HumanToken")`；日志打印 Level / CurrentExp / Q16～Q19 `GraveSpawnWeightBonus`。手验 D-080 |
+| 划入人类信物升级 | 点一次：`TrySpendCommonExp("Equip_HumanToken", 1)` |
+| 获得精灵信物 | 点一次：`TryAcquire("Equip_ElfToken")`；日志打印 Level / CurrentExp / Q20～Q23 `GraveSpawnWeightBonus`。手验 D-080 |
+| 划入精灵信物升级 | 点一次：`TrySpendCommonExp("Equip_ElfToken", 1)` |
+| 获得兽人信物 | 点一次：`TryAcquire("Equip_OrcToken")`；日志打印 Level / CurrentExp / Q24～Q27 `GraveSpawnWeightBonus`。手验 D-080 |
+| 划入兽人信物升级 | 点一次：`TrySpendCommonExp("Equip_OrcToken", 1)` |
 
 - 仅 Dig 进行中（未归零 / 未弹 Summary）可用；为 Demo/手验工具。
 - GM 直接写入仓库的躯体材料 **不**计入 DigStageSummary「本阶段已获奖励」。
@@ -1395,6 +1403,12 @@ For each settled `Id_Count` (not the raw table `Id;Weight;Count`):
 | Spend Into Lightning | One click: `TrySpendCommonExp("Equip_Elctr", 1)` (fail log if pool short / not owned) |
 | Grant Detector | One click: `TryAcquire("Equip_Detector")`; log Level / CurrentExp / `DigProcessSpawnCountBonus`. Hand-check D-079 |
 | Spend Into Detector | One click: `TrySpendCommonExp("Equip_Detector", 1)` (fail log if pool short / not owned) |
+| Grant Human Token | One click: `TryAcquire("Equip_HumanToken")`; log Level / CurrentExp / Q16–Q19 `GraveSpawnWeightBonus`. Hand-check D-080 |
+| Spend Into Human Token | One click: `TrySpendCommonExp("Equip_HumanToken", 1)` |
+| Grant Elf Token | One click: `TryAcquire("Equip_ElfToken")`; log Level / CurrentExp / Q20–Q23 `GraveSpawnWeightBonus`. Hand-check D-080 |
+| Spend Into Elf Token | One click: `TrySpendCommonExp("Equip_ElfToken", 1)` |
+| Grant Orc Token | One click: `TryAcquire("Equip_OrcToken")`; log Level / CurrentExp / Q24–Q27 `GraveSpawnWeightBonus`. Hand-check D-080 |
+| Spend Into Orc Token | One click: `TrySpendCommonExp("Equip_OrcToken", 1)` |
 
 - Available only while Dig is active (before duration zero / Summary). Demo / hand-check tools.
 - Body parts granted via GM **do not** count toward DigStageSummary “rewards earned this stage”.
@@ -3829,6 +3843,9 @@ AutoManufacture stage
 | `Equip_Explosives` | 炸药 | 1～5 | `Dig` | 事件：`DigOnGraveClear_1` + `ExplosiveThrowRadius_4` + `ExplosiveBlastRadius_2` + `ExplosiveBlastDamage_{13/18/23/28/33}` + `ExplosiveFlightSec_0.5` + `ExplosiveFuseSec_0.8` + `ExplosiveRingSec_0.5` | L1–4 = **1**；L5 空 | 每级 **1** |
 | `Equip_Elctr` | 引雷 | 1～5 | `Dig` | 事件：`DigLightningIntervalSec_{15/13/11/9/7}` + `DigLightningFrameSec_0.05` + `DigLightningPreviewSec_2` | L1–4 = **1**；L5 空 | 每级 **1**（Mode2 样例 ConvertExp 为 1～5） |
 | `Equip_Detector` | 探测器 | 1～5 | `Dig` | 静态：过程生成 M 累计 +1/级：L1 `DigProcessSpawnCountBonus_1` … L5 `_5`（**不**改 N） | L1–4 = **1**；L5 空 | 每级 **1**（Mode2 样例 ConvertExp 为 1～5） |
+| `Equip_HumanToken` | 人类信物 | 1～5 | `Dig` | 静态：Q16～Q19 生成权重累计 L1=`_10` … L5=`_30`（`GraveSpawnWeightBonus_Q16_*\|…_Q19_*`）；表缺席视为 0 再插入 | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
+| `Equip_ElfToken` | 精灵信物 | 1～5 | `Dig` | 静态：Q20～Q23 生成权重累计 L1=`_10` … L5=`_30` | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
+| `Equip_OrcToken` | 兽人信物 | 1～5 | `Dig` | 静态：Q24～Q27 生成权重累计 L1=`_10` … L5=`_30` | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
 
 **明确非范围（本轮规则录入）**
 
@@ -3935,6 +3952,9 @@ Only the current-level row applies, so `EquipEffect` is the **cumulative** bonus
 | `Equip_Explosives` | Explosives | 1–5 | `Dig` | Event: `DigOnGraveClear_1` + `ExplosiveThrowRadius_4` + `ExplosiveBlastRadius_2` + `ExplosiveBlastDamage_{13/18/23/28/33}` + `ExplosiveFlightSec_0.5` + `ExplosiveFuseSec_0.8` + `ExplosiveRingSec_0.5` | L1–4 = **1**; L5 empty | **1** each level |
 | `Equip_Elctr` | Lightning (引雷) | 1–5 | `Dig` | Event: `DigLightningIntervalSec_{15/13/11/9/7}` + `DigLightningFrameSec_0.05` + `DigLightningPreviewSec_2` | L1–4 = **1**; L5 empty | **1** each level (Mode2 sample ConvertExp 1–5) |
 | `Equip_Detector` | Detector | 1–5 | `Dig` | Static: process-spawn M cumulative +1/level: L1 `DigProcessSpawnCountBonus_1` … L5 `_5` (**does not** change N) | L1–4 = **1**; L5 empty | **1** each level (Mode2 sample ConvertExp 1–5) |
+| `Equip_HumanToken` | Human Token | 1–5 | `Dig` | Static: Q16–Q19 spawn-weight cumulative L1=`_10` … L5=`_30` (`GraveSpawnWeightBonus_Q16_*\|…_Q19_*`); missing table Id = 0 then insert | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
+| `Equip_ElfToken` | Elf Token | 1–5 | `Dig` | Static: Q20–Q23 spawn-weight cumulative L1=`_10` … L5=`_30` | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
+| `Equip_OrcToken` | Orc Token | 1–5 | `Dig` | Static: Q24–Q27 spawn-weight cumulative L1=`_10` … L5=`_30` | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
 
 **Out of scope this rules pass**
 
@@ -4133,7 +4153,8 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 - [x] 主角装备炸药 D-077（EXP-01～03：事件 Token + 调度/AoE + 抛物线/`ZYT_1`/贴地红圈 + Dig HUD GM）
 - [x] 主角装备引雷 D-078（事件 Token + 定时落雷清坟入兵 + 序列帧/待机预览 + Dig HUD GM）
 - [x] 主角装备探测器 D-079（静态键 `DigProcessSpawnCountBonus` + 过程生成 M 加法 + ItemCatalog/商店池 + Dig HUD GM）
-- [ ] 主角装备获取来源（Dig 掉落 / 商店等）与升级/划公共经验/卸下 UI（仓只读见 D-067；GM 手验属 D-059 / D-060 / D-077 / D-078 / D-079）
+- [x] 主角装备种族信物 D-080（`GraveSpawnWeightBonus` Q16–Q27 品质带 + ItemCatalog/商店池 + Dig HUD GM；Mode2 Prefab 至 Q27）
+- [ ] 主角装备获取来源（Dig 掉落 / 商店等）与升级/划公共经验/卸下 UI（仓只读见 D-067；GM 手验属 D-059 / D-060 / D-077 / D-078 / D-079 / D-080）
 - [ ] 主角装备 `SoldierManufacture` / `Combat` 效果 Token 登记表
 - [x] PushMap 边界锁定：到达 `CaptureZone` 即占领（无计时/无「无怪」条件）；占领后已刷怪保留；全队共当前目标；无陷阱开战刷；无倒计时刷怪；仅 BOSS 通关入账经验；MapId=`Ground_*`|`PushMap_*`
 - [x] 大规模战斗寻路（方案 B）规则锁定：FlowField（共享目标）+ AttackSlot（追击/攻击）+ LocalDetour（友军左右绕）；容量双方约 200；实现见 `.scratch/mass-pathing/issues/`（§3.12 / SPEC_04 §9.7）
@@ -4220,7 +4241,8 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 - [x] ProtagonistEquipment Explosives D-077 (EXP-01–03: event token + scheduler/AoE + parabola/`ZYT_1`/ground ring + Dig HUD GM)
 - [x] ProtagonistEquipment Lightning D-078 (event token + timed strike/clear/grant + sequence/idle preview + Dig HUD GM)
 - [x] ProtagonistEquipment Detector D-079 (static key `DigProcessSpawnCountBonus` + process-spawn M bonus + ItemCatalog/shop pool + Dig HUD GM)
-- [ ] ProtagonistEquipment acquire sources (Dig loot / shop) and level-up / spend common Exp / unequip UI (warehouse read-only = D-067; GM handcheck is D-059 / D-060 / D-077 / D-078 / D-079)
+- [x] ProtagonistEquipment race tokens D-080 (`GraveSpawnWeightBonus` Q16–Q27 bands + ItemCatalog/shop pool + Dig HUD GM; Mode2 Prefabs through Q27)
+- [ ] ProtagonistEquipment acquire sources (Dig loot / shop) and level-up / spend common Exp / unequip UI (warehouse read-only = D-067; GM handcheck is D-059 / D-060 / D-077 / D-078 / D-079 / D-080)
 - [ ] ProtagonistEquipment `SoldierManufacture` / `Combat` effect Token registry
 - [x] PushMap boundary locks: Capture on arrive to `CaptureZone` (no timer / no “clear monsters” condition); keep living after Capture; shared current objective; non-trap spawn at StartBattle; no countdown spawn; Exp only on Boss clear; MapId=`Ground_*`|`PushMap_*`
 - [x] Mass combat pathing (Approach B) rules locked: FlowField (shared goals) + AttackSlot (chase/attack) + LocalDetour (friendly L/R); ~200/side capacity; impl `.scratch/mass-pathing/issues/` (§3.12 / SPEC_04 §9.7)

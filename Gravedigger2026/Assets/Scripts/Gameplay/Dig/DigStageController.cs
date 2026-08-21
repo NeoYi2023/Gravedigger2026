@@ -23,12 +23,18 @@ namespace Gravedigger2026.Gameplay.Dig
         public const string ExplosivesEquipId = "Equip_Explosives";
         public const string LightningEquipId = "Equip_Elctr";
         public const string DetectorEquipId = "Equip_Detector";
+        public const string HumanTokenEquipId = "Equip_HumanToken";
+        public const string ElfTokenEquipId = "Equip_ElfToken";
+        public const string OrcTokenEquipId = "Equip_OrcToken";
         private const int GmEquipCommonExpAmount = 50;
         private const int GmSpendIronShovelExpAmount = 1;
         private const int GmSpendMinerLampExpAmount = 1;
         private const int GmSpendExplosivesExpAmount = 1;
         private const int GmSpendLightningExpAmount = 1;
         private const int GmSpendDetectorExpAmount = 1;
+        private const int GmSpendHumanTokenExpAmount = 1;
+        private const int GmSpendElfTokenExpAmount = 1;
+        private const int GmSpendOrcTokenExpAmount = 1;
 
         [SerializeField] private DigPrefabCatalog _catalog;
         [SerializeField] private Transform _worldRoot;
@@ -157,6 +163,12 @@ namespace Gravedigger2026.Gameplay.Dig
                 _hudView.SpendLightningCommonExpRequested += HandleGmSpendLightningCommonExp;
                 _hudView.AcquireDetectorRequested += HandleGmAcquireDetector;
                 _hudView.SpendDetectorCommonExpRequested += HandleGmSpendDetectorCommonExp;
+                _hudView.AcquireHumanTokenRequested += HandleGmAcquireHumanToken;
+                _hudView.SpendHumanTokenCommonExpRequested += HandleGmSpendHumanTokenCommonExp;
+                _hudView.AcquireElfTokenRequested += HandleGmAcquireElfToken;
+                _hudView.SpendElfTokenCommonExpRequested += HandleGmSpendElfTokenCommonExp;
+                _hudView.AcquireOrcTokenRequested += HandleGmAcquireOrcToken;
+                _hudView.SpendOrcTokenCommonExpRequested += HandleGmSpendOrcTokenCommonExp;
             }
 
             _session.Begin(context.DigConfig, center, half);
@@ -752,6 +764,108 @@ namespace Gravedigger2026.Gameplay.Dig
             LogProtagonistEquipmentGmState("Spend Detector CommonExp");
         }
 
+        private void HandleGmAcquireHumanToken()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire HumanToken — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(HumanTokenEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire HumanToken failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire HumanToken");
+        }
+
+        private void HandleGmSpendHumanTokenCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend HumanToken — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(HumanTokenEquipId, GmSpendHumanTokenExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend HumanToken failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend HumanToken CommonExp");
+        }
+
+        private void HandleGmAcquireElfToken()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire ElfToken — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(ElfTokenEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire ElfToken failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire ElfToken");
+        }
+
+        private void HandleGmSpendElfTokenCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend ElfToken — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(ElfTokenEquipId, GmSpendElfTokenExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend ElfToken failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend ElfToken CommonExp");
+        }
+
+        private void HandleGmAcquireOrcToken()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Acquire OrcToken — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TryAcquire(OrcTokenEquipId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Acquire OrcToken failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Acquire OrcToken");
+        }
+
+        private void HandleGmSpendOrcTokenCommonExp()
+        {
+            if (_protagonistEquipment == null)
+            {
+                Debug.LogWarning("[DigStageController] GM Spend OrcToken — no ProtagonistEquipment bound.");
+                return;
+            }
+
+            if (!_protagonistEquipment.TrySpendCommonExp(OrcTokenEquipId, GmSpendOrcTokenExpAmount, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Spend OrcToken failed: {error}");
+                return;
+            }
+
+            LogProtagonistEquipmentGmState("Spend OrcToken CommonExp");
+        }
+
         private void LogProtagonistEquipmentGmState(string action)
         {
             var caps = _session != null ? _session.Capabilities : null;
@@ -760,19 +874,30 @@ namespace Gravedigger2026.Gameplay.Dig
             var q4 = caps != null ? caps.GetGraveSpawnWeightBonus("Q4") : 0f;
             var q5 = caps != null ? caps.GetGraveSpawnWeightBonus("Q5") : 0f;
             var q6 = caps != null ? caps.GetGraveSpawnWeightBonus("Q6") : 0f;
+            var q16 = caps != null ? caps.GetGraveSpawnWeightBonus("Q16") : 0f;
+            var q19 = caps != null ? caps.GetGraveSpawnWeightBonus("Q19") : 0f;
+            var q20 = caps != null ? caps.GetGraveSpawnWeightBonus("Q20") : 0f;
+            var q23 = caps != null ? caps.GetGraveSpawnWeightBonus("Q23") : 0f;
+            var q24 = caps != null ? caps.GetGraveSpawnWeightBonus("Q24") : 0f;
+            var q27 = caps != null ? caps.GetGraveSpawnWeightBonus("Q27") : 0f;
             var common = _protagonistEquipment != null ? _protagonistEquipment.EquipCommonExp : -1;
             var shovel = FormatOwnedSummary(IronShovelEquipId);
             var lamp = FormatOwnedSummary(MinerLampEquipId);
             var explosives = FormatOwnedSummary(ExplosivesEquipId);
             var lightning = FormatOwnedSummary(LightningEquipId);
             var detector = FormatOwnedSummary(DetectorEquipId);
+            var human = FormatOwnedSummary(HumanTokenEquipId);
+            var elf = FormatOwnedSummary(ElfTokenEquipId);
+            var orc = FormatOwnedSummary(OrcTokenEquipId);
             var blast = FormatExplosiveBlastDamage();
             var interval = FormatLightningInterval();
             Debug.Log(
                 $"[DigStageController] GM {action} → {shovel}; {lamp}; {explosives}; {lightning}; {detector}; " +
+                $"{human}; {elf}; {orc}; " +
                 $"EquipCommonExp={common} DigCursorRadius={cursor:0.###} ExplosiveBlastDamage={blast} " +
                 $"DigLightningIntervalSec={interval} DigProcessSpawnCountBonus={spawnBonus:0.###} " +
-                $"GraveSpawnWeightBonus Q4={q4:0.###} Q5={q5:0.###} Q6={q6:0.###}");
+                $"GraveSpawnWeightBonus Q4={q4:0.###} Q5={q5:0.###} Q6={q6:0.###} " +
+                $"Q16={q16:0.###} Q19={q19:0.###} Q20={q20:0.###} Q23={q23:0.###} Q24={q24:0.###} Q27={q27:0.###}");
         }
 
         private string FormatExplosiveBlastDamage()
@@ -868,6 +993,12 @@ namespace Gravedigger2026.Gameplay.Dig
                 _hudView.SpendLightningCommonExpRequested -= HandleGmSpendLightningCommonExp;
                 _hudView.AcquireDetectorRequested -= HandleGmAcquireDetector;
                 _hudView.SpendDetectorCommonExpRequested -= HandleGmSpendDetectorCommonExp;
+                _hudView.AcquireHumanTokenRequested -= HandleGmAcquireHumanToken;
+                _hudView.SpendHumanTokenCommonExpRequested -= HandleGmSpendHumanTokenCommonExp;
+                _hudView.AcquireElfTokenRequested -= HandleGmAcquireElfToken;
+                _hudView.SpendElfTokenCommonExpRequested -= HandleGmSpendElfTokenCommonExp;
+                _hudView.AcquireOrcTokenRequested -= HandleGmAcquireOrcToken;
+                _hudView.SpendOrcTokenCommonExpRequested -= HandleGmSpendOrcTokenCommonExp;
             }
 
             UnsubscribeSession(_session);

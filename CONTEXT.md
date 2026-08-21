@@ -60,7 +60,7 @@
 | DigObstacle | 挖坟障碍物 | 仅未消除 Grave；圆形半径在 Prefab 上 | [§3.10](SPEC_03_GameRules.md) |
 | DigHitShape | 挖坟命中形 | Grave Prefab 离线烘焙本地 XZ 凸包；光标圆相交触发挖掘；与障碍圆分离 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9.2](SPEC_04_Technical.md) |
 | DigProtagonistCapabilities | 挖坟主角能力 | 伤害/时长缩短和/光标半径/可挖品质/阶段时长加成/坟墓生成权重加成/过程生成数量加成；科技树 + 主角装备 Dig 效果按键加法重算 | [§3.10](SPEC_03_GameRules.md)、[§3.13](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
-| GraveSpawnWeightBonus | 坟墓生成权重加成 | 按 QualityId 加法叠到 `GraveSpawnWeights`；表中缺席视为 0；键 `GraveSpawnWeightBonus_{QualityId}` | [§3.10](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.6](SPEC_04_Technical.md) |
+| GraveSpawnWeightBonus | 坟墓生成权重加成 | 按 QualityId 加法叠到 `GraveSpawnWeights`；表中缺席视为 0；键 `GraveSpawnWeightBonus_{QualityId}`；矿灯=Q4～Q6，种族信物=Human Q16～19 / Elf Q20～23 / Orc Q24～27（D-080） | [§3.10](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.6](SPEC_04_Technical.md) |
 | GraveHP | 坟墓血量 | maxHP 来自品质表；归 0 触发成功与奖励 | [§3.10](SPEC_03_GameRules.md) |
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP%：>65%/30–65%/<30% → 样式1/2/3 | [§3.10](SPEC_03_GameRules.md) |
 | GraveQualityConfig | 坟墓品质定义表 | QualityId → MaxHP、DropMode、LootDrop、IconStyleHighId/MidId/LowId | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |

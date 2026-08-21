@@ -25,6 +25,12 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private Button _spendLightningCommonExpButton;
         [SerializeField] private Button _acquireDetectorButton;
         [SerializeField] private Button _spendDetectorCommonExpButton;
+        [SerializeField] private Button _acquireHumanTokenButton;
+        [SerializeField] private Button _spendHumanTokenCommonExpButton;
+        [SerializeField] private Button _acquireElfTokenButton;
+        [SerializeField] private Button _spendElfTokenCommonExpButton;
+        [SerializeField] private Button _acquireOrcTokenButton;
+        [SerializeField] private Button _spendOrcTokenCommonExpButton;
         [SerializeField] private RectTransform _portraitFrame;
         [SerializeField] private Image _portraitImage;
         [SerializeField] private Sprite _portraitSprite;
@@ -43,6 +49,12 @@ namespace Gravedigger2026.Gameplay.Dig
         public event Action SpendLightningCommonExpRequested;
         public event Action AcquireDetectorRequested;
         public event Action SpendDetectorCommonExpRequested;
+        public event Action AcquireHumanTokenRequested;
+        public event Action SpendHumanTokenCommonExpRequested;
+        public event Action AcquireElfTokenRequested;
+        public event Action SpendElfTokenCommonExpRequested;
+        public event Action AcquireOrcTokenRequested;
+        public event Action SpendOrcTokenCommonExpRequested;
 
         public RectTransform PortraitFrame => _portraitFrame;
 
@@ -64,6 +76,12 @@ namespace Gravedigger2026.Gameplay.Dig
             Wire(_spendLightningCommonExpButton, HandleSpendLightningCommonExp);
             Wire(_acquireDetectorButton, HandleAcquireDetector);
             Wire(_spendDetectorCommonExpButton, HandleSpendDetectorCommonExp);
+            Wire(_acquireHumanTokenButton, HandleAcquireHumanToken);
+            Wire(_spendHumanTokenCommonExpButton, HandleSpendHumanTokenCommonExp);
+            Wire(_acquireElfTokenButton, HandleAcquireElfToken);
+            Wire(_spendElfTokenCommonExpButton, HandleSpendElfTokenCommonExp);
+            Wire(_acquireOrcTokenButton, HandleAcquireOrcToken);
+            Wire(_spendOrcTokenCommonExpButton, HandleSpendOrcTokenCommonExp);
         }
 
         private void OnDisable()
@@ -82,6 +100,12 @@ namespace Gravedigger2026.Gameplay.Dig
             Unwire(_spendLightningCommonExpButton, HandleSpendLightningCommonExp);
             Unwire(_acquireDetectorButton, HandleAcquireDetector);
             Unwire(_spendDetectorCommonExpButton, HandleSpendDetectorCommonExp);
+            Unwire(_acquireHumanTokenButton, HandleAcquireHumanToken);
+            Unwire(_spendHumanTokenCommonExpButton, HandleSpendHumanTokenCommonExp);
+            Unwire(_acquireElfTokenButton, HandleAcquireElfToken);
+            Unwire(_spendElfTokenCommonExpButton, HandleSpendElfTokenCommonExp);
+            Unwire(_acquireOrcTokenButton, HandleAcquireOrcToken);
+            Unwire(_spendOrcTokenCommonExpButton, HandleSpendOrcTokenCommonExp);
         }
 
         public void Show()
@@ -223,6 +247,36 @@ namespace Gravedigger2026.Gameplay.Dig
             SpendDetectorCommonExpRequested?.Invoke();
         }
 
+        private void HandleAcquireHumanToken()
+        {
+            AcquireHumanTokenRequested?.Invoke();
+        }
+
+        private void HandleSpendHumanTokenCommonExp()
+        {
+            SpendHumanTokenCommonExpRequested?.Invoke();
+        }
+
+        private void HandleAcquireElfToken()
+        {
+            AcquireElfTokenRequested?.Invoke();
+        }
+
+        private void HandleSpendElfTokenCommonExp()
+        {
+            SpendElfTokenCommonExpRequested?.Invoke();
+        }
+
+        private void HandleAcquireOrcToken()
+        {
+            AcquireOrcTokenRequested?.Invoke();
+        }
+
+        private void HandleSpendOrcTokenCommonExp()
+        {
+            SpendOrcTokenCommonExpRequested?.Invoke();
+        }
+
         public void SetWarriorEnhanceGmVisible(bool visible)
         {
             EnsureGmButtons();
@@ -297,6 +351,36 @@ namespace Gravedigger2026.Gameplay.Dig
             if (_spendDetectorCommonExpButton != null)
             {
                 _spendDetectorCommonExpButton.gameObject.SetActive(visible);
+            }
+
+            if (_acquireHumanTokenButton != null)
+            {
+                _acquireHumanTokenButton.gameObject.SetActive(visible);
+            }
+
+            if (_spendHumanTokenCommonExpButton != null)
+            {
+                _spendHumanTokenCommonExpButton.gameObject.SetActive(visible);
+            }
+
+            if (_acquireElfTokenButton != null)
+            {
+                _acquireElfTokenButton.gameObject.SetActive(visible);
+            }
+
+            if (_spendElfTokenCommonExpButton != null)
+            {
+                _spendElfTokenCommonExpButton.gameObject.SetActive(visible);
+            }
+
+            if (_acquireOrcTokenButton != null)
+            {
+                _acquireOrcTokenButton.gameObject.SetActive(visible);
+            }
+
+            if (_spendOrcTokenCommonExpButton != null)
+            {
+                _spendOrcTokenCommonExpButton.gameObject.SetActive(visible);
             }
 
             if (_equipWarriorEnhanceButton != null && !visible)
@@ -509,6 +593,60 @@ namespace Gravedigger2026.Gameplay.Dig
                     new Vector2(-24f, -762f));
             }
 
+            if (_acquireHumanTokenButton == null)
+            {
+                _acquireHumanTokenButton = FindOrCreateGmButton(
+                    parent,
+                    "GmAcquireHumanTokenButton",
+                    "获得人类信物",
+                    new Vector2(-24f, -814f));
+            }
+
+            if (_spendHumanTokenCommonExpButton == null)
+            {
+                _spendHumanTokenCommonExpButton = FindOrCreateGmButton(
+                    parent,
+                    "GmSpendHumanTokenCommonExpButton",
+                    "划入人类信物升级",
+                    new Vector2(-24f, -866f));
+            }
+
+            if (_acquireElfTokenButton == null)
+            {
+                _acquireElfTokenButton = FindOrCreateGmButton(
+                    parent,
+                    "GmAcquireElfTokenButton",
+                    "获得精灵信物",
+                    new Vector2(-24f, -918f));
+            }
+
+            if (_spendElfTokenCommonExpButton == null)
+            {
+                _spendElfTokenCommonExpButton = FindOrCreateGmButton(
+                    parent,
+                    "GmSpendElfTokenCommonExpButton",
+                    "划入精灵信物升级",
+                    new Vector2(-24f, -970f));
+            }
+
+            if (_acquireOrcTokenButton == null)
+            {
+                _acquireOrcTokenButton = FindOrCreateGmButton(
+                    parent,
+                    "GmAcquireOrcTokenButton",
+                    "获得兽人信物",
+                    new Vector2(-24f, -1022f));
+            }
+
+            if (_spendOrcTokenCommonExpButton == null)
+            {
+                _spendOrcTokenCommonExpButton = FindOrCreateGmButton(
+                    parent,
+                    "GmSpendOrcTokenCommonExpButton",
+                    "划入兽人信物升级",
+                    new Vector2(-24f, -1074f));
+            }
+
             SetGmButtonLabel(_acquireDigRingButton, "获得铁铲");
             SetGmButtonLabel(_spendDigRingCommonExpButton, "划入铁铲升级");
             SetGmButtonLabel(_acquireMinerLampButton, "获得矿灯");
@@ -519,6 +657,12 @@ namespace Gravedigger2026.Gameplay.Dig
             SetGmButtonLabel(_spendLightningCommonExpButton, "划入引雷升级");
             SetGmButtonLabel(_acquireDetectorButton, "获得探测器");
             SetGmButtonLabel(_spendDetectorCommonExpButton, "划入探测器升级");
+            SetGmButtonLabel(_acquireHumanTokenButton, "获得人类信物");
+            SetGmButtonLabel(_spendHumanTokenCommonExpButton, "划入人类信物升级");
+            SetGmButtonLabel(_acquireElfTokenButton, "获得精灵信物");
+            SetGmButtonLabel(_spendElfTokenCommonExpButton, "划入精灵信物升级");
+            SetGmButtonLabel(_acquireOrcTokenButton, "获得兽人信物");
+            SetGmButtonLabel(_spendOrcTokenCommonExpButton, "划入兽人信物升级");
         }
 
         private static Button FindOrCreateGmButton(Transform parent, string name, string label, Vector2 anchoredPos)
