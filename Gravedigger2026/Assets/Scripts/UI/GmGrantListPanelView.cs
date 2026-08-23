@@ -226,8 +226,16 @@ namespace Gravedigger2026.UI
                 if (le == null)
                 {
                     le = go.AddComponent<LayoutElement>();
-                    le.minHeight = 48f;
-                    le.preferredHeight = 48f;
+                }
+
+                le.minHeight = 45f;
+                le.preferredHeight = 45f;
+                var rt = go.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    var size = rt.sizeDelta;
+                    size.y = 45f;
+                    rt.sizeDelta = size;
                 }
                 var text = go.GetComponentInChildren<Text>(true);
                 if (text != null)

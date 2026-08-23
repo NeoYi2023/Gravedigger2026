@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.01
-**最后更新 / Last Updated:** 2026-08-20  
+**文档版本 / Document Version:** v0.83.03
+**最后更新 / Last Updated:** 2026-08-23  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,10 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-23 | v0.83.04 | Dig 迷雾层级：`DigFogCanvas` order=10，低于 Meta 壳 `MetaCanvas`（20）与 `DigHudCanvas`（30）；`DigUiLayering` 进/出挖坟应用。同步 SPEC_03 §3.10 |
+| 2026-08-23 | v0.83.03 | 修复 Dig 迷雾盖住世界空间奖励飞字：改 UI `RewardFlyerLayer`；迷雾移至 Canvas 底层；Dig HUD GM 折叠为 `GmToggleButton` + `GmMenuPanel`。同步 SPEC_03 §3.10、SPEC_04 §9.2 |
+| 2026-08-23 | v0.83.03 | Dig 镜头迷雾 `CameraFogOverlay` 呼吸动效：`DigCameraFogOverlayView` 中心匀速缩放 1.0↔1.05（各 5s 循环）；仅 Dig 会话进行中 `Play`，倒计时归零/阶段 End `Stop`。同步 SPEC_03 §3.10、SPEC_04 §6/§9.2、CONTEXT |
+| 2026-08-23 | v0.83.02 | Dig 镜头迷雾滤镜：`DigHudCanvas/HudRoot` 最底层全屏 Image `CameraFogOverlay` 使用 `Art/Maps/Fog_1.png`（参考分辨率 1920×1080 拉满；`raycastTarget=0`；不挡 HUD/光标/汇总）。同步 SPEC_03 §3.10、SPEC_04 §6/§9.2、CONTEXT、spec-map |
 | 2026-08-21 | v0.83.01 | 主角装备种族信物 `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`（D-080 / 方案 A）：复用 `GraveSpawnWeightBonus`（Human=Q16～19、Elf=Q20～23、Orc=Q24～27；L1～5 权重 10/15/20/25/30）；Mode2 Prefab/Catalog 至 Q27（Q21～27 可占位）；ItemCatalog / 商店池 + Dig HUD GM。同步 SPEC_03 §3.8/§3.10/§3.16、SPEC_04 §9.25、CONTEXT、spec-map |
 | 2026-08-20 | v0.83.00 | 士兵外观补齐：Mode2 `BodyAppearanceConfig` + `Warriors` Prefab 扩展人/精/兽 `App_1_*`/`App_2_*`/`App_3_*`（对齐 `App_0_XY`；Catalog 并集刷新）。同步 SPEC_03 D-056、SPEC_04 §15.2 |
 | 2026-08-20 | v0.82.99 | 主角装备探测器 `Equip_Detector`（D-079）：静态键 `DigProcessSpawnCountBonus`（L1～5=+1～+5）并入 Dig caps；过程生成 `SpawnRate` 的 M 加法（不改 N、不改开局坟数）；ItemCatalog / Mode2 商店池 + Dig HUD GM。同步 SPEC_03 §3.8/§3.10/§3.16、SPEC_04 §9.6/§9.17/§9.25、CONTEXT |
@@ -365,6 +369,10 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-23 | v0.83.04 | Dig fog layering: `DigFogCanvas` order=10, below Meta shell `MetaCanvas` (20) and `DigHudCanvas` (30); `DigUiLayering` on Dig enter/exit. Synced SPEC_03 §3.10 |
+| 2026-08-23 | v0.83.03 | Fix Dig fog hiding world reward flyers: UI `RewardFlyerLayer`; fog at canvas bottom; Dig HUD GM foldout via `GmToggleButton` + `GmMenuPanel`. Synced SPEC_03 §3.10, SPEC_04 §9.2 |
+| 2026-08-23 | v0.83.03 | Dig camera fog `CameraFogOverlay` breathing pulse: `DigCameraFogOverlayView` linear center scale 1.0↔1.05 (5s each, looped); `Play` only during active Dig session, `Stop` on countdown end / stage End. Synced SPEC_03 §3.10, SPEC_04 §6/§9.2, CONTEXT |
+| 2026-08-23 | v0.83.02 | Dig camera fog filter: bottom-most full-screen Image `CameraFogOverlay` under `DigHudCanvas/HudRoot` using `Art/Maps/Fog_1.png` (stretch to 1920×1080 reference; `raycastTarget=0`; HUD / cursor / summary stay above). Synced SPEC_03 §3.10, SPEC_04 §6/§9.2, CONTEXT, spec-map |
 | 2026-08-21 | v0.83.01 | Protagonist race tokens `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken` (D-080 / Approach A): reuse `GraveSpawnWeightBonus` (Human=Q16–19, Elf=Q20–23, Orc=Q24–27; L1–5 weights 10/15/20/25/30); Mode2 Prefab/Catalog through Q27 (Q21–27 placeholders OK); ItemCatalog / shop pool + Dig HUD GM. Synced SPEC_03 §3.8/§3.10/§3.16, SPEC_04 §9.25, CONTEXT, spec-map |
 | 2026-08-20 | v0.83.00 | Soldier looks: Mode2 `BodyAppearanceConfig` + `Warriors` Prefabs for Human/Elf/Orc `App_1_*`/`App_2_*`/`App_3_*` (suffix aligned with `App_0_XY`; catalog union refresh). Synced SPEC_03 D-056, SPEC_04 §15.2 |
 | 2026-08-20 | v0.82.99 | Protagonist gear Detector `Equip_Detector` (D-079): static key `DigProcessSpawnCountBonus` (L1–5=+1–+5) merges into Dig caps; additive to process-spawn `SpawnRate` M (not N, not initial graves); ItemCatalog / Mode2 shop pool + Dig HUD GM. Synced SPEC_03 §3.8/§3.10/§3.16, SPEC_04 §9.6/§9.17/§9.25, CONTEXT |

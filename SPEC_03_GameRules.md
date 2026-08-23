@@ -1106,6 +1106,7 @@ EnterLevel
 |------|------|
 | 地图实体 | Dig 阶段 **不** Instantiate 地图中心 Digger 模型（无整角 Visual、无待机/挖坟动画驱动） |
 | HUD 头像 | Dig HUD **左上角** 固定 **60×60**（Canvas 参考分辨率单位）方框，展示主角头像；Demo 可用占位图/色块，正式头像资源后换 |
+| 镜头迷雾滤镜 | 独立 **`DigFogCanvas`**（`sortingOrder=10`）全屏 **`CameraFogOverlay`**：Sprite = `Assets/Art/Maps/Fog_1.png`；`raycastTarget=false`；**高于**世界地图/Sprite（坟等），**低于** Meta 壳 `MetaCanvas`（`20`：装备/魔法书/商店等）与 **DigHudCanvas**（`30`：计时/头像/GM/`RewardFlyerLayer`/汇总）。呼吸动效：`DigCameraFogOverlayView` 中心 pivot 缩放 1.0↔1.05 各 5s 循环；挖坟开局 `Play`、结束 `Stop`。`DigUiLayering` 进挖坟应用层级、离开恢复 Meta 原序。**GM** 折叠：`GmToggleButton` + `GmMenuPanel` |
 | Prefab | `Digger` Prefab / Art 管线可保留（[SPEC_04 §15](SPEC_04_Technical.md)），但本阶段运行时 **不**作为场上实体 |
 
 **挖坟主角能力（DigProtagonistCapabilities）**
@@ -1297,6 +1298,7 @@ Only this type this stage (no other obstacle types yet):
 |------|-------|
 | Map entity | Dig stage does **not** Instantiate a map-center Digger model (no whole-character Visual, no idle/dig anim drive) |
 | HUD portrait | Dig HUD **top-left** fixed **60×60** (canvas reference-resolution units) frame showing protagonist portrait; Demo may use placeholder tint/sprite; swap formal art later |
+| Camera fog filter | Separate **`DigFogCanvas`** (`sortingOrder=10`) full-screen **`CameraFogOverlay`** (Sprite = `Assets/Art/Maps/Fog_1.png`; `raycastTarget=false`); **above** world map/sprites (graves etc.), **below** Meta shell `MetaCanvas` (`20`: Equipment/MagicBook/Shop etc.) and **DigHudCanvas** (`30`: timer/portrait/GM/`RewardFlyerLayer`/summary). Pulse: `DigCameraFogOverlayView` center pivot scale 1.0↔1.05 every 5s; `Play` on Dig start, `Stop` on end. `DigUiLayering` applies stack on Dig enter, restores Meta order on exit. **GM** foldout: `GmToggleButton` + `GmMenuPanel` |
 | Prefab | `Digger` Prefab / art pipeline may remain ([SPEC_04 §15](SPEC_04_Technical.md)) but is **not** a runtime Dig-stage world entity |
 
 **DigProtagonistCapabilities**

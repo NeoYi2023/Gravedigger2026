@@ -46,6 +46,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _flySeconds: 0.45
+  _iconSize: 36
 --- !u!1 &5150625027904839301
 GameObject:
   m_ObjectHideFlags: 0

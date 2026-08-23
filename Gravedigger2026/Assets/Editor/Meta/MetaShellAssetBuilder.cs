@@ -2,6 +2,7 @@
 using System.IO;
 using Gravedigger2026.Editor.AutoManufacture;
 using Gravedigger2026.Gameplay.AutoManufacture;
+using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Meta;
 using Gravedigger2026.UI;
 using UnityEditor;
@@ -629,7 +630,7 @@ namespace Gravedigger2026.Editor.Meta
             var root = new GameObject("MetaShellRoot");
             var controller = root.AddComponent<MetaShellController>();
 
-            var canvasGo = CreateCanvas(root.transform, "MetaCanvas");
+            var canvasGo = CreateCanvas(root.transform, "MetaCanvas", DigUiLayering.MetaShellCanvasOrder);
             var saveSelect = BuildSaveSelect(canvasGo.transform);
             var inSaveShell = BuildInSaveShell(canvasGo.transform);
             var confirm = BuildConfirmDialog(canvasGo.transform);
@@ -661,12 +662,13 @@ namespace Gravedigger2026.Editor.Meta
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static GameObject CreateCanvas(Transform parent, string name)
+        private static GameObject CreateCanvas(Transform parent, string name, int sortingOrder = 0)
         {
             var go = new GameObject(name, typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             go.transform.SetParent(parent, false);
             var canvas = go.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = sortingOrder;
             var scaler = go.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);

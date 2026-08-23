@@ -13,22 +13,22 @@ MonoBehaviour:
   m_Name: WaterRipples 5
   m_EditorClassIdentifier: 
   m_AnimatedSprites:
-  - {fileID: -4209461767521648114, guid: 14d0e0c460181eb43a5e285b2730b5af, type: 3}
-  - {fileID: 5453481469928959302, guid: 3d76317d2540cda4ea7d8aa3394df5ae, type: 3}
-  - {fileID: -7839056689181992794, guid: 1c95213c84f810b45a03e192ce3308c4, type: 3}
-  - {fileID: -7866962194647477418, guid: 7637256561c06d349a4983992ee6da48, type: 3}
-  - {fileID: 3965758638191431310, guid: 9aefc0095873c1e489efe17b34fb5493, type: 3}
-  - {fileID: 2066082498040014989, guid: cec5a03aead76ac4fa2e9ee55ef93a9d, type: 3}
-  - {fileID: 2407195833089805127, guid: 60dddda413ae2444494185509159cb84, type: 3}
-  - {fileID: 1734450685577689515, guid: 4eb029f647f08b545901c93a0068efb2, type: 3}
-  - {fileID: 1277467883169801574, guid: e1a024f1ee645fd41b388560536c0685, type: 3}
-  - {fileID: -3754417209682020004, guid: 4553324a98e644347ab74400ad3841fb, type: 3}
-  - {fileID: 7603346641494398268, guid: cd974ec793d7c0d40a4edd09821a5190, type: 3}
-  - {fileID: 5173698173098673835, guid: 8b1bccac72262bd4d8994c5bf9ac45b7, type: 3}
-  - {fileID: 5886519731604704116, guid: 8625be63ad91cc84cb2ef2c2a81368d2, type: 3}
-  - {fileID: 7942963812657439901, guid: b475001062f83154493087957dfaff37, type: 3}
-  - {fileID: 4032061950642251715, guid: d45da7ce30f785e43a3c05265e9b006f, type: 3}
-  - {fileID: 3817283003224323343, guid: b9dc2d2185fd132418efadaf9f84bb08, type: 3}
+  - {fileID: 21300000, guid: 14d0e0c460181eb43a5e285b2730b5af, type: 3}
+  - {fileID: 21300000, guid: 3d76317d2540cda4ea7d8aa3394df5ae, type: 3}
+  - {fileID: 21300000, guid: 1c95213c84f810b45a03e192ce3308c4, type: 3}
+  - {fileID: 21300000, guid: 7637256561c06d349a4983992ee6da48, type: 3}
+  - {fileID: 21300000, guid: 9aefc0095873c1e489efe17b34fb5493, type: 3}
+  - {fileID: 21300000, guid: cec5a03aead76ac4fa2e9ee55ef93a9d, type: 3}
+  - {fileID: 21300000, guid: 60dddda413ae2444494185509159cb84, type: 3}
+  - {fileID: 21300000, guid: 4eb029f647f08b545901c93a0068efb2, type: 3}
+  - {fileID: 21300000, guid: e1a024f1ee645fd41b388560536c0685, type: 3}
+  - {fileID: 21300000, guid: 4553324a98e644347ab74400ad3841fb, type: 3}
+  - {fileID: 21300000, guid: cd974ec793d7c0d40a4edd09821a5190, type: 3}
+  - {fileID: 21300000, guid: 8b1bccac72262bd4d8994c5bf9ac45b7, type: 3}
+  - {fileID: 21300000, guid: 8625be63ad91cc84cb2ef2c2a81368d2, type: 3}
+  - {fileID: 21300000, guid: b475001062f83154493087957dfaff37, type: 3}
+  - {fileID: 21300000, guid: d45da7ce30f785e43a3c05265e9b006f, type: 3}
+  - {fileID: 21300000, guid: b9dc2d2185fd132418efadaf9f84bb08, type: 3}
   m_MinSpeed: 5
   m_MaxSpeed: 5
   m_AnimationStartTime: 0

@@ -143,6 +143,7 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             _hudView?.Show();
+            DigUiLayering.ApplyDigSessionStack(transform);
             _summaryView?.Hide();
             var mode2 = _configs != null && _configs.LoadedCampaignMode == CampaignMode.Mode2;
             _hudView?.SetWarriorEnhanceGmVisible(mode2 && _specialEquipSlots != null);
@@ -173,6 +174,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
             _session.Begin(context.DigConfig, center, half);
             RefreshWarehouseHud();
+            _hudView?.SetCameraFogPulseActive(true);
             _running = true;
 
             context.MapResolveNote =
@@ -445,15 +447,33 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void SpawnRewardFlyer(Vector3 from, string lootEncoded)
         {
-            var target = ResolvePortraitWorldTarget(from);
-            var flyerPrefab = _catalog != null ? _catalog.RewardFlyerPrefab : null;
-            if (flyerPrefab == null)
+            if (_hudView == null || _digCamera == null)
             {
                 _session?.CreditPendingLoot(lootEncoded);
                 return;
             }
 
-            var go = Instantiate(flyerPrefab, _worldRoot);
+            var flyerLayer = _hudView.RewardFlyerLayer;
+            var canvas = flyerLayer != null ? flyerLayer.GetComponentInParent<Canvas>() : null;
+            if (flyerLayer == null || canvas == null)
+            {
+                _session?.CreditPendingLoot(lootEncoded);
+                return;
+            }
+
+            Camera uiCam = canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            if (!_hudView.TryGetPortraitScreenPoint(uiCam, out var endScreen))
+            {
+                _session?.CreditPendingLoot(lootEncoded);
+                return;
+            }
+
+            var startScreen = (Vector2)_digCamera.WorldToScreenPoint(from + Vector3.up * 0.5f);
+            var flyerPrefab = _catalog != null ? _catalog.RewardFlyerPrefab : null;
+            var go = flyerPrefab != null
+                ? Instantiate(flyerPrefab, flyerLayer)
+                : new GameObject("DigRewardFlyer", typeof(RectTransform), typeof(DigRewardFlyerView));
+
             var flyer = go.GetComponent<DigRewardFlyerView>();
             if (flyer == null)
             {
@@ -461,43 +481,15 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             var label = string.IsNullOrEmpty(lootEncoded) ? "★" : lootEncoded.Split('|')[0];
-            flyer.Play(from + Vector3.up * 0.5f, target, label, () =>
+            flyer.PlayScreen(canvas, flyerLayer, startScreen, endScreen, label, () =>
             {
                 _session?.CreditPendingLoot(lootEncoded);
             });
         }
 
-        private Vector3 ResolvePortraitWorldTarget(Vector3 fallback)
-        {
-            if (_hudView == null || _digCamera == null)
-            {
-                return fallback + Vector3.up * 0.5f;
-            }
-
-            Canvas canvas = _hudView.GetComponentInParent<Canvas>();
-            Camera uiCam = null;
-            if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
-            {
-                uiCam = canvas.worldCamera;
-            }
-
-            if (!_hudView.TryGetPortraitScreenPoint(uiCam, out var screenPoint))
-            {
-                return fallback + Vector3.up * 0.5f;
-            }
-
-            var ray = _digCamera.ScreenPointToRay(screenPoint);
-            var plane = new Plane(Vector3.up, new Vector3(0f, _mapPlaneY, 0f));
-            if (plane.Raycast(ray, out var enter))
-            {
-                return ray.GetPoint(enter) + Vector3.up * 0.5f;
-            }
-
-            return fallback + Vector3.up * 0.5f;
-        }
-
         private void HandleTimeUp()
         {
+            _hudView?.SetCameraFogPulseActive(false);
             if (_cursorView != null)
             {
                 _cursorView.DestroySpawnedUiRing();
@@ -977,6 +969,8 @@ namespace Gravedigger2026.Gameplay.Dig
         private void EndInternal(bool destroyWorld)
         {
             _running = false;
+            DigUiLayering.RestoreAfterDigSession();
+            _hudView?.SetCameraFogPulseActive(false);
             if (_hudView != null)
             {
                 _hudView.AddGravesRequested -= HandleGmAddGraves;

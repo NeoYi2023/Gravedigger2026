@@ -27,8 +27,9 @@ namespace Gravedigger2026.Editor.Dig
         private const string RewardPath = PrefabDigDir + "/DigRewardFlyer.prefab";
         private const string UiCursorRingPath = PrefabDigDir + "/UiDigCursorRing.prefab";
         private const string CircleSpritePath = ArtUiDigDir + "/Ui_DigCursor_Circle.png";
+        private const string CameraFogSpritePath = "Assets/Art/Maps/Fog_1.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08301";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08304";
 
         private static readonly string[] MapIds =
         {
@@ -415,13 +416,45 @@ namespace Gravedigger2026.Editor.Dig
             canvasGo.transform.SetParent(root.transform, false);
             var canvas = canvasGo.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 50;
+            canvas.sortingOrder = DigUiLayering.HudCanvasOrder;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
 
+            var fogCanvasGo = new GameObject("DigFogCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            fogCanvasGo.transform.SetParent(root.transform, false);
+            var fogCanvas = fogCanvasGo.GetComponent<Canvas>();
+            fogCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            fogCanvas.sortingOrder = DigUiLayering.FogCanvasOrder;
+            var fogScaler = fogCanvasGo.GetComponent<CanvasScaler>();
+            fogScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            fogScaler.referenceResolution = new Vector2(1920, 1080);
+
+            var fogGo = CreateUiPanel(fogCanvasGo.transform, "CameraFogOverlay", Color.white);
+            Stretch(fogGo.GetComponent<RectTransform>());
+            fogGo.AddComponent<DigCameraFogOverlayView>();
+            var fogImg = fogGo.GetComponent<Image>();
+            if (fogImg != null)
+            {
+                fogImg.raycastTarget = false;
+                fogImg.preserveAspect = false;
+                var fogSprite = AssetDatabase.LoadAssetAtPath<Sprite>(CameraFogSpritePath);
+                if (fogSprite != null)
+                {
+                    fogImg.sprite = fogSprite;
+                }
+                else
+                {
+                    Debug.LogWarning($"[DigAssetBuilder] Missing camera fog sprite at {CameraFogSpritePath}");
+                }
+            }
+
             var hudRoot = CreateUiPanel(canvasGo.transform, "HudRoot", new Color(0f, 0f, 0f, 0f));
             Stretch(hudRoot.GetComponent<RectTransform>());
+
+            var rewardFlyerLayer = new GameObject("RewardFlyerLayer", typeof(RectTransform));
+            rewardFlyerLayer.transform.SetParent(canvasGo.transform, false);
+            Stretch(rewardFlyerLayer.GetComponent<RectTransform>());
 
             var timer = CreateUiText(hudRoot.transform, "Timer", "Dig 剩余 --", 28, TextAnchor.UpperCenter);
             Place(timer.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -452,40 +485,48 @@ namespace Gravedigger2026.Editor.Dig
                 iconImg.raycastTarget = false;
             }
 
-            var addGravesBtn = CreateUiButton(hudRoot.transform, "GmAddGravesButton", "增加坟墓",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(addGravesBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -86f), new Vector2(180f, 40f));
+            var gmToggleBtn = CreateUiButton(hudRoot.transform, "GmToggleButton", "GM", new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            Place(gmToggleBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -86f), new Vector2(80f, 40f));
 
-            var addBodyPartsBtn = CreateUiButton(hudRoot.transform, "GmAddBodyPartsButton", "增加躯体材料",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(addBodyPartsBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -138f), new Vector2(180f, 40f));
+            var gmMenuPanel = new GameObject("GmMenuPanel", typeof(RectTransform));
+            gmMenuPanel.transform.SetParent(hudRoot.transform, false);
+            Place(gmMenuPanel.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                new Vector2(-24f, -134f), new Vector2(200f, 780f));
+            gmMenuPanel.SetActive(false);
 
-            var acquireDigRingBtn = CreateUiButton(hudRoot.transform, "GmAcquireDigRingButton", "获得铁铲",
+            var addGravesBtn = CreateUiButton(gmMenuPanel.transform, "GmAddGravesButton", "增加坟墓",
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(acquireDigRingBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -242f), new Vector2(180f, 40f));
+            PlaceGmMenuButton(addGravesBtn.GetComponent<RectTransform>(), 0);
 
-            var grantEquipCommonExpBtn = CreateUiButton(hudRoot.transform, "GmGrantEquipCommonExpButton", "装备公共经验+50",
+            var addBodyPartsBtn = CreateUiButton(gmMenuPanel.transform, "GmAddBodyPartsButton", "增加躯体材料",
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(grantEquipCommonExpBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -294f), new Vector2(180f, 40f));
+            PlaceGmMenuButton(addBodyPartsBtn.GetComponent<RectTransform>(), 1);
 
-            var spendDigRingCommonExpBtn = CreateUiButton(hudRoot.transform, "GmSpendDigRingCommonExpButton", "划入铁铲升级",
+            var equipWarriorEnhanceBtn = CreateUiButton(gmMenuPanel.transform, "GmEquipWarriorEnhanceButton", "装备战士强化",
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(spendDigRingCommonExpBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -346f), new Vector2(180f, 40f));
+            PlaceGmMenuButton(equipWarriorEnhanceBtn.GetComponent<RectTransform>(), 2);
+            equipWarriorEnhanceBtn.SetActive(false);
 
-            var acquireMinerLampBtn = CreateUiButton(hudRoot.transform, "GmAcquireMinerLampButton", "获得矿灯",
+            var acquireDigRingBtn = CreateUiButton(gmMenuPanel.transform, "GmAcquireDigRingButton", "获得铁铲",
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(acquireMinerLampBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -398f), new Vector2(180f, 40f));
+            PlaceGmMenuButton(acquireDigRingBtn.GetComponent<RectTransform>(), 3);
 
-            var spendMinerLampCommonExpBtn = CreateUiButton(hudRoot.transform, "GmSpendMinerLampCommonExpButton", "划入矿灯升级",
+            var grantEquipCommonExpBtn = CreateUiButton(gmMenuPanel.transform, "GmGrantEquipCommonExpButton", "装备公共经验+50",
                 new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            Place(spendMinerLampCommonExpBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -450f), new Vector2(180f, 40f));
+            PlaceGmMenuButton(grantEquipCommonExpBtn.GetComponent<RectTransform>(), 4);
+
+            var spendDigRingCommonExpBtn = CreateUiButton(gmMenuPanel.transform, "GmSpendDigRingCommonExpButton", "划入铁铲升级",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            PlaceGmMenuButton(spendDigRingCommonExpBtn.GetComponent<RectTransform>(), 5);
+
+            var acquireMinerLampBtn = CreateUiButton(gmMenuPanel.transform, "GmAcquireMinerLampButton", "获得矿灯",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            PlaceGmMenuButton(acquireMinerLampBtn.GetComponent<RectTransform>(), 6);
+
+            var spendMinerLampCommonExpBtn = CreateUiButton(gmMenuPanel.transform, "GmSpendMinerLampCommonExpButton", "划入矿灯升级",
+                new Color(0.22f, 0.28f, 0.38f, 0.92f));
+            PlaceGmMenuButton(spendMinerLampCommonExpBtn.GetComponent<RectTransform>(), 7);
 
             // Transparent HUD panel must not eat mouse for Dig cursor / Meta buttons.
             var hudImage = hudRoot.GetComponent<Image>();
@@ -501,9 +542,15 @@ namespace Gravedigger2026.Editor.Dig
             hso.FindProperty("_warehouseText").objectReferenceValue = warehouse;
             hso.FindProperty("_addGravesButton").objectReferenceValue = addGravesBtn.GetComponent<Button>();
             hso.FindProperty("_addBodyPartsButton").objectReferenceValue = addBodyPartsBtn.GetComponent<Button>();
+            hso.FindProperty("_equipWarriorEnhanceButton").objectReferenceValue = equipWarriorEnhanceBtn.GetComponent<Button>();
             hso.FindProperty("_acquireDigRingButton").objectReferenceValue = acquireDigRingBtn.GetComponent<Button>();
             hso.FindProperty("_grantEquipCommonExpButton").objectReferenceValue = grantEquipCommonExpBtn.GetComponent<Button>();
             hso.FindProperty("_spendDigRingCommonExpButton").objectReferenceValue = spendDigRingCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireMinerLampButton").objectReferenceValue = acquireMinerLampBtn.GetComponent<Button>();
+            hso.FindProperty("_spendMinerLampCommonExpButton").objectReferenceValue = spendMinerLampCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_gmToggleButton").objectReferenceValue = gmToggleBtn.GetComponent<Button>();
+            hso.FindProperty("_gmMenuPanel").objectReferenceValue = gmMenuPanel;
+            hso.FindProperty("_rewardFlyerLayer").objectReferenceValue = rewardFlyerLayer.GetComponent<RectTransform>();
             hso.FindProperty("_portraitFrame").objectReferenceValue = portrait.GetComponent<RectTransform>();
             hso.FindProperty("_portraitImage").objectReferenceValue = iconImg;
             hso.ApplyModifiedPropertiesWithoutUndo();
@@ -633,6 +680,16 @@ namespace Gravedigger2026.Editor.Dig
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
+        }
+
+        private static void PlaceGmMenuButton(RectTransform rt, int index)
+        {
+            const float step = 48f;
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -index * step);
+            rt.sizeDelta = new Vector2(180f, 40f);
         }
 
         private static void Place(RectTransform rt, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,
