@@ -97,6 +97,7 @@ namespace Gravedigger2026.Editor.Formation
                 EnsureMode2CompleteButton(mode2);
                 EnsureMode2StartBattleAboveComplete(mode2);
                 EnsureMode2ReturnAboveComplete(mode2);
+                EnsureMode2PathPreviewControls(mode2);
                 EnsureMode2SoldierHoverTooltip(mode2);
                 PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
                 PrefabUtility.UnloadPrefabContents(mode2);
@@ -128,12 +129,32 @@ namespace Gravedigger2026.Editor.Formation
             EnsureMode2CompleteButton(contents);
             EnsureMode2StartBattleAboveComplete(contents);
             EnsureMode2ReturnAboveComplete(contents);
+            EnsureMode2PathPreviewControls(contents);
             EnsureMode2SoldierHoverTooltip(contents);
             EnsureFormationBondHud(FindDeep(contents.transform, "FormationCanvas"), contents.GetComponent<FormationEditorController>());
 
             PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
             PrefabUtility.UnloadPrefabContents(contents);
             return AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path);
+        }
+
+        [MenuItem("Gravedigger2026/Formation/Patch Mode2 Path Preview Controls")]
+        public static void PatchMode2PathPreviewControlsMenu()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) == null)
+            {
+                GenerateAll();
+                return;
+            }
+
+            var mode2 = PrefabUtility.LoadPrefabContents(EditorRootMode2Path);
+            EnsureMode2StartBattleAboveComplete(mode2);
+            EnsureMode2PathPreviewControls(mode2);
+            PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
+            PrefabUtility.UnloadPrefabContents(mode2);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[FormationAssetBuilder] Patched Mode2 QuickPreview + CameraPathSlider.");
         }
 
         [MenuItem("Gravedigger2026/Formation/Patch Mode2 Soldier Hover Tooltip (D-065)")]
@@ -500,6 +521,150 @@ namespace Gravedigger2026.Editor.Formation
                 new Vector2(1f, 0f),
                 new Vector2(-24f, 180f),
                 new Vector2(140f, 48f));
+        }
+
+        /// <summary>
+        /// Mode2 PushMap Prepare: Quick Preview above StartBattle; CameraPathSlider layout (SPEC_03 §3.14 / SPEC_04 §6).
+        /// StartBattle y=180 h=48 → QuickPreview y=236; Slider anchoredPosition=(-630,240), width 700.
+        /// </summary>
+        private static void EnsureMode2PathPreviewControls(GameObject editorRoot)
+        {
+            var canvas = FindDeep(editorRoot.transform, "FormationCanvas");
+            if (canvas == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationCanvas missing; cannot add path preview UI.");
+                return;
+            }
+
+            var start = FindDeep(editorRoot.transform, "StartBattleButton");
+            if (start == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] StartBattleButton missing; cannot place path preview UI.");
+                return;
+            }
+
+            var preview = FindDeep(editorRoot.transform, "QuickPreviewButton");
+            GameObject previewGo;
+            if (preview != null)
+            {
+                previewGo = preview.gameObject;
+            }
+            else
+            {
+                previewGo = CreateUiButton(
+                    canvas,
+                    "QuickPreviewButton",
+                    "快速预览",
+                    new Color(0.32f, 0.42f, 0.55f, 1f));
+            }
+
+            Place(
+                previewGo.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-24f, 236f),
+                new Vector2(140f, 48f));
+            previewGo.SetActive(false);
+
+            var sliderT = FindDeep(editorRoot.transform, "CameraPathSlider");
+            GameObject sliderGo;
+            if (sliderT != null)
+            {
+                sliderGo = sliderT.gameObject;
+            }
+            else
+            {
+                sliderGo = CreateCameraPathSliderUi(canvas);
+            }
+
+            Place(
+                sliderGo.GetComponent<RectTransform>(),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(-630f, 240f),
+                new Vector2(700f, 28f));
+            sliderGo.SetActive(false);
+
+            var controller = editorRoot.GetComponent<FormationEditorController>();
+            if (controller == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationEditorController missing on Mode2 root.");
+                return;
+            }
+
+            var cso = new SerializedObject(controller);
+            var previewProp = cso.FindProperty("_quickPreviewButton");
+            if (previewProp != null)
+            {
+                previewProp.objectReferenceValue = previewGo.GetComponent<Button>();
+            }
+
+            var sliderProp = cso.FindProperty("_cameraPathSlider");
+            if (sliderProp != null)
+            {
+                sliderProp.objectReferenceValue = sliderGo.GetComponent<Slider>();
+            }
+
+            cso.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static GameObject CreateCameraPathSliderUi(Transform parent)
+        {
+            var root = new GameObject("CameraPathSlider", typeof(RectTransform), typeof(Slider));
+            root.transform.SetParent(parent, false);
+
+            var bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            bg.transform.SetParent(root.transform, false);
+            var bgRt = bg.GetComponent<RectTransform>();
+            bgRt.anchorMin = new Vector2(0f, 0.25f);
+            bgRt.anchorMax = new Vector2(1f, 0.75f);
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+            bg.GetComponent<Image>().color = new Color(0.15f, 0.16f, 0.2f, 0.95f);
+
+            var fillArea = new GameObject("Fill Area", typeof(RectTransform));
+            fillArea.transform.SetParent(root.transform, false);
+            var fillAreaRt = fillArea.GetComponent<RectTransform>();
+            fillAreaRt.anchorMin = new Vector2(0f, 0.25f);
+            fillAreaRt.anchorMax = new Vector2(1f, 0.75f);
+            fillAreaRt.offsetMin = new Vector2(5f, 0f);
+            fillAreaRt.offsetMax = new Vector2(-5f, 0f);
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(fillArea.transform, false);
+            var fillRt = fill.GetComponent<RectTransform>();
+            fillRt.anchorMin = Vector2.zero;
+            fillRt.anchorMax = Vector2.one;
+            fillRt.offsetMin = Vector2.zero;
+            fillRt.offsetMax = Vector2.zero;
+            fill.GetComponent<Image>().color = new Color(0.35f, 0.55f, 0.75f, 1f);
+
+            var handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+            handleArea.transform.SetParent(root.transform, false);
+            var handleAreaRt = handleArea.GetComponent<RectTransform>();
+            handleAreaRt.anchorMin = Vector2.zero;
+            handleAreaRt.anchorMax = Vector2.one;
+            handleAreaRt.offsetMin = new Vector2(10f, 0f);
+            handleAreaRt.offsetMax = new Vector2(-10f, 0f);
+
+            var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handle.transform.SetParent(handleArea.transform, false);
+            var handleRt = handle.GetComponent<RectTransform>();
+            handleRt.sizeDelta = new Vector2(20f, 20f);
+            handle.GetComponent<Image>().color = new Color(0.85f, 0.88f, 0.92f, 1f);
+
+            var slider = root.GetComponent<Slider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = handleRt;
+            slider.targetGraphic = handle.GetComponent<Image>();
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.wholeNumbers = false;
+            slider.value = 0f;
+            return root;
         }
 
         /// <summary>

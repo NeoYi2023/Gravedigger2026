@@ -14,7 +14,7 @@ namespace Gravedigger2026.Editor.Maps
     {
         public const string RuleTilesDir = "Assets/Art/Maps/RuleTiles";
         public const string RuleTilePath = RuleTilesDir + "/RT_WallA.asset";
-        public const string PalettePath = "Assets/Art/Maps/Palettes/FantasyTileset.prefab";
+        public const string PalettePath = "Assets/Art/Maps/Palettes/FantasyTileset_A.prefab";
 
         private const string TilesDir = "Assets/Art/Maps/Environment/Tiles";
         private const string WallA1N = TilesDir + "/Wall A1_N.asset";
@@ -83,8 +83,8 @@ namespace Gravedigger2026.Editor.Maps
 
             Debug.Log(
                 $"[WallARuleTileBuilder] {(created ? "Created" : "Updated")} {RuleTilePath} " +
-                $"({ruleTile.m_TilingRules.Count} rules) and slotted on FantasyTileset at {PaletteSlot}. " +
-                "Tile Palette → FantasyTileset → RT_WallA; paint a filled region to auto-edge.");
+                $"({ruleTile.m_TilingRules.Count} rules) and slotted on FantasyTileset_A at {PaletteSlot}. " +
+                "Tile Palette → FantasyTileset_A → RT_WallA; paint a filled region to auto-edge.");
         }
 
         private static List<RuleTile.TilingRule> BuildRules(
@@ -167,7 +167,7 @@ namespace Gravedigger2026.Editor.Maps
             {
                 Debug.LogWarning(
                     $"[WallARuleTileBuilder] Palette missing at {PalettePath}. " +
-                    "Run Gravedigger2026/Maps/Rebuild FantasyTileset Palette, then re-run Ensure Wall A Rule Tile.");
+                    "Ensure FantasyTileset_A.prefab exists, then re-run Ensure Wall A Rule Tile.");
                 return;
             }
 
@@ -177,7 +177,7 @@ namespace Gravedigger2026.Editor.Maps
                 var tilemap = root.GetComponentInChildren<Tilemap>();
                 if (tilemap == null)
                 {
-                    Debug.LogError("[WallARuleTileBuilder] FantasyTileset has no Tilemap.");
+                    Debug.LogError("[WallARuleTileBuilder] FantasyTileset_A has no Tilemap.");
                     return;
                 }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
@@ -7,6 +8,7 @@ using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
+using Gravedigger2026.Gameplay.PushMap;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -33,6 +35,8 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Button _returnButton;
         [SerializeField] private Button _startBattleButton;
         [SerializeField] private Button _completeButton;
+        [SerializeField] private Button _quickPreviewButton;
+        [SerializeField] private Slider _cameraPathSlider;
         private Button _oneClickDeployButton;
         [SerializeField] private RectTransform _dragGhost;
         [SerializeField] private Image _dragGhostImage;
@@ -69,6 +73,13 @@ namespace Gravedigger2026.Gameplay.Formation
 
         private bool _suppressAutoDeployRefresh;
         private readonly List<FormationClassZoneSnapshot> _zonesScratch = new List<FormationClassZoneSnapshot>();
+        private readonly List<float> _previewWaypointProgress = new List<float>(8);
+        private PushMapCameraPath _cameraPath;
+        private Coroutine _pathPreviewRoutine;
+        private bool _suppressPathSliderCallback;
+        private float _previewIntroSpeed = CombatConstantKeys.Safety.PushMapCameraIntroSpeed;
+        private float _previewIntroDwell =
+            CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds;
 
         public event Action ReturnRequested;
         public event Action StartBattleRequested;
@@ -176,6 +187,8 @@ namespace Gravedigger2026.Gameplay.Formation
                 _oneClickDeployButton.onClick.AddListener(HandleOneClickDeploy);
             }
 
+            SetupPathPreviewControls();
+
             if (_soldierBar != null)
             {
                 _soldierBar.SlotLiftStarted += HandleBarSlotLiftStarted;
@@ -230,6 +243,8 @@ namespace Gravedigger2026.Gameplay.Formation
             {
                 _oneClickDeployButton.onClick.RemoveListener(HandleOneClickDeploy);
             }
+
+            TeardownPathPreviewControls();
 
             if (_soldierBar != null)
             {
@@ -962,7 +977,10 @@ namespace Gravedigger2026.Gameplay.Formation
             var cam = _configs != null
                 ? _configs.GetCameraPresentationConstants()
                 : CameraPresentationConstants.SafetyDefaults;
-            cam.ApplyTopDownPose(_editorCamera, _mapCenter, cam.ResolveMapFitOrthoSize(half));
+            var orthoSize = _mode == FormationEditorMode.PushMapPrepare
+                ? cam.PushMapPrepareOrthoSize
+                : cam.ResolveMapFitOrthoSize(half);
+            cam.ApplyTopDownPose(_editorCamera, _mapCenter, orthoSize);
             _editorCamera.clearFlags = CameraClearFlags.SolidColor;
             _editorCamera.backgroundColor = new Color(0.12f, 0.14f, 0.18f, 1f);
             _editorCamera.depth = 30;
@@ -1029,7 +1047,9 @@ namespace Gravedigger2026.Gameplay.Formation
             for (var i = 0; i < results.Count; i++)
             {
                 var go = results[i].gameObject;
-                if (go != null && go.GetComponentInParent<Button>() != null)
+                if (go != null
+                    && (go.GetComponentInParent<Button>() != null
+                        || go.GetComponentInParent<Slider>() != null))
                 {
                     return true;
                 }
@@ -1051,6 +1071,340 @@ namespace Gravedigger2026.Gameplay.Formation
         private void HandleComplete()
         {
             CompleteRequested?.Invoke();
+        }
+
+        private void SetupPathPreviewControls()
+        {
+            TeardownPathPreviewControls();
+            var pushMapPrepare = _mode == FormationEditorMode.PushMapPrepare;
+            if (!pushMapPrepare)
+            {
+                SetPathPreviewUiVisible(false);
+                return;
+            }
+
+            EnsurePathPreviewUi();
+            ResolveCameraPath();
+            var camConsts = _configs != null
+                ? _configs.GetCameraPresentationConstants()
+                : CameraPresentationConstants.SafetyDefaults;
+            _previewIntroSpeed = camConsts.PushMapIntroSpeed;
+            _previewIntroDwell = camConsts.PushMapIntroWaypointDwellSeconds;
+
+            var pathOk = _cameraPath != null
+                         && _cameraPath.HasBakedPath
+                         && _cameraPath.TryBuildAuthorWaypointProgresses(_previewWaypointProgress);
+            SetPathPreviewUiVisible(pathOk);
+            if (!pathOk)
+            {
+                return;
+            }
+
+            if (_quickPreviewButton != null)
+            {
+                _quickPreviewButton.onClick.AddListener(HandleQuickPreview);
+            }
+
+            if (_cameraPathSlider != null)
+            {
+                _cameraPathSlider.minValue = 0f;
+                _cameraPathSlider.maxValue = 1f;
+                _cameraPathSlider.wholeNumbers = false;
+                _cameraPathSlider.onValueChanged.AddListener(HandleCameraPathSliderChanged);
+                var initS = 0f;
+                if (_editorCamera != null
+                    && _cameraPath.TryProjectProgress(_editorCamera.transform.position, out var projected))
+                {
+                    initS = Mathf.Clamp01(projected);
+                }
+
+                SetSliderValueSilent(initS);
+            }
+        }
+
+        private void TeardownPathPreviewControls()
+        {
+            StopPathPreviewRoutine();
+            if (_quickPreviewButton != null)
+            {
+                _quickPreviewButton.onClick.RemoveListener(HandleQuickPreview);
+            }
+
+            if (_cameraPathSlider != null)
+            {
+                _cameraPathSlider.onValueChanged.RemoveListener(HandleCameraPathSliderChanged);
+            }
+
+            _cameraPath = null;
+            _previewWaypointProgress.Clear();
+            SetPathPreviewUiVisible(false);
+        }
+
+        private void ResolveCameraPath()
+        {
+            _cameraPath = null;
+            var map = _ownedMapInstance != null ? _ownedMapInstance : _boundMap;
+            if (map == null)
+            {
+                return;
+            }
+
+            _cameraPath = map.GetComponentInChildren<PushMapCameraPath>(true);
+            if (_cameraPath == null)
+            {
+                return;
+            }
+
+            if (!_cameraPath.HasBakedPath)
+            {
+                if (!_cameraPath.TryBake(out var bakeError))
+                {
+                    Debug.LogWarning($"[FormationEditor] CameraFollowPath bake failed: {bakeError}");
+                    _cameraPath = null;
+                }
+            }
+        }
+
+        private void EnsurePathPreviewUi()
+        {
+            if (_startBattleButton == null)
+            {
+                return;
+            }
+
+            var canvasParent = _startBattleButton.transform.parent;
+            if (canvasParent == null)
+            {
+                return;
+            }
+
+            var startRt = _startBattleButton.GetComponent<RectTransform>();
+            if (startRt == null)
+            {
+                return;
+            }
+
+            const float gap = 8f;
+            var btnH = startRt.sizeDelta.y > 1f ? startRt.sizeDelta.y : 48f;
+            var btnW = startRt.sizeDelta.x > 1f ? startRt.sizeDelta.x : 140f;
+
+            if (_quickPreviewButton == null)
+            {
+                var existing = canvasParent.Find("QuickPreviewButton");
+                if (existing != null)
+                {
+                    _quickPreviewButton = existing.GetComponent<Button>();
+                }
+            }
+
+            if (_quickPreviewButton == null)
+            {
+                var go = new GameObject("QuickPreviewButton", typeof(RectTransform), typeof(Image), typeof(Button));
+                go.transform.SetParent(canvasParent, false);
+                go.GetComponent<Image>().color = new Color(0.32f, 0.42f, 0.55f, 1f);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = startRt.anchorMin;
+                rt.anchorMax = startRt.anchorMax;
+                rt.pivot = startRt.pivot;
+                rt.anchoredPosition = new Vector2(
+                    startRt.anchoredPosition.x,
+                    startRt.anchoredPosition.y + btnH + gap);
+                rt.sizeDelta = new Vector2(btnW, btnH);
+
+                var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+                textGo.transform.SetParent(go.transform, false);
+                var txt = textGo.GetComponent<Text>();
+                txt.text = "快速预览";
+                txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                txt.fontSize = 20;
+                txt.alignment = TextAnchor.MiddleCenter;
+                txt.color = Color.white;
+                var textRt = txt.GetComponent<RectTransform>();
+                textRt.anchorMin = Vector2.zero;
+                textRt.anchorMax = Vector2.one;
+                textRt.offsetMin = Vector2.zero;
+                textRt.offsetMax = Vector2.zero;
+                _quickPreviewButton = go.GetComponent<Button>();
+            }
+            else
+            {
+                var rt = _quickPreviewButton.GetComponent<RectTransform>();
+                if (rt != null)
+                {
+                    rt.anchoredPosition = new Vector2(
+                        startRt.anchoredPosition.x,
+                        startRt.anchoredPosition.y + btnH + gap);
+                    rt.sizeDelta = new Vector2(btnW, btnH);
+                }
+            }
+
+            if (_cameraPathSlider == null)
+            {
+                var existingSlider = canvasParent.Find("CameraPathSlider");
+                if (existingSlider != null)
+                {
+                    _cameraPathSlider = existingSlider.GetComponent<Slider>();
+                }
+            }
+
+            if (_cameraPathSlider == null)
+            {
+                _cameraPathSlider = CreateCameraPathSlider(canvasParent, startRt);
+            }
+            else
+            {
+                ApplyCameraPathSliderLayout(_cameraPathSlider.GetComponent<RectTransform>(), startRt);
+            }
+        }
+
+        private static void ApplyCameraPathSliderLayout(RectTransform sliderRt, RectTransform startRt)
+        {
+            if (sliderRt == null || startRt == null)
+            {
+                return;
+            }
+
+            // SPEC_04 §6: Mode2 CameraPathSlider — bottom-right anchor; Pos=(-630,240); Width=700.
+            sliderRt.anchorMin = startRt.anchorMin;
+            sliderRt.anchorMax = startRt.anchorMax;
+            sliderRt.pivot = startRt.pivot;
+            sliderRt.anchoredPosition = new Vector2(-630f, 240f);
+            sliderRt.sizeDelta = new Vector2(700f, 28f);
+        }
+
+        private static Slider CreateCameraPathSlider(Transform parent, RectTransform startRt)
+        {
+            var root = new GameObject("CameraPathSlider", typeof(RectTransform), typeof(Slider));
+            root.transform.SetParent(parent, false);
+            var rootRt = root.GetComponent<RectTransform>();
+            ApplyCameraPathSliderLayout(rootRt, startRt);
+
+            var bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            bg.transform.SetParent(root.transform, false);
+            var bgRt = bg.GetComponent<RectTransform>();
+            bgRt.anchorMin = new Vector2(0f, 0.25f);
+            bgRt.anchorMax = new Vector2(1f, 0.75f);
+            bgRt.offsetMin = Vector2.zero;
+            bgRt.offsetMax = Vector2.zero;
+            bg.GetComponent<Image>().color = new Color(0.15f, 0.16f, 0.2f, 0.95f);
+
+            var fillArea = new GameObject("Fill Area", typeof(RectTransform));
+            fillArea.transform.SetParent(root.transform, false);
+            var fillAreaRt = fillArea.GetComponent<RectTransform>();
+            fillAreaRt.anchorMin = new Vector2(0f, 0.25f);
+            fillAreaRt.anchorMax = new Vector2(1f, 0.75f);
+            fillAreaRt.offsetMin = new Vector2(5f, 0f);
+            fillAreaRt.offsetMax = new Vector2(-5f, 0f);
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(fillArea.transform, false);
+            var fillRt = fill.GetComponent<RectTransform>();
+            fillRt.anchorMin = Vector2.zero;
+            fillRt.anchorMax = Vector2.one;
+            fillRt.offsetMin = Vector2.zero;
+            fillRt.offsetMax = Vector2.zero;
+            fill.GetComponent<Image>().color = new Color(0.35f, 0.55f, 0.75f, 1f);
+
+            var handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+            handleArea.transform.SetParent(root.transform, false);
+            var handleAreaRt = handleArea.GetComponent<RectTransform>();
+            handleAreaRt.anchorMin = Vector2.zero;
+            handleAreaRt.anchorMax = Vector2.one;
+            handleAreaRt.offsetMin = new Vector2(10f, 0f);
+            handleAreaRt.offsetMax = new Vector2(-10f, 0f);
+
+            var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handle.transform.SetParent(handleArea.transform, false);
+            var handleRt = handle.GetComponent<RectTransform>();
+            handleRt.sizeDelta = new Vector2(20f, 20f);
+            handle.GetComponent<Image>().color = new Color(0.85f, 0.88f, 0.92f, 1f);
+
+            var slider = root.GetComponent<Slider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = handleRt;
+            slider.targetGraphic = handle.GetComponent<Image>();
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.wholeNumbers = false;
+            slider.value = 0f;
+            return slider;
+        }
+
+        private void SetPathPreviewUiVisible(bool visible)
+        {
+            if (_quickPreviewButton != null)
+            {
+                _quickPreviewButton.gameObject.SetActive(visible);
+            }
+
+            if (_cameraPathSlider != null)
+            {
+                _cameraPathSlider.gameObject.SetActive(visible);
+            }
+        }
+
+        private void HandleQuickPreview()
+        {
+            if (_editorCamera == null
+                || _cameraPath == null
+                || !_cameraPath.HasBakedPath
+                || !_cameraPath.TryBuildAuthorWaypointProgresses(_previewWaypointProgress))
+            {
+                return;
+            }
+
+            StopPathPreviewRoutine();
+            _pathPreviewRoutine = StartCoroutine(PathPreviewRoutine());
+        }
+
+        private IEnumerator PathPreviewRoutine()
+        {
+            yield return PushMapCameraPathRailTravel.ReverseAuthorWaypointSweep(
+                _editorCamera,
+                _cameraPath,
+                _previewWaypointProgress,
+                _previewIntroSpeed,
+                _previewIntroDwell,
+                SetSliderValueSilent);
+            _pathPreviewRoutine = null;
+        }
+
+        private void HandleCameraPathSliderChanged(float value)
+        {
+            if (_suppressPathSliderCallback)
+            {
+                return;
+            }
+
+            StopPathPreviewRoutine();
+            if (_editorCamera == null || _cameraPath == null || !_cameraPath.HasBakedPath)
+            {
+                return;
+            }
+
+            PushMapCameraPathRailTravel.SnapCameraToProgress(_editorCamera, _cameraPath, value);
+        }
+
+        private void SetSliderValueSilent(float s)
+        {
+            if (_cameraPathSlider == null)
+            {
+                return;
+            }
+
+            _suppressPathSliderCallback = true;
+            _cameraPathSlider.SetValueWithoutNotify(Mathf.Clamp01(s));
+            _suppressPathSliderCallback = false;
+        }
+
+        private void StopPathPreviewRoutine()
+        {
+            if (_pathPreviewRoutine != null)
+            {
+                StopCoroutine(_pathPreviewRoutine);
+                _pathPreviewRoutine = null;
+            }
         }
     }
 }

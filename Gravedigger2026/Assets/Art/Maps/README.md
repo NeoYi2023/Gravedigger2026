@@ -3,6 +3,7 @@
 - `RuleTiles/`：Isometric Rule Tile（MapAutoTile 自动接边刷笔；见下「地图自动接边」）。
 - `Palettes/FantasyTileset.prefab`：权威 Tile Palette（由 `FantasyTilesetPaletteBuilder` 从 Environment/Tiles 重建）。Unity Tile Palette 窗口请选此资产。
 - `Palettes/FantasyTileset_A.prefab`：Art 侧 palette 变体；菜单 `Gravedigger2026/Maps/Align FantasyTileset_A Layout From SSI` 按同名 Tile 对齐到 `SmallScaleInt/.../Environment/FantasyTileset` 手排坐标（多出的 tile 摆在参考包围盒右侧；对齐后 `CompressBounds` 以免 Tile Palette 可视区域被旧 `m_Origin`/`m_Size` 裁切）。
+- Tile 图标约定：`Environment/Tiles` 里每个 Tile 的 Sprite 必须与同名 `Environment/Sprites` 一致（如 `Stone A12_E` → `Stone A12_E`）。菜单：`Rebind Environment Tile Sprites By Name`；若 Palette 预览仍错，再跑 `Refresh FantasyTileset_A Sprite Cache`（重建 Tilemap 的 `TileSpriteArray` 缓存）。
 - Vendor `SmallScaleInt/Fantasy kingdom Tileset/Example scene/Scripts` 不编入（Unity 6 API vs 工程 2021.3；由 `FantasyTilesetExampleCompileGuard` 停编）。
 - `Ground_0N/`：可选每图附加贴图；运行时 Instantiate 仍走 `Prefabs/Maps/Ground_0N.prefab`。
 - Prefab 逻辑足迹为 **IsoDiamond**：半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`（Demo `cellSize≈(1,0.5)` → `(5,2.5)`）；`WalkSurface`/`EngageZone`/`DigMapBounds` 对齐砖面外轮廓。
@@ -14,15 +15,15 @@
 
 1. 在 `Art/Maps/RuleTiles/` 创建 **Isometric Rule Tile**（勿用正交 Rule Tile 当本工程等距地图权威刷笔）。
 2. 规则里引用的 Sprite / 普通 Tile 仍放 `Art/Maps/Tiles/` 或 `Environment/Tiles`；禁止 Prefab / 运行时引用 `SmallScaleInt/`。
-3. 将 Rule Tile 挂到 `Palettes/FantasyTileset`（或使用中的 `_A`）。
+3. 将 Rule Tile 挂到权威刷图 Palette **`Palettes/FantasyTileset_A`**。
 4. Tile Palette 选中该刷笔，拖/刷一片区域 → 边界自动换成边/角配套砖。
 5. 适用：地面与其它装饰/地形配套套装。不适用：FlowingWater 的 `Water`/`Foam` 层。
 6. 不改变 `WalkSurface` / NavMesh / 空气墙 / 占领。
 
 ### 首套：Wall A（`RT_WallA`）
 
-- 菜单：`Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)` → 生成/刷新 `RuleTiles/RT_WallA.asset`，并钉到 FantasyTileset 槽位 `(-1,0)`。
-- 刷法：选中 `RT_WallA`，**填一块区域** → 内部为 `Blank`，外沿为 `Wall A1_N/E/S/W`（角用邻近朝向近似）。
+- 菜单：`Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)` → 生成/刷新 `RuleTiles/RT_WallA.asset`，并钉到 **FantasyTileset_A** 槽位 `(-1,0)`。
+- 刷法：Tile Palette → **FantasyTileset_A** → 选中 `RT_WallA`，**填一块区域** → 内部为 `Blank`，外沿为 `Wall A1_N/E/S/W`（角用邻近朝向近似）。
 - 仅 Wall A1 直段子集；窗户/斜顶等 A2+ 仍用手刷普通 Tile。
 
 ## 流动水面（FlowingWater）

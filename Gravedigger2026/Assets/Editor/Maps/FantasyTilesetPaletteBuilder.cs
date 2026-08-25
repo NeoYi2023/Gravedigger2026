@@ -18,7 +18,6 @@ namespace Gravedigger2026.Editor.Maps
         private const string TilesDir = EnvDir + "/Tiles";
         private const string SpritesDir = EnvDir + "/Sprites";
         private const string AnimTilesDir = EnvDir + "/Animated tiles";
-        private const string RuleTilesDir = "Assets/Art/Maps/RuleTiles";
         private const string PalettePath = "Assets/Art/Maps/Palettes/FantasyTileset.prefab";
         private const string OneShotPrefsKey = "Gravedigger2026.FantasyTilesetPalette.Rebuild.v2";
         private const int Columns = 50;
@@ -146,7 +145,22 @@ namespace Gravedigger2026.Editor.Maps
                 $"[FantasyTilesetPaletteBuilder] Rebuilt {PalettePath}: {tiles.Count} tiles (sprites rebound={rebound}). Re-open Tile Palette → FantasyTileset.");
         }
 
-        private static int RebindTileSpritesByName()
+        /// <summary>
+        /// Binds each <c>Environment/Tiles/*.asset</c> sprite to the same-named sprite under
+        /// <c>Environment/Sprites</c> (e.g. Stone A12_E → Stone A12_E).
+        /// </summary>
+        [MenuItem("Gravedigger2026/Maps/Rebind Environment Tile Sprites By Name")]
+        public static void RebindEnvironmentTileSpritesByNameMenu()
+        {
+            var fixedCount = RebindTileSpritesByName();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"[FantasyTilesetPaletteBuilder] Rebind Environment Tile sprites by name: fixed={fixedCount}. " +
+                "If FantasyTileset_A icons still look wrong, run Refresh FantasyTileset_A Sprite Cache.");
+        }
+
+        public static int RebindTileSpritesByName()
         {
             var nameToSprite = new Dictionary<string, Sprite>();
             var spriteGuids = AssetDatabase.FindAssets("t:Sprite", new[] { SpritesDir });
@@ -264,8 +278,7 @@ namespace Gravedigger2026.Editor.Maps
 
             AddFromFolder(TilesDir, requireSpriteOnTile: true);
             AddFromFolder(AnimTilesDir, requireSpriteOnTile: false);
-            // MapAutoTile Isometric Rule Tiles (e.g. RT_WallA); no Sprite on TileBase.
-            AddFromFolder(RuleTilesDir, requireSpriteOnTile: false);
+            // MapAutoTile Rule Tiles (RT_WallA) live on FantasyTileset_A via WallARuleTileBuilder — not this rebuild.
             return list;
         }
 

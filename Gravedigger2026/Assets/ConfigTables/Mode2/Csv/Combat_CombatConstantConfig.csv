@@ -8,6 +8,7 @@ MaxHpStrengthMult,血量力量系数,3,MaxHP = ceil(BodyLife + Str x Mult),士�
 CameraHeightY,镜头高度,25,Top-down camera world Y above map center,俯视正交相机相对地图中心的世界Y高度；Dig/Defend/布阵/PushMap共用
 CameraOrthoSizeMargin,地图适配Size余量,1.5,orthoSize = max(halfExtents) - margin,Dig/Defend/布阵：正交Size=地图半幅较大边减去本余量
 PushMapCameraOrthoSize,推图开战默认Size,2,PushMap combat default orthographicSize,PushMap开战默认正交Size（异于Defend的地图适配公式）
+PushMapPrepareOrthoSize,推图布阵默认Size,4.5,PushMap Prepare FormationCamera orthographicSize (not map-fit),PushMap Prepare 布阵 FormationCamera 正交Size（不用地图适配公式）
 CameraNearClip,镜头近裁剪面,0.1,Camera nearClipPlane,正交相机近裁剪面
 CameraFarClip,镜头远裁剪面,100,Camera farClipPlane,正交相机远裁剪面
 CameraFollowDeadzone,跟随死区半径,0.15,PushMap Auto follow deadzone world-XZ,PushMap Auto跟随：目标在死区内则镜头XZ不移动

@@ -8,7 +8,7 @@ spec_refs:
   - SPEC_04 §2 Art/Maps/RuleTiles
 depends_on:
   - MA-00
-selected_approach: A — Wall A / RT_WallA（Editor Ensure 生成 Isometric Rule Tile + FantasyTileset 槽）
+selected_approach: A — Wall A / RT_WallA（Editor Ensure 生成 Isometric Rule Tile + FantasyTileset_A 槽）
 ---
 
 ## 目标
@@ -27,12 +27,12 @@ selected_approach: A — Wall A / RT_WallA（Editor Ensure 生成 Isometric Rule
 
 1. 打开 Unity 工程，等编译完成。
 2. 菜单 **Gravedigger2026 → Maps → Ensure Wall A Rule Tile (RT_WallA)**。
-3. Tile Palette → FantasyTileset → 选 `RT_WallA`（槽约 `(-1,0)`）。
+3. Tile Palette → **FantasyTileset_A** → 选 `RT_WallA`（槽约 `(-1,0)`）。
 4. 在临时 Tilemap 上填一块矩形区域，确认内部 Blank、外沿为墙朝向砖。
 
 ## 验收
 
 - [ ] `Art/Maps/RuleTiles/RT_WallA.asset` 存在且为 Isometric Rule Tile
-- [ ] FantasyTileset Palette 可见该刷笔
+- [ ] **FantasyTileset_A** Palette 可见该刷笔
 - [ ] 空 Tilemap 上刷矩形区域时边界为边砖、角为角砖（非全中心墙）
 - [ ] 无 `SmallScaleInt/` 引用

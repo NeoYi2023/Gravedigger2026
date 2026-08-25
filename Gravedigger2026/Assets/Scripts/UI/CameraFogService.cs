@@ -86,7 +86,7 @@ namespace Gravedigger2026.UI
             ApplyVisibility();
         }
 
-        /// <summary>PushMap Combat phase only (incl. Intro); not Prepare/Ended.</summary>
+        /// <summary>PushMap Combat phase only; not Prepare/Ended.</summary>
         public void SetPushMapCombatActive(bool active)
         {
             _pushMapCombatActive = active;

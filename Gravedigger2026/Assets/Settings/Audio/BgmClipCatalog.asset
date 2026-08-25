@@ -13,14 +13,8 @@ MonoBehaviour:
   m_Name: BgmClipCatalog
   m_EditorClassIdentifier: 
   _clips:
-  - ClipId: BGM_Title_Graveglass Gate
-    Clip: {fileID: 8300000, guid: a5c2d73269d96a84ca11cef9a6aba2f9, type: 3}
-  - ClipId: BGM_Title_Graveglass Gate_2
-    Clip: {fileID: 8300000, guid: 7508b9d72a8f42849901e6afe91bf934, type: 3}
-  - ClipId: BGM_Title_Graveyard Loops
-    Clip: {fileID: 8300000, guid: 646c11d9a041f814b818a7e604218017, type: 3}
-  - ClipId: BGM_Dig_Ashen Plot
-    Clip: {fileID: 8300000, guid: 23e5a36c7e1b13541a2d233b00fcca76, type: 3}
+  - ClipId: BGM_Combat_Bone Crown Raid
+    Clip: {fileID: 8300000, guid: b0f21f2315b287a49ab54347ab78ad13, type: 3}
   - ClipId: BGM_Combat_Graveblade March
     Clip: {fileID: 8300000, guid: 7934f2579aea62d47ac4af2f3de05d9f, type: 3}
   - ClipId: BGM_Combat_Graveblade March_2
@@ -29,5 +23,9 @@ MonoBehaviour:
     Clip: {fileID: 8300000, guid: db66395188c063b4584e15bcaf54ad24, type: 3}
   - ClipId: BGM_Combat_Graveyard March_2
     Clip: {fileID: 8300000, guid: f104eecb2b675d148aa67ef174b7d557, type: 3}
-  - ClipId: BGM_Combat_Bone Crown Raid
-    Clip: {fileID: 8300000, guid: b0f21f2315b287a49ab54347ab78ad13, type: 3}
+  - ClipId: BGM_Dig_Ashen Plot
+    Clip: {fileID: 8300000, guid: 23e5a36c7e1b13541a2d233b00fcca76, type: 3}
+  - ClipId: BGM_Title_Graveglass Gate_1
+    Clip: {fileID: 8300000, guid: b0fef80909625524383b638076d6bdae, type: 3}
+  - ClipId: BGM_Title_Graveglass Gate_3
+    Clip: {fileID: 8300000, guid: 7f0a77dc53f4b074ab25c7e5515ea21d, type: 3}

@@ -58,7 +58,7 @@
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
 | FlowingWater | 流动水面 | 地图表现约定：Grid 下 `Water`（Chunk+Water.mat）/`Foam`（Individual+Foam.mat）两层；Built-in 资源 `Art/Maps/Shaders/Water/`；世界 UV=`xz`；不参与 NavMesh/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
-| MapAutoTile | 地图自动接边 | 编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）刷区域时自动换边/角砖；资产 `Art/Maps/RuleTiles/`；挂 FantasyTileset Palette；不含 FlowingWater 层；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
+| MapAutoTile | 地图自动接边 | 编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）刷区域时自动换边/角砖；资产 `Art/Maps/RuleTiles/`；挂 **FantasyTileset_A** Palette；不含 FlowingWater 层；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
 | CameraFogOverlay | 镜头迷雾滤镜 | 全局 `CameraFogService` 拥有的 `DigFogCanvas` 全屏 Image；素材 `Art/Maps/Fog_1.png`；**仅** Dig 会话与 PushMap Combat（含 Intro）显示；Meta 弹窗打开时主动隐藏；呼吸缩放见 `DigCameraFogOverlayView` | [§3.10](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Grave | 坟墓 | 挖坟可生成实体；带品质 ID；未消除时为 DigObstacle | [§3.10](SPEC_03_GameRules.md) |
 | Digger | 挖坟主角 | Dig 阶段不生成地图模型；HUD 左上 60×60 头像框；Prefab 可保留于 Catalog/Art | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
@@ -177,9 +177,11 @@
 | AlertRadius | 警戒半径 | AggroMode 主动发现半径 | [§3.14](SPEC_03_GameRules.md) |
 | BodyRadius | 占地半径 | 单位 XZ 占地圆；怪物=`MonsterConfig`；士兵=`BodyAppearanceConfig`（按 AppearanceId，缺省 0.1）；PushMap 刷出散开与 NavMeshAgent/MassMove 避障 | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
-| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Intro`（开战扫镜）/ `Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
+| CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowPath | 镜头跟随轨 | 地图 Prefab 虚拟推进折线；作者路点 + 相邻点世界 XZ 直线烘焙；镜头对准折线点 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
-| IsCombatIntroActive | 开战镜头预览门闩 | PushMap Combat 内标志：单位已部署 Idle、计时冻结、镜头 Intro；结束后正常玩法 | [§3.14](SPEC_03_GameRules.md) |
+| PreparePathPreview | 布阵路径预览 | PushMap Prepare 可选快速预览：WP_End→WP_Start 反向扫镜；默认不播 | [§3.14](SPEC_03_GameRules.md) |
+| CameraPathSlider | 路径滑动条 | PushMap Prepare：左 WP_Start / 右 WP_End，弧长均匀；拖动定位 FormationCamera | [§3.14](SPEC_03_GameRules.md) |
+| PrepareSpawnPreview | 布阵开战刷怪预览 | PushMap Prepare：开战非陷阱行 Idle 预览；开战销毁后正式重刷 | [§3.14](SPEC_03_GameRules.md) |
 | CameraPathProgress | 镜头轨进度 | 折线弧长 `s∈[0,1]`；Auto=存活忠诚兵投影最大值；领头失效回退 | [§3.14](SPEC_03_GameRules.md) |
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移 | [§3.14](SPEC_03_GameRules.md) |

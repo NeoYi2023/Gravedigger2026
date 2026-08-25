@@ -106,16 +106,16 @@ namespace Gravedigger2026.Core.PushMap
         public int MonstersKilled => _monstersKilled;
         public long StageExpCredited => _stageExpCredited;
 
-        /// <summary>True while StartBattle camera intro latch is running (SPEC_03 §3.14).</summary>
-        public bool IsCombatIntroActive => _active && Phase == PushMapPhase.Combat && _combatIntroActive;
+        /// <summary>Always false after v0.83.13 — Prepare owns path preview; StartBattle has no intro latch.</summary>
+        public bool IsCombatIntroActive => false;
 
         /// <summary>
-        /// True when Combat gameplay may tick (not Prepare/Ended, not intro latch).
+        /// True when Combat gameplay may tick (not Prepare/Ended).
         /// </summary>
         public bool IsCombatGameplayActive =>
-            _active && Phase == PushMapPhase.Combat && !_combatIntroActive && !_outcomeSettled;
+            _active && Phase == PushMapPhase.Combat && !_outcomeSettled;
 
-        /// <summary>Seconds from EndCombatIntro (or immediate StartBattle if intro skipped) to Ended.</summary>
+        /// <summary>Seconds from StartBattle (clock start) to Ended.</summary>
         public float CombatElapsedSeconds
         {
             get
@@ -272,9 +272,9 @@ namespace Gravedigger2026.Core.PushMap
             Phase = PushMapPhase.Combat;
             PhaseChanged?.Invoke(Phase);
             ShieldChanged?.Invoke(_shield, _shieldCap);
-            _combatIntroActive = true;
-            _combatClockRunning = false;
-            _combatStartRealtime = 0f;
+            _combatIntroActive = false;
+            _combatStartRealtime = Time.realtimeSinceStartup;
+            _combatClockRunning = true;
             _combatEndRealtime = 0f;
             _monstersKilled = 0;
             _isVictory = false;
@@ -283,15 +283,15 @@ namespace Gravedigger2026.Core.PushMap
             Debug.Log(
                 $"[PushMapSession] StartBattle Shield={_shield} Deployed={deployedSoldierCount} " +
                 $"Degree={_lockedLossOfControlDegree:0.###} Tier={_lockedLossOfControlTierId} " +
-                $"TierChance={_lockedTierChance:0.###} IntroActive=true");
+                $"TierChance={_lockedTierChance:0.###} IntroActive=false");
 
             LoadSpawnRows(configs);
             return true;
         }
 
         /// <summary>
-        /// Ends StartBattle camera intro: starts combat clock and allows gameplay ticks.
-        /// Safe to call when intro was skipped (idempotent if already ended).
+        /// Legacy no-op-safe hook: StartBattle now starts the combat clock immediately (no intro latch).
+        /// Kept for call-site compatibility; idempotent if already running.
         /// </summary>
         public void EndCombatIntro()
         {
@@ -325,6 +325,35 @@ namespace Gravedigger2026.Core.PushMap
                 return;
             }
 
+            FireNonTrapEligibleRows(PushMapSpawnTrigger.StartBattle, countTowardBossVictory: true);
+        }
+
+        /// <summary>
+        /// Prepare Idle preview of the same non-trap StartBattle-eligible rows (SPEC_03 §3.14).
+        /// Does not increment PendingBoss / register HP — View must not treat as combat units.
+        /// </summary>
+        public void FirePreparePreviewSpawns(ConfigCsvRepository configs)
+        {
+            if (!_active || Phase != PushMapPhase.Prepare)
+            {
+                return;
+            }
+
+            if (_spawnRows.Count == 0)
+            {
+                LoadSpawnRows(configs);
+            }
+
+            FireNonTrapEligibleRows(PushMapSpawnTrigger.PreparePreview, countTowardBossVictory: false);
+        }
+
+        private void FireNonTrapEligibleRows(PushMapSpawnTrigger trigger, bool countTowardBossVictory)
+        {
+            if (_spawnRows.Count == 0)
+            {
+                return;
+            }
+
             for (var i = 0; i < _spawnRows.Count; i++)
             {
                 var row = _spawnRows[i];
@@ -338,7 +367,7 @@ namespace Gravedigger2026.Core.PushMap
                     continue;
                 }
 
-                FireRow(row, PushMapSpawnTrigger.StartBattle);
+                FireRow(row, trigger, countTowardBossVictory);
             }
         }
 
@@ -397,7 +426,7 @@ namespace Gravedigger2026.Core.PushMap
                         continue;
                     }
 
-                    FireRow(row, PushMapSpawnTrigger.Trap);
+                    FireRow(row, PushMapSpawnTrigger.Trap, countTowardBossVictory: true);
                     anyFired = true;
                 }
 
@@ -508,14 +537,14 @@ namespace Gravedigger2026.Core.PushMap
             return linkedObjectiveOrder > 0 && _capturedObjectives.Contains(linkedObjectiveOrder);
         }
 
-        private void FireRow(PushMapSpawnConfigRow row, PushMapSpawnTrigger trigger)
+        private void FireRow(PushMapSpawnConfigRow row, PushMapSpawnTrigger trigger, bool countTowardBossVictory)
         {
             if (row == null || row.SpawnCount < 1)
             {
                 return;
             }
 
-            if (row.IsBoss)
+            if (countTowardBossVictory && row.IsBoss)
             {
                 _pendingBossCount += row.SpawnCount;
             }

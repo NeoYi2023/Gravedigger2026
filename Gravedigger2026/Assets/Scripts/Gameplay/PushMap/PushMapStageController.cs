@@ -225,6 +225,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             OpenFormationEditor();
+            _session.FirePreparePreviewSpawns(_configs);
             _running = true;
         }
 
@@ -353,13 +354,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             EnsureCombatBondHud();
             RefreshCombatBondHud();
             _session.EmitStartBattleSkillIcons();
+            ClearSpawnedMonsters();
             _session.FireStartBattleSpawns();
             ResolveStartBattleRebelRolls();
             _session.NotifyBossPointPresence(_bossPoint != null);
-            SetCombatUnitsGameplayEnabled(false);
-            PauseAllMassMoves();
-            BeginCameraIntroOrStartGameplay();
-            // Fog also latched in HandlePhaseChanged(Combat); keep explicit for Intro window.
+            FinishCombatIntroAndEnableGameplay();
+            // Fog also latched in HandlePhaseChanged(Combat).
             var fog = CameraFogService.Resolve();
             if (fog == null)
             {
@@ -948,15 +948,31 @@ namespace Gravedigger2026.Gameplay.PushMap
                     view.MarkAsBoss(true);
                 }
 
-                // PM-12: register monster HP on the session (kill = RemainingHp≤0 via HitConfirm).
-                _session?.RegisterMonster(view.RuntimeTargetId, monsterRow.MonsterId, monsterRow.MaxHP);
+                var isPreparePreview = request.Trigger == PushMapSpawnTrigger.PreparePreview;
+                if (!isPreparePreview)
+                {
+                    // PM-12: register monster HP on the session (kill = RemainingHp≤0 via HitConfirm).
+                    _session?.RegisterMonster(view.RuntimeTargetId, monsterRow.MonsterId, monsterRow.MaxHP);
+                }
+                else
+                {
+                    // Prepare has no NavMesh bake yet — keep visual Idle only.
+                    var agent = go.GetComponent<NavMeshAgent>();
+                    if (agent != null)
+                    {
+                        agent.enabled = false;
+                    }
+                }
+
                 if (go.GetComponent<HitFlashView>() == null)
                 {
                     go.AddComponent<HitFlashView>();
                 }
 
                 _monsters.Add(view);
-                view.SetCombatGameplayEnabled(_session == null || _session.IsCombatGameplayActive);
+                view.SetCombatGameplayEnabled(
+                    !isPreparePreview
+                    && (_session == null || _session.IsCombatGameplayActive));
             }
 
             Debug.Log(
@@ -1838,37 +1854,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
         }
 
-        private void BeginCameraIntroOrStartGameplay()
-        {
-            EnsurePushMapCamera();
-            EnsureResumeFollowButton();
-            if (_cameraFollow == null)
-            {
-                FinishCombatIntroAndEnableGameplay();
-                return;
-            }
-
-            var cameraPath = _mapInstance != null
-                ? _mapInstance.GetComponentInChildren<PushMapCameraPath>(true)
-                : null;
-            if (cameraPath != null && !cameraPath.HasBakedPath)
-            {
-                if (!cameraPath.TryBake(out var bakeError))
-                {
-                    Debug.LogWarning($"[PushMapStage] CameraFollowPath bake failed: {bakeError}");
-                }
-            }
-
-            _cameraFollow.Bind(_pushMapCamera, _advanceViews, ResolveCurrentObjective, cameraPath);
-            _cameraFollow.ApplyPresentationConstants(
-                _configs != null
-                    ? _configs.GetCameraPresentationConstants()
-                    : CameraPresentationConstants.SafetyDefaults);
-
-            // TryPlayCombatIntro invokes callback even when skipped (synchronously).
-            _cameraFollow.TryPlayCombatIntro(FinishCombatIntroAndEnableGameplay);
-        }
-
         private void FinishCombatIntroAndEnableGameplay()
         {
             _session?.EndCombatIntro();
@@ -1876,33 +1861,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             ResumeAllMassMoves();
             EnableCameraFollowForCombat();
             RefreshCombatHud();
-            Debug.Log("[PushMapStage] Combat intro finished — gameplay active.");
-        }
-
-        private void PauseAllMassMoves()
-        {
-            if (_moveScheduler == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < _advanceViews.Count; i++)
-            {
-                var soldier = _advanceViews[i];
-                if (soldier != null && soldier.MoveId != 0)
-                {
-                    _moveScheduler.SetPaused(soldier.MoveId, true);
-                }
-            }
-
-            for (var i = 0; i < _monsters.Count; i++)
-            {
-                var monster = _monsters[i];
-                if (monster != null && monster.MoveId != 0)
-                {
-                    _moveScheduler.SetPaused(monster.MoveId, true);
-                }
-            }
+            Debug.Log("[PushMapStage] Combat gameplay active (no StartBattle intro).");
         }
 
         private void ResumeAllMassMoves()

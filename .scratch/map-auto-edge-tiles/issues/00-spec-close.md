@@ -18,7 +18,7 @@ selected_approach: A — Isometric Rule Tile；不含 FlowingWater
 
 - 包：`com.unity.2d.tilemap.extras`（工程已有）；刷笔 = **Isometric Rule Tile**。
 - 资产：`Assets/Art/Maps/RuleTiles/`；Sprite/普通 Tile 仍在 `Art/Maps/Tiles/`。
-- Palette：`Art/Maps/Palettes/FantasyTileset`（及 `_A`）。
+- Palette：权威刷图 `Art/Maps/Palettes/FantasyTileset_A`。
 - 范围：地面与其它装饰/地形配套砖；**不含** FlowingWater 的 Water/Foam。
 - 不参与 NavMesh / 空气墙 / WalkSurface / 占领。
 - 禁止运行时/已提交 Prefab 引用 `SmallScaleInt/`。

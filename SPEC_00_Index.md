@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.11
+**文档版本 / Document Version:** v0.83.16
 **最后更新 / Last Updated:** 2026-08-25  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
 
@@ -65,6 +65,11 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-25 | v0.83.16 | Mode2 `CameraPathSlider` 布局：`anchoredPosition=(-630,240)`、宽 `700`。同步 SPEC_04 §6、FormationEditor / FormationAssetBuilder |
+| 2026-08-25 | v0.83.15 | PushMap Prepare 开战刷怪预览：进入布阵后刷出与开战相同的非陷阱行（Idle）；开战销毁预览再正式刷；陷阱行不预览。同步 SPEC_03 §3.14、CONTEXT |
+| 2026-08-25 | v0.83.14 | PushMap 镜头预览迁 Prepare：默认不播；Mode2「快速预览」+ `CameraPathSlider`（WP_Start↔WP_End）；开战取消 `IsCombatIntroActive` 门闩。同步 SPEC_03 §3.14、SPEC_04 §6/§9.20b、CONTEXT |
+| 2026-08-25 | v0.83.13 | MapAutoTile / `RT_WallA` 挂载 Palette 改为 **FantasyTileset_A**（不再钉 FantasyTileset）。同步 WallARuleTileBuilder、SPEC_04 §13、CONTEXT、Art/Maps README |
+| 2026-08-25 | v0.83.12 | PushMap Prepare 布阵镜头：新增 `CombatConstantConfig.PushMapPrepareOrthoSize`（样例 `4.5`）；`FormationEditor` 在 `PushMapPrepare` 用该固定 Size，不再走 `max(half)−CameraOrthoSizeMargin`。同步 SPEC_03 §3.14、SPEC_04 §9.20b |
 | 2026-08-25 | v0.83.11 | MapAutoTile 首套 Wall A：Editor `WallARuleTileBuilder` 菜单 Ensure `RT_WallA`（填区域→Blank 内 + Wall A1 边/角）；Palette 纳入 `Art/Maps/RuleTiles/`。同步 Art/Maps README；issues MA-01 |
 | 2026-08-25 | v0.83.10 | 地图自动接边（MapAutoTile）编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）；资产 `Art/Maps/RuleTiles/`；挂 FantasyTileset；地面/装饰配套砖；不含 FlowingWater 层；不参与寻路/空气墙/占领。同步 SPEC_04 §13、Art/Maps README、CONTEXT；issues `.scratch/map-auto-edge-tiles/` |
 | 2026-08-25 | v0.83.09 | 地图流动水面（FlowingWater）表现约定关合：Built-in `Art/Maps/Shaders/Water/`；Grid 下 Water(Chunk)/Foam(Individual) 两层；世界 UV=`xz`（RotX 90°）；不参与 NavMesh/空气墙/占领。同步 SPEC_04 §2/§13、Art/Maps README、CONTEXT；issues `.scratch/map-flowing-water/` MW-00 |
@@ -376,6 +381,11 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-25 | v0.83.16 | Mode2 `CameraPathSlider` layout: `anchoredPosition=(-630,240)`, width `700`. Synced SPEC_04 §6, FormationEditor / FormationAssetBuilder |
+| 2026-08-25 | v0.83.15 | PushMap Prepare StartBattle-spawn preview: spawn same non-trap rows as Idle on enter; destroy then formal respawn on StartBattle; trap rows not previewed. Synced SPEC_03 §3.14, CONTEXT |
+| 2026-08-25 | v0.83.14 | PushMap camera preview moves to Prepare: off by default; Mode2 Quick Preview + `CameraPathSlider` (WP_Start↔WP_End); StartBattle drops `IsCombatIntroActive` latch. Synced SPEC_03 §3.14, SPEC_04 §6/§9.20b, CONTEXT |
+| 2026-08-25 | v0.83.13 | MapAutoTile / `RT_WallA` paint palette is **FantasyTileset_A** (no longer FantasyTileset). Synced WallARuleTileBuilder, SPEC_04 §13, CONTEXT, Art/Maps README |
+| 2026-08-25 | v0.83.12 | PushMap Prepare formation camera: add `CombatConstantConfig.PushMapPrepareOrthoSize` (sample `4.5`); `FormationEditor` uses this fixed Size in `PushMapPrepare` instead of `max(half)−CameraOrthoSizeMargin`. Synced SPEC_03 §3.14, SPEC_04 §9.20b |
 | 2026-08-25 | v0.83.11 | MapAutoTile first set Wall A: Editor `WallARuleTileBuilder` menu Ensures `RT_WallA` (fill→Blank interior + Wall A1 edges); Palette includes `Art/Maps/RuleTiles/`. Synced Art/Maps README; issue MA-01 |
 | 2026-08-25 | v0.83.10 | MapAutoTile editor-paint convention: Isometric Rule Tile (`tilemap.extras`); assets `Art/Maps/RuleTiles/`; FantasyTileset palette; ground/décor companion sets; excludes FlowingWater layers; not in pathing/AirWall/capture. Synced SPEC_04 §13, Art/Maps README, CONTEXT; issues `.scratch/map-auto-edge-tiles/` |
 | 2026-08-25 | v0.83.09 | Map FlowingWater presentation convention closed: Built-in `Art/Maps/Shaders/Water/`; Grid layers Water(Chunk)/Foam(Individual); world UV=`xz` (RotX 90°); not in NavMesh/AirWall/capture. Synced SPEC_04 §2/§13, Art/Maps README, CONTEXT; issues `.scratch/map-flowing-water/` MW-00 |

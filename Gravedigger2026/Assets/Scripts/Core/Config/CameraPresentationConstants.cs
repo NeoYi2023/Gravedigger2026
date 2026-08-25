@@ -9,6 +9,7 @@ namespace Gravedigger2026.Core.Config
     {
         public float HeightY { get; }
         public float OrthoSizeMargin { get; }
+        public float PushMapPrepareOrthoSize { get; }
         public float PushMapOrthoSize { get; }
         public float NearClip { get; }
         public float FarClip { get; }
@@ -24,6 +25,7 @@ namespace Gravedigger2026.Core.Config
         public CameraPresentationConstants(
             float heightY,
             float orthoSizeMargin,
+            float pushMapPrepareOrthoSize,
             float pushMapOrthoSize,
             float nearClip,
             float farClip,
@@ -38,6 +40,7 @@ namespace Gravedigger2026.Core.Config
         {
             HeightY = heightY;
             OrthoSizeMargin = orthoSizeMargin;
+            PushMapPrepareOrthoSize = pushMapPrepareOrthoSize;
             PushMapOrthoSize = pushMapOrthoSize;
             NearClip = nearClip;
             FarClip = farClip;
@@ -65,6 +68,9 @@ namespace Gravedigger2026.Core.Config
                 configs.GetCombatConstantOrFallback(
                     CombatConstantKeys.CameraOrthoSizeMargin,
                     CombatConstantKeys.Safety.CameraOrthoSizeMargin),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.PushMapPrepareOrthoSize,
+                    CombatConstantKeys.Safety.PushMapPrepareOrthoSize),
                 configs.GetCombatConstantOrFallback(
                     CombatConstantKeys.PushMapCameraOrthoSize,
                     CombatConstantKeys.Safety.PushMapCameraOrthoSize),
@@ -103,6 +109,7 @@ namespace Gravedigger2026.Core.Config
         public static CameraPresentationConstants SafetyDefaults => new CameraPresentationConstants(
             CombatConstantKeys.Safety.CameraHeightY,
             CombatConstantKeys.Safety.CameraOrthoSizeMargin,
+            CombatConstantKeys.Safety.PushMapPrepareOrthoSize,
             CombatConstantKeys.Safety.PushMapCameraOrthoSize,
             CombatConstantKeys.Safety.CameraNearClip,
             CombatConstantKeys.Safety.CameraFarClip,
@@ -116,7 +123,8 @@ namespace Gravedigger2026.Core.Config
             CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds);
 
         /// <summary>
-        /// Dig / Defend / Formation: orthographicSize = max(half) − margin (clamped ≥ OrthoSizeMin).
+        /// Dig / Defend / UM·Defend formation: orthographicSize = max(half) − margin (clamped ≥ OrthoSizeMin).
+        /// PushMap Prepare uses <see cref="PushMapPrepareOrthoSize"/> instead.
         /// </summary>
         public float ResolveMapFitOrthoSize(Vector2 mapHalfExtents)
         {

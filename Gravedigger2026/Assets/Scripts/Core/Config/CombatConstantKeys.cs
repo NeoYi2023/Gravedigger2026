@@ -15,6 +15,7 @@ namespace Gravedigger2026.Core.Config
 
         public const string CameraHeightY = "CameraHeightY";
         public const string CameraOrthoSizeMargin = "CameraOrthoSizeMargin";
+        public const string PushMapPrepareOrthoSize = "PushMapPrepareOrthoSize";
         public const string PushMapCameraOrthoSize = "PushMapCameraOrthoSize";
         public const string CameraNearClip = "CameraNearClip";
         public const string CameraFarClip = "CameraFarClip";
@@ -74,6 +75,7 @@ namespace Gravedigger2026.Core.Config
         {
             public const float CameraHeightY = 18f;
             public const float CameraOrthoSizeMargin = 1.5f;
+            public const float PushMapPrepareOrthoSize = 4.5f;
             public const float PushMapCameraOrthoSize = 2f;
             public const float CameraNearClip = 0.1f;
             public const float CameraFarClip = 100f;

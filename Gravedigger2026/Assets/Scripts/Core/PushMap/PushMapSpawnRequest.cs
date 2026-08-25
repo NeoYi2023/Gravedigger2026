@@ -7,7 +7,9 @@ namespace Gravedigger2026.Core.PushMap
     public enum PushMapSpawnTrigger
     {
         StartBattle = 0,
-        Trap = 1
+        Trap = 1,
+        /// <summary>Prepare Idle visuals for StartBattle-eligible non-trap rows; not registered in Session.</summary>
+        PreparePreview = 2
     }
 
     public sealed class PushMapSpawnRequest

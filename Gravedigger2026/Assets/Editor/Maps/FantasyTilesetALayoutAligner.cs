@@ -9,6 +9,7 @@ namespace Gravedigger2026.Editor.Maps
 {
     /// <summary>
     /// Aligns FantasyTileset_A cell layout to SmallScaleInt FantasyTileset by matching TileBase.name.
+    /// Also refreshes palette TileSpriteArray so cell icons match each Tile's own sprite name.
     /// Must use Tilemap API — hand-edited palette YAML does not deserialize reliably.
     /// </summary>
     public static class FantasyTilesetALayoutAligner
@@ -17,6 +18,52 @@ namespace Gravedigger2026.Editor.Maps
         private const string SourcePath =
             "Assets/SmallScaleInt/Fantasy kingdom Tileset/Environment/FantasyTileset.prefab";
         private const int OverflowColumns = 50;
+
+        /// <summary>
+        /// Rebinds Environment Tile→Sprite by name, then re-applies every FantasyTileset_A cell
+        /// so Tilemap's cached TileSpriteArray matches each Tile's own sprite (palette icons).
+        /// </summary>
+        [MenuItem("Gravedigger2026/Maps/Refresh FantasyTileset_A Sprite Cache")]
+        public static void RefreshFantasyTilesetASpriteCache()
+        {
+            var rebound = FantasyTilesetPaletteBuilder.RebindTileSpritesByName();
+            if (AssetDatabase.LoadAssetAtPath<Object>(TargetPath) == null)
+            {
+                Debug.LogError($"[FantasyTilesetALayoutAligner] Missing target palette: {TargetPath}");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(TargetPath);
+            try
+            {
+                var map = root.GetComponentInChildren<Tilemap>();
+                if (map == null)
+                {
+                    Debug.LogError("[FantasyTilesetALayoutAligner] FantasyTileset_A has no Tilemap.");
+                    return;
+                }
+
+                var cells = CollectFilledCells(map);
+                map.ClearAllTiles();
+                for (var i = 0; i < cells.Count; i++)
+                {
+                    map.SetTile(cells[i].Position, cells[i].Tile);
+                }
+
+                map.CompressBounds();
+                PrefabUtility.SaveAsPrefabAsset(root, TargetPath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log(
+                    $"[FantasyTilesetALayoutAligner] Refreshed {TargetPath} sprite cache " +
+                    $"(cells={cells.Count}, tileSpritesRebound={rebound}). " +
+                    "Re-open Tile Palette → FantasyTileset_A.");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
 
         [MenuItem("Gravedigger2026/Maps/Align FantasyTileset_A Layout From SSI")]
         public static void AlignFantasyTilesetALayoutFromSsi()
