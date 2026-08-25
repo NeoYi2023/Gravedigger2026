@@ -1,9 +1,10 @@
 ﻿Dig/Defend 共用地图源。
 - `Tiles/`：Isometric Tile + Sprite（自 Example Scene `Environment/Tiles`+`Sprites` 复制；禁止运行时/已提交 Prefab 引用 `SmallScaleInt/`）。
 - `RuleTiles/`：Isometric Rule Tile（MapAutoTile 自动接边刷笔；见下「地图自动接边」）。
-- `Palettes/FantasyTileset.prefab`：权威 Tile Palette（由 `FantasyTilesetPaletteBuilder` 从 Environment/Tiles 重建）。Unity Tile Palette 窗口请选此资产。
-- `Palettes/FantasyTileset_A.prefab`：Art 侧 palette 变体；菜单 `Gravedigger2026/Maps/Align FantasyTileset_A Layout From SSI` 按同名 Tile 对齐到 `SmallScaleInt/.../Environment/FantasyTileset` 手排坐标（多出的 tile 摆在参考包围盒右侧；对齐后 `CompressBounds` 以免 Tile Palette 可视区域被旧 `m_Origin`/`m_Size` 裁切）。
-- Tile 图标约定：`Environment/Tiles` 里每个 Tile 的 Sprite 必须与同名 `Environment/Sprites` 一致（如 `Stone A12_E` → `Stone A12_E`）。菜单：`Rebind Environment Tile Sprites By Name`；若 Palette 预览仍错，再跑 `Refresh FantasyTileset_A Sprite Cache`（重建 Tilemap 的 `TileSpriteArray` 缓存）。
+- `Palettes/FantasyTileset.prefab`：可由 `FantasyTilesetPaletteBuilder` 从 Environment/Tiles 重建（非刷图权威盘）。
+- `Palettes/FantasyTileset_A.prefab`：**权威刷图 Palette**（MapAutoTile / 日常刷图选此资产）。
+- **格子校正（可重复）：** 菜单 `Gravedigger2026/Maps/Correct FantasyTileset_A From FantasyTileset`（批跑：`-executeMethod Gravedigger2026.Editor.Maps.FantasyTilesetALayoutAligner.CorrectFantasyTilesetAFromFantasyTileset`）。按厂商盘 `SmallScaleInt/.../Environment/FantasyTileset` 的 **Tile 资源名** 把 Art 同名砖摆回对应坐标（不复制 SSI 的 Sprite 缓存偏移）；SSI 没有的 Art 砖溢到参考包围盒右侧；特例 **`Ground F4_W`** 原地保留（SSI 无此砖则不删）；`RT_WallA` 重钉固定槽。跑完后须**重开 Tile Palette** 窗口。旧菜单 `Align FantasyTileset_A Layout From SSI` 会调用同一实现。
+- Tile 图标约定：`Environment/Tiles` 里每个 Tile 的 Sprite 必须与同名 `Environment/Sprites` 一致（如 `Stone A12_E` → `Stone A12_E`）。菜单：`Rebind Environment Tile Sprites By Name`；若 Palette 预览仍错，再跑 `Refresh FantasyTileset_A Sprite Cache`（重建 Tilemap 的 `TileSpriteArray` 缓存）。校正菜单已内含重绑 + 缓存刷新。
 - Vendor `SmallScaleInt/Fantasy kingdom Tileset/Example scene/Scripts` 不编入（Unity 6 API vs 工程 2021.3；由 `FantasyTilesetExampleCompileGuard` 停编）。
 - `Ground_0N/`：可选每图附加贴图；运行时 Instantiate 仍走 `Prefabs/Maps/Ground_0N.prefab`。
 - Prefab 逻辑足迹为 **IsoDiamond**：半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`（Demo `cellSize≈(1,0.5)` → `(5,2.5)`）；`WalkSurface`/`EngageZone`/`DigMapBounds` 对齐砖面外轮廓。
@@ -22,9 +23,8 @@
 
 ### 首套：Wall A（`RT_WallA`）
 
-- 菜单：`Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)` → 生成/刷新 `RuleTiles/RT_WallA.asset`，并钉到 **FantasyTileset_A** 槽位 `(-1,0)`。
-- 刷法：Tile Palette → **FantasyTileset_A** → 选中 `RT_WallA`，**填一块区域** → 内部为 `Blank`，外沿为 `Wall A1_N/E/S/W`（角用邻近朝向近似）。
-- 仅 Wall A1 直段子集；窗户/斜顶等 A2+ 仍用手刷普通 Tile。
+- 菜单：`Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)` → 钉到 **FantasyTileset_A** 固定格 **`(30, -43)`**（禁止 `(-1,0)`，会搅乱 SSI 布局）。
+- 刷法：Tile Palette → **FantasyTileset_A** → 格子 `(30, -43)` 选 `RT_WallA`（图标 = Wall A1_N），填区域自动接边。
 
 ## 流动水面（FlowingWater）
 

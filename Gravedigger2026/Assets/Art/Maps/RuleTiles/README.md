@@ -7,6 +7,6 @@ Isometric Rule Tile brushes for editor auto-edge painting. Authority: SPEC_04 §
 | `RT_WallA` | Wall A | Fill region → interior `Blank`, edges/corners `Wall A1_*` facings |
 
 **Create / refresh:** Unity menu `Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)`  
-→ slots onto **`Palettes/FantasyTileset_A`** (not `FantasyTileset`).
+→ slots onto **`Palettes/FantasyTileset_A`** at fixed cell **`(30, -43)`** (never `(-1,0)`).
 
 Do not reference `SmallScaleInt/` from these assets.

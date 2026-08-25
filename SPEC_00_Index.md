@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-25 | v0.83.17 | FantasyTileset_A 格子校正工具：菜单 `Correct FantasyTileset_A From FantasyTileset` 按厂商盘 Tile 名对齐；特例 `Ground F4_W` 原地保留；可重复执行。同步 SPEC_04 §13、Art/Maps README、`FantasyTilesetALayoutAligner` |
 | 2026-08-25 | v0.83.16 | Mode2 `CameraPathSlider` 布局：`anchoredPosition=(-630,240)`、宽 `700`。同步 SPEC_04 §6、FormationEditor / FormationAssetBuilder |
 | 2026-08-25 | v0.83.15 | PushMap Prepare 开战刷怪预览：进入布阵后刷出与开战相同的非陷阱行（Idle）；开战销毁预览再正式刷；陷阱行不预览。同步 SPEC_03 §3.14、CONTEXT |
 | 2026-08-25 | v0.83.14 | PushMap 镜头预览迁 Prepare：默认不播；Mode2「快速预览」+ `CameraPathSlider`（WP_Start↔WP_End）；开战取消 `IsCombatIntroActive` 门闩。同步 SPEC_03 §3.14、SPEC_04 §6/§9.20b、CONTEXT |
@@ -381,6 +382,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-25 | v0.83.17 | FantasyTileset_A layout corrector: menu `Correct FantasyTileset_A From FantasyTileset` aligns by vendor Tile name; keep `Ground F4_W` in place; repeatable. Synced SPEC_04 §13, Art/Maps README, `FantasyTilesetALayoutAligner` |
 | 2026-08-25 | v0.83.16 | Mode2 `CameraPathSlider` layout: `anchoredPosition=(-630,240)`, width `700`. Synced SPEC_04 §6, FormationEditor / FormationAssetBuilder |
 | 2026-08-25 | v0.83.15 | PushMap Prepare StartBattle-spawn preview: spawn same non-trap rows as Idle on enter; destroy then formal respawn on StartBattle; trap rows not previewed. Synced SPEC_03 §3.14, CONTEXT |
 | 2026-08-25 | v0.83.14 | PushMap camera preview moves to Prepare: off by default; Mode2 Quick Preview + `CameraPathSlider` (WP_Start↔WP_End); StartBattle drops `IsCombatIntroActive` latch. Synced SPEC_03 §3.14, SPEC_04 §6/§9.20b, CONTEXT |

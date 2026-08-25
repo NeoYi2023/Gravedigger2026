@@ -31,8 +31,8 @@ namespace Gravedigger2026.Editor.Maps
         private const int This = RuleTile.TilingRuleOutput.Neighbor.This;
         private const int NotThis = RuleTile.TilingRuleOutput.Neighbor.NotThis;
 
-        /// <summary>Palette cell reserved for RT_WallA (left of grid origin).</summary>
-        private static readonly Vector3Int PaletteSlot = new Vector3Int(-1, 0, 0);
+        /// <summary>Fixed FantasyTileset_A cell for RT_WallA (do not use (-1,0); shifts SSI layout).</summary>
+        public static readonly Vector3Int RtWallAPaletteSlot = new Vector3Int(30, -43, 0);
 
         [MenuItem("Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)")]
         public static void EnsureWallARuleTile()
@@ -83,8 +83,8 @@ namespace Gravedigger2026.Editor.Maps
 
             Debug.Log(
                 $"[WallARuleTileBuilder] {(created ? "Created" : "Updated")} {RuleTilePath} " +
-                $"({ruleTile.m_TilingRules.Count} rules) and slotted on FantasyTileset_A at {PaletteSlot}. " +
-                "Tile Palette → FantasyTileset_A → RT_WallA; paint a filled region to auto-edge.");
+                $"({ruleTile.m_TilingRules.Count} rules) on FantasyTileset_A at {RtWallAPaletteSlot}. " +
+                "Tile Palette → FantasyTileset_A → cell (30, -43); icon = Wall A1_N. Re-open Palette if open.");
         }
 
         private static List<RuleTile.TilingRule> BuildRules(
@@ -161,6 +161,40 @@ namespace Gravedigger2026.Editor.Maps
             return tile != null ? tile.sprite : null;
         }
 
+        /// <summary>
+        /// Removes prior RT_WallA cells and pins to <see cref="RtWallAPaletteSlot"/> on an open Tilemap.
+        /// </summary>
+        public static void PinRtWallAOnTilemap(Tilemap tilemap, IsometricRuleTile ruleTile = null)
+        {
+            if (tilemap == null)
+            {
+                return;
+            }
+
+            if (ruleTile == null)
+            {
+                ruleTile = AssetDatabase.LoadAssetAtPath<IsometricRuleTile>(RuleTilePath);
+            }
+
+            if (ruleTile == null)
+            {
+                Debug.LogWarning(
+                    $"[WallARuleTileBuilder] Missing {RuleTilePath}; skip palette pin.");
+                return;
+            }
+
+            var bounds = tilemap.cellBounds;
+            foreach (var pos in bounds.allPositionsWithin)
+            {
+                if (tilemap.GetTile(pos) == ruleTile)
+                {
+                    tilemap.SetTile(pos, null);
+                }
+            }
+
+            tilemap.SetTile(RtWallAPaletteSlot, ruleTile);
+        }
+
         private static void EnsureOnPalette(IsometricRuleTile ruleTile)
         {
             if (AssetDatabase.LoadAssetAtPath<Object>(PalettePath) == null)
@@ -181,18 +215,10 @@ namespace Gravedigger2026.Editor.Maps
                     return;
                 }
 
-                // Remove prior placements of this Rule Tile, then pin to reserved slot.
-                var bounds = tilemap.cellBounds;
-                foreach (var pos in bounds.allPositionsWithin)
-                {
-                    if (tilemap.GetTile(pos) == ruleTile)
-                    {
-                        tilemap.SetTile(pos, null);
-                    }
-                }
-
-                tilemap.SetTile(PaletteSlot, ruleTile);
+                // Fixed slot (30, -43). Avoid CompressBounds here — expanding origin can displace SSI layout.
+                PinRtWallAOnTilemap(tilemap, ruleTile);
                 PrefabUtility.SaveAsPrefabAsset(root, PalettePath);
+                Debug.Log($"[WallARuleTileBuilder] FantasyTileset_A cell for RT_WallA = {RtWallAPaletteSlot}");
             }
             finally
             {

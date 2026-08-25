@@ -8,8 +8,9 @@ using UnityEngine.Tilemaps;
 namespace Gravedigger2026.Editor.Maps
 {
     /// <summary>
-    /// Aligns FantasyTileset_A cell layout to SmallScaleInt FantasyTileset by matching TileBase.name.
-    /// Also refreshes palette TileSpriteArray so cell icons match each Tile's own sprite name.
+    /// Corrects FantasyTileset_A cell layout to SmallScaleInt FantasyTileset by matching TileBase.name
+    /// (Art Environment/Tiles only — does not copy SSI TileSpriteArray offsets).
+    /// Preserves Ground F4_W in place (SSI has no such tile). Re-pins RT_WallA to its fixed slot.
     /// Must use Tilemap API — hand-edited palette YAML does not deserialize reliably.
     /// </summary>
     public static class FantasyTilesetALayoutAligner
@@ -17,6 +18,11 @@ namespace Gravedigger2026.Editor.Maps
         private const string TargetPath = "Assets/Art/Maps/Palettes/FantasyTileset_A.prefab";
         private const string SourcePath =
             "Assets/SmallScaleInt/Fantasy kingdom Tileset/Environment/FantasyTileset.prefab";
+        private const string ArtTilesDir = "Assets/Art/Maps/Environment/Tiles";
+        private const string ArtAnimTilesDir = "Assets/Art/Maps/Environment/Animated tiles";
+        private const string ArtRuleTilesDir = "Assets/Art/Maps/RuleTiles";
+        private const string PreserveTileName = "Ground F4_W";
+        private const string RtWallAName = "RT_WallA";
         private const int OverflowColumns = 50;
 
         /// <summary>
@@ -65,8 +71,21 @@ namespace Gravedigger2026.Editor.Maps
             }
         }
 
+        /// <summary>
+        /// Legacy menu alias — same as <see cref="CorrectFantasyTilesetAFromFantasyTileset"/>.
+        /// </summary>
         [MenuItem("Gravedigger2026/Maps/Align FantasyTileset_A Layout From SSI")]
         public static void AlignFantasyTilesetALayoutFromSsi()
+        {
+            CorrectFantasyTilesetAFromFantasyTileset();
+        }
+
+        /// <summary>
+        /// Correct FantasyTileset_A from vendor FantasyTileset by Tile asset name.
+        /// Batch: <c>-executeMethod Gravedigger2026.Editor.Maps.FantasyTilesetALayoutAligner.CorrectFantasyTilesetAFromFantasyTileset</c>
+        /// </summary>
+        [MenuItem("Gravedigger2026/Maps/Correct FantasyTileset_A From FantasyTileset")]
+        public static void CorrectFantasyTilesetAFromFantasyTileset()
         {
             if (AssetDatabase.LoadAssetAtPath<Object>(TargetPath) == null)
             {
@@ -79,6 +98,9 @@ namespace Gravedigger2026.Editor.Maps
                 Debug.LogError($"[FantasyTilesetALayoutAligner] Missing SSI source palette: {SourcePath}");
                 return;
             }
+
+            var rebound = FantasyTilesetPaletteBuilder.RebindTileSpritesByName();
+            var artByName = LoadArtTilesByName();
 
             var sourceRoot = PrefabUtility.LoadPrefabContents(SourcePath);
             var targetRoot = PrefabUtility.LoadPrefabContents(TargetPath);
@@ -93,7 +115,14 @@ namespace Gravedigger2026.Editor.Maps
                 }
 
                 var sourceCells = CollectFilledCells(sourceMap);
-                var targetByName = CollectTilesByName(targetMap);
+                var previousA = CollectFilledCells(targetMap);
+                var preserveCells = previousA
+                    .Where(c => c.Tile != null && c.Tile.name == PreserveTileName)
+                    .ToList();
+
+                // A-only extras (not matched from SSI, not preserve, not RT_WallA) → overflow later.
+                var placedNames = new HashSet<string>();
+                var previousByName = CollectTilesByName(targetMap);
 
                 targetMap.ClearAllTiles();
 
@@ -104,30 +133,58 @@ namespace Gravedigger2026.Editor.Maps
                 foreach (var cell in sourceCells)
                 {
                     var name = cell.Tile.name;
-                    if (!targetByName.TryGetValue(name, out var queue) || queue.Count == 0)
+                    if (!TryResolveArtTile(name, artByName, previousByName, out var tile))
                     {
                         skippedRefOnly++;
                         continue;
                     }
 
-                    var tile = queue.Dequeue();
                     targetMap.SetTile(cell.Position, tile);
                     occupied.Add(cell.Position);
+                    placedNames.Add(name);
                     matched++;
                 }
 
-                var overflow = new List<TileBase>();
-                foreach (var kv in targetByName)
+                var preserved = PreserveInPlace(targetMap, occupied, preserveCells, artByName);
+                foreach (var cell in preserveCells)
                 {
+                    placedNames.Add(cell.Tile.name);
+                }
+
+                var overflow = new List<TileBase>();
+                foreach (var kv in previousByName)
+                {
+                    if (kv.Key == PreserveTileName || kv.Key == RtWallAName)
+                    {
+                        continue;
+                    }
+
+                    if (placedNames.Contains(kv.Key))
+                    {
+                        continue;
+                    }
+
                     while (kv.Value.Count > 0)
                     {
                         overflow.Add(kv.Value.Dequeue());
                     }
                 }
 
+                // Also overflow Art tiles that were never on A but should stay discoverable? No —
+                // only keep bricks that were already on A and not placed by SSI match / preserve.
                 var overflowPlaced = PlaceOverflow(targetMap, occupied, overflow, sourceCells);
 
-                // Expand Tilemap origin/size to cover all cells; stale bounds clip the Tile Palette view.
+                WallARuleTileBuilder.PinRtWallAOnTilemap(targetMap);
+                occupied.Add(WallARuleTileBuilder.RtWallAPaletteSlot);
+
+                // Re-apply all cells so TileSpriteArray matches each Tile's own sprite after rebind.
+                var finalCells = CollectFilledCells(targetMap);
+                targetMap.ClearAllTiles();
+                for (var i = 0; i < finalCells.Count; i++)
+                {
+                    targetMap.SetTile(finalCells[i].Position, finalCells[i].Tile);
+                }
+
                 targetMap.CompressBounds();
 
                 PrefabUtility.SaveAsPrefabAsset(targetRoot, TargetPath);
@@ -135,8 +192,10 @@ namespace Gravedigger2026.Editor.Maps
                 AssetDatabase.Refresh();
 
                 Debug.Log(
-                    $"[FantasyTilesetALayoutAligner] Aligned {TargetPath} from SSI layout: " +
-                    $"matched={matched}, overflowPlaced={overflowPlaced}, skippedRefOnly={skippedRefOnly}. " +
+                    $"[FantasyTilesetALayoutAligner] Corrected {TargetPath} from FantasyTileset: " +
+                    $"matched={matched}, preserved={preserved} ({PreserveTileName}), " +
+                    $"overflowPlaced={overflowPlaced}, skippedRefOnly={skippedRefOnly}, " +
+                    $"tileSpritesRebound={rebound}, RT_WallA@{WallARuleTileBuilder.RtWallAPaletteSlot}. " +
                     "Re-open Tile Palette → FantasyTileset_A.");
             }
             finally
@@ -144,6 +203,100 @@ namespace Gravedigger2026.Editor.Maps
                 PrefabUtility.UnloadPrefabContents(sourceRoot);
                 PrefabUtility.UnloadPrefabContents(targetRoot);
             }
+        }
+
+        private static bool TryResolveArtTile(
+            string name,
+            Dictionary<string, TileBase> artByName,
+            Dictionary<string, Queue<TileBase>> previousByName,
+            out TileBase tile)
+        {
+            if (artByName.TryGetValue(name, out tile) && tile != null)
+            {
+                return true;
+            }
+
+            if (previousByName.TryGetValue(name, out var queue) && queue.Count > 0)
+            {
+                tile = queue.Dequeue();
+                return tile != null;
+            }
+
+            tile = null;
+            return false;
+        }
+
+        private static Dictionary<string, TileBase> LoadArtTilesByName()
+        {
+            var dict = new Dictionary<string, TileBase>();
+            AddTilesFromFolder(dict, ArtTilesDir);
+            AddTilesFromFolder(dict, ArtAnimTilesDir);
+            AddTilesFromFolder(dict, ArtRuleTilesDir);
+            return dict;
+        }
+
+        private static void AddTilesFromFolder(Dictionary<string, TileBase> dict, string folder)
+        {
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                return;
+            }
+
+            var guids = AssetDatabase.FindAssets("t:TileBase", new[] { folder });
+            for (var i = 0; i < guids.Length; i++)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                var tile = AssetDatabase.LoadAssetAtPath<TileBase>(path);
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                if (!dict.ContainsKey(tile.name))
+                {
+                    dict[tile.name] = tile;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Writes preserve tiles back to their previous cells; walks right if occupied.
+        /// </summary>
+        private static int PreserveInPlace(
+            Tilemap targetMap,
+            HashSet<Vector3Int> occupied,
+            List<(Vector3Int Position, TileBase Tile)> preserveCells,
+            Dictionary<string, TileBase> artByName)
+        {
+            var placed = 0;
+            for (var i = 0; i < preserveCells.Count; i++)
+            {
+                var preferred = preserveCells[i].Position;
+                var name = preserveCells[i].Tile.name;
+                var tile = preserveCells[i].Tile;
+                if (artByName.TryGetValue(name, out var artTile) && artTile != null)
+                {
+                    tile = artTile;
+                }
+
+                var pos = preferred;
+                while (occupied.Contains(pos))
+                {
+                    pos = new Vector3Int(pos.x + 1, pos.y, 0);
+                }
+
+                targetMap.SetTile(pos, tile);
+                occupied.Add(pos);
+                placed++;
+
+                if (pos != preferred)
+                {
+                    Debug.LogWarning(
+                        $"[FantasyTilesetALayoutAligner] {name} preferred {preferred} occupied; placed at {pos}.");
+                }
+            }
+
+            return placed;
         }
 
         private static List<(Vector3Int Position, TileBase Tile)> CollectFilledCells(Tilemap map)
@@ -218,8 +371,7 @@ namespace Gravedigger2026.Editor.Maps
                 var row = i / OverflowColumns;
                 var pos = new Vector3Int(startX + col, maxY - row, 0);
 
-                // If somehow colliding, walk right until free.
-                while (occupied.Contains(pos))
+                while (occupied.Contains(pos) || pos == WallARuleTileBuilder.RtWallAPaletteSlot)
                 {
                     pos = new Vector3Int(pos.x + 1, pos.y, 0);
                 }
