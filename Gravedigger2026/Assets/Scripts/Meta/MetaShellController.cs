@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
@@ -9,6 +10,7 @@ using Gravedigger2026.Core.PushMap;
 using Gravedigger2026.Core.Shop;
 using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
+using Gravedigger2026.Gameplay.Audio;
 using Gravedigger2026.Gameplay.AutoManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
@@ -41,11 +43,14 @@ namespace Gravedigger2026.Meta
         [SerializeField] private AutoManufacturePrefabCatalog _autoMfgPrefabCatalog;
         [SerializeField] private Transform _autoMfgWorldParent;
         [SerializeField] private ShopPrefabCatalog _shopPrefabCatalog;
+        [SerializeField] private BgmClipCatalog _bgmClipCatalog;
+        [SerializeField] private AudioSource _bgmAudioSource;
 
         private readonly SaveSlotService _saveSlots = new SaveSlotService();
         private readonly GameplayStateService _gameplayState = new GameplayStateService();
         private readonly CampaignModeService _campaignMode = new CampaignModeService();
         private readonly ConfigCsvRepository _configs = new ConfigCsvRepository();
+        private readonly BgmService _bgm = new BgmService();
         private readonly WarehouseService _warehouse = new WarehouseService();
         private readonly DungeonUnlockService _dungeonUnlocks = new DungeonUnlockService();
         private readonly ProtagonistProgressService _progress = new ProtagonistProgressService();
@@ -71,6 +76,7 @@ namespace Gravedigger2026.Meta
         private GmSoldierGrantService _gmSoldierGrant;
         private UpgradeManufactureStageModule _umModule;
         private LevelOperationDriver _levelDriver;
+        private CameraFogService _cameraFog;
         private readonly List<FormationClassZoneSnapshot> _gmZoneScratch =
             new List<FormationClassZoneSnapshot>();
 
@@ -87,6 +93,9 @@ namespace Gravedigger2026.Meta
 
         private void Awake()
         {
+            EnsureCameraFogService();
+            EnsureBgmAudioSource();
+            _bgm.Bind(_configs, _bgmClipCatalog, _bgmAudioSource);
             _saveSlots.Load();
 
             _techTree.Bind(_configs, _progress);
@@ -155,7 +164,8 @@ namespace Gravedigger2026.Meta
                         _specialEquipSlots,
                         _protagonistEquipment,
                         _gmSoldierGrant,
-                        _defendPrefabCatalog));
+                        _defendPrefabCatalog,
+                        _bgm));
             }
             else
             {
@@ -200,7 +210,8 @@ namespace Gravedigger2026.Meta
                         HandleDefendVictory,
                         HandleDefendLevelFailure,
                         HandlePushMapModeConfirmed,
-                        SetStagePresentationActive));
+                        SetStagePresentationActive,
+                        _bgm));
             }
             else
             {
@@ -224,7 +235,8 @@ namespace Gravedigger2026.Meta
                         _dungeonUnlocks,
                         HandlePushMapVictoryContinue,
                         HandlePushMapFailureContinue,
-                        SetStagePresentationActive));
+                        SetStagePresentationActive,
+                        _bgm));
             }
             else
             {
@@ -260,6 +272,12 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
                 _inSaveShellView.GmGrantLevelPicked += HandleGmGrantLevelPicked;
                 _inSaveShellView.GmAddSoldierAddClicked += HandleGmAddSoldierAdd;
+                _inSaveShellView.ToolsClosed += HandleMetaOverlayClosed;
+                _inSaveShellView.LevelSelectClosed += HandleMetaOverlayClosed;
+                _inSaveShellView.GmGrantListClosed += HandleMetaOverlayClosed;
+                _inSaveShellView.GmAddSoldierClosed += HandleMetaOverlayClosed;
+                _inSaveShellView.EquipmentWarehouseClosed += HandleMetaOverlayClosed;
+                _inSaveShellView.MagicBookSlotsClosed += HandleMetaOverlayClosed;
             }
 
             if (_techTreeCanvasView != null)
@@ -268,6 +286,7 @@ namespace Gravedigger2026.Meta
             }
 
             _gameplayState.StateChanged += HandleGameplayStateChanged;
+            RefreshCameraFogMetaBlocking();
         }
 
         private void Start()
@@ -322,10 +341,13 @@ namespace Gravedigger2026.Meta
             {
                 _saveSelectView.Show();
             }
+
+            PlayTitleBgm();
         }
 
         private void EnterShell(int slotIndex, CampaignMode mode, bool isNewSave)
         {
+            _bgm.Stop();
             _levelDriver?.StopCurrentLevel();
             _warehouse.Clear();
             _manufacture?.ClearAllSlots();
@@ -477,6 +499,8 @@ namespace Gravedigger2026.Meta
             {
                 _inSaveShellView.ToggleToolsPanel();
             }
+
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HandleBackToSaveSelect()
@@ -495,6 +519,7 @@ namespace Gravedigger2026.Meta
             _inSaveShellView.HideMagicBookSlotsPanel();
             _inSaveShellView.BindEquipmentWarehouse(_protagonistEquipment, _configs);
             _inSaveShellView.ShowEquipmentWarehousePanel();
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HandleMagicBookRequested()
@@ -508,6 +533,7 @@ namespace Gravedigger2026.Meta
             _inSaveShellView.HideEquipmentWarehousePanel();
             _inSaveShellView.BindMagicBookSlots(_specialEquipSlots, _configs, _confirmDialog);
             _inSaveShellView.ShowMagicBookSlotsPanel();
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HandleShopRequested()
@@ -571,6 +597,7 @@ namespace Gravedigger2026.Meta
 
             _shopStageRootView.Closed += HandleShopOverlayClosed;
             _shopStageRootView.Open();
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HandleShopOverlayClosed()
@@ -581,6 +608,7 @@ namespace Gravedigger2026.Meta
             }
 
             _shopStageRootView = null;
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HandleShopStageComplete()
@@ -603,6 +631,7 @@ namespace Gravedigger2026.Meta
             _shopStageRootView.Closed -= HandleShopOverlayClosed;
             Destroy(_shopStageRootView.gameObject);
             _shopStageRootView = null;
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HideSiblingInSaveOverlays()
@@ -780,6 +809,7 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.ShowLevelSelectPanel(levelIds);
+                RefreshCameraFogMetaBlocking();
             }
             else if (_toastView != null)
             {
@@ -871,6 +901,7 @@ namespace Gravedigger2026.Meta
                     _inSaveShellView.HideMagicBookSlotsPanel();
                 }
 
+                RefreshCameraFogMetaBlocking();
                 return;
             }
 
@@ -886,6 +917,50 @@ namespace Gravedigger2026.Meta
             {
                 _techTreeCanvasView.Hide();
             }
+
+            RefreshCameraFogMetaBlocking();
+        }
+
+        private void HandleMetaOverlayClosed()
+        {
+            RefreshCameraFogMetaBlocking();
+        }
+
+        private void EnsureCameraFogService()
+        {
+            _cameraFog = GetComponent<CameraFogService>();
+            if (_cameraFog == null)
+            {
+                _cameraFog = gameObject.AddComponent<CameraFogService>();
+            }
+
+            _cameraFog.Configure(_digPrefabCatalog);
+        }
+
+        private void RefreshCameraFogMetaBlocking()
+        {
+            if (_cameraFog == null)
+            {
+                EnsureCameraFogService();
+            }
+
+            var blocking = false;
+            if (_inSaveShellView != null && _inSaveShellView.IsAnyMetaOverlayBlockingFog)
+            {
+                blocking = true;
+            }
+
+            if (_shopStageRootView != null)
+            {
+                blocking = true;
+            }
+
+            if (_techTreeCanvasView != null && _techTreeCanvasView.IsOpen)
+            {
+                blocking = true;
+            }
+
+            _cameraFog?.SetMetaOverlayBlocking(blocking);
         }
 
         private void HandleLevel()
@@ -953,6 +1028,7 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.ShowGmAddSoldierPanel(classes, races);
+                RefreshCameraFogMetaBlocking();
             }
         }
 
@@ -1078,6 +1154,7 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null && _inSaveShellView.HasGmGrantListPanel)
             {
                 _inSaveShellView.ShowGmGrantListPanel(title, items);
+                RefreshCameraFogMetaBlocking();
             }
             else if (_toastView != null)
             {
@@ -1172,6 +1249,7 @@ namespace Gravedigger2026.Meta
                 if (_inSaveShellView != null)
                 {
                     _inSaveShellView.ShowGmGrantLevelPicker("选择等级", levels);
+                    RefreshCameraFogMetaBlocking();
                 }
 
                 return;
@@ -1327,10 +1405,14 @@ namespace Gravedigger2026.Meta
                     _inSaveShellView.ShowGameplayState(context.GameplayType);
                 }
             }
+
+            // Clear sticky Meta overlay fog-hide (e.g. Tools closed via X without refresh).
+            RefreshCameraFogMetaBlocking();
         }
 
         private void HandleLevelEnded(string message)
         {
+            _bgm.Stop();
             SetStagePresentationActive(false);
 
             if (_toastView != null && !string.IsNullOrEmpty(message))
@@ -1342,6 +1424,32 @@ namespace Gravedigger2026.Meta
             {
                 _inSaveShellView.ShowStageInfo(null);
             }
+        }
+
+        private void PlayTitleBgm()
+        {
+            if (!_configs.IsLoaded && !_configs.TryLoadAll(CampaignMode.Mode1))
+            {
+                Debug.LogWarning($"[MetaShell] Title BGM skipped — config load failed: {_configs.LastError}");
+                return;
+            }
+
+            _bgm.Play(BgmContext.Title);
+        }
+
+        private void EnsureBgmAudioSource()
+        {
+            if (_bgmAudioSource != null)
+            {
+                return;
+            }
+
+            var go = new GameObject("BgmAudioSource");
+            go.transform.SetParent(transform, false);
+            _bgmAudioSource = go.AddComponent<AudioSource>();
+            _bgmAudioSource.playOnAwake = false;
+            _bgmAudioSource.loop = true;
+            _bgmAudioSource.spatialBlend = 0f;
         }
     }
 }

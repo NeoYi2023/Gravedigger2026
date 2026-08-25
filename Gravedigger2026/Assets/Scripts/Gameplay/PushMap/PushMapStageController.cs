@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
@@ -15,6 +16,7 @@ using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Formation;
+using Gravedigger2026.UI;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.UI;
@@ -69,6 +71,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private RewardGrantService _rewardGrant;
         private Action _onVictoryAdvance;
         private Action<string> _onLevelFailure;
+        private BgmService _bgm;
         private PushMapBattleSettlementView _settlementView;
         private PushMapRewardPopupView _rewardView;
         private string _pendingFailureReason;
@@ -120,6 +123,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _formationCatalog = formationCatalog;
             }
+        }
+
+        public void BindBgm(BgmService bgm)
+        {
+            _bgm = bgm;
         }
 
         public void Begin(
@@ -189,6 +197,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _session = new PushMapSessionService();
             _session.SetMonsterWorldXZProvider(TryGetMonsterWorldXZ);
+            _session.PhaseChanged += HandlePhaseChanged;
             _session.LevelFailureRequested += HandleLevelFailureRequested;
             _session.VictorySettled += HandleVictorySettled;
             _session.ObjectiveCaptured += HandleObjectiveCaptured;
@@ -227,10 +236,13 @@ namespace Gravedigger2026.Gameplay.PushMap
         private void EndInternal(bool destroyWorld)
         {
             _running = false;
+            _bgm?.Stop();
+            CameraFogService.Resolve()?.SetPushMapCombatActive(false);
             CloseFormationEditor();
 
             if (_session != null)
             {
+                _session.PhaseChanged -= HandlePhaseChanged;
                 _session.LevelFailureRequested -= HandleLevelFailureRequested;
                 _session.VictorySettled -= HandleVictorySettled;
                 _session.ObjectiveCaptured -= HandleObjectiveCaptured;
@@ -347,6 +359,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             SetCombatUnitsGameplayEnabled(false);
             PauseAllMassMoves();
             BeginCameraIntroOrStartGameplay();
+            // Fog also latched in HandlePhaseChanged(Combat); keep explicit for Intro window.
+            var fog = CameraFogService.Resolve();
+            if (fog == null)
+            {
+                Debug.LogWarning("[PushMapStage] CameraFogService missing — DigFogCanvas will stay inactive.");
+            }
+            else
+            {
+                fog.SetPushMapCombatActive(true);
+            }
 
             if (_hudView != null)
             {
@@ -1533,6 +1555,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _running = false;
+            CameraFogService.Resolve()?.SetPushMapCombatActive(false);
             DisableCameraFollow();
             WriteDungeonUnlocksOnClear();
 
@@ -1551,6 +1574,21 @@ namespace Gravedigger2026.Gameplay.PushMap
             ShowSettlementPanel(isVictory: true);
         }
 
+        private void HandlePhaseChanged(PushMapPhase phase)
+        {
+            var fog = CameraFogService.Resolve();
+            if (phase == PushMapPhase.Combat)
+            {
+                _bgm?.Play(BgmContext.Combat);
+                fog?.SetPushMapCombatActive(true);
+            }
+            else
+            {
+                _bgm?.Stop();
+                fog?.SetPushMapCombatActive(false);
+            }
+        }
+
         private void HandleLevelFailureRequested()
         {
             if (!_running && _driverOutcomeDispatched)
@@ -1559,6 +1597,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _running = false;
+            CameraFogService.Resolve()?.SetPushMapCombatActive(false);
             DisableCameraFollow();
             _pendingFailureReason = "PushMap LevelFailure";
             if (_hudView != null)

@@ -163,6 +163,7 @@ namespace Gravedigger2026.Editor.Dig
                 rewardPrefab,
                 cursorRingView,
                 AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Defend/Projectile/ZYT_1.png"),
+                AssetDatabase.LoadAssetAtPath<Sprite>(CameraFogSpritePath),
                 LoadLightningFrames(),
                 mapPrefabs,
                 graveEntries);
@@ -423,6 +424,7 @@ namespace Gravedigger2026.Editor.Dig
 
             var fogCanvasGo = new GameObject("DigFogCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             fogCanvasGo.transform.SetParent(root.transform, false);
+            fogCanvasGo.SetActive(false);
             var fogCanvas = fogCanvasGo.GetComponent<Canvas>();
             fogCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             fogCanvas.sortingOrder = DigUiLayering.FogCanvasOrder;
@@ -448,6 +450,7 @@ namespace Gravedigger2026.Editor.Dig
                     Debug.LogWarning($"[DigAssetBuilder] Missing camera fog sprite at {CameraFogSpritePath}");
                 }
             }
+            // Runtime fog is owned by CameraFogService (Meta); DigStageRoot copy stays inactive.
 
             var hudRoot = CreateUiPanel(canvasGo.transform, "HudRoot", new Color(0f, 0f, 0f, 0f));
             Stretch(hudRoot.GetComponent<RectTransform>());

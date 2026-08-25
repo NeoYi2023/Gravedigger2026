@@ -1,0 +1,10 @@
+BgmId,Context,ClipId,Loop,Weight,Volume
+Bgm_Title_01,Title,BGM_Title_Graveglass Gate,1,1,1
+Bgm_Title_02,Title,BGM_Title_Graveglass Gate_2,1,1,1
+Bgm_Title_03,Title,BGM_Title_Graveyard Loops,1,1,1
+Bgm_Dig_01,Dig,BGM_Dig_Ashen Plot,1,1,1
+Bgm_Combat_01,Combat,BGM_Combat_Graveblade March,1,1,1
+Bgm_Combat_02,Combat,BGM_Combat_Graveblade March_2,1,1,1
+Bgm_Combat_03,Combat,BGM_Combat_Graveyard March_1,1,1,1
+Bgm_Combat_04,Combat,BGM_Combat_Graveyard March_2,1,1,1
+Bgm_Combat_05,Combat,BGM_Combat_Bone Crown Raid,1,1,1

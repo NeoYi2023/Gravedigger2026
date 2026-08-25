@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
-    /// <summary>
-    /// Dig-stage camera fog overlay pulse: linear center-out scale 1.0 → 1.05 over 5s, then back over 5s, looped.
-    /// Started/stopped by DigStageController while the dig session is active.
+        /// <summary>
+    /// Dig-stage / PushMap Combat camera fog overlay pulse: linear center-out scale 1.0 → 1.05 over 5s, then back over 5s, looped.
+    /// Started/stopped by CameraFogService while fog is eligible and visible.
     /// </summary>
     public sealed class DigCameraFogOverlayView : MonoBehaviour
     {

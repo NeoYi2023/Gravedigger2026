@@ -19,6 +19,7 @@ namespace Gravedigger2026.UI
         public event Action GrantProtagonistEquipmentClicked;
         public event Action GrantMagicBookClicked;
         public event Action GrantAddSoldierClicked;
+        public event Action Closed;
 
         private void Awake()
         {
@@ -54,8 +55,14 @@ namespace Gravedigger2026.UI
 
             if (_closeButton != null)
             {
-                _closeButton.onClick.AddListener(Hide);
+                _closeButton.onClick.AddListener(HandleCloseClicked);
             }
+        }
+
+        private void HandleCloseClicked()
+        {
+            Hide();
+            Closed?.Invoke();
         }
 
         public bool IsOpen => _root != null && _root.activeSelf;

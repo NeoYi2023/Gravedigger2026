@@ -517,6 +517,17 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 是否占用 | 必须 |
 | 显示名 / 时间戳 | 可选；未定时标 TBD |
 
+**背景音乐（BGM）**
+
+| 规则 | 说明 |
+|------|------|
+| 配置 | 曲目池由表 `Audio_BgmConfig` 驱动（[SPEC_04 §9.29](SPEC_04_Technical.md)）；同 `Context` 多行按 `Weight` 加权随机选 1 首；`Loop` 默认循环（可设只播一遍） |
+| Title | **仅**存档选择（`SaveSelect` / UI-001）播放 `Context=Title` |
+| Dig | Dig 阶段 Enter 播放 `Context=Dig`；Exit / 离开关卡 → 停止 |
+| Combat | **Defend Combat** 与 **PushMap Combat** 共用 `Context=Combat` 池；Prepare / Ended / 非战斗阶段 → 停止 |
+| 静音 | 进档壳、Shop / AutoManufacture / UM、Defend·PushMap Prepare、结算后回壳等非上列时机 **不播 BGM**（`Stop`） |
+| 幂等 | 同一 `Context` 已在播放时不重抽、不重开；离开该 Context 后再进入才重新随机 |
+
 ### English
 
 **Slot rules**
@@ -548,6 +559,17 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | Slot id | Required |
 | Occupied | Required |
 | Display name / timestamp | Optional; TBD if unused |
+
+**Background music (BGM)**
+
+| Rule | Notes |
+|------|-------|
+| Config | Track pools driven by `Audio_BgmConfig` ([SPEC_04 §9.29](SPEC_04_Technical.md)); multiple rows per `Context` → weighted-random pick one by `Weight`; `Loop` defaults to loop (can play once) |
+| Title | **Only** save select (`SaveSelect` / UI-001) plays `Context=Title` |
+| Dig | Dig stage Enter plays `Context=Dig`; Exit / leave level → stop |
+| Combat | **Defend Combat** and **PushMap Combat** share `Context=Combat` pool; Prepare / Ended / non-combat → stop |
+| Silence | InSaveShell, Shop / AutoManufacture / UM, Defend·PushMap Prepare, post-settlement shell, etc. play **no** BGM (`Stop`) |
+| Idempotent | While the same `Context` is already playing, do not re-roll or restart; re-enter after leave re-rolls |
 
 ---
 
@@ -1106,7 +1128,7 @@ EnterLevel
 |------|------|
 | 地图实体 | Dig 阶段 **不** Instantiate 地图中心 Digger 模型（无整角 Visual、无待机/挖坟动画驱动） |
 | HUD 头像 | Dig HUD **左上角** 固定 **60×60**（Canvas 参考分辨率单位）方框，展示主角头像；Demo 可用占位图/色块，正式头像资源后换 |
-| 镜头迷雾滤镜 | 独立 **`DigFogCanvas`**（`sortingOrder=10`）全屏 **`CameraFogOverlay`**：Sprite = `Assets/Art/Maps/Fog_1.png`；`raycastTarget=false`；**高于**世界地图/Sprite（坟等），**低于** Meta 壳 `MetaCanvas`（`20`：装备/魔法书/商店等）与 **DigHudCanvas**（`30`：计时/头像/GM/`RewardFlyerLayer`/汇总）。呼吸动效：`DigCameraFogOverlayView` 中心 pivot 缩放 1.0↔1.05 各 5s 循环；挖坟开局 `Play`、结束 `Stop`。`DigUiLayering` 进挖坟应用层级、离开恢复 Meta 原序。**GM** 折叠：`GmToggleButton` + `GmMenuPanel` |
+| 镜头迷雾滤镜 | 全局 **`CameraFogService`**（Meta 壳常驻）拥有独立 **`DigFogCanvas`**（`sortingOrder=10`）全屏 **`CameraFogOverlay`**：Sprite = `Assets/Art/Maps/Fog_1.png`；`raycastTarget=false`；**高于**世界地图/Sprite，**低于** Meta 壳 `MetaCanvas`（`20`）与 **DigHudCanvas**（`30`）。**显隐（权威）：** **仅** Dig 会话进行中（含 DigStageSummary）与 PushMap **`Combat`**（含开战 Intro）显示；Shop / AutoManufacture / UpgradeManufacture / Defend / PushMap **Prepare**/`Ended` / 进档壳其它界面 **不**显示。Dig 或 PushMap Combat 中打开装备仓 / 魔法书槽 / 商店 overlay / Tools / 关卡选择 / GM 弹窗 / 科技树等 Meta 弹窗时 **主动 `SetActive(false)` 隐藏** `DigFogCanvas`，关闭后若仍处合法玩法窗口则恢复。呼吸动效：`DigCameraFogOverlayView` 中心 pivot 缩放 1.0↔1.05 各 5s；Dig 倒计时进行中与 PushMap Combat 可见时 `Play`，倒计时归零 / 阶段 End / 隐藏时 `Stop`。禁止把 `DigFogCanvas` 挂到 `transform.root` 以致阶段销毁后残留。`DigUiLayering` 进 Dig 仅调 Meta/HUD 排序。**GM** 折叠：`GmToggleButton` + `GmMenuPanel` |
 | Prefab | `Digger` Prefab / Art 管线可保留（[SPEC_04 §15](SPEC_04_Technical.md)），但本阶段运行时 **不**作为场上实体 |
 
 **挖坟主角能力（DigProtagonistCapabilities）**
@@ -1298,7 +1320,7 @@ Only this type this stage (no other obstacle types yet):
 |------|-------|
 | Map entity | Dig stage does **not** Instantiate a map-center Digger model (no whole-character Visual, no idle/dig anim drive) |
 | HUD portrait | Dig HUD **top-left** fixed **60×60** (canvas reference-resolution units) frame showing protagonist portrait; Demo may use placeholder tint/sprite; swap formal art later |
-| Camera fog filter | Separate **`DigFogCanvas`** (`sortingOrder=10`) full-screen **`CameraFogOverlay`** (Sprite = `Assets/Art/Maps/Fog_1.png`; `raycastTarget=false`); **above** world map/sprites (graves etc.), **below** Meta shell `MetaCanvas` (`20`: Equipment/MagicBook/Shop etc.) and **DigHudCanvas** (`30`: timer/portrait/GM/`RewardFlyerLayer`/summary). Pulse: `DigCameraFogOverlayView` center pivot scale 1.0↔1.05 every 5s; `Play` on Dig start, `Stop` on end. `DigUiLayering` applies stack on Dig enter, restores Meta order on exit. **GM** foldout: `GmToggleButton` + `GmMenuPanel` |
+| Camera fog filter | Global **`CameraFogService`** (Meta-resident) owns **`DigFogCanvas`** (`sortingOrder=10`) full-screen **`CameraFogOverlay`** (Sprite = `Assets/Art/Maps/Fog_1.png`; `raycastTarget=false`); **above** world map/sprites, **below** Meta shell `MetaCanvas` (`20`) and **DigHudCanvas** (`30`). **Visibility (authority):** show **only** during Dig session (incl. DigStageSummary) and PushMap **`Combat`** (incl. Intro); **never** for Shop / AutoManufacture / UpgradeManufacture / Defend / PushMap **Prepare**/`Ended` / other shell UIs. While Dig or PushMap Combat is eligible, opening Equipment / MagicBook / Shop overlay / Tools / LevelSelect / GM / TechTree Meta overlays **actively hides** `DigFogCanvas` (`SetActive(false)`); restore when overlays close if still eligible. Pulse: `DigCameraFogOverlayView` 1.0↔1.05 / 5s; `Play` while Dig countdown or PushMap Combat fog is shown, `Stop` on Dig time-up / stage End / hide. Do **not** parent `DigFogCanvas` to `transform.root` (leaks after Dig destroy). `DigUiLayering` only adjusts Meta/HUD order on Dig enter. **GM** foldout: `GmToggleButton` + `GmMenuPanel` |
 | Prefab | `Digger` Prefab / art pipeline may remain ([SPEC_04 §15](SPEC_04_Technical.md)) but is **not** a runtime Dig-stage world entity |
 
 **DigProtagonistCapabilities**
@@ -3131,6 +3153,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | Demo 伤害飘字边界 | **DamagePopup（PM-12/13）：** 规则层命中成功后，在**被击目标**头顶显示 `-受伤值`（数值与本次结算伤害一致）。敌方怪物：红色；我方士兵：白色；敌我字号均为 **12**。出现后 **0.5s** 内世界坐标 `position.z` 相对起点从 **+0** 线性增至 **+0.5**，随后销毁（不做 Y 轴持续上浮）。主角护盾受击**不要求**飘字。防守战本需求 **不做** |
 | Demo 受伤闪烁边界 | **HitFlash（PM-12/13）：** 与飘字同一命中成功事件。目标子树 Renderer 临时亮色（`MaterialPropertyBlock`，勿永久改共享材质）。怪物亮**红**；士兵亮**白**。共 **2** 次脉冲（立即 1 + 再 1），每次持续 **0.1s**，**中间不灭**（紧接）→ 视觉连续亮约 **0.2s** 后恢复本色。闪烁未结束再次受伤 → 从头刷新。未命中/挥空不闪。防守战本需求 **不做** |
 | Demo 友军脚下圈边界 | **AllyFootCircle：** Defend/PushMap Combat **忠诚存活**士兵脚下绿描边 + 内黑 α=**160/255**；半径=`BodyRadius`；localPos `(0,-0.05,-0.2)`；rotation X=**-30**；Order In Layer=`1`；跟随移动；叛变/死亡隐藏；见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
+| Demo 镜头迷雾边界 | **CameraFog（v0.83.05）：** PushMap **仅 `Combat`**（含 Intro）显示 `DigFogCanvas`；`Prepare`/`Ended` 与 Meta 弹窗打开时隐藏；由全局 `CameraFogService` 驱动，见 §3.10 |
 | Demo 战斗技能图标边界 | **CombatSkillIcon（UI-025 / D-071 / 方案 A）：** PushMap 仅。头顶 35×35 静止 0.6s 后世界 +Z 上飘 0.3s 淡出；同兵右排 4px。`Skill_03` 提交与 `Skill_01` 格挡成功头顶飘；`Skill_02` 满血脚下 20×20 且生效瞬间头顶飘一次，受伤收起。`CombatDead` 立即清图标。规则事件 `SkillIconPopup` / `SkillPersistChanged`。Defend **不做** |
 | Demo 选敌粘滞边界 | v0.74.10：遇敌选敌带**粘滞迟滞**——已认领怪仍存活且仍在其遇敌检测半径内时，仅当新候选中心距比已认领目标近超过 **`EngageStickHysteresisMargin`（默认 0.15 世界单位，常量）** 才切换认领，否则保持原认领。原因：密集怪群叠加 SoftCollision 微推使「严格最近」目标逐帧翻飞，破坏 AttackSlot / 前摇稳定性。粘滞不改变检测半径与槽位合法性；目标死亡/出圈仍正常切换（**不再**绑定已废止的 `DemoKillEngageSeconds`） |
 | Demo BOSS 引导边界 | v0.74.10：目标链耗尽（`CurrentObjectiveOrder=0`，全部占领）且地图有 `BossPoint` → `FlowField` 重建指向 BossPoint 世界 XZ（`CurrentObjectiveChanged(0)` 触发一次；无目标点地图开战后立即重建）；此时 `ObjectiveArriveRadius` 收紧为 **`BossAdvanceArriveRadius`（默认 0.35，常量）**，保证士兵贴近 BOSS 点；**v0.82.55：** 主动态 BOSS 另靠 `AlertRadius` 把附近友军拉进 `AttackSlot`（`Monster_12`=4）；`Stationary*` BOSS 不移动时本引导仍是唯一接近手段；无 `BossPoint` → 维持「保持当前位置/就近守备」原语义；镜头跟随仍走 `CameraFollowPath` 最大投影（不跟士兵本人） |
@@ -3285,6 +3308,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Demo DamagePopup edge | **DamagePopup (PM-12/13):** after rules confirm a hit, show `-damage` above the **hit target** (value matches settled damage). Enemy monsters: red; loyal soldiers: white; font size **12** for both. Over **0.5s**, world `position.z` lerps relative start **+0→+0.5**, then despawn (no sustained Y rise). Protagonist Shield hits **do not** require a popup. Defend mode out of scope for this request |
 | Demo HitFlash edge | **HitFlash (PM-12/13):** same successful-hit event as DamagePopup. Temporarily tint target subtree Renderers (MaterialPropertyBlock; do not permanently mutate shared materials). Monster bright **red**; soldier bright **white**. **2** pulses (immediate + one more), each **0.1s**, **no off gap** between them → ≈**0.2s** continuous tint then restore. Hit again mid-flash → restart from t=0. Miss / whiff → no flash. Defend mode out of scope |
 | Demo AllyFootCircle edge | **AllyFootCircle:** Defend/PushMap Combat **loyal living** soldiers: green-stroke foot circle + black fill α=**160/255**; radius=`BodyRadius`; localPos `(0,-0.05,-0.2)`; rotation X=**-30**; Order In Layer=`1`; follows movement; hide on Rebel/CombatDead; see [SPEC_04 §9.7](SPEC_04_Technical.md) |
+| Demo camera fog edge | **CameraFog (v0.83.05):** PushMap shows `DigFogCanvas` **only in `Combat`** (incl. Intro); hide for `Prepare`/`Ended` and while Meta overlays open; driven by global `CameraFogService`; see §3.10 |
 | Demo CombatSkillIcon edge | **CombatSkillIcon (UI-025 / D-071 / Approach A):** PushMap only. Overhead 35×35 holds 0.6s then world +Z rise 0.3s fade; stack screen-right 4px. `Skill_03` commit and `Skill_01` block success popup overhead; `Skill_02` full-HP persist 20×20 at feet plus one overhead on activate, hide when damaged. `CombatDead` clears icons immediately. Rules events `SkillIconPopup` / `SkillPersistChanged`. Defend **out of scope** |
 | Demo engage stickiness edge | v0.74.10: engage target selection carries **sticky hysteresis** — while the claimed monster is alive and still inside its engage detect radius, switch claims only if a new candidate's center distance is closer by more than **`EngageStickHysteresisMargin` (default 0.15 world units, constant)**; otherwise keep the current claim. Rationale: dense packs + SoftCollision micro-pushes flip-flop the strictly-nearest target per frame and destabilize AttackSlot / windup. Stickiness changes neither detect radius nor slot legality; target death / leaving range still switches normally (**no longer** tied to retired `DemoKillEngageSeconds`) |
 | Demo Boss guidance edge | v0.74.10: when the objective chain is exhausted (`CurrentObjectiveOrder=0`, all captured) and the map has a `BossPoint` → rebuild the `FlowField` toward the BossPoint world XZ (fired once by `CurrentObjectiveChanged(0)`; maps with no objectives rebuild right after StartBattle); `ObjectiveArriveRadius` tightens to **`BossAdvanceArriveRadius` (default 0.35, constant)** so soldiers close on the Boss point; **v0.82.55:** active-stance bosses also pull nearby allies into `AttackSlot` via `AlertRadius` (`Monster_12`=4); for `Stationary*` bosses this guidance is still the only approach means; no `BossPoint` → keep the original "hold position / guard nearby" semantics; camera follow still uses `CameraFollowPath` max projection (does not follow the soldier) |

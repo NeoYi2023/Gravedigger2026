@@ -123,6 +123,8 @@ namespace Gravedigger2026.UI
             }
         }
 
+        public bool IsOpen => _root != null && _root.activeSelf;
+
         public void ShowTooltip(TechTreeConfigRow row)
         {
             if (row == null)

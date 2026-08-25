@@ -1,5 +1,6 @@
 using System;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
@@ -30,6 +31,7 @@ namespace Gravedigger2026.Core.Level
         private readonly DefendPrefabCatalog _defendCatalog;
         private readonly Action _onSummaryConfirmed;
         private readonly Action<bool> _onDigPresentationActive;
+        private readonly BgmService _bgm;
 
         private GameObject _stageRootInstance;
         private DigStageController _controller;
@@ -45,7 +47,8 @@ namespace Gravedigger2026.Core.Level
             SpecialEquipSlotsService specialEquipSlots = null,
             ProtagonistEquipmentService protagonistEquipment = null,
             GmSoldierGrantService soldierGrant = null,
-            DefendPrefabCatalog defendCatalog = null)
+            DefendPrefabCatalog defendCatalog = null,
+            BgmService bgm = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -58,6 +61,7 @@ namespace Gravedigger2026.Core.Level
             _protagonistEquipment = protagonistEquipment;
             _soldierGrant = soldierGrant;
             _defendCatalog = defendCatalog;
+            _bgm = bgm;
         }
 
         public GameplayState HandledState => GameplayState.Dig;
@@ -109,12 +113,16 @@ namespace Gravedigger2026.Core.Level
                 _techTree.Changed += HandleCapsChanged;
             }
 
+            _bgm?.Play(BgmContext.Dig);
+
             Debug.Log(
                 $"[Stage:Dig] Enter Level={context.LevelId} Stage={context.StageNumber} ConfigId={context.GameplayConfigId} MapId={context.ResolvedMapId} Prefab={context.ResolvedMapPrefabPath}");
         }
 
         public void Exit(LevelStageContext context)
         {
+            _bgm?.Stop();
+
             if (_techTree != null)
             {
                 _techTree.Changed -= HandleCapsChanged;

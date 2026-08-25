@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.03
-**最后更新 / Last Updated:** 2026-08-23  
+**文档版本 / Document Version:** v0.83.11
+**最后更新 / Last Updated:** 2026-08-25  
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,13 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-25 | v0.83.11 | MapAutoTile 首套 Wall A：Editor `WallARuleTileBuilder` 菜单 Ensure `RT_WallA`（填区域→Blank 内 + Wall A1 边/角）；Palette 纳入 `Art/Maps/RuleTiles/`。同步 Art/Maps README；issues MA-01 |
+| 2026-08-25 | v0.83.10 | 地图自动接边（MapAutoTile）编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）；资产 `Art/Maps/RuleTiles/`；挂 FantasyTileset；地面/装饰配套砖；不含 FlowingWater 层；不参与寻路/空气墙/占领。同步 SPEC_04 §13、Art/Maps README、CONTEXT；issues `.scratch/map-auto-edge-tiles/` |
+| 2026-08-25 | v0.83.09 | 地图流动水面（FlowingWater）表现约定关合：Built-in `Art/Maps/Shaders/Water/`；Grid 下 Water(Chunk)/Foam(Individual) 两层；世界 UV=`xz`（RotX 90°）；不参与 NavMesh/空气墙/占领。同步 SPEC_04 §2/§13、Art/Maps README、CONTEXT；issues `.scratch/map-flowing-water/` MW-00 |
+| 2026-08-25 | v0.83.08 | 镜头迷雾修复：Tools 点关闭未清除 Meta blocking 导致 PushMap Combat `DigFogCanvas` 卡在未勾选；`ToolsPanel.Closed` + 阶段切换刷新 blocking；PushMap 由 `PhaseChanged` 驱动显隐。同步实现，规则仍见 §3.10 |
+| 2026-08-25 | v0.83.07 | BGM：配置表 `Audio_BgmConfig` + `BgmService`/`BgmClipCatalog`；Title 仅存档选择；Dig 阶段 Dig 池；Defend/PushMap Combat 共用 Combat 池；其余静音；默认循环可配只播一遍。同步 SPEC_03 §3.4、SPEC_04 §6/§9.29/§14.2、CONTEXT |
+| 2026-08-25 | v0.83.06 | Fantasy kingdom Tileset 1.1.0 Example scene/Scripts（Unity 6 API）在 2021.3 上 CS 报错：Editor `FantasyTilesetExampleCompileGuard` 写入永不成立 defineConstraints 的 asmdef 停编；`SmallScaleInt/` 仍 gitignore。同步 SPEC_04 §2、Art/Maps README |
+| 2026-08-25 | v0.83.05 | 镜头迷雾显隐：全局 `CameraFogService` 拥有 `DigFogCanvas`；**仅** Dig 会话与 PushMap **Combat**（含 Intro）显示；打开装备/魔法书/商店 overlay/Tools 等 Meta 弹窗时 **主动隐藏**；Shop/AM/UM/Defend/Prepare 等不显示。同步 SPEC_03 §3.10/§3.14、SPEC_04 §6、CONTEXT |
 | 2026-08-23 | v0.83.04 | Dig 迷雾层级：`DigFogCanvas` order=10，低于 Meta 壳 `MetaCanvas`（20）与 `DigHudCanvas`（30）；`DigUiLayering` 进/出挖坟应用。同步 SPEC_03 §3.10 |
 | 2026-08-23 | v0.83.03 | 修复 Dig 迷雾盖住世界空间奖励飞字：改 UI `RewardFlyerLayer`；迷雾移至 Canvas 底层；Dig HUD GM 折叠为 `GmToggleButton` + `GmMenuPanel`。同步 SPEC_03 §3.10、SPEC_04 §9.2 |
 | 2026-08-23 | v0.83.03 | Dig 镜头迷雾 `CameraFogOverlay` 呼吸动效：`DigCameraFogOverlayView` 中心匀速缩放 1.0↔1.05（各 5s 循环）；仅 Dig 会话进行中 `Play`，倒计时归零/阶段 End `Stop`。同步 SPEC_03 §3.10、SPEC_04 §6/§9.2、CONTEXT |
@@ -369,6 +376,13 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-25 | v0.83.11 | MapAutoTile first set Wall A: Editor `WallARuleTileBuilder` menu Ensures `RT_WallA` (fill→Blank interior + Wall A1 edges); Palette includes `Art/Maps/RuleTiles/`. Synced Art/Maps README; issue MA-01 |
+| 2026-08-25 | v0.83.10 | MapAutoTile editor-paint convention: Isometric Rule Tile (`tilemap.extras`); assets `Art/Maps/RuleTiles/`; FantasyTileset palette; ground/décor companion sets; excludes FlowingWater layers; not in pathing/AirWall/capture. Synced SPEC_04 §13, Art/Maps README, CONTEXT; issues `.scratch/map-auto-edge-tiles/` |
+| 2026-08-25 | v0.83.09 | Map FlowingWater presentation convention closed: Built-in `Art/Maps/Shaders/Water/`; Grid layers Water(Chunk)/Foam(Individual); world UV=`xz` (RotX 90°); not in NavMesh/AirWall/capture. Synced SPEC_04 §2/§13, Art/Maps README, CONTEXT; issues `.scratch/map-flowing-water/` MW-00 |
+| 2026-08-25 | v0.83.08 | Camera fog fix: Tools close button left Meta blocking stuck so PushMap Combat `DigFogCanvas` stayed inactive; `ToolsPanel.Closed` + refresh blocking on stage change; PushMap visibility driven by `PhaseChanged`. Impl only; rules unchanged (§3.10) |
+| 2026-08-25 | v0.83.07 | BGM: `Audio_BgmConfig` + `BgmService`/`BgmClipCatalog`; Title on save-select only; Dig pool on Dig stage; Defend/PushMap Combat share Combat pool; silence elsewhere; loop default, optional once. Synced SPEC_03 §3.4, SPEC_04 §6/§9.29/§14.2, CONTEXT |
+| 2026-08-25 | v0.83.06 | Fantasy kingdom Tileset 1.1.0 Example scene/Scripts (Unity 6 APIs) fail on 2021.3: Editor `FantasyTilesetExampleCompileGuard` writes an asmdef with an unsatisfied `defineConstraints` to skip compile; `SmallScaleInt/` remains gitignored. Synced SPEC_04 §2, Art/Maps README |
+| 2026-08-25 | v0.83.05 | Camera fog visibility: global `CameraFogService` owns `DigFogCanvas`; show **only** during Dig session and PushMap **Combat** (incl. Intro); **actively hide** when Meta overlays (Equipment / MagicBook / Shop overlay / Tools etc.) open; never show for Shop/AM/UM/Defend/Prepare. Synced SPEC_03 §3.10/§3.14, SPEC_04 §6, CONTEXT |
 | 2026-08-23 | v0.83.04 | Dig fog layering: `DigFogCanvas` order=10, below Meta shell `MetaCanvas` (20) and `DigHudCanvas` (30); `DigUiLayering` on Dig enter/exit. Synced SPEC_03 §3.10 |
 | 2026-08-23 | v0.83.03 | Fix Dig fog hiding world reward flyers: UI `RewardFlyerLayer`; fog at canvas bottom; Dig HUD GM foldout via `GmToggleButton` + `GmMenuPanel`. Synced SPEC_03 §3.10, SPEC_04 §9.2 |
 | 2026-08-23 | v0.83.03 | Dig camera fog `CameraFogOverlay` breathing pulse: `DigCameraFogOverlayView` linear center scale 1.0↔1.05 (5s each, looped); `Play` only during active Dig session, `Stop` on countdown end / stage End. Synced SPEC_03 §3.10, SPEC_04 §6/§9.2, CONTEXT |

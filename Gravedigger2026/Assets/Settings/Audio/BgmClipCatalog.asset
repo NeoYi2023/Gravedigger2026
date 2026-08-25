@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1a8b0f4e2d647a9b3c5d7e9f1a2b3c4, type: 3}
+  m_Name: BgmClipCatalog
+  m_EditorClassIdentifier: 
+  _clips:
+  - ClipId: BGM_Title_Graveglass Gate
+    Clip: {fileID: 8300000, guid: a5c2d73269d96a84ca11cef9a6aba2f9, type: 3}
+  - ClipId: BGM_Title_Graveglass Gate_2
+    Clip: {fileID: 8300000, guid: 7508b9d72a8f42849901e6afe91bf934, type: 3}
+  - ClipId: BGM_Title_Graveyard Loops
+    Clip: {fileID: 8300000, guid: 646c11d9a041f814b818a7e604218017, type: 3}
+  - ClipId: BGM_Dig_Ashen Plot
+    Clip: {fileID: 8300000, guid: 23e5a36c7e1b13541a2d233b00fcca76, type: 3}
+  - ClipId: BGM_Combat_Graveblade March
+    Clip: {fileID: 8300000, guid: 7934f2579aea62d47ac4af2f3de05d9f, type: 3}
+  - ClipId: BGM_Combat_Graveblade March_2
+    Clip: {fileID: 8300000, guid: 91eedefacf7686b4f9fb0c763415ecd4, type: 3}
+  - ClipId: BGM_Combat_Graveyard March_1
+    Clip: {fileID: 8300000, guid: db66395188c063b4584e15bcaf54ad24, type: 3}
+  - ClipId: BGM_Combat_Graveyard March_2
+    Clip: {fileID: 8300000, guid: f104eecb2b675d148aa67ef174b7d557, type: 3}
+  - ClipId: BGM_Combat_Bone Crown Raid
+    Clip: {fileID: 8300000, guid: b0f21f2315b287a49ab54347ab78ad13, type: 3}

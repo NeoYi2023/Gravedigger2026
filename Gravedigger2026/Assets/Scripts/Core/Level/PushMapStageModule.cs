@@ -1,5 +1,6 @@
 using System;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
@@ -37,6 +38,7 @@ namespace Gravedigger2026.Core.Level
         private readonly Action _onVictoryAdvance;
         private readonly Action<string> _onLevelFailure;
         private readonly Action<bool> _onPushMapPresentationActive;
+        private readonly BgmService _bgm;
 
         private LevelStageContext _context;
         private GameObject _stageRootInstance;
@@ -56,7 +58,8 @@ namespace Gravedigger2026.Core.Level
             DungeonUnlockService dungeonUnlocks,
             Action onVictoryAdvance,
             Action<string> onLevelFailure,
-            Action<bool> onPushMapPresentationActive = null)
+            Action<bool> onPushMapPresentationActive = null,
+            BgmService bgm = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -72,6 +75,7 @@ namespace Gravedigger2026.Core.Level
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
             _onPushMapPresentationActive = onPushMapPresentationActive;
+            _bgm = bgm;
         }
 
         public GameplayState HandledState => GameplayState.PushMap;
@@ -121,6 +125,7 @@ namespace Gravedigger2026.Core.Level
 
             _controller = _stageRootInstance.AddComponent<PushMapStageController>();
             _controller.ConfigureCatalog(_catalog, _formationCatalog);
+            _controller.BindBgm(_bgm);
             _controller.Begin(
                 _context,
                 _configs,

@@ -36,6 +36,7 @@ namespace Gravedigger2026.UI
         private Text _warriorTaskLabelButtonText;
 
         public event Action ToolsToggleRequested;
+        public event Action ToolsClosed;
         public event Action BackToSaveSelectRequested;
         public event Action EquipmentRequested;
         public event Action MagicBookRequested;
@@ -54,6 +55,8 @@ namespace Gravedigger2026.UI
         public event Action GmGrantListClosed;
         public event Action GmAddSoldierAddClicked;
         public event Action GmAddSoldierClosed;
+        public event Action EquipmentWarehouseClosed;
+        public event Action MagicBookSlotsClosed;
 
         private void Awake()
         {
@@ -119,6 +122,7 @@ namespace Gravedigger2026.UI
                     () => GrantProtagonistEquipmentRequested?.Invoke();
                 _toolsPanel.GrantMagicBookClicked += () => GrantMagicBookRequested?.Invoke();
                 _toolsPanel.GrantAddSoldierClicked += () => GrantAddSoldierRequested?.Invoke();
+                _toolsPanel.Closed += () => ToolsClosed?.Invoke();
             }
 
             if (_levelSelectPanel != null)
@@ -138,6 +142,16 @@ namespace Gravedigger2026.UI
             {
                 _gmAddSoldierPanel.AddClicked += () => GmAddSoldierAddClicked?.Invoke();
                 _gmAddSoldierPanel.Closed += () => GmAddSoldierClosed?.Invoke();
+            }
+
+            if (_equipmentWarehousePanel != null)
+            {
+                _equipmentWarehousePanel.Closed += () => EquipmentWarehouseClosed?.Invoke();
+            }
+
+            if (_magicBookSlotsPanel != null)
+            {
+                _magicBookSlotsPanel.Closed += () => MagicBookSlotsClosed?.Invoke();
             }
         }
 
@@ -309,6 +323,45 @@ namespace Gravedigger2026.UI
             if (_magicBookSlotsPanel != null)
             {
                 _magicBookSlotsPanel.Hide();
+            }
+        }
+
+        /// <summary>True when any InSaveShell modal that should hide DigFogCanvas is open.</summary>
+        public bool IsAnyMetaOverlayBlockingFog
+        {
+            get
+            {
+                if (_toolsPanel != null && _toolsPanel.IsOpen)
+                {
+                    return true;
+                }
+
+                if (_levelSelectPanel != null && _levelSelectPanel.IsOpen)
+                {
+                    return true;
+                }
+
+                if (_gmGrantListPanel != null && _gmGrantListPanel.IsOpen)
+                {
+                    return true;
+                }
+
+                if (_gmAddSoldierPanel != null && _gmAddSoldierPanel.IsOpen)
+                {
+                    return true;
+                }
+
+                if (_equipmentWarehousePanel != null && _equipmentWarehousePanel.IsOpen)
+                {
+                    return true;
+                }
+
+                if (_magicBookSlotsPanel != null && _magicBookSlotsPanel.IsOpen)
+                {
+                    return true;
+                }
+
+                return false;
             }
         }
 

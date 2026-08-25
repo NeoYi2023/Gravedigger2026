@@ -46,6 +46,9 @@
 | InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具 + 左下商店/装备/魔法书入口） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
+| BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
+| BgmConfig | BGM 配置表 | `Audio_BgmConfig`：BgmId / Context / ClipId / Loop / Weight / Volume | [SPEC_04 §9.29](SPEC_04_Technical.md) |
+| BgmService | BGM 服务 | 读表加权随机；经 `BgmClipCatalog` 解析 clip；同 Context 幂等；挂 Meta/Boot | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
@@ -54,7 +57,9 @@
 | LevelOperation | 关卡运作 | 关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
-| CameraFogOverlay | 镜头迷雾滤镜 | Dig HUD `HudRoot` 最底层全屏 Image；素材 `Art/Maps/Fog_1.png`；Dig 会话中 `DigCameraFogOverlayView` 中心呼吸缩放 5s/5s；不挡点击 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9.2](SPEC_04_Technical.md) |
+| FlowingWater | 流动水面 | 地图表现约定：Grid 下 `Water`（Chunk+Water.mat）/`Foam`（Individual+Foam.mat）两层；Built-in 资源 `Art/Maps/Shaders/Water/`；世界 UV=`xz`；不参与 NavMesh/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
+| MapAutoTile | 地图自动接边 | 编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）刷区域时自动换边/角砖；资产 `Art/Maps/RuleTiles/`；挂 FantasyTileset Palette；不含 FlowingWater 层；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
+| CameraFogOverlay | 镜头迷雾滤镜 | 全局 `CameraFogService` 拥有的 `DigFogCanvas` 全屏 Image；素材 `Art/Maps/Fog_1.png`；**仅** Dig 会话与 PushMap Combat（含 Intro）显示；Meta 弹窗打开时主动隐藏；呼吸缩放见 `DigCameraFogOverlayView` | [§3.10](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Grave | 坟墓 | 挖坟可生成实体；带品质 ID；未消除时为 DigObstacle | [§3.10](SPEC_03_GameRules.md) |
 | Digger | 挖坟主角 | Dig 阶段不生成地图模型；HUD 左上 60×60 头像框；Prefab 可保留于 Catalog/Art | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | DigAction | 挖掘流程 | 0.2s 停留触发；`DigActionDuration` 帧动画后扣血；busy 不可重触 | [§3.10](SPEC_03_GameRules.md) |

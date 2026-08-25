@@ -3670,6 +3670,8 @@ MonoBehaviour:
   _autoMfgPrefabCatalog: {fileID: 11400000, guid: 9ac594cd63b2d5447829c685dab78537, type: 2}
   _autoMfgWorldParent: {fileID: 460103638487258669}
   _shopPrefabCatalog: {fileID: 11400000, guid: 22df3ea0890a7414a9cf3843db196140, type: 2}
+  _bgmClipCatalog: {fileID: 11400000, guid: b6f3a5c9d7eb4cf4a8b0c1d2e3f4a5b7, type: 2}
+  _bgmAudioSource: {fileID: 0}
 --- !u!1 &3351879568505477906
 GameObject:
   m_ObjectHideFlags: 0

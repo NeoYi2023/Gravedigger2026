@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
@@ -46,6 +47,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private WarehouseService _warehouse;
         private Action _onVictoryAdvance;
         private Action<string> _onLevelFailure;
+        private BgmService _bgm;
         private GameObject _mapInstance;
         private GameObject _battleProtagonistInstance;
         private DefendSpawnPointSet _spawnPoints;
@@ -75,6 +77,11 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _formationCatalog = formationCatalog;
             }
+        }
+
+        public void BindBgm(BgmService bgm)
+        {
+            _bgm = bgm;
         }
 
         public void Begin(
@@ -246,6 +253,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private void EndInternal(bool destroyWorld)
         {
             _running = false;
+            _bgm?.Stop();
 
             if (_session != null)
             {
@@ -1154,6 +1162,15 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void HandlePhaseChanged(DefendPhase phase)
         {
+            if (phase == DefendPhase.Combat)
+            {
+                _bgm?.Play(BgmContext.Combat);
+            }
+            else
+            {
+                _bgm?.Stop();
+            }
+
             RefreshHud();
         }
 

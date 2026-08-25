@@ -29,6 +29,7 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private GameObject _rewardFlyerPrefab;
         [SerializeField] private DigCursorRingView _uiDigCursorRingPrefab;
         [SerializeField] private Sprite _explosiveBarrelSprite;
+        [SerializeField] private Sprite _cameraFogSprite;
         [SerializeField] private Sprite[] _lightningFrames;
         [SerializeField] private List<MapEntry> _maps = new List<MapEntry>();
         [SerializeField] private List<GraveEntry> _graves = new List<GraveEntry>();
@@ -38,6 +39,7 @@ namespace Gravedigger2026.Gameplay.Dig
         public GameObject RewardFlyerPrefab => _rewardFlyerPrefab;
         public DigCursorRingView UiDigCursorRingPrefab => _uiDigCursorRingPrefab;
         public Sprite ExplosiveBarrelSprite => _explosiveBarrelSprite;
+        public Sprite CameraFogSprite => _cameraFogSprite;
         public Sprite[] LightningFrames => _lightningFrames;
 
         public bool TryGetMap(string mapId, out GameObject prefab)
@@ -89,6 +91,7 @@ namespace Gravedigger2026.Gameplay.Dig
             GameObject rewardFlyer,
             DigCursorRingView uiDigCursorRing,
             Sprite explosiveBarrelSprite,
+            Sprite cameraFogSprite,
             Sprite[] lightningFrames,
             List<MapEntry> maps,
             List<GraveEntry> graves)
@@ -98,6 +101,7 @@ namespace Gravedigger2026.Gameplay.Dig
             _rewardFlyerPrefab = rewardFlyer;
             _uiDigCursorRingPrefab = uiDigCursorRing;
             _explosiveBarrelSprite = explosiveBarrelSprite;
+            _cameraFogSprite = cameraFogSprite;
             _lightningFrames = lightningFrames;
             _maps = maps ?? new List<MapEntry>();
             _graves = graves ?? new List<GraveEntry>();

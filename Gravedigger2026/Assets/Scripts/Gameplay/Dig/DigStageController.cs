@@ -9,6 +9,7 @@ using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
+using Gravedigger2026.UI;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Dig
@@ -144,6 +145,9 @@ namespace Gravedigger2026.Gameplay.Dig
 
             _hudView?.Show();
             DigUiLayering.ApplyDigSessionStack(transform);
+            var fog = CameraFogService.Instance;
+            fog?.SetDigSessionActive(true);
+            fog?.SetPulseDesired(true);
             _summaryView?.Hide();
             var mode2 = _configs != null && _configs.LoadedCampaignMode == CampaignMode.Mode2;
             _hudView?.SetWarriorEnhanceGmVisible(mode2 && _specialEquipSlots != null);
@@ -174,7 +178,6 @@ namespace Gravedigger2026.Gameplay.Dig
 
             _session.Begin(context.DigConfig, center, half);
             RefreshWarehouseHud();
-            _hudView?.SetCameraFogPulseActive(true);
             _running = true;
 
             context.MapResolveNote =
@@ -489,7 +492,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void HandleTimeUp()
         {
-            _hudView?.SetCameraFogPulseActive(false);
+            CameraFogService.Instance?.SetPulseDesired(false);
             if (_cursorView != null)
             {
                 _cursorView.DestroySpawnedUiRing();
@@ -970,7 +973,7 @@ namespace Gravedigger2026.Gameplay.Dig
         {
             _running = false;
             DigUiLayering.RestoreAfterDigSession();
-            _hudView?.SetCameraFogPulseActive(false);
+            CameraFogService.Instance?.SetDigSessionActive(false);
             if (_hudView != null)
             {
                 _hudView.AddGravesRequested -= HandleGmAddGraves;

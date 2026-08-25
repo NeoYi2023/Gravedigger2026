@@ -73,7 +73,6 @@ namespace Gravedigger2026.Gameplay.Dig
         }
 
         private bool _gmMenuOpen;
-        private DigCameraFogOverlayView _cameraFogOverlayView;
 
         private void OnEnable()
         {
@@ -154,7 +153,6 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public void Hide()
         {
-            SetCameraFogPulseActive(false);
             SetGmMenuOpen(false);
             SetGmChromeVisible(false);
             if (_root != null)
@@ -163,23 +161,10 @@ namespace Gravedigger2026.Gameplay.Dig
             }
         }
 
-        /// <summary>Start/stop Dig-only camera fog breathing pulse on CameraFogOverlay.</summary>
+        /// <summary>Deprecated: fog pulse is owned by CameraFogService.</summary>
         public void SetCameraFogPulseActive(bool active)
         {
-            EnsureCanvasLayers();
-            if (_cameraFogOverlayView == null)
-            {
-                return;
-            }
-
-            if (active)
-            {
-                _cameraFogOverlayView.Play();
-            }
-            else
-            {
-                _cameraFogOverlayView.Stop();
-            }
+            // No-op — DigStageController drives CameraFogService directly.
         }
 
         /// <summary>
@@ -368,34 +353,6 @@ namespace Gravedigger2026.Gameplay.Dig
             canvas.sortingOrder = DigUiLayering.HudCanvasOrder;
 
             var canvasTransform = canvas.transform;
-            var hudRoot = _root != null ? _root.transform : transform;
-            var stageRoot = transform.root;
-
-            DigUiLayering.EnsureFogCanvas(stageRoot);
-
-            var fog = stageRoot.Find("DigFogCanvas/CameraFogOverlay");
-            if (fog == null)
-            {
-                fog = canvasTransform.Find("CameraFogOverlay");
-            }
-
-            if (fog == null)
-            {
-                fog = hudRoot.Find("CameraFogOverlay");
-            }
-
-            if (fog != null)
-            {
-                _cameraFogOverlayView = fog.GetComponent<DigCameraFogOverlayView>();
-                if (_cameraFogOverlayView == null)
-                {
-                    _cameraFogOverlayView = fog.gameObject.AddComponent<DigCameraFogOverlayView>();
-                }
-            }
-            else
-            {
-                _cameraFogOverlayView = null;
-            }
 
             var flyerLayer = canvasTransform.Find("RewardFlyerLayer") as RectTransform;
             if (flyerLayer == null)

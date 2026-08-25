@@ -2,7 +2,7 @@ ItemId,DisplayName,IconAssetId,ItemType,SourceTable,Description,SellPrice
 Spirit,精魂,Icons/Currency_Spirit,Currency,Dig_CurrencyConfig,基础货币资源,1
 Iron,铁矿,Icons/Iron,Material,Dig_MaterialConfig,基础制造材料,5
 Bone,骨头,Icons/Bone,Material,Dig_MaterialConfig,基础制造材料,3
-BP_Head_Undead_0,亡灵头部,Art_BP_Head_Undead_1,BodyPart,Manufacture_BodyPartConfig,基础亡灵头部材料,8
+BP_Head_Human,人类头部,Art_BP_Head_Human,BodyPart,Manufacture_BodyPartConfig,案例躯体材料 BP_Head_Human,8
 MagicBook_WarriorAdvance,战士进阶,MagicBook_WarriorAdvance,MagicBook,Manufacture_MagicBookConfig,将基础战士进阶为战士的魔法书,30
 MagicBook_ArcherAdvance,射手进阶,MagicBook_ArcherAdvance,MagicBook,Manufacture_MagicBookConfig,将基础射手进阶为射手的魔法书,30
 MagicBook_MageAdvance,法师进阶,MagicBook_MageAdvance,MagicBook,Manufacture_MagicBookConfig,将基础法师进阶为法师的魔法书,30

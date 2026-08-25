@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
@@ -86,6 +87,10 @@ namespace Gravedigger2026.Core.Config
         private readonly Dictionary<int, ShopRefreshPriceConfigRow> _shopRefreshPriceByCount =
             new Dictionary<int, ShopRefreshPriceConfigRow>();
 
+        private readonly List<BgmConfigRow> _bgmRows = new List<BgmConfigRow>();
+        private readonly Dictionary<string, BgmConfigRow> _bgmById =
+            new Dictionary<string, BgmConfigRow>(StringComparer.Ordinal);
+
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
         public CampaignMode? LoadedCampaignMode { get; private set; }
@@ -152,6 +157,8 @@ namespace Gravedigger2026.Core.Config
             _shopPoolById.Clear();
             _shopPoolRows.Clear();
             _shopRefreshPriceByCount.Clear();
+            _bgmRows.Clear();
+            _bgmById.Clear();
 
             try
             {
@@ -191,10 +198,11 @@ namespace Gravedigger2026.Core.Config
                 LoadCombatConstants();
                 LoadTechTree();
                 LoadTechEffects();
+                LoadBgm();
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -485,6 +493,22 @@ namespace Gravedigger2026.Core.Config
         }
 
         public IReadOnlyList<ShopPoolConfigRow> ShopPoolRows => _shopPoolRows;
+
+        public IReadOnlyList<BgmConfigRow> GetBgmRows(BgmContext context)
+        {
+            var result = new List<BgmConfigRow>();
+            var key = context.ToString();
+            for (var i = 0; i < _bgmRows.Count; i++)
+            {
+                var row = _bgmRows[i];
+                if (row != null && string.Equals(row.Context, key, StringComparison.Ordinal))
+                {
+                    result.Add(row);
+                }
+            }
+
+            return result;
+        }
 
         public bool TryGetShopRefreshPrice(int refreshCount, out ShopRefreshPriceConfigRow row)
         {
@@ -2163,6 +2187,111 @@ namespace Gravedigger2026.Core.Config
                     RefreshPrice = refreshPrice
                 };
             }
+        }
+
+        private void LoadBgm()
+        {
+            const string table = "Audio_BgmConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "BgmId", table, rowIndex);
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: empty BgmId.");
+                }
+
+                if (_bgmById.ContainsKey(id))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: duplicate BgmId '{id}'.");
+                }
+
+                var context = SimpleCsv.Require(raw, "Context", table, rowIndex).Trim();
+                if (!IsValidBgmContext(context))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal Context '{context}'.");
+                }
+
+                var clipId = SimpleCsv.Require(raw, "ClipId", table, rowIndex);
+                if (string.IsNullOrWhiteSpace(clipId))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: empty ClipId.");
+                }
+
+                var loop = ParseBgmLoop(raw, table, rowIndex);
+                var weight = ParseBgmWeight(raw, table, rowIndex);
+                var volume = ParseBgmVolume(raw, table, rowIndex);
+
+                var row = new BgmConfigRow
+                {
+                    BgmId = id,
+                    Context = context,
+                    ClipId = clipId,
+                    Loop = loop,
+                    Weight = weight,
+                    Volume = volume
+                };
+                _bgmById[id] = row;
+                _bgmRows.Add(row);
+            }
+        }
+
+        private static bool IsValidBgmContext(string context)
+        {
+            return string.Equals(context, "Title", StringComparison.Ordinal)
+                || string.Equals(context, "Dig", StringComparison.Ordinal)
+                || string.Equals(context, "Combat", StringComparison.Ordinal);
+        }
+
+        private static bool ParseBgmLoop(Dictionary<string, string> raw, string table, int rowIndex)
+        {
+            if (!raw.TryGetValue("Loop", out var text) || string.IsNullOrWhiteSpace(text))
+            {
+                return true;
+            }
+
+            if (!int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var loop)
+                || (loop != 0 && loop != 1))
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal Loop '{text}'.");
+            }
+
+            return loop == 1;
+        }
+
+        private static int ParseBgmWeight(Dictionary<string, string> raw, string table, int rowIndex)
+        {
+            if (!raw.TryGetValue("Weight", out var text) || string.IsNullOrWhiteSpace(text))
+            {
+                return 1;
+            }
+
+            if (!int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var weight)
+                || weight < 0)
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal Weight '{text}'.");
+            }
+
+            return weight;
+        }
+
+        private static float ParseBgmVolume(Dictionary<string, string> raw, string table, int rowIndex)
+        {
+            if (!raw.TryGetValue("Volume", out var text) || string.IsNullOrWhiteSpace(text))
+            {
+                return 1f;
+            }
+
+            if (!float.TryParse(text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var volume)
+                || volume < 0f || volume > 1f)
+            {
+                throw new InvalidOperationException($"{table} row {rowIndex}: illegal Volume '{text}'.");
+            }
+
+            return volume;
         }
 
         private static List<ShopPoolItemCandidate> ParseShopPoolItemsRaw(

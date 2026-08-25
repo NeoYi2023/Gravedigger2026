@@ -1,5 +1,6 @@
 using System;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
@@ -28,6 +29,7 @@ namespace Gravedigger2026.Core.Level
         private readonly Action<string> _onLevelFailure;
         private readonly Action<string> _onPushMapModeConfirmed;
         private readonly Action<bool> _onDefendPresentationActive;
+        private readonly BgmService _bgm;
 
         private LevelStageContext _context;
         private GameObject _modeSelectInstance;
@@ -47,7 +49,8 @@ namespace Gravedigger2026.Core.Level
             Action onVictoryAdvance,
             Action<string> onLevelFailure,
             Action<string> onPushMapModeConfirmed,
-            Action<bool> onDefendPresentationActive = null)
+            Action<bool> onDefendPresentationActive = null,
+            BgmService bgm = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -62,6 +65,7 @@ namespace Gravedigger2026.Core.Level
             _onPushMapModeConfirmed = onPushMapModeConfirmed
                 ?? throw new ArgumentNullException(nameof(onPushMapModeConfirmed));
             _onDefendPresentationActive = onDefendPresentationActive;
+            _bgm = bgm;
         }
 
         public GameplayState HandledState => GameplayState.Defend;
@@ -211,6 +215,7 @@ namespace Gravedigger2026.Core.Level
             }
 
             _controller.ConfigureCatalog(_catalog, _formationCatalog);
+            _controller.BindBgm(_bgm);
             _controller.Begin(
                 _context,
                 _configs,

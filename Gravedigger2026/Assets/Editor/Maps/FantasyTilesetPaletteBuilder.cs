@@ -18,6 +18,7 @@ namespace Gravedigger2026.Editor.Maps
         private const string TilesDir = EnvDir + "/Tiles";
         private const string SpritesDir = EnvDir + "/Sprites";
         private const string AnimTilesDir = EnvDir + "/Animated tiles";
+        private const string RuleTilesDir = "Assets/Art/Maps/RuleTiles";
         private const string PalettePath = "Assets/Art/Maps/Palettes/FantasyTileset.prefab";
         private const string OneShotPrefsKey = "Gravedigger2026.FantasyTilesetPalette.Rebuild.v2";
         private const int Columns = 50;
@@ -263,6 +264,8 @@ namespace Gravedigger2026.Editor.Maps
 
             AddFromFolder(TilesDir, requireSpriteOnTile: true);
             AddFromFolder(AnimTilesDir, requireSpriteOnTile: false);
+            // MapAutoTile Isometric Rule Tiles (e.g. RT_WallA); no Sprite on TileBase.
+            AddFromFolder(RuleTilesDir, requireSpriteOnTile: false);
             return list;
         }
 

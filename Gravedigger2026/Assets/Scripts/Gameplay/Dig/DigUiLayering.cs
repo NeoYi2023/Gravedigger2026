@@ -1,10 +1,10 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
     /// <summary>
     /// Overlay canvas stack while Dig is active: world (camera) &lt; fog &lt; Meta shell &lt; Dig HUD &lt; modals.
+    /// Fog canvas itself is owned by <see cref="Gravedigger2026.UI.CameraFogService"/> (not DigStageRoot).
     /// </summary>
     public static class DigUiLayering
     {
@@ -21,7 +21,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public static void ApplyDigSessionStack(Transform digStageRoot)
         {
-            EnsureFogCanvas(digStageRoot);
+            SuppressStageLocalFogCanvas(digStageRoot);
 
             var metaCanvas = FindMetaCanvas();
             if (metaCanvas != null)
@@ -57,100 +57,25 @@ namespace Gravedigger2026.Gameplay.Dig
             }
         }
 
-        public static Canvas EnsureFogCanvas(Transform digStageRoot)
+        /// <summary>Keep DigStageRoot prefab fog inactive; runtime fog is CameraFogService.</summary>
+        public static void SuppressStageLocalFogCanvas(Transform digStageRoot)
         {
             if (digStageRoot == null)
-            {
-                return null;
-            }
-
-            var fogCanvasTr = digStageRoot.Find(DigFogCanvasName);
-            if (fogCanvasTr == null)
-            {
-                var go = new GameObject(DigFogCanvasName, typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-                go.transform.SetParent(digStageRoot, false);
-                fogCanvasTr = go.transform;
-            }
-
-            var fogCanvas = fogCanvasTr.GetComponent<Canvas>();
-            fogCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            fogCanvas.sortingOrder = FogCanvasOrder;
-
-            var hudCanvas = digStageRoot.Find(DigHudCanvasName)?.GetComponent<Canvas>();
-            var hudScaler = hudCanvas != null ? hudCanvas.GetComponent<CanvasScaler>() : null;
-            var fogScaler = fogCanvasTr.GetComponent<CanvasScaler>();
-            if (fogScaler == null)
-            {
-                fogScaler = fogCanvasTr.gameObject.AddComponent<CanvasScaler>();
-            }
-
-            fogScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            fogScaler.referenceResolution = hudScaler != null
-                ? hudScaler.referenceResolution
-                : new Vector2(1920f, 1080f);
-            fogScaler.matchWidthOrHeight = hudScaler != null ? hudScaler.matchWidthOrHeight : 0f;
-
-            if (fogCanvasTr.GetComponent<GraphicRaycaster>() == null)
-            {
-                fogCanvasTr.gameObject.AddComponent<GraphicRaycaster>();
-            }
-
-            MigrateFogOverlayToFogCanvas(digStageRoot, fogCanvasTr);
-
-            var hudIndex = hudCanvas != null ? hudCanvas.transform.GetSiblingIndex() : -1;
-            if (hudIndex >= 0)
-            {
-                fogCanvasTr.SetSiblingIndex(hudIndex);
-            }
-
-            return fogCanvas;
-        }
-
-        private static void MigrateFogOverlayToFogCanvas(Transform digStageRoot, Transform fogCanvasTr)
-        {
-            var fogOverlay = fogCanvasTr.Find("CameraFogOverlay");
-            if (fogOverlay == null)
-            {
-                fogOverlay = digStageRoot.Find($"{DigHudCanvasName}/CameraFogOverlay");
-            }
-
-            if (fogOverlay == null)
-            {
-                fogOverlay = digStageRoot.GetComponentInChildren<DigCameraFogOverlayView>(true)?.transform;
-            }
-
-            if (fogOverlay == null)
             {
                 return;
             }
 
-            if (fogOverlay.parent != fogCanvasTr)
+            var fogCanvasTr = digStageRoot.Find(DigFogCanvasName);
+            if (fogCanvasTr != null && fogCanvasTr.gameObject.activeSelf)
             {
-                fogOverlay.SetParent(fogCanvasTr, false);
+                fogCanvasTr.gameObject.SetActive(false);
             }
-
-            StretchFullScreen(fogOverlay as RectTransform);
-            fogOverlay.SetAsFirstSibling();
         }
 
         private static Canvas FindMetaCanvas()
         {
             var metaCanvasGo = GameObject.Find(MetaCanvasName);
             return metaCanvasGo != null ? metaCanvasGo.GetComponent<Canvas>() : null;
-        }
-
-        private static void StretchFullScreen(RectTransform rt)
-        {
-            if (rt == null)
-            {
-                return;
-            }
-
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            rt.pivot = new Vector2(0.5f, 0.5f);
         }
     }
 }
