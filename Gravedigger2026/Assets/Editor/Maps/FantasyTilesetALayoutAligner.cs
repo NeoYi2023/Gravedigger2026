@@ -24,6 +24,38 @@ namespace Gravedigger2026.Editor.Maps
         private const string PreserveTileName = "Ground F4_W";
         private const string RtWallAName = "RT_WallA";
         private const int OverflowColumns = 50;
+        private const string OneShotPrefsKey = "Gravedigger2026.FantasyTilesetA.Correct.v1";
+
+        [InitializeOnLoadMethod]
+        private static void AutoCorrectOnce()
+        {
+            EditorApplication.delayCall += TryAutoCorrectOnce;
+        }
+
+        private static void TryAutoCorrectOnce()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            if (EditorPrefs.GetBool(OneShotPrefsKey, false))
+            {
+                return;
+            }
+
+            try
+            {
+                if (CorrectFantasyTilesetAFromFantasyTileset())
+                {
+                    EditorPrefs.SetBool(OneShotPrefsKey, true);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[FantasyTilesetALayoutAligner] Auto correct failed: {ex}");
+            }
+        }
 
         /// <summary>
         /// Rebinds Environment Tile→Sprite by name, then re-applies every FantasyTileset_A cell
@@ -72,10 +104,16 @@ namespace Gravedigger2026.Editor.Maps
         }
 
         /// <summary>
-        /// Legacy menu alias — same as <see cref="CorrectFantasyTilesetAFromFantasyTileset"/>.
+        /// Legacy menu alias — same as Correct FantasyTileset_A From FantasyTileset.
         /// </summary>
         [MenuItem("Gravedigger2026/Maps/Align FantasyTileset_A Layout From SSI")]
         public static void AlignFantasyTilesetALayoutFromSsi()
+        {
+            CorrectFantasyTilesetAFromFantasyTileset();
+        }
+
+        [MenuItem("Gravedigger2026/Maps/Correct FantasyTileset_A From FantasyTileset")]
+        public static void CorrectFantasyTilesetAFromFantasyTilesetMenu()
         {
             CorrectFantasyTilesetAFromFantasyTileset();
         }
@@ -84,19 +122,18 @@ namespace Gravedigger2026.Editor.Maps
         /// Correct FantasyTileset_A from vendor FantasyTileset by Tile asset name.
         /// Batch: <c>-executeMethod Gravedigger2026.Editor.Maps.FantasyTilesetALayoutAligner.CorrectFantasyTilesetAFromFantasyTileset</c>
         /// </summary>
-        [MenuItem("Gravedigger2026/Maps/Correct FantasyTileset_A From FantasyTileset")]
-        public static void CorrectFantasyTilesetAFromFantasyTileset()
+        public static bool CorrectFantasyTilesetAFromFantasyTileset()
         {
             if (AssetDatabase.LoadAssetAtPath<Object>(TargetPath) == null)
             {
                 Debug.LogError($"[FantasyTilesetALayoutAligner] Missing target palette: {TargetPath}");
-                return;
+                return false;
             }
 
             if (AssetDatabase.LoadAssetAtPath<Object>(SourcePath) == null)
             {
                 Debug.LogError($"[FantasyTilesetALayoutAligner] Missing SSI source palette: {SourcePath}");
-                return;
+                return false;
             }
 
             var rebound = FantasyTilesetPaletteBuilder.RebindTileSpritesByName();
@@ -111,7 +148,7 @@ namespace Gravedigger2026.Editor.Maps
                 if (sourceMap == null || targetMap == null)
                 {
                     Debug.LogError("[FantasyTilesetALayoutAligner] Source or target has no Tilemap.");
-                    return;
+                    return false;
                 }
 
                 var sourceCells = CollectFilledCells(sourceMap);
@@ -120,7 +157,6 @@ namespace Gravedigger2026.Editor.Maps
                     .Where(c => c.Tile != null && c.Tile.name == PreserveTileName)
                     .ToList();
 
-                // A-only extras (not matched from SSI, not preserve, not RT_WallA) → overflow later.
                 var placedNames = new HashSet<string>();
                 var previousByName = CollectTilesByName(targetMap);
 
@@ -170,8 +206,6 @@ namespace Gravedigger2026.Editor.Maps
                     }
                 }
 
-                // Also overflow Art tiles that were never on A but should stay discoverable? No —
-                // only keep bricks that were already on A and not placed by SSI match / preserve.
                 var overflowPlaced = PlaceOverflow(targetMap, occupied, overflow, sourceCells);
 
                 WallARuleTileBuilder.PinRtWallAOnTilemap(targetMap);
@@ -197,6 +231,7 @@ namespace Gravedigger2026.Editor.Maps
                     $"overflowPlaced={overflowPlaced}, skippedRefOnly={skippedRefOnly}, " +
                     $"tileSpritesRebound={rebound}, RT_WallA@{WallARuleTileBuilder.RtWallAPaletteSlot}. " +
                     "Re-open Tile Palette → FantasyTileset_A.");
+                return true;
             }
             finally
             {
