@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.16
-**最后更新 / Last Updated:** 2026-08-25  
+**文档版本 / Document Version:** v0.83.26
+**最后更新 / Last Updated:** 2026-08-27
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,16 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-27 | v0.83.26 | 进档门闩 Demo 旁路：新建/进入跳过 `CampaignModeSelect`，一律 `Mode2`；InSaveShell 默认难度/关卡 Hub（UI-029，仅普通可展开；地图区嵌 UI-008；自动选最大关+「进入」）；`InSaveShellPanel` 独立 Prefab。同步 SPEC_03 §3.1–§3.6/§3.8、SPEC_04 §6、CONTEXT；issues `.scratch/insave-difficulty-hub/` |
+| 2026-08-27 | v0.83.25 | 怪物死亡击飞改伤害比例：`distance=clamp(Min,Max,(MaxHp/OutgoingDamage)×RatioCoeff)`；常量表三键样例 `0.5/0.2/5`；方向远离杀手；废止镜像距与 `ClassConfig.DeathKnockbackMult`；`MonsterKilled` 带 `outgoingDamage`。同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.20b/§15.5、CONTEXT |
+| 2026-08-27 | v0.83.24 | UI-026：`ShopStageRoot` 底层全屏背景 `Title_Shop_1`（`AspectRatioFitter` EnvelopeParent 锁定长宽比铺满；其上半透明 `ShopBackdrop`；`ShopBox` 透明容器）；`ShopAssetBuilder.EnsureShopBackground`。同步 SPEC_03 §3.6、SPEC_04 §10、Title README |
+| 2026-08-27 | v0.83.23 | UI-016：`AutoManufacturePresentationRoot` 底层全屏背景 `Title_AutoManufacture_1`（`AspectRatioFitter` EnvelopeParent 锁定长宽比铺满；其上 `Dim`）；`AmAssetBuilder.EnsurePresentationBackground` 外科补丁。同步 SPEC_03 §3.6、SPEC_04 §6 |
+| 2026-08-27 | v0.83.22 | UI-028 登录设置「显示」：Title「设置」打开 `TitleSettingsPanel`（分辨率 + 窗口/无边框/独占全屏；「应用」写机台级 PlayerPrefs）；与 UI-007 科技树分离。同步 SPEC_03 §3.2/§3.6、SPEC_04 §6、CONTEXT、spec-map |
+| 2026-08-27 | v0.83.21 | UI-027：`TitleMenuPanel/GameName` 顶中 Image 引用 `Art/UI/Meta/Title/Title_GameName.png`（`raycastTarget=0`）。同步 SPEC_03 §3.6、SPEC_04 §6、`MetaShellAssetBuilder`、Title README |
+| 2026-08-26 | v0.83.20 | PushMap_Demo_03：`GroundTilemap` 下残留 SmallScaleInt（FantasyTileset）Tile 按名重绑到 FantasyTileset_A / Art 同名砖；Editor 菜单 `Remap PushMap_Demo_03 SSI Tiles To Art`。同步 SPEC_04 §13、Art/Maps README |
+| 2026-08-27 | v0.83.20 | 登录主界面 UI-027：`TitleMenuPanel` + 共享 `TitleScreenBackground`；Boot → TitleMenu → SaveSelect；主按钮双态；Title BGM 覆盖 Title 屏；SaveSelect 返回主界面。同步 SPEC_03 §3.2/§3.3/§3.4/§3.6、SPEC_04 §6、CONTEXT |
+| 2026-08-26 | v0.83.19 | MapEdgeFog ME-01：`MapEdgeFogView` + Editor `MapEdgeFogBuilder`（菜单 Ensure / one-shot）；默认 `Fog_1.png`；目标 Ground_* 与 PushMap_Demo_*。同步 Art/Maps/README、issues `.scratch/map-edge-fog/` |
+| 2026-08-26 | v0.83.18 | 地图边缘迷雾（MapEdgeFog）方案 A 已锁：世界空间雾片挂 `Prefabs/Maps/{MapId}` 遮可玩区外空白；与 `CameraFogOverlay` 职责分离可叠加；静态零 Update；不参与寻路/空气墙/占领。同步 SPEC_04 §13、CONTEXT、Art/Maps README、spec-map |
 | 2026-08-25 | v0.83.17 | FantasyTileset_A 格子校正工具：菜单 `Correct FantasyTileset_A From FantasyTileset` 按厂商盘 Tile 名对齐；特例 `Ground F4_W` 原地保留；可重复执行。同步 SPEC_04 §13、Art/Maps README、`FantasyTilesetALayoutAligner` |
 | 2026-08-25 | v0.83.16 | Mode2 `CameraPathSlider` 布局：`anchoredPosition=(-630,240)`、宽 `700`。同步 SPEC_04 §6、FormationEditor / FormationAssetBuilder |
 | 2026-08-25 | v0.83.15 | PushMap Prepare 开战刷怪预览：进入布阵后刷出与开战相同的非陷阱行（Idle）；开战销毁预览再正式刷；陷阱行不预览。同步 SPEC_03 §3.14、CONTEXT |
@@ -382,6 +392,16 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-27 | v0.83.26 | InSaveShell Demo gate bypass: create/enter skip `CampaignModeSelect`, always `Mode2`; default difficulty/level Hub (UI-029, Normal only expandable; map hosts UI-008; auto-select max LevelId + Enter); standalone `InSaveShellPanel` Prefab. Synced SPEC_03 §3.1–§3.6/§3.8, SPEC_04 §6, CONTEXT; issues `.scratch/insave-difficulty-hub/` |
+| 2026-08-27 | v0.83.25 | Monster death knockback by damage ratio: `distance=clamp(Min,Max,(MaxHp/OutgoingDamage)×RatioCoeff)`; constants sample `0.5/0.2/5`; direction away from killer; retire mirror distance and `ClassConfig.DeathKnockbackMult`; `MonsterKilled` carries `outgoingDamage`. Synced SPEC_03 §3.12/§3.14, SPEC_04 §9.20b/§15.5, CONTEXT |
+| 2026-08-27 | v0.83.24 | UI-026: `ShopStageRoot` bottom full-screen background `Title_Shop_1` (`AspectRatioFitter` EnvelopeParent keep-aspect cover; semi-transparent `ShopBackdrop`; transparent `ShopBox`); `ShopAssetBuilder.EnsureShopBackground`. Synced SPEC_03 §3.6, SPEC_04 §10, Title README |
+| 2026-08-27 | v0.83.23 | UI-016: `AutoManufacturePresentationRoot` bottom full-screen background `Title_AutoManufacture_1` (`AspectRatioFitter` EnvelopeParent keep-aspect cover; `Dim` above); `AmAssetBuilder.EnsurePresentationBackground` surgical patch. Synced SPEC_03 §3.6, SPEC_04 §6 |
+| 2026-08-27 | v0.83.22 | UI-028 title Display settings: Title Settings opens `TitleSettingsPanel` (resolution + Windowed/Borderless/Exclusive; Apply writes machine-level PlayerPrefs); separate from UI-007 TechTree. Synced SPEC_03 §3.2/§3.6, SPEC_04 §6, CONTEXT, spec-map |
+| 2026-08-27 | v0.83.21 | UI-027: `TitleMenuPanel/GameName` top-center Image refs `Art/UI/Meta/Title/Title_GameName.png` (`raycastTarget=0`). Synced SPEC_03 §3.6, SPEC_04 §6, `MetaShellAssetBuilder`, Title README |
+| 2026-08-26 | v0.83.20 | PushMap_Demo_03: remap leftover SmallScaleInt (FantasyTileset) tiles under `GroundTilemap` to FantasyTileset_A / Art same-name tiles; Editor menu `Remap PushMap_Demo_03 SSI Tiles To Art`. Synced SPEC_04 §13, Art/Maps README |
+| 2026-08-27 | v0.83.20 | Title menu UI-027: `TitleMenuPanel` + shared `TitleScreenBackground`; Boot → TitleMenu → SaveSelect; dual-state primary button; Title BGM on title screen; SaveSelect back to title. Synced SPEC_03 §3.2/§3.3/§3.4/§3.6, SPEC_04 §6, CONTEXT |
+| 2026-08-26 | v0.83.19 | MapEdgeFog ME-01: `MapEdgeFogView` + Editor `MapEdgeFogBuilder` (menu Ensure / one-shot); default `Fog_1.png`; targets Ground_* and PushMap_Demo_*. Synced Art/Maps README, issues `.scratch/map-edge-fog/` |
+| 2026-08-26 | v0.83.18 | MapEdgeFog Approach A locked: world-space fog strips on `Prefabs/Maps/{MapId}` cover blank outside playable footprint; separate from (stackable with) `CameraFogOverlay`; static zero Update; no NavMesh/AirWall/capture. Synced SPEC_04 §13, CONTEXT, Art/Maps README, spec-map |
 | 2026-08-25 | v0.83.17 | FantasyTileset_A layout corrector: menu `Correct FantasyTileset_A From FantasyTileset` aligns by vendor Tile name; keep `Ground F4_W` in place; repeatable. Synced SPEC_04 §13, Art/Maps README, `FantasyTilesetALayoutAligner` |
 | 2026-08-25 | v0.83.16 | Mode2 `CameraPathSlider` layout: `anchoredPosition=(-630,240)`, width `700`. Synced SPEC_04 §6, FormationEditor / FormationAssetBuilder |
 | 2026-08-25 | v0.83.15 | PushMap Prepare StartBattle-spawn preview: spawn same non-trap rows as Idle on enter; destroy then formal respawn on StartBattle; trap rows not previewed. Synced SPEC_03 §3.14, CONTEXT |

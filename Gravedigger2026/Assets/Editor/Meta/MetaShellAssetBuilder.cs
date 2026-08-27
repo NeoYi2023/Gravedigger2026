@@ -25,8 +25,19 @@ namespace Gravedigger2026.Editor.Meta
         private const string PrefabMetaDir = "Assets/Prefabs/Meta";
         private const string PrefabUiDir = "Assets/Prefabs/UI";
         private const string RootPrefabPath = PrefabMetaDir + "/MetaShellRoot.prefab";
+        private const string TitleMenuPrefabPath = PrefabMetaDir + "/TitleMenuPanel.prefab";
+        private const string TitleSettingsPrefabPath = PrefabMetaDir + "/TitleSettingsPanel.prefab";
+        private const string InSaveShellPrefabPath = PrefabMetaDir + "/InSaveShellPanel.prefab";
+        private const string TitleBackgroundSpritePath = "Assets/Art/UI/Meta/Title/Title_Background_Static.png";
+        private const string TitleGameNameSpritePath = "Assets/Art/UI/Meta/Title/Title_GameName.png";
+        private const string LevelMapSpritePath = "Assets/Art/UI/Meta/Title/Level_Map_1.jpg";
+        private const string DifficultyItem1SpritePath = "Assets/Art/UI/Meta/Title/Item_Difficulty_1.png";
+        private const string DifficultyItem2SpritePath = "Assets/Art/UI/Meta/Title/Item_Difficulty_2.png";
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
+        private const string TitleMenuRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08321_titleGameName";
+        private const string TitleSettingsRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08322_titleSettings";
+        private const string InSaveDifficultyHubRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08326_insaveDifficultyHub";
         private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
         private const string GmGrantLevelPickerRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08297_gmGrantLevelPicker";
         private const string GmAddSoldierRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08239_gmAddSoldier";
@@ -101,7 +112,413 @@ namespace Gravedigger2026.Editor.Meta
                     EnsureMagicBookBookRowOnExistingPrefab();
                     EditorPrefs.SetBool(MagicBookBookRowRegenPrefsKey, true);
                 }
+
+                var needsTitleMenuRegen = !EditorPrefs.GetBool(TitleMenuRegenPrefsKey, false);
+                if (needsTitleMenuRegen)
+                {
+                    EnsureTitleMenuOnExistingPrefab();
+                    EditorPrefs.SetBool(TitleMenuRegenPrefsKey, true);
+                }
+
+                var needsTitleSettingsRegen = !EditorPrefs.GetBool(TitleSettingsRegenPrefsKey, false);
+                if (needsTitleSettingsRegen)
+                {
+                    EnsureTitleSettingsPanelOnExistingPrefab();
+                    EditorPrefs.SetBool(TitleSettingsRegenPrefsKey, true);
+                }
+
+                var needsInSaveDifficultyHub = !EditorPrefs.GetBool(InSaveDifficultyHubRegenPrefsKey, false);
+                if (needsInSaveDifficultyHub)
+                {
+                    EnsureInSaveShellPanelOnExistingPrefab();
+                    EditorPrefs.SetBool(InSaveDifficultyHubRegenPrefsKey, true);
+                }
             };
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure TitleMenu (UI-027)")]
+        public static void EnsureTitleMenuMenu()
+        {
+            EnsureTitleMenuOnExistingPrefab();
+            EditorPrefs.SetBool(TitleMenuRegenPrefsKey, true);
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure TitleSettingsPanel (UI-028)")]
+        public static void EnsureTitleSettingsPanelMenu()
+        {
+            EnsureTitleSettingsPanelOnExistingPrefab();
+            EditorPrefs.SetBool(TitleSettingsRegenPrefsKey, true);
+        }
+
+        [MenuItem("Gravedigger2026/Meta/Ensure InSaveShellPanel (UI-029)")]
+        public static void EnsureInSaveShellPanelMenu()
+        {
+            EnsureInSaveShellPanelOnExistingPrefab();
+            EditorPrefs.SetBool(InSaveDifficultyHubRegenPrefsKey, true);
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureInSaveShellPanelBatch</summary>
+        public static void EnsureInSaveShellPanelBatch()
+        {
+            EnsureInSaveShellPanelMenu();
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureTitleSettingsPanelBatch</summary>
+        public static void EnsureTitleSettingsPanelBatch()
+        {
+            EnsureTitleSettingsPanelMenu();
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.Meta.MetaShellAssetBuilder.EnsureTitleMenuBatch</summary>
+        public static void EnsureTitleMenuBatch()
+        {
+            EnsureTitleMenuMenu();
+        }
+
+        /// <summary>
+        /// Surgical patch: TitleScreenBackground + TitleMenuPanel; SaveSelect transparent + Back button.
+        /// </summary>
+        public static void EnsureTitleMenuOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var controller = root.GetComponent<MetaShellController>();
+                var canvas = root.transform.Find("MetaCanvas");
+                if (canvas == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] MetaCanvas not found on MetaShellRoot.");
+                    return;
+                }
+
+                var background = canvas.Find("TitleScreenBackground");
+                if (background == null)
+                {
+                    BuildTitleScreenBackground(canvas);
+                }
+                else
+                {
+                    ApplyTitleBackgroundSprite(background.GetComponent<Image>());
+                }
+
+                if (canvas.GetComponentInChildren<TitleMenuView>(true) == null)
+                {
+                    BuildTitleMenu(canvas);
+                }
+                else
+                {
+                    var titleMenu = canvas.Find("TitleMenuPanel");
+                    if (titleMenu != null)
+                    {
+                        EnsureTitleGameName(titleMenu);
+                    }
+                }
+
+                EnsureStandaloneTitleMenuGameName();
+
+                var saveSelect = canvas.GetComponentInChildren<SaveSelectView>(true);
+                if (saveSelect != null)
+                {
+                    PatchSaveSelectPanel(saveSelect);
+                    saveSelect.gameObject.SetActive(false);
+                }
+
+                if (controller != null)
+                {
+                    WireTitleScreenRefs(controller, canvas);
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] TitleMenu (UI-027) patched onto MetaShellRoot.");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// Surgical patch: TitleSettingsPanel (UI-028) under MetaCanvas + wire MetaShellController.
+        /// </summary>
+        public static void EnsureTitleSettingsPanelOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var controller = root.GetComponent<MetaShellController>();
+                var canvas = root.transform.Find("MetaCanvas");
+                if (canvas == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] MetaCanvas not found on MetaShellRoot.");
+                    return;
+                }
+
+                TitleSettingsPanelView settingsView;
+                var existing = canvas.GetComponentInChildren<TitleSettingsPanelView>(true);
+                if (existing != null)
+                {
+                    Object.DestroyImmediate(existing.gameObject);
+                }
+
+                var stale = canvas.Find("TitleSettingsPanel");
+                if (stale != null)
+                {
+                    Object.DestroyImmediate(stale.gameObject);
+                }
+
+                settingsView = BuildTitleSettingsPanel(canvas);
+
+                if (controller != null)
+                {
+                    var so = new SerializedObject(controller);
+                    so.FindProperty("_titleSettingsPanelView").objectReferenceValue = settingsView;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                Debug.Log("[MetaShellAssetBuilder] TitleSettingsPanel (UI-028) patched onto MetaShellRoot.");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// Surgical patch: DifficultySelectHost (UI-029) + standalone InSaveShellPanel.prefab.
+        /// </summary>
+        public static void EnsureInSaveShellPanelOnExistingPrefab()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(RootPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning("[MetaShellAssetBuilder] MetaShellRoot missing; run full Generate.");
+                return;
+            }
+
+            if (!Directory.Exists(PrefabMetaDir))
+            {
+                Directory.CreateDirectory(PrefabMetaDir);
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var controller = root.GetComponent<MetaShellController>();
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    return;
+                }
+
+                PatchDifficultySelectHost(inSave);
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+
+                var panelGo = inSave.gameObject;
+                var standalone = Object.Instantiate(panelGo);
+                standalone.name = "InSaveShellPanel";
+                PrefabUtility.SaveAsPrefabAsset(standalone, InSaveShellPrefabPath);
+                Object.DestroyImmediate(standalone);
+
+                Debug.Log("[MetaShellAssetBuilder] InSaveShellPanel (UI-029) ensured + standalone Prefab saved.");
+
+                if (controller != null)
+                {
+                    var so = new SerializedObject(controller);
+                    so.FindProperty("_inSaveShellView").objectReferenceValue = inSave;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                }
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private static void PatchDifficultySelectHost(InSaveShellView inSave)
+        {
+            var panel = inSave.transform;
+            var hostTf = panel.Find("DifficultySelectHost");
+            DifficultySelectHostView hostView;
+            RectTransform mapHostRt;
+            if (hostTf == null)
+            {
+                var hostGo = new GameObject("DifficultySelectHost", typeof(RectTransform));
+                hostGo.transform.SetParent(panel, false);
+                var hostRt = hostGo.GetComponent<RectTransform>();
+                hostRt.anchorMin = new Vector2(0.08f, 0.12f);
+                hostRt.anchorMax = new Vector2(0.92f, 0.88f);
+                hostRt.offsetMin = Vector2.zero;
+                hostRt.offsetMax = Vector2.zero;
+                hostGo.transform.SetSiblingIndex(Mathf.Min(3, panel.childCount - 1));
+
+                var columns = new GameObject("Columns", typeof(RectTransform));
+                columns.transform.SetParent(hostGo.transform, false);
+                StretchFull(columns.GetComponent<RectTransform>());
+
+                var normal = CreateDifficultyColumnEditor(columns.transform, "NormalColumn", "普通难度",
+                    new Color(0.55f, 0.78f, 0.55f, 1f), DifficultyItem1SpritePath);
+                var hard = CreateDifficultyColumnEditor(columns.transform, "HardColumn", "困难难度",
+                    new Color(0.85f, 0.75f, 0.35f, 1f), DifficultyItem2SpritePath);
+                var hell = CreateDifficultyColumnEditor(columns.transform, "HellColumn", "地狱难度",
+                    new Color(0.90f, 0.55f, 0.35f, 1f), null);
+
+                var mapHostGo = new GameObject("MapHost", typeof(RectTransform), typeof(Image));
+                mapHostGo.transform.SetParent(hostGo.transform, false);
+                mapHostRt = mapHostGo.GetComponent<RectTransform>();
+                mapHostRt.anchorMin = new Vector2(0.18f, 0f);
+                mapHostRt.anchorMax = new Vector2(0.82f, 1f);
+                mapHostRt.offsetMin = Vector2.zero;
+                mapHostRt.offsetMax = Vector2.zero;
+                var mapImg = mapHostGo.GetComponent<Image>();
+                mapImg.color = new Color(1f, 1f, 1f, 0.96f);
+                var mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>(LevelMapSpritePath);
+                if (mapSprite != null)
+                {
+                    mapImg.sprite = mapSprite;
+                }
+
+                hostView = hostGo.AddComponent<DifficultySelectHostView>();
+                var hso = new SerializedObject(hostView);
+                hso.FindProperty("_root").objectReferenceValue = hostGo;
+                hso.FindProperty("_columnsRoot").objectReferenceValue = columns.GetComponent<RectTransform>();
+                hso.FindProperty("_normalButton").objectReferenceValue = normal.GetComponent<Button>();
+                hso.FindProperty("_hardButton").objectReferenceValue = hard.GetComponent<Button>();
+                hso.FindProperty("_hellButton").objectReferenceValue = hell.GetComponent<Button>();
+                hso.FindProperty("_normalImage").objectReferenceValue = normal.GetComponent<Image>();
+                hso.FindProperty("_hardImage").objectReferenceValue = hard.GetComponent<Image>();
+                hso.FindProperty("_hellImage").objectReferenceValue = hell.GetComponent<Image>();
+                hso.FindProperty("_normalLabel").objectReferenceValue =
+                    normal.transform.Find("Label")?.GetComponent<Text>();
+                hso.FindProperty("_hardLabel").objectReferenceValue =
+                    hard.transform.Find("Label")?.GetComponent<Text>();
+                hso.FindProperty("_hellLabel").objectReferenceValue =
+                    hell.transform.Find("Label")?.GetComponent<Text>();
+                hso.FindProperty("_mapHost").objectReferenceValue = mapHostRt;
+                hso.FindProperty("_mapHostRoot").objectReferenceValue = mapHostGo;
+                hso.ApplyModifiedPropertiesWithoutUndo();
+                hostGo.SetActive(false);
+            }
+            else
+            {
+                hostView = hostTf.GetComponent<DifficultySelectHostView>();
+                mapHostRt = hostTf.Find("MapHost") as RectTransform;
+            }
+
+            var levelSelect = panel.GetComponentInChildren<LevelSelectPanelView>(true);
+            if (levelSelect != null && mapHostRt != null)
+            {
+                var levelGo = levelSelect.gameObject;
+                levelGo.transform.SetParent(mapHostRt, false);
+                var lrt = levelGo.GetComponent<RectTransform>();
+                StretchFull(lrt);
+                lrt.offsetMin = new Vector2(12f, 12f);
+                lrt.offsetMax = new Vector2(-12f, -12f);
+
+                var box = levelGo.transform.Find("Box");
+                var parent = box != null ? box : levelGo.transform;
+                EnsureEnterButtonOnLevelSelect(parent);
+
+                var so = new SerializedObject(levelSelect);
+                so.FindProperty("_hubEmbedded").boolValue = true;
+                so.FindProperty("_backdropImage").objectReferenceValue = levelGo.GetComponent<Image>();
+                var enter = parent.Find("EnterButton")?.GetComponent<Button>();
+                if (enter != null)
+                {
+                    so.FindProperty("_enterButton").objectReferenceValue = enter;
+                }
+
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            var viewSo = new SerializedObject(inSave);
+            viewSo.FindProperty("_difficultySelectHost").objectReferenceValue = hostView;
+            if (levelSelect != null)
+            {
+                viewSo.FindProperty("_levelSelectPanel").objectReferenceValue = levelSelect;
+            }
+
+            viewSo.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static GameObject CreateDifficultyColumnEditor(
+            Transform parent,
+            string name,
+            string label,
+            Color color,
+            string spritePath)
+        {
+            var go = CreateButton(parent, name, label, color);
+            var le = go.GetComponent<LayoutElement>();
+            if (le != null)
+            {
+                Object.DestroyImmediate(le);
+            }
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(8f, 8f);
+            rt.offsetMax = new Vector2(-8f, -8f);
+            if (!string.IsNullOrEmpty(spritePath))
+            {
+                var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(spritePath);
+                if (sprite != null)
+                {
+                    go.GetComponent<Image>().sprite = sprite;
+                    go.GetComponent<Image>().type = Image.Type.Simple;
+                }
+            }
+
+            var labelText = go.transform.Find("Label")?.GetComponent<Text>();
+            if (labelText != null)
+            {
+                labelText.fontSize = 28;
+            }
+
+            return go;
+        }
+
+        private static void EnsureEnterButtonOnLevelSelect(Transform parent)
+        {
+            if (parent.Find("EnterButton") != null)
+            {
+                return;
+            }
+
+            var enter = CreateButton(parent, "EnterButton", "进入", new Color(0.25f, 0.45f, 0.85f, 1f));
+            Place(
+                enter.GetComponent<RectTransform>(),
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f),
+                new Vector2(0f, 16f),
+                new Vector2(200f, 48f));
         }
 
         [MenuItem("Gravedigger2026/Meta/Ensure LevelSelectPanel (UI-008)")]
@@ -606,6 +1023,7 @@ namespace Gravedigger2026.Editor.Meta
             EnsureFolder("Assets/Scripts/UI");
             EnsureFolder("Assets/Editor");
             EnsureFolder("Assets/Editor/Meta");
+            EnsureFolder("Assets/Art/UI/Meta/Title");
         }
 
         private static void EnsureFolder(string path)
@@ -631,13 +1049,25 @@ namespace Gravedigger2026.Editor.Meta
             var controller = root.AddComponent<MetaShellController>();
 
             var canvasGo = CreateCanvas(root.transform, "MetaCanvas", DigUiLayering.MetaShellCanvasOrder);
+            var titleBackground = BuildTitleScreenBackground(canvasGo.transform);
+            var titleMenu = BuildTitleMenu(canvasGo.transform);
+            var titleSettings = BuildTitleSettingsPanel(canvasGo.transform);
             var saveSelect = BuildSaveSelect(canvasGo.transform);
             var inSaveShell = BuildInSaveShell(canvasGo.transform);
             var confirm = BuildConfirmDialog(canvasGo.transform);
             var campaignModeSelect = BuildCampaignModeSelect(canvasGo.transform);
             var toast = BuildToast(canvasGo.transform);
 
-            AssignControllerRefs(controller, saveSelect, inSaveShell, confirm, campaignModeSelect, toast);
+            AssignControllerRefs(
+                controller,
+                saveSelect,
+                titleMenu,
+                titleSettings,
+                titleBackground,
+                inSaveShell,
+                confirm,
+                campaignModeSelect,
+                toast);
 
             var eventSystem = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
             eventSystem.transform.SetParent(root.transform, false);
@@ -648,6 +1078,9 @@ namespace Gravedigger2026.Editor.Meta
         private static void AssignControllerRefs(
             MetaShellController controller,
             SaveSelectView saveSelect,
+            TitleMenuView titleMenu,
+            TitleSettingsPanelView titleSettings,
+            GameObject titleBackground,
             InSaveShellView inSaveShell,
             ConfirmDialogView confirm,
             CampaignModeSelectView campaignModeSelect,
@@ -655,10 +1088,372 @@ namespace Gravedigger2026.Editor.Meta
         {
             var so = new SerializedObject(controller);
             so.FindProperty("_saveSelectView").objectReferenceValue = saveSelect;
+            so.FindProperty("_titleMenuView").objectReferenceValue = titleMenu;
+            so.FindProperty("_titleSettingsPanelView").objectReferenceValue = titleSettings;
+            so.FindProperty("_titleScreenBackground").objectReferenceValue = titleBackground;
             so.FindProperty("_inSaveShellView").objectReferenceValue = inSaveShell;
             so.FindProperty("_confirmDialog").objectReferenceValue = confirm;
             so.FindProperty("_campaignModeSelect").objectReferenceValue = campaignModeSelect;
             so.FindProperty("_toastView").objectReferenceValue = toast;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void WireTitleScreenRefs(MetaShellController controller, Transform canvas)
+        {
+            var so = new SerializedObject(controller);
+            so.FindProperty("_titleMenuView").objectReferenceValue =
+                canvas.GetComponentInChildren<TitleMenuView>(true);
+            so.FindProperty("_titleScreenBackground").objectReferenceValue =
+                canvas.Find("TitleScreenBackground")?.gameObject;
+            so.FindProperty("_saveSelectView").objectReferenceValue =
+                canvas.GetComponentInChildren<SaveSelectView>(true);
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static GameObject BuildTitleScreenBackground(Transform parent)
+        {
+            var go = CreatePanel(parent, "TitleScreenBackground", new Color(0.12f, 0.14f, 0.18f, 1f));
+            StretchFull(go.GetComponent<RectTransform>());
+            go.transform.SetAsFirstSibling();
+            ApplyTitleBackgroundSprite(go.GetComponent<Image>());
+            go.SetActive(true);
+            return go;
+        }
+
+        private static void ApplyTitleBackgroundSprite(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(TitleBackgroundSpritePath);
+            if (sprite == null)
+            {
+                Debug.LogWarning(
+                    $"[MetaShellAssetBuilder] Title background sprite missing at {TitleBackgroundSpritePath}. " +
+                    "Place Title_Background_Static.png then re-run Ensure TitleMenu (UI-027).");
+                return;
+            }
+
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+        }
+
+        /// <summary>
+        /// Ensures TitleMenuPanel/GameName (top-center Title_GameName.png; raycastTarget=0).
+        /// </summary>
+        private static void EnsureTitleGameName(Transform titleMenuRoot)
+        {
+            if (titleMenuRoot == null)
+            {
+                return;
+            }
+
+            var existing = titleMenuRoot.Find("GameName");
+            GameObject go;
+            if (existing == null)
+            {
+                go = new GameObject("GameName", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                go.transform.SetParent(titleMenuRoot, false);
+                go.transform.SetAsFirstSibling();
+            }
+            else
+            {
+                go = existing.gameObject;
+            }
+
+            var rt = go.GetComponent<RectTransform>();
+            Place(rt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -40f), new Vector2(380f, 178f));
+
+            var image = go.GetComponent<Image>();
+            ApplyTitleGameNameSprite(image);
+        }
+
+        private static void ApplyTitleGameNameSprite(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(TitleGameNameSpritePath);
+            if (sprite == null)
+            {
+                Debug.LogWarning(
+                    $"[MetaShellAssetBuilder] Title game-name sprite missing at {TitleGameNameSpritePath}. " +
+                    "Place Title_GameName.png then re-run Ensure TitleMenu (UI-027).");
+                return;
+            }
+
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+        }
+
+        private static void EnsureStandaloneTitleMenuGameName()
+        {
+            var standalone = AssetDatabase.LoadAssetAtPath<GameObject>(TitleMenuPrefabPath);
+            if (standalone == null)
+            {
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(TitleMenuPrefabPath);
+            try
+            {
+                EnsureTitleGameName(root.transform);
+                PrefabUtility.SaveAsPrefabAsset(root, TitleMenuPrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static TitleMenuView BuildTitleMenu(Transform parent)
+        {
+            var existing = parent.Find("TitleMenuPanel");
+            if (existing != null)
+            {
+                Object.DestroyImmediate(existing.gameObject);
+            }
+
+            var root = CreateContentRoot(parent, "TitleMenuPanel");
+            StretchFull(root.GetComponent<RectTransform>());
+
+            EnsureTitleGameName(root.transform);
+
+            var buttonsParent = new GameObject("Buttons", typeof(RectTransform));
+            buttonsParent.transform.SetParent(root.transform, false);
+            var buttonsRt = buttonsParent.GetComponent<RectTransform>();
+            Place(buttonsRt, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-80f, 0f), new Vector2(280f, 280f));
+
+            var layout = buttonsParent.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 12f;
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            var primary = CreateButton(buttonsParent.transform, "PrimaryButton", "开始游戏",
+                new Color(0.25f, 0.55f, 0.35f, 1f));
+            var primaryLe = primary.GetComponent<LayoutElement>();
+            primaryLe.preferredHeight = 56f;
+            primaryLe.minHeight = 56f;
+            var loadSave = CreateButton(buttonsParent.transform, "LoadSaveButton", "读取存档",
+                new Color(0.30f, 0.40f, 0.55f, 1f));
+            var settings = CreateButton(buttonsParent.transform, "SettingsButton", "设置",
+                new Color(0.30f, 0.40f, 0.55f, 1f));
+            var credits = CreateButton(buttonsParent.transform, "CreditsButton", "开发者介绍",
+                new Color(0.30f, 0.40f, 0.55f, 1f));
+
+            var version = CreateText(root.transform, "VersionText", "版本 v0.0.0", 20, TextAnchor.LowerRight);
+            version.color = new Color(0.75f, 0.75f, 0.78f, 1f);
+            var versionRt = version.GetComponent<RectTransform>();
+            Place(versionRt, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-24f, 24f), new Vector2(320f, 32f));
+
+            var view = root.AddComponent<TitleMenuView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_primaryButton").objectReferenceValue = primary.GetComponent<Button>();
+            so.FindProperty("_primaryButtonLabel").objectReferenceValue =
+                primary.transform.Find("Label")?.GetComponent<Text>();
+            so.FindProperty("_loadSaveButton").objectReferenceValue = loadSave.GetComponent<Button>();
+            so.FindProperty("_settingsButton").objectReferenceValue = settings.GetComponent<Button>();
+            so.FindProperty("_creditsButton").objectReferenceValue = credits.GetComponent<Button>();
+            so.FindProperty("_versionText").objectReferenceValue = version;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            root.SetActive(true);
+
+            var prefabRoot = Object.Instantiate(root);
+            prefabRoot.name = "TitleMenuPanel";
+            PrefabUtility.SaveAsPrefabAsset(prefabRoot, TitleMenuPrefabPath);
+            Object.DestroyImmediate(prefabRoot);
+
+            return view;
+        }
+
+        private static TitleSettingsPanelView BuildTitleSettingsPanel(Transform parent)
+        {
+            var existing = parent.Find("TitleSettingsPanel");
+            if (existing != null)
+            {
+                Object.DestroyImmediate(existing.gameObject);
+            }
+
+            var root = CreatePanel(parent, "TitleSettingsPanel", new Color(0f, 0f, 0f, 0.55f));
+            StretchFull(root.GetComponent<RectTransform>());
+            var canvas = root.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = InSaveModalSortingOrder;
+            root.AddComponent<GraphicRaycaster>();
+
+            var box = CreatePanel(root.transform, "Box", new Color(0.16f, 0.18f, 0.22f, 1f));
+            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(640f, 620f));
+
+            var title = CreateText(box.transform, "Title", "设置", 28, TextAnchor.MiddleCenter);
+            Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -16f), new Vector2(560f, 40f));
+
+            var displayTabBtn = CreateButton(box.transform, "DisplayTabButton", "显示", new Color(0.35f, 0.55f, 0.38f, 1f));
+            Place(displayTabBtn.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(24f, -64f), new Vector2(120f, 40f));
+            Object.DestroyImmediate(displayTabBtn.GetComponent<LayoutElement>());
+
+            var displayRoot = CreatePanel(box.transform, "DisplayTab", new Color(0.12f, 0.13f, 0.16f, 1f));
+            Place(displayRoot.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0f, -10f), new Vector2(580f, 420f));
+
+            var resLabel = CreateText(displayRoot.transform, "ResolutionLabel", "分辨率", 22, TextAnchor.MiddleLeft);
+            Place(resLabel.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(16f, -12f), new Vector2(200f, 32f));
+
+            var scrollGo = new GameObject("ResolutionScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollGo.transform.SetParent(displayRoot.transform, false);
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            Place(scrollRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -48f), new Vector2(548f, 220f));
+            scrollGo.GetComponent<Image>().color = new Color(0.10f, 0.11f, 0.14f, 1f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewport.GetComponent<RectTransform>());
+            viewport.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            var contentRt = content.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = Vector2.zero;
+            var vlg = content.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(10, 10, 10, 10);
+            vlg.spacing = 8f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewport.GetComponent<RectTransform>();
+            scroll.content = contentRt;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+
+            var rowTemplate = CreateButton(content.transform, "ResolutionRowTemplate", "1920 × 1080",
+                new Color(0.22f, 0.28f, 0.36f, 1f));
+            var rowLe = rowTemplate.GetComponent<LayoutElement>();
+            rowLe.minHeight = 40f;
+            rowLe.preferredHeight = 40f;
+            rowTemplate.SetActive(false);
+
+            var modeLabel = CreateText(displayRoot.transform, "ModeLabel", "显示模式", 22, TextAnchor.MiddleLeft);
+            Place(modeLabel.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(16f, 120f), new Vector2(200f, 32f));
+
+            var modeWindowed = CreateButton(displayRoot.transform, "ModeWindowedButton", "窗口",
+                new Color(0.28f, 0.38f, 0.52f, 1f));
+            Place(modeWindowed.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(16f, 64f), new Vector2(170f, 44f));
+            Object.DestroyImmediate(modeWindowed.GetComponent<LayoutElement>());
+
+            var modeBorderless = CreateButton(displayRoot.transform, "ModeBorderlessButton", "无边框全屏",
+                new Color(0.28f, 0.38f, 0.52f, 1f));
+            Place(modeBorderless.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 64f), new Vector2(170f, 44f));
+            Object.DestroyImmediate(modeBorderless.GetComponent<LayoutElement>());
+
+            var modeExclusive = CreateButton(displayRoot.transform, "ModeExclusiveButton", "独占全屏",
+                new Color(0.28f, 0.38f, 0.52f, 1f));
+            Place(modeExclusive.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(-16f, 64f), new Vector2(170f, 44f));
+            Object.DestroyImmediate(modeExclusive.GetComponent<LayoutElement>());
+
+            var apply = CreateButton(displayRoot.transform, "ApplyButton", "应用", new Color(0.25f, 0.55f, 0.35f, 1f));
+            Place(apply.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 12f), new Vector2(160f, 44f));
+            Object.DestroyImmediate(apply.GetComponent<LayoutElement>());
+
+            var displayTab = displayRoot.AddComponent<DisplaySettingsTabView>();
+            var displaySo = new SerializedObject(displayTab);
+            displaySo.FindProperty("_root").objectReferenceValue = displayRoot;
+            displaySo.FindProperty("_resolutionListContent").objectReferenceValue = content.transform;
+            displaySo.FindProperty("_resolutionRowTemplate").objectReferenceValue = rowTemplate;
+            displaySo.FindProperty("_modeWindowedButton").objectReferenceValue = modeWindowed.GetComponent<Button>();
+            displaySo.FindProperty("_modeBorderlessButton").objectReferenceValue = modeBorderless.GetComponent<Button>();
+            displaySo.FindProperty("_modeExclusiveButton").objectReferenceValue = modeExclusive.GetComponent<Button>();
+            displaySo.FindProperty("_applyButton").objectReferenceValue = apply.GetComponent<Button>();
+            displaySo.ApplyModifiedPropertiesWithoutUndo();
+
+            var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 16f), new Vector2(180f, 44f));
+            Object.DestroyImmediate(close.GetComponent<LayoutElement>());
+
+            var view = root.AddComponent<TitleSettingsPanelView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_displayTabButton").objectReferenceValue = displayTabBtn.GetComponent<Button>();
+            so.FindProperty("_displayTab").objectReferenceValue = displayTab;
+            so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            root.SetActive(false);
+
+            var prefabRoot = Object.Instantiate(root);
+            prefabRoot.name = "TitleSettingsPanel";
+            PrefabUtility.SaveAsPrefabAsset(prefabRoot, TitleSettingsPrefabPath);
+            Object.DestroyImmediate(prefabRoot);
+
+            return view;
+        }
+
+        private static void PatchSaveSelectPanel(SaveSelectView saveSelect)
+        {
+            var panel = saveSelect.transform;
+            var panelImage = panel.GetComponent<Image>();
+            if (panelImage != null)
+            {
+                Object.DestroyImmediate(panelImage);
+            }
+
+            var back = panel.Find("BackButton");
+            Button backButton;
+            if (back == null)
+            {
+                var backGo = CreateButton(panel, "BackButton", "返回", new Color(0.35f, 0.38f, 0.42f, 1f));
+                var backRt = backGo.GetComponent<RectTransform>();
+                Place(backRt, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(24f, -24f), new Vector2(120f, 48f));
+                backButton = backGo.GetComponent<Button>();
+            }
+            else
+            {
+                backButton = back.GetComponent<Button>();
+            }
+
+            var so = new SerializedObject(saveSelect);
+            so.FindProperty("_root").objectReferenceValue = panel.gameObject;
+            so.FindProperty("_backButton").objectReferenceValue = backButton;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -678,8 +1473,13 @@ namespace Gravedigger2026.Editor.Meta
 
         private static SaveSelectView BuildSaveSelect(Transform parent)
         {
-            var root = CreatePanel(parent, "SaveSelectPanel", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            var root = CreateContentRoot(parent, "SaveSelectPanel");
             StretchFull(root.GetComponent<RectTransform>());
+
+            var backGo = CreateButton(root.transform, "BackButton", "返回", new Color(0.35f, 0.38f, 0.42f, 1f));
+            var backRt = backGo.GetComponent<RectTransform>();
+            Place(backRt, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(24f, -24f), new Vector2(120f, 48f));
 
             var title = CreateText(root.transform, "Title", "存档选择", 42, TextAnchor.MiddleCenter);
             var titleRt = title.GetComponent<RectTransform>();
@@ -714,6 +1514,7 @@ namespace Gravedigger2026.Editor.Meta
             var view = root.AddComponent<SaveSelectView>();
             var so = new SerializedObject(view);
             so.FindProperty("_root").objectReferenceValue = root;
+            so.FindProperty("_backButton").objectReferenceValue = backGo.GetComponent<Button>();
             var slotsProp = so.FindProperty("_slotViews");
             slotsProp.arraySize = 3;
             for (var i = 0; i < 3; i++)
@@ -722,8 +1523,15 @@ namespace Gravedigger2026.Editor.Meta
             }
 
             so.ApplyModifiedPropertiesWithoutUndo();
-            root.SetActive(true);
+            root.SetActive(false);
             return view;
+        }
+
+        private static GameObject CreateContentRoot(Transform parent, string name)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return go;
         }
 
         private static SaveSlotView BuildSaveSlot(Transform parent, int index)
@@ -820,7 +1628,15 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_placeholderView").objectReferenceValue = placeholder;
             so.ApplyModifiedPropertiesWithoutUndo();
 
+            PatchDifficultySelectHost(view);
+
             root.SetActive(false);
+
+            var standalone = Object.Instantiate(root);
+            standalone.name = "InSaveShellPanel";
+            PrefabUtility.SaveAsPrefabAsset(standalone, InSaveShellPrefabPath);
+            Object.DestroyImmediate(standalone);
+
             return view;
         }
 
@@ -892,6 +1708,10 @@ namespace Gravedigger2026.Editor.Meta
             var close = CreateButton(box.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
             Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(180f, 44f));
 
+            var enter = CreateButton(box.transform, "EnterButton", "进入", new Color(0.25f, 0.45f, 0.85f, 1f));
+            Place(enter.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(200f, 48f));
+            enter.SetActive(false);
+
             var view = root.AddComponent<LevelSelectPanelView>();
             var so = new SerializedObject(view);
             so.FindProperty("_root").objectReferenceValue = root;
@@ -899,7 +1719,10 @@ namespace Gravedigger2026.Editor.Meta
             so.FindProperty("_levelListContent").objectReferenceValue = content.transform;
             so.FindProperty("_levelRowTemplate").objectReferenceValue = rowTemplate;
             so.FindProperty("_closeButton").objectReferenceValue = close.GetComponent<Button>();
+            so.FindProperty("_enterButton").objectReferenceValue = enter.GetComponent<Button>();
             so.FindProperty("_emptyHintText").objectReferenceValue = emptyHint;
+            so.FindProperty("_backdropImage").objectReferenceValue = root.GetComponent<Image>();
+            so.FindProperty("_hubEmbedded").boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
             root.SetActive(false);
             return view;

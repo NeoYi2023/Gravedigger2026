@@ -1,10 +1,11 @@
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
-    /// Monster-only death knockback helpers (SPEC_04 §15.5): mirror killer across death pos on XZ,
-    /// then scale displacement by ClassConfig.DeathKnockbackMult.
+    /// Monster-only death knockback (SPEC_04 §15.5): distance from MaxHp/OutgoingDamage
+    /// × CombatConstantConfig coeffs; direction away from killer on XZ.
     /// </summary>
     public static class MonsterDeathPresentation
     {
@@ -12,19 +13,53 @@ namespace Gravedigger2026.Gameplay.Defend
         public const float DeathKnockbackSeconds = 0.3f;
 
         /// <summary>
-        /// Mirror T = 2M − S on XZ; end = M + (T − M) × deathKnockbackMult. Y kept from M.
+        /// raw = (MaxHp / OutgoingDamage) × RatioCoeff; clamp [Min, Max].
+        /// OutgoingDamage ≤ 0 or MaxHp ≤ 0 → MaxDistance.
         /// </summary>
-        public static Vector3 MirrorKnockbackTarget(
+        public static float ComputeKnockbackDistance(float maxHp, float outgoingDamage)
+        {
+            var min = Mathf.Max(0f, CombatRuntimeTuning.DeathKnockbackMinDistance);
+            var max = Mathf.Max(min, CombatRuntimeTuning.DeathKnockbackMaxDistance);
+            if (maxHp <= 0f || outgoingDamage <= 0f)
+            {
+                return max;
+            }
+
+            var coeff = Mathf.Max(0f, CombatRuntimeTuning.DeathKnockbackRatioCoeff);
+            var raw = (maxHp / outgoingDamage) * coeff;
+            return Mathf.Clamp(raw, min, max);
+        }
+
+        /// <summary>
+        /// End = M + normalize(M − S)_xz × distance; Y kept from M.
+        /// Returns false when killer coincides with M (zero planar dir) or distance ≤ 0.
+        /// </summary>
+        public static bool TryDirectionalKnockbackTarget(
             Vector3 monsterDeathPos,
             Vector3 killerWorldPos,
-            float deathKnockbackMult = 1f)
+            float distance,
+            out Vector3 target)
         {
-            var mirror = new Vector3(
-                2f * monsterDeathPos.x - killerWorldPos.x,
+            target = monsterDeathPos;
+            if (distance <= 0f)
+            {
+                return false;
+            }
+
+            var dx = monsterDeathPos.x - killerWorldPos.x;
+            var dz = monsterDeathPos.z - killerWorldPos.z;
+            var lenSq = dx * dx + dz * dz;
+            if (lenSq < 1e-8f)
+            {
+                return false;
+            }
+
+            var inv = 1f / Mathf.Sqrt(lenSq);
+            target = new Vector3(
+                monsterDeathPos.x + dx * inv * distance,
                 monsterDeathPos.y,
-                2f * monsterDeathPos.z - killerWorldPos.z);
-            var mult = Mathf.Max(0f, deathKnockbackMult);
-            return monsterDeathPos + (mirror - monsterDeathPos) * mult;
+                monsterDeathPos.z + dz * inv * distance);
+            return true;
         }
 
         /// <summary>Linear lerp origin→target by elapsed/duration; returns true while still animating.</summary>

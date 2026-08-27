@@ -30,7 +30,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// PM-12 (Approach B): StartBattle registers warriors (TryRegisterWarrior) and spawns
     /// register monsters (RegisterMonster) on PushMapSessionService; soldier→monster damage
     /// settles via scheme-D HitConfirm → MonsterDamageSettled (red popup/flash + provoke) /
-    /// MonsterKilled(runtimeId, killerWarriorId). PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
+    /// MonsterKilled(runtimeId, killerWarriorId, outgoingDamage). PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
     /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
     /// D-071 CombatSkillIcon: SkillIconPopup / SkillPersistChanged → WarriorSkillIconHudView.
     /// VictorySettled → AddExperience → settlement UI (UI-017) → reward (UI-018) → LevelSelect;
@@ -547,7 +547,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>PM-12: monster RemainingHp≤0 → presentation kill + optional knockback; Boss also advances clear.</summary>
-        private void HandleMonsterKilled(string runtimeId, string killerWarriorId)
+        private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage)
         {
             var monster = FindMonsterView(runtimeId);
             if (monster == null)
@@ -557,7 +557,6 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var isBoss = monster.IsBoss;
             Vector3? killerPos = null;
-            var knockMult = ClassConfigRow.DefaultDeathKnockbackMult;
             if (!string.IsNullOrEmpty(killerWarriorId))
             {
                 var killer = FindAdvanceView(killerWarriorId);
@@ -565,31 +564,20 @@ namespace Gravedigger2026.Gameplay.PushMap
                 {
                     killerPos = killer.transform.position;
                 }
-
-                knockMult = ResolveDeathKnockbackMult(killerWarriorId);
             }
 
-            monster.NotifyKilled(killerPos, knockMult);
+            var maxHp = 0f;
+            if (_session != null && _session.TryGetMonster(runtimeId, out var state) && state != null)
+            {
+                maxHp = state.MaxHp;
+            }
+
+            var distance = MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
+            monster.NotifyKilled(killerPos, distance);
             if (isBoss)
             {
                 _session?.TryNotifyBossKilled();
             }
-        }
-
-        private float ResolveDeathKnockbackMult(string killerWarriorId)
-        {
-            if (_configs == null ||
-                _warriorPool == null ||
-                !_warriorPool.TryGet(killerWarriorId, out var warrior) ||
-                warrior == null ||
-                string.IsNullOrEmpty(warrior.ClassId) ||
-                !_configs.TryGetClass(warrior.ClassId, out var classRow) ||
-                classRow == null)
-            {
-                return ClassConfigRow.DefaultDeathKnockbackMult;
-            }
-
-            return classRow.DeathKnockbackMult;
         }
 
         private PushMapMonsterAgentView FindMonsterView(string runtimeId)

@@ -47,8 +47,8 @@ namespace Gravedigger2026.Core.Defend
         public event Action<long> VictorySettled;
         public event Action<string> WarriorCombatStateChanged;
         public event Action<string> MonsterCombatStateChanged;
-        /// <summary>Monster RemainingHp≤0 (runtimeId, killerWarriorId). View NotifyKilled + death knockback.</summary>
-        public event Action<string, string> MonsterKilled;
+        /// <summary>Monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage). View NotifyKilled + death knockback.</summary>
+        public event Action<string, string, float> MonsterKilled;
 
         public bool IsActive => _active;
         public DefendPhase Phase => _phase;
@@ -437,7 +437,7 @@ namespace Gravedigger2026.Core.Defend
             {
                 monster.IsAlive = false;
                 Debug.Log($"[DefendSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
-                MonsterKilled?.Invoke(monsterRuntimeId, warriorId);
+                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower);
             }
 
             MonsterCombatStateChanged?.Invoke(monsterRuntimeId);
@@ -480,7 +480,7 @@ namespace Gravedigger2026.Core.Defend
             {
                 monster.IsAlive = false;
                 Debug.Log($"[DefendSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
-                MonsterKilled?.Invoke(monsterRuntimeId, warriorId);
+                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower);
             }
 
             MonsterCombatStateChanged?.Invoke(monsterRuntimeId);

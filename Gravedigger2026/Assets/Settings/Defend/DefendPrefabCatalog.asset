@@ -164,6 +164,8 @@ MonoBehaviour:
   - AppearanceId: App_3_33
     Prefab: {fileID: 3927253789114556784, guid: a64348e8b70c423681529f2573822898, type: 3}
   _monsterModels:
+  - ModelId: MonsterModel_03
+    Prefab: {fileID: 4104538918496031396, guid: d0c8bd4776b04537909611dfc2c1ab9d, type: 3}
   - ModelId: MonsterModel_05
     Prefab: {fileID: 4104538918496031396, guid: b2edd44343f44fb6a4a022ed1beddf16, type: 3}
   - ModelId: MonsterModel_06

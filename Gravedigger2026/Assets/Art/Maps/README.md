@@ -4,6 +4,7 @@
 - `Palettes/FantasyTileset.prefab`：可由 `FantasyTilesetPaletteBuilder` 从 Environment/Tiles 重建（非刷图权威盘）。
 - `Palettes/FantasyTileset_A.prefab`：**权威刷图 Palette**（MapAutoTile / 日常刷图选此资产）。
 - **格子校正（可重复）：** 菜单 `Gravedigger2026/Maps/Correct FantasyTileset_A From FantasyTileset`（批跑：`-executeMethod Gravedigger2026.Editor.Maps.FantasyTilesetALayoutAligner.CorrectFantasyTilesetAFromFantasyTileset`）。按厂商盘 `SmallScaleInt/.../Environment/FantasyTileset` 的 **Tile 资源名** 把 Art 同名砖摆回对应坐标（不复制 SSI 的 Sprite 缓存偏移）；SSI 没有的 Art 砖溢到参考包围盒右侧；特例 **`Ground F4_W`** 原地保留（SSI 无此砖则不删）；`RT_WallA` 重钉固定槽。跑完后须**重开 Tile Palette** 窗口。旧菜单 `Align FantasyTileset_A Layout From SSI` 会调用同一实现。
+- **地图 Prefab SSI→Art 重绑：** 菜单 `Gravedigger2026/Maps/Remap PushMap_Demo_03 SSI Tiles To Art (FantasyTileset_A names)`（批跑：`-executeMethod Gravedigger2026.Editor.Maps.MapTileSsiToArtRemapper.RemapPushMapDemo03`）。将 `PushMap_Demo_03` 的 `GroundTilemap` 下各层仍指向 `SmallScaleInt/` 的 Tile 按名换成 Art `Environment/Tiles` / `Animated tiles` / `RuleTiles` 同名砖（与 FantasyTileset_A 笔刷一致）。
 - Tile 图标约定：`Environment/Tiles` 里每个 Tile 的 Sprite 必须与同名 `Environment/Sprites` 一致（如 `Stone A12_E` → `Stone A12_E`）。菜单：`Rebind Environment Tile Sprites By Name`；若 Palette 预览仍错，再跑 `Refresh FantasyTileset_A Sprite Cache`（重建 Tilemap 的 `TileSpriteArray` 缓存）。校正菜单已内含重绑 + 缓存刷新。
 - Vendor `SmallScaleInt/Fantasy kingdom Tileset/Example scene/Scripts` 不编入（Unity 6 API vs 工程 2021.3；由 `FantasyTilesetExampleCompileGuard` 停编）。
 - `Ground_0N/`：可选每图附加贴图；运行时 Instantiate 仍走 `Prefabs/Maps/Ground_0N.prefab`。
@@ -52,3 +53,26 @@
 - `Gravedigger2026/Maps/Ensure Flowing Water Layers (force Demo pond)` — 强制刷 Demo 菱形小池（mask=`BLACK TILE`，Foam=`WaterRipples 1`～`13`）
 
 目标：`Ground_01`…`05`、`PushMap_Demo_01`…`03`。打开工程时 one-shot 会跑一次（preserve）。Batch：`-executeMethod Gravedigger2026.Editor.Maps.MapFlowingWaterBuilder.EnsureFlowingWaterBatch`。
+
+## 地图边缘迷雾（MapEdgeFog）
+
+遮可玩区外空白 + 氛围的 **地图表现约定**（非玩法规则）；权威见 SPEC_04 §13。**方案 A 已锁：世界空间边缘雾**，挂在各地图 Prefab 上。
+
+与 `CameraFogOverlay`（全屏 UI 暗角）职责分离，可叠加：遮空白靠本约定，屏幕氛围可继续用既有镜头迷雾。
+
+### 摆放约定
+
+1. 父节点建议：`MapEdgeFog`（地图 Prefab 根下）；随地图 Instantiate/Destroy。
+2. 相对 `DigMapBounds` / IsoDiamond：**外侧**放 1 个环状软边雾片，或至多 4 条边雾片（`SpriteRenderer` / alpha 渐变 Quad）。
+3. Sorting：高于地面 / Water / Foam，低于单位与战斗特效。
+4. 配置：Prefab `SerializeField`（贴图、颜色、Alpha、尺寸/偏移、启用），或共享 SO → `Assets/Settings/Maps/`；贴图可复用 `Fog_1.png` 等 `Art/Maps/Fog_*.png`。
+5. **禁止**：粒子当遮罩、每帧 C# 动画、挂 `transform.root`、参与 NavMesh / 空气墙 / 占领。
+6. **Transform 归属：** 默认不自动回写。手动摆位置/角度后，Inspector 保持 **Auto Fit To Bounds = 关**（进 Play 不会弹回）；若要按 `DigMapBounds` 重算，勾选 Auto Fit 或组件上调用 `FitToBounds()`。Ensure 对已有 `MapEdgeFog` **不**覆盖已摆姿势。
+
+### Ensure（ME-01）
+
+菜单：`Gravedigger2026/Maps/Ensure Map Edge Fog`  
+（one-shot：打开工程会跑一次；Batch：`-executeMethod Gravedigger2026.Editor.Maps.MapEdgeFogBuilder.EnsureMapEdgeFogBatch`）
+
+目标：`Ground_01`…`05`、`PushMap_Demo_01`…`03`。子物体名 `MapEdgeFog`，组件 `MapEdgeFogView`，默认 Sprite=`Fog_1.png`。
+

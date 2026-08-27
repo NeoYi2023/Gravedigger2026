@@ -9,5 +9,5 @@ Monster_07,MonsterModel_05,骨龙幼崽,Nearest,Melee,1,ActiveChase,5,0.15,1,0.5
 Monster_08,MonsterModel_05,血仆,PreferWarrior,Ranged,1,ActiveChase,5,0.15,1,0.5,0,235,0.5,1,1,22,1.15,0.25,0,17,2.5,,Bone;1|Spirit;10
 Monster_09,MonsterModel_05,暗影刺客,PreferProtagonist,Melee,1,ActiveChase,5,0.15,1,0.5,0,265,0.5,1,1,24,1.2,0.25,0.46,0,0,,Iron;3|Spirit;13
 Monster_10,MonsterModel_05,巨型僵尸,Nearest,Melee,1,ActiveChase,5,0.15,1,0.5,0,295,0.5,1,1,26,1.25,1.5,0.48,0,0,,Bone;1|Spirit;12
-Monster_11,MonsterModel_06,骷髅猛士,Nearest,Melee,3,ActiveChase,10,0.3,1.1,1,0,10000,0.3,1,1,1500,1.25,0.35,1.25,0,0,,Bone;1|Spirit;12
-Monster_12,MonsterModel_06,骷髅猛士,Nearest,Melee,3,ActiveChase,4,0.3,1.1,1,0,3000,0.3,1,1,50,1.25,0.35,1.25,0,0,,Bone;1|Spirit;12
+Monster_11,MonsterModel_03,骷髅猛士,Nearest,Melee,3,ActiveChase,10,0.3,1.1,1,0,2000,0.3,1,1,1500,1.25,0.35,1.25,0,0,,Bone;1|Spirit;12
+Monster_12,MonsterModel_06,骷髅猛士,Nearest,Melee,3,ActiveChase,4,0.3,1.1,1,0,800,0.3,1,1,50,1.25,0.35,1.25,0,0,,Bone;1|Spirit;12

@@ -168,11 +168,11 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         /// <summary>
-        /// Combat death presentation (SPEC_04 §15.5): PlayDie + corpse latch; optional mirror knockback.
+        /// Combat death presentation (SPEC_04 §15.5): PlayDie + corpse latch; optional directional knockback.
         /// </summary>
         public void NotifyKilled(
             Vector3? killerWorldPos = null,
-            float deathKnockbackMult = ClassConfigRow.DefaultDeathKnockbackMult)
+            float knockbackDistance = 0f)
         {
             if (!_alive)
             {
@@ -198,13 +198,15 @@ namespace Gravedigger2026.Gameplay.Defend
             _anim.PlayDie();
 
             _deathKnockActive = false;
-            if (killerWorldPos.HasValue)
+            if (killerWorldPos.HasValue &&
+                MonsterDeathPresentation.TryDirectionalKnockbackTarget(
+                    transform.position,
+                    killerWorldPos.Value,
+                    knockbackDistance,
+                    out var target))
             {
                 _deathKnockOrigin = transform.position;
-                _deathKnockTarget = MonsterDeathPresentation.MirrorKnockbackTarget(
-                    _deathKnockOrigin,
-                    killerWorldPos.Value,
-                    deathKnockbackMult);
+                _deathKnockTarget = target;
                 _deathKnockStartedAt = Time.time;
                 _deathKnockActive = true;
             }

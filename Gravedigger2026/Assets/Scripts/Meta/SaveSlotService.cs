@@ -28,6 +28,19 @@ namespace Gravedigger2026.Meta
             return _occupied[slotIndex];
         }
 
+        public bool HasAnyOccupied()
+        {
+            for (var i = 0; i < SlotCount; i++)
+            {
+                if (_occupied[i])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public void Create(int slotIndex)
         {
             ValidateIndex(slotIndex);

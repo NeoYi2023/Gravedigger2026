@@ -25,6 +25,7 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _debugAdvanceStageButton;
         [SerializeField] private Button _debugWarriorTaskLabelButton;
         [SerializeField] private ToolsPanelView _toolsPanel;
+        [SerializeField] private DifficultySelectHostView _difficultySelectHost;
         [SerializeField] private LevelSelectPanelView _levelSelectPanel;
         [SerializeField] private GmGrantListPanelView _gmGrantListPanel;
         [SerializeField] private GmAddSoldierPanelView _gmAddSoldierPanel;
@@ -32,7 +33,8 @@ namespace Gravedigger2026.UI
         [SerializeField] private MagicBookSlotsPanelView _magicBookSlotsPanel;
         [SerializeField] private GameplayStatePlaceholderView _placeholderView;
 
-        private Color _backdropDefault = new Color(0.10f, 0.12f, 0.16f, 0.96f);
+        private Color _backdropDefault = Color.white;
+        private bool _backdropDefaultCached;
         private Text _warriorTaskLabelButtonText;
 
         public event Action ToolsToggleRequested;
@@ -50,6 +52,7 @@ namespace Gravedigger2026.UI
         public event Action GrantAddSoldierRequested;
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
+        public event Action LockedDifficultyClicked;
         public event Action<string> GmGrantItemPicked;
         public event Action<int> GmGrantLevelPicked;
         public event Action GmGrantListClosed;
@@ -60,10 +63,7 @@ namespace Gravedigger2026.UI
 
         private void Awake()
         {
-            if (_backdropImage != null)
-            {
-                _backdropDefault = _backdropImage.color;
-            }
+            CacheBackdropDefaultFromImage();
 
             if (_toolsButton != null)
             {
@@ -101,11 +101,18 @@ namespace Gravedigger2026.UI
             EnsureEquipmentWarehouseList();
             EnsureMagicBookRow();
             EnsureShopButton();
+            EnsureDifficultySelectHost();
             if (_shopButton != null)
             {
                 _shopButton.onClick.RemoveAllListeners();
                 _shopButton.onClick.AddListener(() => ShopRequested?.Invoke());
             }
+
+            if (_difficultySelectHost != null)
+            {
+                _difficultySelectHost.LockedDifficultyClicked += () => LockedDifficultyClicked?.Invoke();
+            }
+
             if (_debugWarriorTaskLabelButton != null)
             {
                 _debugWarriorTaskLabelButton.onClick.AddListener(HandleWarriorTaskLabelToggleClicked);
@@ -167,12 +174,13 @@ namespace Gravedigger2026.UI
                 _slotLabel.text = $"进档壳 — 槽 {slotIndex + 1}";
             }
 
-            SetShellBackdropVisible(true);
-
+            // Activate first so Awake can cache Prefab Image color before we rewrite it.
             if (_root != null)
             {
                 _root.SetActive(true);
             }
+
+            SetShellBackdropVisible(true);
         }
 
         public void Hide()
@@ -183,6 +191,7 @@ namespace Gravedigger2026.UI
             }
 
             HideLevelSelectPanel();
+            HideDifficultySelectHost();
             HideGmGrantListPanel();
             HideGmAddSoldierPanel();
             HideEquipmentWarehousePanel();
@@ -212,8 +221,17 @@ namespace Gravedigger2026.UI
 
         public void ShowLevelSelectPanel(IReadOnlyList<string> levelIds)
         {
+            EnsureDifficultySelectHost();
+            // Hide Dig/UM/Defend placeholders, but keep shell backdrop Image visible (hub chrome).
+            SuppressModePanelsKeepBackdrop();
+            if (_difficultySelectHost != null)
+            {
+                _difficultySelectHost.ShowExpandedNormal();
+            }
+
             if (_levelSelectPanel != null)
             {
+                _levelSelectPanel.ConfigureHubEmbedded(true);
                 _levelSelectPanel.Show(levelIds);
             }
         }
@@ -223,6 +241,24 @@ namespace Gravedigger2026.UI
             if (_levelSelectPanel != null)
             {
                 _levelSelectPanel.Hide();
+            }
+        }
+
+        public void ShowDifficultySelectHost()
+        {
+            EnsureDifficultySelectHost();
+            SuppressModePanelsKeepBackdrop();
+            if (_difficultySelectHost != null)
+            {
+                _difficultySelectHost.ShowExpandedNormal();
+            }
+        }
+
+        public void HideDifficultySelectHost()
+        {
+            if (_difficultySelectHost != null)
+            {
+                _difficultySelectHost.Hide();
             }
         }
 
@@ -341,6 +377,11 @@ namespace Gravedigger2026.UI
                     return true;
                 }
 
+                if (_difficultySelectHost != null && _difficultySelectHost.IsOpen)
+                {
+                    return true;
+                }
+
                 if (_gmGrantListPanel != null && _gmGrantListPanel.IsOpen)
                 {
                     return true;
@@ -386,7 +427,21 @@ namespace Gravedigger2026.UI
                 _placeholderView.SetModePanelsSuppressed(suppressed);
             }
 
+            // Stage presentation needs a clear camera view; hide shell backdrop.
             SetShellBackdropVisible(!suppressed);
+        }
+
+        /// <summary>
+        /// Hub (DifficultySelect + LevelSelect): suppress mode placeholders without clearing shell bg.
+        /// </summary>
+        private void SuppressModePanelsKeepBackdrop()
+        {
+            if (_placeholderView != null)
+            {
+                _placeholderView.SetModePanelsSuppressed(true);
+            }
+
+            SetShellBackdropVisible(true);
         }
 
         public void SetShellBackdropVisible(bool visible)
@@ -396,6 +451,10 @@ namespace Gravedigger2026.UI
                 return;
             }
 
+            // Panel starts inactive: Awake may not have run when MetaShell calls this first.
+            // Cache Prefab color before any write, or hardcoded dark alpha would tint the sprite.
+            CacheBackdropDefaultFromImage();
+
             var c = _backdropDefault;
             if (!visible)
             {
@@ -404,6 +463,17 @@ namespace Gravedigger2026.UI
 
             _backdropImage.color = c;
             _backdropImage.raycastTarget = visible;
+        }
+
+        private void CacheBackdropDefaultFromImage()
+        {
+            if (_backdropDefaultCached || _backdropImage == null)
+            {
+                return;
+            }
+
+            _backdropDefault = _backdropImage.color;
+            _backdropDefaultCached = true;
         }
 
         public void ShowGameplayState(GameplayState state)
@@ -547,6 +617,195 @@ namespace Gravedigger2026.UI
             }
 
             _shopButton = btn;
+        }
+
+        private void EnsureDifficultySelectHost()
+        {
+            if (_difficultySelectHost != null)
+            {
+                EmbedLevelSelectInMapHost();
+                return;
+            }
+
+            var parent = _root != null ? _root.transform : transform;
+            var existing = parent.Find("DifficultySelectHost");
+            GameObject hostGo;
+            if (existing != null)
+            {
+                hostGo = existing.gameObject;
+                _difficultySelectHost = hostGo.GetComponent<DifficultySelectHostView>();
+                if (_difficultySelectHost == null)
+                {
+                    _difficultySelectHost = hostGo.AddComponent<DifficultySelectHostView>();
+                }
+            }
+            else
+            {
+                hostGo = new GameObject("DifficultySelectHost", typeof(RectTransform));
+                hostGo.transform.SetParent(parent, false);
+                var hostRt = hostGo.GetComponent<RectTransform>();
+                hostRt.anchorMin = new Vector2(0.08f, 0.12f);
+                hostRt.anchorMax = new Vector2(0.92f, 0.88f);
+                hostRt.offsetMin = Vector2.zero;
+                hostRt.offsetMax = Vector2.zero;
+
+                _difficultySelectHost = hostGo.AddComponent<DifficultySelectHostView>();
+
+                var columns = new GameObject("Columns", typeof(RectTransform));
+                columns.transform.SetParent(hostGo.transform, false);
+                Stretch(columns.GetComponent<RectTransform>());
+
+                var normal = CreateDifficultyColumn(columns.transform, "NormalColumn", "普通难度",
+                    new Color(0.55f, 0.78f, 0.55f, 1f));
+                var hard = CreateDifficultyColumn(columns.transform, "HardColumn", "困难难度",
+                    new Color(0.85f, 0.75f, 0.35f, 1f));
+                var hell = CreateDifficultyColumn(columns.transform, "HellColumn", "地狱难度",
+                    new Color(0.90f, 0.55f, 0.35f, 1f));
+
+                var mapHostGo = new GameObject("MapHost", typeof(RectTransform), typeof(Image));
+                mapHostGo.transform.SetParent(hostGo.transform, false);
+                var mapRt = mapHostGo.GetComponent<RectTransform>();
+                mapRt.anchorMin = new Vector2(0.18f, 0f);
+                mapRt.anchorMax = new Vector2(0.82f, 1f);
+                mapRt.offsetMin = Vector2.zero;
+                mapRt.offsetMax = Vector2.zero;
+                var mapImg = mapHostGo.GetComponent<Image>();
+                mapImg.color = new Color(1f, 1f, 1f, 0.96f);
+                mapImg.raycastTarget = true;
+                TryApplyMapSprite(mapImg);
+
+                _difficultySelectHost.BindRuntime(
+                    hostGo,
+                    columns.GetComponent<RectTransform>(),
+                    normal.GetComponent<Button>(),
+                    hard.GetComponent<Button>(),
+                    hell.GetComponent<Button>(),
+                    normal.GetComponent<Image>(),
+                    hard.GetComponent<Image>(),
+                    hell.GetComponent<Image>(),
+                    normal.transform.Find("Label")?.GetComponent<Text>(),
+                    hard.transform.Find("Label")?.GetComponent<Text>(),
+                    hell.transform.Find("Label")?.GetComponent<Text>(),
+                    mapRt,
+                    mapHostGo);
+            }
+
+            EmbedLevelSelectInMapHost();
+            hostGo.SetActive(false);
+        }
+
+        private void EmbedLevelSelectInMapHost()
+        {
+            if (_difficultySelectHost == null || _levelSelectPanel == null)
+            {
+                return;
+            }
+
+            var mapHost = _difficultySelectHost.MapHost;
+            if (mapHost == null)
+            {
+                return;
+            }
+
+            var levelGo = _levelSelectPanel.gameObject;
+            if (levelGo.transform.parent != mapHost)
+            {
+                levelGo.transform.SetParent(mapHost, false);
+            }
+
+            var rt = levelGo.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.offsetMin = new Vector2(12f, 12f);
+                rt.offsetMax = new Vector2(-12f, -12f);
+            }
+
+            var backdrop = levelGo.GetComponent<Image>();
+            if (backdrop != null)
+            {
+                backdrop.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
+            }
+
+            EnsureLevelEnterButton(levelGo.transform);
+            _levelSelectPanel.ConfigureHubEmbedded(true);
+        }
+
+        private void EnsureLevelEnterButton(Transform levelRoot)
+        {
+            if (_levelSelectPanel == null)
+            {
+                return;
+            }
+
+            var box = levelRoot.Find("Box");
+            var parent = box != null ? box : levelRoot;
+            var enterTf = parent.Find("EnterButton");
+            Button enterBtn;
+            if (enterTf == null)
+            {
+                var enterGo = new GameObject("EnterButton", typeof(RectTransform), typeof(Image), typeof(Button));
+                enterGo.transform.SetParent(parent, false);
+                var ert = enterGo.GetComponent<RectTransform>();
+                ert.anchorMin = new Vector2(0.5f, 0f);
+                ert.anchorMax = new Vector2(0.5f, 0f);
+                ert.pivot = new Vector2(0.5f, 0f);
+                ert.anchoredPosition = new Vector2(0f, 16f);
+                ert.sizeDelta = new Vector2(200f, 48f);
+                enterGo.GetComponent<Image>().color = new Color(0.25f, 0.45f, 0.85f, 1f);
+                var label = CreateUiText(enterGo.transform, "Label", "进入", 22, TextAnchor.MiddleCenter);
+                Stretch(label.rectTransform);
+                label.color = Color.white;
+                enterBtn = enterGo.GetComponent<Button>();
+            }
+            else
+            {
+                enterBtn = enterTf.GetComponent<Button>();
+            }
+
+            var close = parent.Find("CloseButton")?.GetComponent<Button>();
+            var title = parent.Find("Title")?.GetComponent<Text>();
+            var content = parent.Find("LevelScroll/Viewport/Content");
+            var rowTemplate = content != null ? content.Find("LevelRowTemplate")?.gameObject : null;
+            var emptyHint = parent.Find("EmptyHint")?.GetComponent<Text>();
+            var backdrop = levelRoot.GetComponent<Image>();
+            _levelSelectPanel.BindRuntime(
+                levelRoot.gameObject,
+                title,
+                content,
+                rowTemplate,
+                close,
+                emptyHint,
+                enterBtn,
+                backdrop);
+        }
+
+        private static GameObject CreateDifficultyColumn(Transform parent, string name, string label, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = color;
+            var text = CreateUiText(go.transform, "Label", label, 28, TextAnchor.MiddleCenter);
+            Stretch(text.rectTransform);
+            text.color = new Color(0.15f, 0.15f, 0.18f, 1f);
+            return go;
+        }
+
+        private static void TryApplyMapSprite(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            var sprite = Resources.Load<Sprite>("UI/Meta/Title/Level_Map_1");
+            if (sprite != null)
+            {
+                image.sprite = sprite;
+                image.type = Image.Type.Simple;
+                image.preserveAspect = false;
+            }
         }
 
         private void EnsureGmGrantListPanel()

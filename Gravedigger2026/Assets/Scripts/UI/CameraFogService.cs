@@ -13,6 +13,12 @@ namespace Gravedigger2026.UI
         private const string FogCanvasName = "DigFogCanvas";
         private const string FogOverlayName = "CameraFogOverlay";
 
+        /// <summary>
+        /// Temporary kill switch: when false, all DigFogCanvas stay inactive
+        /// (Dig session / PushMap Combat will not show fog). Set true to restore SPEC visibility.
+        /// </summary>
+        private const bool FogDisplayEnabled = false;
+
         public static CameraFogService Instance { get; private set; }
 
         /// <summary>Prefer Instance; fall back to scene search when static was cleared unexpectedly.</summary>
@@ -116,7 +122,7 @@ namespace Gravedigger2026.UI
 
         private bool IsEligibleGameplay => _digSessionActive || _pushMapCombatActive;
 
-        private bool ShouldShow => IsEligibleGameplay && !_metaOverlayBlocking;
+        private bool ShouldShow => FogDisplayEnabled && IsEligibleGameplay && !_metaOverlayBlocking;
 
         private void ApplyVisibility()
         {
@@ -132,7 +138,31 @@ namespace Gravedigger2026.UI
                 _fogCanvas.gameObject.SetActive(show);
             }
 
+            if (!FogDisplayEnabled)
+            {
+                ForceDisableAllFogCanvases();
+            }
+
             ApplyPulse();
+        }
+
+        /// <summary>Deactivate every DigFogCanvas in the loaded scenes (Meta host + orphans).</summary>
+        private static void ForceDisableAllFogCanvases()
+        {
+            var canvases = FindObjectsOfType<Canvas>(true);
+            for (var i = 0; i < canvases.Length; i++)
+            {
+                var c = canvases[i];
+                if (c == null || c.gameObject == null || c.gameObject.name != FogCanvasName)
+                {
+                    continue;
+                }
+
+                if (c.gameObject.activeSelf)
+                {
+                    c.gameObject.SetActive(false);
+                }
+            }
         }
 
         private void ApplyPulse()

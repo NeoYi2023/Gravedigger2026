@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Gravedigger2026.UI
 {
@@ -7,15 +8,22 @@ namespace Gravedigger2026.UI
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private SaveSlotView[] _slotViews;
+        [SerializeField] private Button _backButton;
 
         public event Action<int> CreateRequested;
         public event Action<int> EnterRequested;
         public event Action<int> DeleteRequested;
+        public event Action BackRequested;
 
         private Func<int, bool> _isOccupied;
 
         private void Awake()
         {
+            if (_backButton != null)
+            {
+                _backButton.onClick.AddListener(() => BackRequested?.Invoke());
+            }
+
             if (_slotViews == null)
             {
                 return;

@@ -231,6 +231,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             var rt = root.GetComponent<RectTransform>();
             Stretch(rt);
 
+            CreateBackground(root.transform);
+
             var dim = CreatePanel(root.transform, "Dim", new Color(0f, 0f, 0f, 0.55f));
             Stretch(dim.GetComponent<RectTransform>());
 
@@ -898,6 +900,38 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             var view = go.AddComponent<AutoMfgSoldierCardView>();
             view.RuntimeWire(go.GetComponent<Image>(), q, className, classLevel, thumb, amplify);
             return view;
+        }
+
+        /// <summary>
+        /// Full-screen keep-aspect cover background (UI-016). Sprite assigned by AmAssetBuilder.
+        /// </summary>
+        public static GameObject CreateBackground(Transform parent)
+        {
+            var go = new GameObject(
+                "Background",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(AspectRatioFitter));
+            go.transform.SetParent(parent, false);
+            go.transform.SetAsFirstSibling();
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(1920f, 1080f);
+
+            var image = go.GetComponent<Image>();
+            image.color = Color.white;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
+
+            var aspect = go.GetComponent<AspectRatioFitter>();
+            aspect.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            aspect.aspectRatio = 16f / 9f;
+            return go;
         }
 
         private static GameObject CreatePanel(Transform parent, string name, Color color)

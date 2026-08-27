@@ -47,6 +47,15 @@ namespace Gravedigger2026.Core.Config
         public static long DefendVictoryStageExp { get; private set; } =
             (long)CombatConstantKeys.Safety.DefendVictoryStageExp;
 
+        public static float DeathKnockbackRatioCoeff { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackRatioCoeff;
+
+        public static float DeathKnockbackMinDistance { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackMinDistance;
+
+        public static float DeathKnockbackMaxDistance { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackMaxDistance;
+
         public static float FlowFieldDefaultCellSize { get; private set; } =
             CombatConstantKeys.Safety.FlowFieldDefaultCellSize;
 
@@ -157,6 +166,17 @@ namespace Gravedigger2026.Core.Config
             DefendVictoryStageExp = (long)Mathf.Max(0f, F(
                 CombatConstantKeys.DefendVictoryStageExp,
                 CombatConstantKeys.Safety.DefendVictoryStageExp));
+            DeathKnockbackRatioCoeff = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathKnockbackRatioCoeff,
+                CombatConstantKeys.Safety.DeathKnockbackRatioCoeff));
+            DeathKnockbackMinDistance = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathKnockbackMinDistance,
+                CombatConstantKeys.Safety.DeathKnockbackMinDistance));
+            DeathKnockbackMaxDistance = Mathf.Max(
+                DeathKnockbackMinDistance,
+                F(
+                    CombatConstantKeys.DeathKnockbackMaxDistance,
+                    CombatConstantKeys.Safety.DeathKnockbackMaxDistance));
 
             FlowFieldMinCellSize = Mathf.Max(0.05f, F(
                 CombatConstantKeys.FlowFieldMinCellSize,

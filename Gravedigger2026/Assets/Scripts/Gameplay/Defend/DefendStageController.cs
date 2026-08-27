@@ -672,7 +672,7 @@ namespace Gravedigger2026.Gameplay.Defend
             RefreshHud();
         }
 
-        private void HandleMonsterKilled(string runtimeId, string killerWarriorId)
+        private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage)
         {
             if (string.IsNullOrEmpty(runtimeId))
             {
@@ -698,7 +698,6 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             Vector3? killerPos = null;
-            var knockMult = ClassConfigRow.DefaultDeathKnockbackMult;
             if (!string.IsNullOrEmpty(killerWarriorId))
             {
                 for (var i = 0; i < _warriorAgents.Count; i++)
@@ -711,27 +710,16 @@ namespace Gravedigger2026.Gameplay.Defend
                         break;
                     }
                 }
-
-                knockMult = ResolveDeathKnockbackMult(killerWarriorId);
             }
 
-            monster.NotifyKilled(killerPos, knockMult);
-        }
-
-        private float ResolveDeathKnockbackMult(string killerWarriorId)
-        {
-            if (_configs == null ||
-                _warriorPool == null ||
-                !_warriorPool.TryGet(killerWarriorId, out var warrior) ||
-                warrior == null ||
-                string.IsNullOrEmpty(warrior.ClassId) ||
-                !_configs.TryGetClass(warrior.ClassId, out var classRow) ||
-                classRow == null)
+            var maxHp = 0f;
+            if (_session != null && _session.TryGetMonster(runtimeId, out var state) && state != null)
             {
-                return ClassConfigRow.DefaultDeathKnockbackMult;
+                maxHp = state.MaxHp;
             }
 
-            return classRow.DeathKnockbackMult;
+            var distance = MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
+            monster.NotifyKilled(killerPos, distance);
         }
 
         private void HandleWarriorCombatStateChanged(string warriorId)

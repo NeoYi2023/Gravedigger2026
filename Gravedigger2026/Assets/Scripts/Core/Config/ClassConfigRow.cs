@@ -13,7 +13,7 @@ namespace Gravedigger2026.Core.Config
         /// <summary>Soldier base move speed when ClassConfig.BaseMoveSpeed missing/≤0 (SPEC_04 §9.9b).</summary>
         public const float DefaultBaseMoveSpeed = 3.5f;
 
-        /// <summary>Monster death knockback distance mult default (SPEC_04 §9.9b).</summary>
+        /// <summary>Retired; knockback uses CombatConstantConfig (SPEC_04 §15.5). Kept for load compat.</summary>
         public const float DefaultDeathKnockbackMult = 1f;
 
         public string ClassId;
@@ -40,7 +40,7 @@ namespace Gravedigger2026.Core.Config
         public float BaseMoveSpeed;
         /// <summary>≥0; × FinalStat(MoveSpeed) only when GoalKind=AttackSlot; default 1.</summary>
         public float ChaseMoveSpeedMult;
-        /// <summary>≥0; scales monster death knockback displacement (T−M); default 1.</summary>
+        /// <summary>Retired optional CSV column; unused in gameplay (kept for load compat).</summary>
         public float DeathKnockbackMult;
         /// <summary>Mode2 no-soul AttackMode (SPEC_04 §9.9b). Missing → Melee.</summary>
         public AttackMode AttackMode;

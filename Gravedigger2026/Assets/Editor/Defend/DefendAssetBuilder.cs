@@ -658,28 +658,18 @@ namespace Gravedigger2026.Editor.Defend
         private static List<DefendPrefabCatalog.MonsterModelEntry> BuildMonsterModelEntries()
         {
             var entries = new List<DefendPrefabCatalog.MonsterModelEntry>();
-            var csvPath = CsvPathResolver.ResolveExistingFile(MonsterCsv);
-            if (csvPath == null)
+            // Union Mode1 + Mode2 ModelIds so Mode2-only skins (e.g. MonsterModel_03) stay bound.
+            var modelIds = CollectMonsterModelIdsFromCsvs();
+            if (modelIds.Count == 0)
             {
                 Debug.LogWarning($"[DefendAssetBuilder] {MonsterCsv} not found — monster bindings empty.");
                 return entries;
             }
 
-            var seen = new HashSet<string>();
-            var rows = SimpleCsv.ReadRows(csvPath);
             var colorIndex = 0;
-            for (var i = 0; i < rows.Count; i++)
+            for (var i = 0; i < modelIds.Count; i++)
             {
-                if (!rows[i].TryGetValue("ModelId", out var modelId) || string.IsNullOrEmpty(modelId))
-                {
-                    continue;
-                }
-
-                if (!seen.Add(modelId))
-                {
-                    continue;
-                }
-
+                var modelId = modelIds[i];
                 var path = $"{PrefabMonstersDir}/{modelId}.prefab";
                 // SPEC_04 §15.2: Art-ready ModelIds assemble Visual; never overwrite with temp cube.
                 if (MonsterModelPrefabAssembler.HasArtReady(modelId))
@@ -710,6 +700,40 @@ namespace Gravedigger2026.Editor.Defend
             }
 
             return entries;
+        }
+
+        /// <summary>
+        /// Distinct ModelId values from Mode1 and Mode2 Defend_MonsterConfig (stable insert order).
+        /// </summary>
+        private static List<string> CollectMonsterModelIdsFromCsvs()
+        {
+            var seen = new HashSet<string>();
+            var ordered = new List<string>();
+            AppendMonsterModelIds(CsvPathResolver.ResolveExistingFile(MonsterCsv, CampaignMode.Mode1), seen, ordered);
+            AppendMonsterModelIds(CsvPathResolver.ResolveExistingFile(MonsterCsv, CampaignMode.Mode2), seen, ordered);
+            return ordered;
+        }
+
+        private static void AppendMonsterModelIds(string csvPath, HashSet<string> seen, List<string> ordered)
+        {
+            if (csvPath == null || seen == null || ordered == null)
+            {
+                return;
+            }
+
+            var rows = SimpleCsv.ReadRows(csvPath);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                if (!rows[i].TryGetValue("ModelId", out var modelId) || string.IsNullOrEmpty(modelId))
+                {
+                    continue;
+                }
+
+                if (seen.Add(modelId))
+                {
+                    ordered.Add(modelId);
+                }
+            }
         }
 
         private static GameObject BuildTempMonster(string modelId, Color color)

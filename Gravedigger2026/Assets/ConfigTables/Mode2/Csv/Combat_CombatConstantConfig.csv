@@ -1,5 +1,5 @@
-ConstantKey,ConstantKeyZh,Value,Comment,CommentZh
-NormalAttackPrimaryMult,普攻主属性倍率,0.1,NormalAttackPower = Primary x Mult,普通攻击伤害=主属性最终值×本系数；职业表CombatConvertCoeffs可覆盖
+﻿ConstantKey,ConstantKeyZh,Value,Comment,CommentZh
+NormalAttackPrimaryMult,普攻主属性倍率,1,NormalAttackPower = Primary x Mult,普通攻击伤害=主属性最终值×本系数；职业表CombatConvertCoeffs可覆盖
 AttackSpeedBase,攻击速度基础值,0.5,AttackSpeed constant term,攻速=本值+敏捷相关项中的常数项
 AttackSpeedAgiDiv,攻击速度敏捷除数,60,AttackSpeed Agility divisor,攻速公式中除以敏捷的分子；敏捷越高攻速越接近基础值
 SkillCdIntDiv,技能冷却智力除数,30,SkillCooldown Intelligence divisor,"技能CD=max(下限,基础CD−本值/max(智力,1))；Demo不施放"
@@ -55,3 +55,6 @@ PushMapSpawnSampleDistanceBodyMul,刷怪散布体半径倍数,2.5,Spawn sample d
 PushMapSpawnLeashSlack,刷怪拴绳松弛,0.35,NavMesh sample leash slack,刷怪SamplePosition相对基点的拴绳松弛
 PushMapSpawnAbsoluteLeashFloor,刷怪绝对拴绳下限,3,Absolute leash floor,刷怪绝对拴绳距离下限
 PushMapSpawnAbsoluteLeashBodyMul,刷怪绝对拴绳体倍数,10,Absolute leash = max(floor,r*mul)
+DeathKnockbackRatioCoeff,死亡击飞比例系数,0.5,Knockback raw=(MaxHp/OutgoingDamage)*Coeff,击飞距离raw=(MaxHp/OutgoingDamage)×本系数；再clamp到Min/Max
+DeathKnockbackMinDistance,死亡击飞最小距离,0.2,Death knockback distance floor,怪物死亡击飞距离下限（世界单位）
+DeathKnockbackMaxDistance,死亡击飞最大距离,5,Death knockback distance ceiling,怪物死亡击飞距离上限；伤害或MaxHp<=0时用本值

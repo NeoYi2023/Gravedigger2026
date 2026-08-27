@@ -286,16 +286,21 @@ namespace Gravedigger2026.UI
                 StretchFull(rootRect);
             }
 
+            var backgroundGo = CreateBackground(transform);
+            backgroundGo.transform.SetAsFirstSibling();
+
             var backdropGo = EnsureChild("ShopBackdrop");
             StretchFull(backdropGo.GetComponent<RectTransform>());
+            backdropGo.transform.SetSiblingIndex(1);
             var backdropImage = GetOrAdd<Image>(backdropGo);
-            backdropImage.color = new Color(0.06f, 0.08f, 0.1f, 0.96f);
+            backdropImage.color = new Color(0f, 0f, 0f, 0.55f);
             backdropImage.raycastTarget = true;
 
             var boxGo = EnsureChild("ShopBox");
             StretchFull(boxGo.GetComponent<RectTransform>());
+            boxGo.transform.SetSiblingIndex(2);
             var boxImage = GetOrAdd<Image>(boxGo);
-            boxImage.color = new Color(0.1f, 0.13f, 0.17f, 1f);
+            boxImage.color = new Color(0f, 0f, 0f, 0f);
             boxImage.raycastTarget = true;
 
             _closeButton = CreateButton(
@@ -1199,6 +1204,65 @@ namespace Gravedigger2026.UI
             }
 
             Debug.LogWarning($"[ShopStageRootView] Toast: {message}");
+        }
+
+        /// <summary>
+        /// Full-screen keep-aspect cover background (UI-026). Sprite assigned by ShopAssetBuilder.
+        /// </summary>
+        public static GameObject CreateBackground(Transform parent)
+        {
+            var existing = parent != null ? parent.Find("Background") : null;
+            GameObject go;
+            if (existing != null)
+            {
+                go = existing.gameObject;
+                if (go.GetComponent<Image>() == null)
+                {
+                    go.AddComponent<Image>();
+                }
+
+                if (go.GetComponent<AspectRatioFitter>() == null)
+                {
+                    go.AddComponent<AspectRatioFitter>();
+                }
+            }
+            else
+            {
+                go = new GameObject(
+                    "Background",
+                    typeof(RectTransform),
+                    typeof(Image),
+                    typeof(AspectRatioFitter));
+                go.transform.SetParent(parent, false);
+            }
+
+            go.transform.SetAsFirstSibling();
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(1920f, 1080f);
+
+            var image = go.GetComponent<Image>();
+            image.color = Color.white;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
+
+            var aspect = go.GetComponent<AspectRatioFitter>();
+            aspect.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            if (image.sprite != null && image.sprite.rect.height > 0.01f)
+            {
+                aspect.aspectRatio = image.sprite.rect.width / image.sprite.rect.height;
+            }
+            else
+            {
+                aspect.aspectRatio = 16f / 9f;
+            }
+
+            return go;
         }
 
         private GameObject EnsureChild(string name, Transform parent = null)

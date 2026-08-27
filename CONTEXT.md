@@ -42,8 +42,12 @@
 | ShopSystem | 商店系统 | Mode2 全屏商店：关卡 `GameplayType=Shop`（Stage1）与局外 InSaveShell 左下入口共用 Prefab `ShopStageRoot`；左侧可展示已拥有装备/魔法书 ICON 并出售换精魂（D-076） | [§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopSellService | 商店出售服务 | 商店 UI 出售已拥有装备（`TryRemove`）/魔法书（`TryUnequip`），按 `ItemCatalog.SellPrice` 入账精魂 | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
-| CampaignModeSelect | 玩法模式选择 | 新建/进入存档前弹窗选 CampaignMode（UI-014 / D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
-| InSaveShell | 进档壳层 | 进档后常驻壳（玩法占位 + 工具 + 左下商店/装备/魔法书入口） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
+| CampaignModeSelect | 玩法模式选择 | UI-014 保留；本 Demo 新建/进入不弹出（直进 Mode2）；Mode1 入口后置（D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| DifficultySelectHost | 难度选择宿主 | 进档默认中心面（UI-029 / D-081）：三栏；仅普通展开并嵌 LevelSelectPanel | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
+| TitleMenu | 登录主界面 | Boot 首屏；顶中 GameName（Title_GameName）；主按钮双态开始/继续 → SaveSelect；设置 → UI-028；共享 TitleScreenBackground（UI-027） | [§3.2](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
+| InSaveShell | 进档壳层 | 进档后常驻壳（默认难度 Hub + 玩法占位 + 工具 + 左下商店/装备/魔法书）；独立 Prefab `InSaveShellPanel` | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
@@ -59,6 +63,7 @@
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
 | FlowingWater | 流动水面 | 地图表现约定：Grid 下 `Water`（Chunk+Water.mat）/`Foam`（Individual+Foam.mat）两层；Built-in 资源 `Art/Maps/Shaders/Water/`；世界 UV=`xz`；不参与 NavMesh/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
 | MapAutoTile | 地图自动接边 | 编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）刷区域时自动换边/角砖；资产 `Art/Maps/RuleTiles/`；挂 **FantasyTileset_A** Palette；不含 FlowingWater 层；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
+| MapEdgeFog | 地图边缘迷雾 | 世界空间雾片挂 `Prefabs/Maps/{MapId}`，遮 IsoDiamond 可玩区外空白；方案 A；与 `CameraFogOverlay` 职责分离可叠加；静态零 Update；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
 | CameraFogOverlay | 镜头迷雾滤镜 | 全局 `CameraFogService` 拥有的 `DigFogCanvas` 全屏 Image；素材 `Art/Maps/Fog_1.png`；**仅** Dig 会话与 PushMap Combat（含 Intro）显示；Meta 弹窗打开时主动隐藏；呼吸缩放见 `DigCameraFogOverlayView` | [§3.10](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Grave | 坟墓 | 挖坟可生成实体；带品质 ID；未消除时为 DigObstacle | [§3.10](SPEC_03_GameRules.md) |
 | Digger | 挖坟主角 | Dig 阶段不生成地图模型；HUD 左上 60×60 头像框；Prefab 可保留于 Catalog/Art | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
@@ -108,7 +113,9 @@
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult) | [§3.11](SPEC_03_GameRules.md) |
 | NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（职业覆盖，否则 CombatConstantConfig；样例 15） | [§3.12](SPEC_03_GameRules.md) |
-| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞三键 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| DeathKnockbackRatioCoeff | 死亡击飞比例系数 | 常量表键；击飞 raw=`(MaxHp/OutgoingDamage)×本值` 再 clamp | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| OutgoingDamage | 打出伤害 | 扣血前结算伤害（含 Comfort/管线）；致命击驱动击飞距离；≠实际扣血量 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |
 | MaxHpStrengthMult | 血量力量系数 | 常量表键；MaxHP=ceil(BodyLife+Str×本值)；样例 3 | [§3.11](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |

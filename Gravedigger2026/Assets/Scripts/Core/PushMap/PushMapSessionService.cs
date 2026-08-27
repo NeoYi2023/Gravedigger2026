@@ -24,7 +24,7 @@ namespace Gravedigger2026.Core.PushMap
     /// + OnProjectileHit (SE-07 Skill_10 Pierce)
     /// + OnWarriorTargetAcquired (SE-09 Skill_12 Blink).
     /// D-071: SkillIconPopup / SkillPersistChanged for CombatSkillIcon (rules only).
-    /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId); monster→soldier → CombatDead.
+    /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId, outgoingDamage); monster→soldier → CombatDead.
     /// Position resolution and instantiation are View concerns; AOE uses injected world-XZ provider.
     /// </summary>
     public sealed class PushMapSessionService : IProjectileCombatSession, IProjectilePierceChannel
@@ -59,8 +59,8 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>PM-12: soldier HitConfirm settled damage on a monster (runtimeId, damage).</summary>
         public event Action<string, float> MonsterDamageSettled;
 
-        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId, killerWarriorId). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
-        public event Action<string, string> MonsterKilled;
+        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
+        public event Action<string, string, float> MonsterKilled;
 
         /// <summary>PM-13: monster AttackPower settled on a warrior (warriorId, damage).</summary>
         public event Action<string, float> WarriorDamageSettled;
@@ -1118,7 +1118,7 @@ namespace Gravedigger2026.Core.PushMap
                 Debug.Log(
                     $"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) " +
                     $"kills={_monstersKilled} (Burn)");
-                MonsterKilled?.Invoke(monsterRuntimeId, sourceWarriorId ?? string.Empty);
+                MonsterKilled?.Invoke(monsterRuntimeId, sourceWarriorId ?? string.Empty, tickDamage);
             }
         }
 
@@ -1500,7 +1500,7 @@ namespace Gravedigger2026.Core.PushMap
                 _combatStatus.ClearMonster(monsterRuntimeId);
                 _monstersKilled++;
                 Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) kills={_monstersKilled}");
-                MonsterKilled?.Invoke(monsterRuntimeId, warrior.WarriorId);
+                MonsterKilled?.Invoke(monsterRuntimeId, warrior.WarriorId, dmg);
             }
 
             if (_skillEffectPipeline != null && hasHitCenter)

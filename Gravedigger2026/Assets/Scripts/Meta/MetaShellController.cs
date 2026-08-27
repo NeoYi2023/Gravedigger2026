@@ -7,6 +7,7 @@ using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.PushMap;
+using Gravedigger2026.Core.Settings;
 using Gravedigger2026.Core.Shop;
 using Gravedigger2026.Core.Tech;
 using Gravedigger2026.Core.UpgradeManufacture;
@@ -28,6 +29,9 @@ namespace Gravedigger2026.Meta
     public sealed class MetaShellController : MonoBehaviour
     {
         [SerializeField] private SaveSelectView _saveSelectView;
+        [SerializeField] private TitleMenuView _titleMenuView;
+        [SerializeField] private TitleSettingsPanelView _titleSettingsPanelView;
+        [SerializeField] private GameObject _titleScreenBackground;
         [SerializeField] private InSaveShellView _inSaveShellView;
         [SerializeField] private ConfirmDialogView _confirmDialog;
         [SerializeField] private CampaignModeSelectView _campaignModeSelect;
@@ -51,6 +55,7 @@ namespace Gravedigger2026.Meta
         private readonly CampaignModeService _campaignMode = new CampaignModeService();
         private readonly ConfigCsvRepository _configs = new ConfigCsvRepository();
         private readonly BgmService _bgm = new BgmService();
+        private readonly DisplaySettingsService _displaySettings = new DisplaySettingsService();
         private readonly WarehouseService _warehouse = new WarehouseService();
         private readonly DungeonUnlockService _dungeonUnlocks = new DungeonUnlockService();
         private readonly ProtagonistProgressService _progress = new ProtagonistProgressService();
@@ -95,6 +100,7 @@ namespace Gravedigger2026.Meta
         {
             EnsureCameraFogService();
             EnsureBgmAudioSource();
+            _displaySettings.ApplySavedOrCurrent();
             _bgm.Bind(_configs, _bgmClipCatalog, _bgmAudioSource);
             _saveSlots.Load();
 
@@ -252,6 +258,23 @@ namespace Gravedigger2026.Meta
                 _saveSelectView.CreateRequested += HandleCreate;
                 _saveSelectView.EnterRequested += HandleEnter;
                 _saveSelectView.DeleteRequested += HandleDeleteRequested;
+                _saveSelectView.BackRequested += HandleSaveSelectBack;
+            }
+
+            if (_titleMenuView != null)
+            {
+                _titleMenuView.PrimaryClicked += HandleTitlePrimary;
+                _titleMenuView.LoadSaveClicked += HandleTitlePlaceholder;
+                _titleMenuView.SettingsClicked += HandleTitleSettings;
+                _titleMenuView.CreditsClicked += HandleTitlePlaceholder;
+            }
+
+            EnsureTitleSettingsPanelBound();
+            if (_titleSettingsPanelView != null)
+            {
+                _titleSettingsPanelView.DisplayTab?.Bind(_displaySettings);
+                _titleSettingsPanelView.Closed += HandleTitleSettingsClosed;
+                _titleSettingsPanelView.Applied += HandleTitleSettingsApplied;
             }
 
             if (_inSaveShellView != null)
@@ -269,6 +292,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.GrantMagicBookRequested += HandleGrantMagicBook;
                 _inSaveShellView.GrantAddSoldierRequested += HandleGrantAddSoldier;
                 _inSaveShellView.LevelSelectPicked += HandleLevelSelectPicked;
+                _inSaveShellView.LockedDifficultyClicked += HandleLockedDifficultyClicked;
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
                 _inSaveShellView.GmGrantLevelPicked += HandleGmGrantLevelPicked;
                 _inSaveShellView.GmAddSoldierAddClicked += HandleGmAddSoldierAdd;
@@ -291,7 +315,15 @@ namespace Gravedigger2026.Meta
 
         private void Start()
         {
-            ShowSaveSelect();
+            if (_titleMenuView == null)
+            {
+                Debug.LogWarning(
+                    "[MetaShell] TitleMenuView missing — run menu Gravedigger2026/Meta/Ensure TitleMenu (UI-027). Falling back to SaveSelect.");
+                ShowSaveSelect();
+                return;
+            }
+
+            ShowTitleMenu();
         }
 
         private void OnDestroy()
@@ -309,7 +341,53 @@ namespace Gravedigger2026.Meta
             }
         }
 
+        private void ShowTitleMenu()
+        {
+            ResetMetaShellForTitleScreen();
+            SetTitleScreenBackgroundActive(true);
+
+            if (_titleSettingsPanelView != null)
+            {
+                _titleSettingsPanelView.Hide();
+            }
+
+            if (_titleMenuView != null)
+            {
+                _titleMenuView.Show(_saveSlots.HasAnyOccupied());
+            }
+
+            if (_saveSelectView != null)
+            {
+                _saveSelectView.Hide();
+            }
+
+            PlayTitleBgm();
+        }
+
         private void ShowSaveSelect()
+        {
+            ResetMetaShellForTitleScreen();
+            SetTitleScreenBackgroundActive(true);
+
+            if (_titleSettingsPanelView != null)
+            {
+                _titleSettingsPanelView.Hide();
+            }
+
+            if (_titleMenuView != null)
+            {
+                _titleMenuView.Hide();
+            }
+
+            if (_saveSelectView != null)
+            {
+                _saveSelectView.Show();
+            }
+
+            PlayTitleBgm();
+        }
+
+        private void ResetMetaShellForTitleScreen()
         {
             _levelDriver?.StopCurrentLevel();
             _formation?.ClearBound();
@@ -336,13 +414,102 @@ namespace Gravedigger2026.Meta
             {
                 DestroyShopOverlay();
             }
+        }
 
-            if (_saveSelectView != null)
+        private void SetTitleScreenBackgroundActive(bool active)
+        {
+            if (_titleScreenBackground != null)
             {
-                _saveSelectView.Show();
+                _titleScreenBackground.SetActive(active);
+            }
+        }
+
+        private void HandleTitlePrimary()
+        {
+            ShowSaveSelect();
+        }
+
+        private void HandleSaveSelectBack()
+        {
+            ShowTitleMenu();
+        }
+
+        private void HandleTitlePlaceholder()
+        {
+            if (_toastView != null)
+            {
+                _toastView.Show("还未制作");
+            }
+        }
+
+        private void HandleTitleSettings()
+        {
+            var wasMissing = _titleSettingsPanelView == null;
+            EnsureTitleSettingsPanelBound();
+            if (_titleSettingsPanelView == null)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("设置 Prefab 未绑定");
+                }
+
+                return;
             }
 
-            PlayTitleBgm();
+            if (wasMissing)
+            {
+                _titleSettingsPanelView.Closed += HandleTitleSettingsClosed;
+                _titleSettingsPanelView.Applied += HandleTitleSettingsApplied;
+            }
+
+            _titleSettingsPanelView.DisplayTab?.Bind(_displaySettings);
+            _titleSettingsPanelView.Show();
+            RefreshCameraFogMetaBlocking();
+        }
+
+        private void EnsureTitleSettingsPanelBound()
+        {
+            if (_titleSettingsPanelView != null)
+            {
+                return;
+            }
+
+            Transform canvas = null;
+            if (_titleMenuView != null)
+            {
+                canvas = _titleMenuView.transform.parent;
+            }
+
+            if (canvas == null)
+            {
+                canvas = transform.Find("MetaCanvas");
+            }
+
+            if (canvas == null)
+            {
+                return;
+            }
+
+            _titleSettingsPanelView = TitleSettingsPanelFactory.Create(canvas);
+            if (_titleSettingsPanelView != null)
+            {
+                Debug.LogWarning(
+                    "[MetaShell] TitleSettingsPanel was missing — created runtime fallback. " +
+                    "Run menu Gravedigger2026/Meta/Ensure TitleSettingsPanel (UI-028) to bake Prefab.");
+            }
+        }
+
+        private void HandleTitleSettingsClosed()
+        {
+            RefreshCameraFogMetaBlocking();
+        }
+
+        private void HandleTitleSettingsApplied()
+        {
+            if (_toastView != null)
+            {
+                _toastView.Show("显示设置已应用");
+            }
         }
 
         private void EnterShell(int slotIndex, CampaignMode mode, bool isNewSave)
@@ -383,6 +550,12 @@ namespace Gravedigger2026.Meta
 
             _gameplayState.ResetToDefaultDig();
             SetStagePresentationActive(false);
+            SetTitleScreenBackgroundActive(false);
+
+            if (_titleMenuView != null)
+            {
+                _titleMenuView.Hide();
+            }
 
             if (_saveSelectView != null)
             {
@@ -397,14 +570,19 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.ShowGameplayState(_gameplayState.Current);
                 _inSaveShellView.ShowStageInfo(null);
             }
+
+            OpenLevelSelectPanel();
         }
 
         private void HandleCreate(int slotIndex)
         {
-            PromptCampaignMode(
-                slotIndex,
-                isCreate: true,
-                $"选择玩法模式（新建存档槽 {slotIndex + 1}）");
+            _saveSlots.Create(slotIndex);
+            if (_saveSelectView != null)
+            {
+                _saveSelectView.RefreshAll();
+            }
+
+            EnterShell(slotIndex, CampaignMode.Mode2, isNewSave: true);
         }
 
         private void HandleEnter(int slotIndex)
@@ -414,12 +592,12 @@ namespace Gravedigger2026.Meta
                 return;
             }
 
-            PromptCampaignMode(
-                slotIndex,
-                isCreate: false,
-                $"选择玩法模式（进入存档槽 {slotIndex + 1}）");
+            EnterShell(slotIndex, CampaignMode.Mode2, isNewSave: false);
         }
 
+        /// <summary>
+        /// Demo D-045 bypass: create/enter no longer call this. Kept for deferred Mode1 entry.
+        /// </summary>
         private void PromptCampaignMode(int slotIndex, bool isCreate, string message)
         {
             if (_campaignModeSelect == null)
@@ -485,6 +663,11 @@ namespace Gravedigger2026.Meta
             if (_saveSelectView != null)
             {
                 _saveSelectView.RefreshAll();
+            }
+
+            if (_titleMenuView != null && _titleMenuView.IsVisible)
+            {
+                _titleMenuView.Show(_saveSlots.HasAnyOccupied());
             }
 
             if (_toastView != null)
@@ -796,14 +979,9 @@ namespace Gravedigger2026.Meta
             }
 
             var levelIds = _configs.GetDistinctLevelIds();
-            if (levelIds.Count == 0)
+            if (levelIds.Count == 0 && _toastView != null)
             {
-                if (_toastView != null)
-                {
-                    _toastView.Show("当前模式无可用关卡");
-                }
-
-                return;
+                _toastView.Show("当前模式无可用关卡");
             }
 
             if (_inSaveShellView != null)
@@ -956,6 +1134,11 @@ namespace Gravedigger2026.Meta
             }
 
             if (_techTreeCanvasView != null && _techTreeCanvasView.IsOpen)
+            {
+                blocking = true;
+            }
+
+            if (_titleSettingsPanelView != null && _titleSettingsPanelView.IsOpen)
             {
                 blocking = true;
             }
@@ -1340,6 +1523,14 @@ namespace Gravedigger2026.Meta
             return levels;
         }
 
+        private void HandleLockedDifficultyClicked()
+        {
+            if (_toastView != null)
+            {
+                _toastView.Show("还未制作");
+            }
+        }
+
         private void HandleLevelSelectPicked(string levelId)
         {
             if (_levelDriver == null)
@@ -1375,6 +1566,7 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.HideLevelSelectPanel();
+                _inSaveShellView.HideDifficultySelectHost();
                 _inSaveShellView.HideGmGrantListPanel();
                 _inSaveShellView.HideToolsPanel();
                 _inSaveShellView.HideEquipmentWarehousePanel();
