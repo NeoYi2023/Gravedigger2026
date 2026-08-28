@@ -94,10 +94,13 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
-| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（`IsRun`/`Attack1`/`Die`/`Taunt`/`DirIndex`+`Direction` 同值）；可选 `FacingYawFlip`；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制 Attack→Run；士兵死亡：锁存 Die **最后非空**精灵（跳过末尾 null 关键帧）+ RGB×`CorpseDarkenMul` 变暗 + `sortingOrder`→100（低于存活单位 200）；士兵与怪物（Defend/PushMap）共用；UI-016 卡面揭示：Taunt 一遍后循环默认 Idle（Camera+RT） | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（士兵：`IsRun`/`Attack1`/`Die`/`Taunt`/`DirIndex`+`Direction`）；怪物可选池：`NormalAttackAnims` 每次普攻随机基名、`WalkAnims`/`RunAnims` 在 Bind/复活完成各抽一次；怪物 `SetMoving(…, useRun)` 走/跑门控；可选 `FacingYawFlip`；移动朝向跟 MassMove `LastDesired`；`PlayAttack` 锁 `DirIndex` 至本次攻击结束；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制打断攻击；士兵死亡锁存+变暗；Defend/PushMap 共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/`PushCoefficient`/`RepulsionScale`/FacingYawFlip/血量/`MoveSpeed`(走)/`RunSpeed`(跑)/`WalkToRunSeconds`/Aggro 移速倍率/攻力/攻速/AttackRange 等/技能/`NormalAttackAnims`/`WalkAnims`/`RunAnims`/掉落；PushMap D-074：`Skills` 可驱动 `MonsterSelfReviveOnDeath` | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
-| FacingHysteresis | 朝向迟滞 | 推图怪八向切换迟滞：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；仅 `PushMapMonsterAgentView` | [SPEC_04 §15.5](SPEC_04_Technical.md) |
-| StuckHold | 受堵停滞 | 推图怪 steer 非零但 0.25s 滑窗 XZ 位移 < 0.05 → 停播 Run 面向追击目标；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| FacingHysteresis | 朝向迟滞 | `WarriorAnimView.SetFacing`：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；叠在意图朝向上防 FlowField 格边界缓抖 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| AttackFacingLock | 攻击朝向锁 | `PlayAttack` 后冻结 `DirIndex` 至 Attack1 clip 结束（或移动打断解锁）；禁止攻击中途因碰撞/目标微移换向 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| LastDesired | 移动意图方向 | MassMove 经 LocalDetour **之前**的 desired（FlowField / 槽位直线）；表现层八向跟此向量，位移仍跟 steer | [SPEC_04 §9.7](SPEC_04_Technical.md)/[§15.5](SPEC_04_Technical.md) |
+| StuckHold | 受堵停滞 | 可移动战斗单位 steer 非零但检测窗内 XZ 位移过小 → 停播 Run；**不**改 `DirIndex`（保持进入停滞前朝向）；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorName | 士兵名字 | Prefix(es)+RaceName+ClassName+Suffix | [§3.11](SPEC_03_GameRules.md) |
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
@@ -113,8 +116,9 @@
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult) | [§3.11](SPEC_03_GameRules.md) |
 | NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（职业覆盖，否则 CombatConstantConfig；样例 15） | [§3.12](SPEC_03_GameRules.md) |
-| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞三键 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
-| DeathKnockbackRatioCoeff | 死亡击飞比例系数 | 常量表键；击飞 raw=`(MaxHp/OutgoingDamage)×本值` 再 clamp | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞三键与 Die2 阈值 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| DeathKnockbackRatioCoeff | 死亡击飞比例系数 | 常量表键；击飞 raw=`(OutgoingDamage/MaxHp)×本值` 再 clamp | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| DeathDie2KnockbackThreshold | 死亡 Die2 击退阈值 | 常量表键；默认 Die2；击飞 distance≥本值时播 Die；样例 `1` | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
 | OutgoingDamage | 打出伤害 | 扣血前结算伤害（含 Comfort/管线）；致命击驱动击飞距离；≠实际扣血量 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |
 | MaxHpStrengthMult | 血量力量系数 | 常量表键；MaxHP=ceil(BodyLife+Str×本值)；样例 3 | [§3.11](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
@@ -181,7 +185,7 @@
 | TrapZone | 陷阱区域 | 忠诚士兵进入触发绑定刷怪点 | [§3.14](SPEC_03_GameRules.md) |
 | BossPoint | BOSS 点 | 击杀该点 BOSS → PushMap 阶段通关 | [§3.14](SPEC_03_GameRules.md) |
 | AggroMode | 仇恨模式 | ActiveChase/PassiveChase/StationaryActive/StationaryPassive；异于 AttackMode | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
-| AlertRadius | 警戒半径 | AggroMode 主动发现半径 | [§3.14](SPEC_03_GameRules.md) |
+| AlertRadius | 警戒半径 | AggroMode 主动发现半径；D-074 首次复活可由 EffectParams `AlertRadius` 覆盖实例值 | [§3.14](SPEC_03_GameRules.md) |
 | BodyRadius | 占地半径 | 单位 XZ 占地圆；怪物=`MonsterConfig`；士兵=`BodyAppearanceConfig`（按 AppearanceId，缺省 0.1）；PushMap 刷出散开与 NavMeshAgent/MassMove 避障 | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
@@ -195,7 +199,7 @@
 | FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s | [§3.14](SPEC_03_GameRules.md) |
 | DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`（`RoundToInt` 实际伤害，无下限 1）；怪红/兵白字号 12；0.5s Z +0→+0.5 后销毁 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | HitFlash | 受伤闪烁 | PushMap 命中后模型亮色；怪红/兵白；2×0.1s 紧接不灭；重伤刷新 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
-| AllyFootCircle | 友军脚下圈 | Defend/PushMap Combat 忠诚存活士兵脚下绿描边圆 + 内黑 α160/255；半径=`BodyRadius`；localPos Y=-0.05 Z=-0.2；rotation X=-30；跟随；叛变/死亡隐藏；Order In Layer=`1` | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| AllyFootCircle | 友军脚下圈 | Defend/PushMap Combat 忠诚存活士兵脚下绿描边圆 + 内黑 α160/255；半径=`BodyRadius`；localPos Y=-0.05 Z=-0.2；rotation X=-30；跟随；叛变/死亡隐藏；Order In Layer=`50` | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | PushMapGameplayConfig | 推图战配置表 | MapId/经验/占领掉落/副本解锁等 | [SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapSpawnConfig | 推图战刷怪表 | SpawnPointId+MonsterId+陷阱/目标关联 | [SPEC_04 §9.23](SPEC_04_Technical.md) |
 | DefendPhase | 防守子状态 | ModeSelect / Prepare / Combat / Ended | [§3.12](SPEC_03_GameRules.md) |
@@ -222,7 +226,9 @@
 | BattleProtagonist | 战斗主角 | 地图中央；异于 Digger；Defend 用护盾承受普通攻击；烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | Shield | 护盾 | 普通攻击承受次数（敌人或叛变士兵）；开战 = ProtagonistMaxHP；归零 LevelFailure | [§3.12](SPEC_03_GameRules.md) |
 | Monster | 怪物 | 防守敌方；InsideMap/OutsideMap；ModelId 烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/FacingYawFlip/血量/移速/攻力/攻速/AttackRange 等/技能/掉落；Demo 技能不生效 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| MonsterConfig | 怪物配置表 | MonsterId → ModelId/target select/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/`PushCoefficient`/`RepulsionScale`/FacingYawFlip/HP/`MoveSpeed`(walk)/`RunSpeed`(run)/`WalkToRunSeconds`/Aggro move mults/attack power/speed/AttackRange etc./skills/`NormalAttackAnims`/`WalkAnims`/`RunAnims`/loot; PushMap D-074: `Skills` may drive `MonsterSelfReviveOnDeath` | [SPEC_04 §9.19](SPEC_04_Technical.md), [§3.14](SPEC_03_GameRules.md) |
+| MonsterSkillEffectConfig | 怪物技能效果配置表 | MonsterSkillId → EffectKind/EffectParams；与士兵 SkillConfig 解耦 | [SPEC_04 §9.21c](SPEC_04_Technical.md) |
+| MonsterCombatDead | 怪物战斗假死 | PushMap：HP≤0 且仍有复活次数；不计击杀；彻底死亡才 MonsterKilled | [§3.14](SPEC_03_GameRules.md) |
 | MonsterType | 怪物类型 | `1`=普通 / `2`=精英 / `3`=BOSS；MonsterConfig 原型标签；异于 PushMapSpawnConfig.IsBoss；本批不驱动技能 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[SPEC_03](SPEC_03_GameRules.md) |
 | Wave | 波次 | WaveConfigId 下刷怪行集合；全触发且全灭为胜利条件之一 | [§3.12](SPEC_03_GameRules.md) |
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 顺序/剩余秒/怪物/数量/位置/方式 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.18](SPEC_04_Technical.md) |

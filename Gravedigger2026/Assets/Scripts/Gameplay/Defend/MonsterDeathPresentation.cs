@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
-    /// Monster-only death knockback (SPEC_04 §15.5): distance from MaxHp/OutgoingDamage
+    /// Monster-only death knockback (SPEC_04 §15.5): distance from OutgoingDamage/MaxHp
     /// × CombatConstantConfig coeffs; direction away from killer on XZ.
     /// </summary>
     public static class MonsterDeathPresentation
@@ -13,7 +13,14 @@ namespace Gravedigger2026.Gameplay.Defend
         public const float DeathKnockbackSeconds = 0.3f;
 
         /// <summary>
-        /// raw = (MaxHp / OutgoingDamage) × RatioCoeff; clamp [Min, Max].
+        /// SPEC_04 §15.5: default Die2; when knockback distance reaches/exceeds threshold → Die.
+        /// Returns true when Die2 should play (distance below threshold, and Controller has Die2).
+        /// </summary>
+        public static bool ShouldPreferDie2(float knockbackDistance) =>
+            knockbackDistance < CombatRuntimeTuning.DeathDie2KnockbackThreshold;
+
+        /// <summary>
+        /// raw = (OutgoingDamage / MaxHp) × RatioCoeff; clamp [Min, Max].
         /// OutgoingDamage ≤ 0 or MaxHp ≤ 0 → MaxDistance.
         /// </summary>
         public static float ComputeKnockbackDistance(float maxHp, float outgoingDamage)
@@ -26,7 +33,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var coeff = Mathf.Max(0f, CombatRuntimeTuning.DeathKnockbackRatioCoeff);
-            var raw = (maxHp / outgoingDamage) * coeff;
+            var raw = (outgoingDamage / maxHp) * coeff;
             return Mathf.Clamp(raw, min, max);
         }
 

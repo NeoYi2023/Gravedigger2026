@@ -233,6 +233,22 @@ namespace Gravedigger2026.Core.Pathing
         }
 
         /// <summary>
+        /// SPEC_04 §15.5: last pre-LocalDetour desired (FlowField / slot line).
+        /// Presentation facing uses this; motion still uses <see cref="TryGetSteer"/>.
+        /// </summary>
+        public bool TryGetDesiredDir(int id, out Vector2 desiredXZ)
+        {
+            if (_indexById.TryGetValue(id, out var index))
+            {
+                desiredXZ = _agents[index].LastDesired;
+                return desiredXZ.sqrMagnitude > 1e-8f;
+            }
+
+            desiredXZ = Vector2.zero;
+            return false;
+        }
+
+        /// <summary>
         /// SC-03: this frame's soft-collision position impulse (XZ distance, not a direction).
         /// Views add it to the steer-based move delta; it keeps bodies separating even when
         /// the steer is zero (Objective hold / windup).
@@ -340,6 +356,7 @@ namespace Gravedigger2026.Core.Pathing
                 if (_flowField == null || !_flowField.HasField)
                 {
                     agent.Steer = Vector2.zero;
+                    agent.LastDesired = Vector2.zero;
                     _agents[index] = agent;
                     return;
                 }
@@ -371,6 +388,7 @@ namespace Gravedigger2026.Core.Pathing
                 if (delta.sqrMagnitude <= ArriveEpsilon * ArriveEpsilon)
                 {
                     agent.Steer = Vector2.zero;
+                    agent.LastDesired = Vector2.zero;
                     _agents[index] = agent;
                     return;
                 }
@@ -408,6 +426,7 @@ namespace Gravedigger2026.Core.Pathing
             if (!objectiveHold && desired.sqrMagnitude < 1e-8f && _friendlyBuffer.Count == 0)
             {
                 agent.Steer = Vector2.zero;
+                agent.LastDesired = Vector2.zero;
                 _agents[index] = agent;
                 return;
             }
@@ -416,6 +435,7 @@ namespace Gravedigger2026.Core.Pathing
             var sepScale = agent.GoalKind == GoalKind.AttackSlot || agent.GoalKind == GoalKind.ChaseAnchor
                 ? AttackSlotSeparationScale
                 : 1f;
+            agent.LastDesired = desired;
             agent.Steer = _detour.Steer(desired, self, _friendlyBuffer, sepScale);
             _agents[index] = agent;
         }
@@ -427,6 +447,7 @@ namespace Gravedigger2026.Core.Pathing
             public float Radius;
             public Vector2 Position;
             public Vector2 Steer;
+            public Vector2 LastDesired;
             public Vector2 DesiredDestination;
             public GoalKind GoalKind;
             public bool Active;
@@ -439,6 +460,7 @@ namespace Gravedigger2026.Core.Pathing
                 Radius = radius;
                 Position = Vector2.zero;
                 Steer = Vector2.zero;
+                LastDesired = Vector2.zero;
                 DesiredDestination = Vector2.zero;
                 GoalKind = GoalKind.Objective;
                 Active = false;

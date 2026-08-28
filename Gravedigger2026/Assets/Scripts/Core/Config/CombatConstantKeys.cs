@@ -50,6 +50,7 @@ namespace Gravedigger2026.Core.Config
         public const string DeathKnockbackRatioCoeff = "DeathKnockbackRatioCoeff";
         public const string DeathKnockbackMinDistance = "DeathKnockbackMinDistance";
         public const string DeathKnockbackMaxDistance = "DeathKnockbackMaxDistance";
+        public const string DeathDie2KnockbackThreshold = "DeathDie2KnockbackThreshold";
 
         // P2 — pathing / perf
         public const string FlowFieldDefaultCellSize = "FlowFieldDefaultCellSize";
@@ -111,6 +112,7 @@ namespace Gravedigger2026.Core.Config
             public const float DeathKnockbackRatioCoeff = 0.5f;
             public const float DeathKnockbackMinDistance = 0.2f;
             public const float DeathKnockbackMaxDistance = 5f;
+            public const float DeathDie2KnockbackThreshold = 1f;
 
             public const float FlowFieldDefaultCellSize = 0.5f;
             public const float FlowFieldMinCellSize = 0.25f;

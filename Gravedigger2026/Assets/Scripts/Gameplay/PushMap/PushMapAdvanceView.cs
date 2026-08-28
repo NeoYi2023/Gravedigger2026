@@ -81,6 +81,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private AttackSlotService _attackSlots;
         /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun — not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
         private Vector3 _lastSteerDirXZ;
+        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 §15.5 v0.83.31).</summary>
+        private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private AllyFootCircleView _footCircle;
         private readonly List<MonsterWorldXZ> _targetAcquireCandidates = new List<MonsterWorldXZ>(32);
@@ -177,6 +179,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _stoppedActing = false;
             _stuckHold.Reset();
             _lastSteerDirXZ = Vector3.zero;
+            _lastDesiredDirXZ = Vector3.zero;
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -319,7 +322,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var i = 0; i < list.Count; i++)
             {
                 var m = list[i];
-                if (m == null || !m.IsAlive)
+                if (m == null || !IsMonsterEngageable(m))
                 {
                     continue;
                 }
@@ -391,7 +394,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var i = 0; i < list.Count; i++)
             {
                 var m = list[i];
-                if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeTargetId))
+                if (!IsMonsterEngageable(m))
                 {
                     continue;
                 }
@@ -438,7 +441,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             return true;
         }
 
-        private static bool TryFindMonsterByRuntimeId(
+        private bool TryFindMonsterByRuntimeId(
             IReadOnlyList<PushMapMonsterAgentView> list,
             string runtimeId,
             out PushMapMonsterAgentView monster)
@@ -452,7 +455,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var i = 0; i < list.Count; i++)
             {
                 var m = list[i];
-                if (m != null && m.IsAlive &&
+                if (IsMonsterEngageable(m) &&
                     string.Equals(m.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
                 {
                     monster = m;
@@ -772,8 +775,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             var range = _session.TryGetWarrior(_attackerId, out var state) && state != null
                 ? state.AttackRange
                 : AttackRange;
-            var inRange = target != null
-                          && target.IsAlive
+            var inRange = IsMonsterEngageable(target)
                           && CombatReach.IsInAttackRange(
                               CombatReach.DistanceXZ(transform.position, target.transform.position),
                               range,
@@ -991,7 +993,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             toTarget.y = 0f;
             if (toTarget.sqrMagnitude > 0.0001f)
             {
-                _anim.SetFacing(toTarget);
+                _anim.ForceSetFacing(toTarget);
             }
         }
 
@@ -1020,7 +1022,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     continue;
                 }
 
-                if (_session != null && !_session.IsMonsterAlive(m.RuntimeTargetId))
+                if (_session != null && !_session.IsMonsterTargetable(m.RuntimeTargetId))
                 {
                     continue;
                 }
@@ -1057,8 +1059,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>
-        /// Engaged → face the claimed target; attack anim is driven by scheme D (windup /
-        /// fire), movement anim by MassMove steer (same as Defend / monsters, SPEC_04 §15.5).
+        /// Movement: IsRun from steer, DirIndex from LastDesired; attack facing is snapped
+        /// once at PlayAttack (SPEC_04 §15.5 v0.83.31).
         /// </summary>
         private void TickAnimPresentation()
         {
@@ -1066,6 +1068,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 return;
             }
+
+            CacheDesiredDirFromScheduler();
 
             if (_isRebel)
             {
@@ -1080,16 +1084,34 @@ namespace Gravedigger2026.Gameplay.PushMap
             var moving = wantsMove && !_stuckHold.IsHolding;
             _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
 
-            if (TryResolveEngagedTarget(out var target))
+            if (moving)
             {
-                FaceTarget(target.transform.position);
+                ApplyMoveFacing();
+            }
+        }
+
+        private void CacheDesiredDirFromScheduler()
+        {
+            _lastDesiredDirXZ = Vector3.zero;
+            if (_scheduler == null || _moveId == 0)
+            {
                 return;
             }
 
-            if (moving)
+            if (_scheduler.TryGetDesiredDir(_moveId, out var desired))
             {
-                _anim.SetFacing(_lastSteerDirXZ);
+                _lastDesiredDirXZ = new Vector3(desired.x, 0f, desired.y);
             }
+        }
+
+        private void ApplyMoveFacing()
+        {
+            if (_anim == null || _lastDesiredDirXZ.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            _anim.SetFacing(_lastDesiredDirXZ);
         }
 
         /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing → +∞).</summary>
@@ -1132,7 +1154,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             for (var i = 0; i < list.Count; i++)
             {
                 var m = list[i];
-                if (m != null && m.IsAlive && m.RuntimeTargetId == targetId)
+                if (IsMonsterEngageable(m) && m.RuntimeTargetId == targetId)
                 {
                     target = m;
                     return true;
@@ -1140,6 +1162,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             return false;
+        }
+
+        private bool IsMonsterEngageable(PushMapMonsterAgentView m)
+        {
+            if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeTargetId))
+            {
+                return false;
+            }
+
+            return _session == null || _session.IsMonsterTargetable(m.RuntimeTargetId);
         }
 
         private void LateUpdate()
@@ -1150,6 +1182,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _stuckHold.Tick(false, transform.position, Time.deltaTime);
                 return;
             }
+
+            CacheDesiredDirFromScheduler();
 
             if (_session != null && !_session.IsCombatGameplayActive)
             {

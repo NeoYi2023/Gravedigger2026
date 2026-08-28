@@ -1,0 +1,2 @@
+MonsterSkillId,DisplayName,EffectKind,EffectParams
+MSkill_SelfRevive,腐尸复活,MonsterSelfReviveOnDeath,DelaySeconds=10|ReviveHpRatio=0.75|InvincibleSeconds=1|ReviveAnimSeconds=1.5|MaxReviveCount=2|AlertRadius=6

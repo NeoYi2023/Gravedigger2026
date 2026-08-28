@@ -44,6 +44,8 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, SkillLevelRange>(StringComparer.Ordinal);
         private readonly Dictionary<string, SkillEffectConfigRow> _skillEffectById =
             new Dictionary<string, SkillEffectConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, MonsterSkillEffectConfigRow> _monsterSkillEffectById =
+            new Dictionary<string, MonsterSkillEffectConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, MagicBookConfigRow> _magicBookById =
             new Dictionary<string, MagicBookConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, ProtagonistEquipmentConfigRow> _protagonistEquipmentByKey =
@@ -134,6 +136,7 @@ namespace Gravedigger2026.Core.Config
             _skillByKey.Clear();
             _skillLevelRangeById.Clear();
             _skillEffectById.Clear();
+            _monsterSkillEffectById.Clear();
             _magicBookById.Clear();
             _protagonistEquipmentByKey.Clear();
             _raceById.Clear();
@@ -178,6 +181,7 @@ namespace Gravedigger2026.Core.Config
                 LoadClasses();
                 LoadSkills();
                 LoadSkillEffects();
+                LoadMonsterSkillEffects();
                 LoadFormationBonds();
                 LoadMagicBooks();
                 LoadProtagonistEquipment();
@@ -437,6 +441,14 @@ namespace Gravedigger2026.Core.Config
         }
 
         public IEnumerable<SkillEffectConfigRow> SkillEffects => _skillEffectById.Values;
+
+        /// <summary>PK lookup (SPEC_04 §9.21c): MonsterSkillId.</summary>
+        public bool TryGetMonsterSkillEffect(string monsterSkillId, out MonsterSkillEffectConfigRow row)
+        {
+            return _monsterSkillEffectById.TryGetValue(monsterSkillId ?? string.Empty, out row);
+        }
+
+        public IEnumerable<MonsterSkillEffectConfigRow> MonsterSkillEffects => _monsterSkillEffectById.Values;
 
         /// <summary>Composite PK lookup (SPEC_04 §9.26): BondId + BondLevel.</summary>
         public bool TryGetFormationBond(string bondId, int bondLevel, out FormationBondConfigRow row)
@@ -948,6 +960,10 @@ namespace Gravedigger2026.Core.Config
                 var passiveMoveMult = ParseOptionalNonNegFloat(
                     raw, "PassiveMoveMult", MonsterConfigRow.DefaultPassiveMoveMult, table, rowIndex);
 
+                var runSpeed = ParseOptionalNonNegFloat(raw, "RunSpeed", 0f, table, rowIndex);
+                var walkToRunSeconds = ParseOptionalNonNegFloat(
+                    raw, "WalkToRunSeconds", MonsterConfigRow.DefaultWalkToRunSeconds, table, rowIndex);
+
                 _monsterById[id] = new MonsterConfigRow
                 {
                     MonsterId = id,
@@ -964,6 +980,8 @@ namespace Gravedigger2026.Core.Config
                     FacingYawFlip = facingYawFlip,
                     MaxHP = RequireFloat(raw, "MaxHP", table, rowIndex),
                     MoveSpeed = RequireFloat(raw, "MoveSpeed", table, rowIndex),
+                    RunSpeed = runSpeed,
+                    WalkToRunSeconds = walkToRunSeconds,
                     ActiveMoveMult = activeMoveMult,
                     PassiveMoveMult = passiveMoveMult,
                     AttackPower = RequireFloat(raw, "AttackPower", table, rowIndex),
@@ -973,6 +991,9 @@ namespace Gravedigger2026.Core.Config
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
                     RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
                     Skills = OptionalText(raw, "Skills"),
+                    NormalAttackAnims = OptionalText(raw, "NormalAttackAnims"),
+                    WalkAnims = OptionalText(raw, "WalkAnims"),
+                    RunAnims = OptionalText(raw, "RunAnims"),
                     LootDrop = OptionalText(raw, "LootDrop")
                 };
             }
@@ -1480,6 +1501,31 @@ namespace Gravedigger2026.Core.Config
                     EffectKind = OptionalText(raw, "EffectKind"),
                     EffectParams = OptionalText(raw, "EffectParams"),
                     TriggerHook = OptionalText(raw, "TriggerHook")
+                };
+            }
+        }
+
+        private void LoadMonsterSkillEffects()
+        {
+            const string table = "Combat_MonsterSkillEffectConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var monsterSkillId = SimpleCsv.Require(raw, "MonsterSkillId", table, rowIndex);
+                if (_monsterSkillEffectById.ContainsKey(monsterSkillId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate MonsterSkillId '{monsterSkillId}'.");
+                }
+
+                _monsterSkillEffectById[monsterSkillId] = new MonsterSkillEffectConfigRow
+                {
+                    MonsterSkillId = monsterSkillId,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    EffectKind = OptionalText(raw, "EffectKind"),
+                    EffectParams = OptionalText(raw, "EffectParams")
                 };
             }
         }

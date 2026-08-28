@@ -1,7 +1,10 @@
 BgmId,Context,ClipId,Loop,Weight,Volume
 Bgm_Title_01,Title,BGM_Title_Graveglass Gate_1,1,1,1
 Bgm_Title_02,Title,BGM_Title_Graveglass Gate_3,1,1,1
-Bgm_Dig_01,Dig,BGM_Dig_Ashen Plot,1,1,1
+Bgm_Dig_01,Dig,BGM_Dig_Mossed Hollow Loop_1,1,1,1
+Bgm_Dig_02,Dig,BGM_Dig_Mossed Hollow Loop_2,1,1,1
+Bgm_Dig_03,Dig,BGM_Dig_Hollow Graves_1,1,1,1
+Bgm_Dig_04,Dig,BGM_Dig_Hollow Graves_2,1,1,1
 Bgm_Combat_01,Combat,BGM_Combat_Graveblade March,1,1,1
 Bgm_Combat_02,Combat,BGM_Combat_Graveblade March_2,1,1,1
 Bgm_Combat_03,Combat,BGM_Combat_Graveyard March_1,1,1,1

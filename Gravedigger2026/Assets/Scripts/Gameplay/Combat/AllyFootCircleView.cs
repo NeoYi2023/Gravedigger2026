@@ -9,7 +9,8 @@ namespace Gravedigger2026.Gameplay.Combat
     [DisallowMultipleComponent]
     public sealed class AllyFootCircleView : MonoBehaviour
     {
-        public const int SortingOrder = 1;
+        /// <summary>Above MapEdgeFog (10) / Water-Foam tilemaps; below soldier sprite (200).</summary>
+        public const int SortingOrder = 50;
         /// <summary>Fill alpha as Color32 A (0–255).</summary>
         public const byte FillAlphaByte = 160;
         public const float FillAlpha = FillAlphaByte / 255f;
@@ -52,6 +53,11 @@ namespace Gravedigger2026.Gameplay.Combat
         {
             if (_root != null)
             {
+                if (_renderer != null)
+                {
+                    _renderer.sortingOrder = SortingOrder;
+                }
+
                 return;
             }
 

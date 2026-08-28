@@ -65,6 +65,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private int _moveId;
         /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun — not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
         private Vector3 _lastSteerDirXZ;
+        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 §15.5 v0.83.31).</summary>
+        private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private AllyFootCircleView _footCircle;
 
@@ -162,6 +164,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _diePlayed = false;
             _stuckHold.Reset();
             _lastSteerDirXZ = Vector3.zero;
+            _lastDesiredDirXZ = Vector3.zero;
             _scheduler = scheduler;
             _attackSlots = attackSlots;
             _moveId = moveId;
@@ -402,7 +405,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            TickAnimPresentation(state);
+            TickAnimPresentation();
 
             if (state.IsRebel)
             {
@@ -425,6 +428,8 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 return;
             }
+
+            CacheDesiredDirFromScheduler();
 
             if (_session == null ||
                 !_session.IsActive ||
@@ -511,12 +516,14 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        private void TickAnimPresentation(DefendCombatWarriorState state)
+        private void TickAnimPresentation()
         {
             if (_anim == null)
             {
                 return;
             }
+
+            CacheDesiredDirFromScheduler();
 
             // MassMove uses Move()+ResetPath — velocity≈0; use steer like monsters (SPEC_04 §15.5).
             var wantsMove = _attackPhase != AttackPhase.Windup
@@ -528,21 +535,34 @@ namespace Gravedigger2026.Gameplay.Defend
                 _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
             }
 
-            if (TryGetAimPoint(state, out var aimPoint))
-            {
-                var toAim = aimPoint - transform.position;
-                toAim.y = 0f;
-                if (toAim.sqrMagnitude > 0.0001f)
-                {
-                    _anim.SetFacing(toAim);
-                    return;
-                }
-            }
-
             if (moving)
             {
-                _anim.SetFacing(_lastSteerDirXZ);
+                ApplyMoveFacing();
             }
+        }
+
+        private void CacheDesiredDirFromScheduler()
+        {
+            _lastDesiredDirXZ = Vector3.zero;
+            if (_scheduler == null || _moveId == 0)
+            {
+                return;
+            }
+
+            if (_scheduler.TryGetDesiredDir(_moveId, out var desired))
+            {
+                _lastDesiredDirXZ = new Vector3(desired.x, 0f, desired.y);
+            }
+        }
+
+        private void ApplyMoveFacing()
+        {
+            if (_anim == null || _lastDesiredDirXZ.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            _anim.SetFacing(_lastDesiredDirXZ);
         }
 
         /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing → +∞).</summary>
@@ -555,24 +575,6 @@ namespace Gravedigger2026.Gameplay.Defend
 
             var p = transform.position;
             return _scheduler.GetAnimMoveTargetDistanceXZ(_moveId, new Vector2(p.x, p.z));
-        }
-
-        private bool TryGetAimPoint(DefendCombatWarriorState state, out Vector3 aimPoint)
-        {
-            aimPoint = default;
-            if (state.IsRebel)
-            {
-                return TryResolveNearestRebelTarget(out _, out _, out aimPoint);
-            }
-
-            var target = FindNearestEngageMonster();
-            if (target == null)
-            {
-                return false;
-            }
-
-            aimPoint = target.transform.position;
-            return true;
         }
 
         private void PlayDieOnce()
@@ -685,7 +687,7 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 if (toTarget.sqrMagnitude > 0.0001f)
                 {
-                    _anim.SetFacing(toTarget);
+                    _anim.ForceSetFacing(toTarget);
                 }
 
                 _anim.PlayAttack();
@@ -753,7 +755,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     toAim.y = 0f;
                     if (toAim.sqrMagnitude > 0.0001f)
                     {
-                        _anim.SetFacing(toAim);
+                        _anim.ForceSetFacing(toAim);
                     }
                 }
 

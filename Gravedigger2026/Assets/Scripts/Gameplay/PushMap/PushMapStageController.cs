@@ -205,6 +205,10 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.PushMapSpawnRequested += HandlePushMapSpawnRequested;
             _session.MonsterDamageSettled += HandleMonsterDamageSettled;
             _session.MonsterKilled += HandleMonsterKilled;
+            _session.MonsterEnteredCombatDead += HandleMonsterEnteredCombatDead;
+            _session.MonsterReviveStarted += HandleMonsterReviveStarted;
+            _session.MonsterRevived += HandleMonsterRevived;
+            _session.MonsterInvincibleChanged += HandleMonsterInvincibleChanged;
             _session.WarriorDamageSettled += HandleWarriorDamageSettled;
             _session.WarriorCombatDead += HandleWarriorCombatDead;
             _session.SkillIconPopup += HandleSkillIconPopup;
@@ -251,6 +255,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _session.PushMapSpawnRequested -= HandlePushMapSpawnRequested;
                 _session.MonsterDamageSettled -= HandleMonsterDamageSettled;
                 _session.MonsterKilled -= HandleMonsterKilled;
+                _session.MonsterEnteredCombatDead -= HandleMonsterEnteredCombatDead;
+                _session.MonsterReviveStarted -= HandleMonsterReviveStarted;
+                _session.MonsterRevived -= HandleMonsterRevived;
+                _session.MonsterInvincibleChanged -= HandleMonsterInvincibleChanged;
                 _session.WarriorDamageSettled -= HandleWarriorDamageSettled;
                 _session.WarriorCombatDead -= HandleWarriorCombatDead;
                 _session.SkillIconPopup -= HandleSkillIconPopup;
@@ -546,8 +554,25 @@ namespace Gravedigger2026.Gameplay.PushMap
             DamagePopupView.Spawn(prefab, _worldRoot, worldPos, damage, style);
         }
 
-        /// <summary>PM-12: monster RemainingHp≤0 → presentation kill + optional knockback; Boss also advances clear.</summary>
+        /// <summary>PM-12: monster RemainingHp≤0 — final death; Boss clear when applicable.</summary>
         private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage)
+        {
+            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, notifyBoss: true);
+        }
+
+        /// <summary>MonsterCombatDead — may revive; no kill count / Boss.</summary>
+        private void HandleMonsterEnteredCombatDead(string runtimeId, string killerWarriorId, float outgoingDamage)
+        {
+            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, notifyBoss: false);
+        }
+
+        private void HandleMonsterReviveStarted(string runtimeId, float reviveAnimSeconds)
+        {
+            var monster = FindMonsterView(runtimeId);
+            monster?.NotifyReviveStarted(reviveAnimSeconds);
+        }
+
+        private void HandleMonsterRevived(string runtimeId)
         {
             var monster = FindMonsterView(runtimeId);
             if (monster == null)
@@ -555,7 +580,45 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var isBoss = monster.IsBoss;
+            float? postReviveAlertRadius = null;
+            if (_session != null
+                && _session.TryGetMonster(runtimeId, out var state)
+                && state != null
+                && state.PostReviveAlertRadiusApplied)
+            {
+                postReviveAlertRadius = state.RuntimeAlertRadius;
+            }
+
+            monster.NotifyRevived(postReviveAlertRadius);
+            if (_session == null || !_session.IsMonsterInvincible(runtimeId))
+            {
+                monster.NotifyPostReviveInvincibleEnded();
+            }
+        }
+
+        private void HandleMonsterInvincibleChanged(string runtimeId, string skillId, bool on)
+        {
+            if (on)
+            {
+                return;
+            }
+
+            FindMonsterView(runtimeId)?.NotifyPostReviveInvincibleEnded();
+        }
+
+        private void ApplyMonsterDeathPresentation(
+            string runtimeId,
+            string killerWarriorId,
+            float outgoingDamage,
+            bool notifyBoss)
+        {
+            var monster = FindMonsterView(runtimeId);
+            if (monster == null)
+            {
+                return;
+            }
+
+            var isBoss = notifyBoss && monster.IsBoss;
             Vector3? killerPos = null;
             if (!string.IsNullOrEmpty(killerWarriorId))
             {
@@ -935,6 +998,10 @@ namespace Gravedigger2026.Gameplay.PushMap
                 {
                     view.MarkAsBoss(true);
                 }
+
+                view.SetReviveCallbacks(
+                    () => _session?.TryNotifyMonsterDeathPresentationComplete(runtimeId),
+                    () => _session?.TryNotifyMonsterReviveAnimComplete(runtimeId));
 
                 var isPreparePreview = request.Trigger == PushMapSpawnTrigger.PreparePreview;
                 if (!isPreparePreview)

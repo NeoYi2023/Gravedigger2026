@@ -291,7 +291,7 @@ const outline = (q) => `Outline_${q}`;
       MeleeWindupSeconds: Number((ranged ? 0 : 0.3 + i * 0.02).toFixed(2)),
       RangedProjectileSpeed: ranged ? 10 + i : 0,
       RangedTimeoutSeconds: ranged ? 2.5 : 0,
-      // Demo 不施放；SkillId 含下划线时与 SkillId_Cd 编码易歧义，案例留空
+      // Demo 不施放；怪物 Skills 用 SkillId;CdSeconds，SkillId 可含下划线
       Skills: "",
       LootDrop: i % 2 === 0 ? `Iron;${1 + (i % 3)}|Spirit;${5 + i}` : `Bone;1|Spirit;${3 + i}`,
     };

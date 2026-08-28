@@ -31,7 +31,10 @@ namespace Gravedigger2026.Gameplay.Defend
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private Vector3 _lastSteerDirXZ;
+        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 §15.5 v0.83.31).</summary>
+        private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
+        private readonly MonsterMoveGait _gait = new MonsterMoveGait();
         private bool _alive = true;
         private bool _probeOnly;
         private bool _deathKnockActive;
@@ -153,8 +156,18 @@ namespace Gravedigger2026.Gameplay.Defend
 
             EnsureAnim();
             _lastSteerDirXZ = Vector3.zero;
+            _lastDesiredDirXZ = Vector3.zero;
             _stuckHold.Reset();
+            _gait.Reset();
             _anim.SetFacingYawFlip(_config != null && _config.FacingYawFlip == 1);
+            if (_config != null)
+            {
+                _anim.ConfigureMonsterAnimPools(
+                    _config.NormalAttackAnims,
+                    _config.WalkAnims,
+                    _config.RunAnims);
+            }
+
             _anim.ResetToIdle();
         }
 
@@ -168,7 +181,8 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         /// <summary>
-        /// Combat death presentation (SPEC_04 §15.5): PlayDie + corpse latch; optional directional knockback.
+        /// Combat death presentation (SPEC_04 §15.5): PlayDie/Die2 by knockback + corpse latch;
+        /// optional directional knockback.
         /// </summary>
         public void NotifyKilled(
             Vector3? killerWorldPos = null,
@@ -181,6 +195,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             _alive = false;
             _stuckHold.Reset();
+            _gait.Reset();
             ReleaseSlotClaim();
             _attackSlots?.ReleaseAllForTarget(_attackerId);
             if (_scheduler != null && _moveId != 0)
@@ -195,7 +210,8 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             EnsureAnim();
-            _anim.PlayDie();
+            var preferDie2 = MonsterDeathPresentation.ShouldPreferDie2(knockbackDistance);
+            _anim.PlayDie(preferDie2);
 
             _deathKnockActive = false;
             if (killerWorldPos.HasValue &&
@@ -380,7 +396,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            FaceToward(targetTf.position);
+            FaceTowardForAttack(targetTf.position);
 
             if (targetKind == TargetKind.Protagonist)
             {
@@ -403,6 +419,19 @@ namespace Gravedigger2026.Gameplay.Defend
         private void LateUpdate()
         {
             _lastSteerDirXZ = Vector3.zero;
+            CacheDesiredDirFromScheduler();
+
+            var inAttackRange = false;
+            var isLocomoting = false;
+            if (!_probeOnly && _alive && _config != null)
+            {
+                EvaluateLocomotion(out inAttackRange, out isLocomoting);
+                _gait.Tick(isLocomoting, _config.WalkToRunSeconds, Time.deltaTime);
+            }
+            else
+            {
+                _gait.Reset();
+            }
 
             if (!_probeOnly && _alive && _agent != null && _scheduler != null && _moveId != 0 &&
                 _config != null)
@@ -432,7 +461,8 @@ namespace Gravedigger2026.Gameplay.Defend
                         }
 
                         _agent.isStopped = false;
-                        var speed = Mathf.Max(0.1f, _config.MoveSpeed);
+                        var speed = ResolveEffectiveMoveSpeed(_gait.IsRun);
+                        _agent.speed = speed;
                         var delta = hasSteer
                             ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
                             : Vector3.zero;
@@ -454,19 +484,40 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!_probeOnly)
             {
-                TickStuckHoldAndAnim();
+                TickAnimPresentation(inAttackRange, isLocomoting);
             }
+        }
+
+        private float ResolveEffectiveMoveSpeed(bool isRun)
+        {
+            if (_config == null)
+            {
+                return 3f;
+            }
+
+            var mult = 1f;
+            switch (_config.AggroMode)
+            {
+                case AggroMode.ActiveChase:
+                    mult = _config.ActiveMoveMult;
+                    break;
+                case AggroMode.PassiveChase:
+                    mult = _config.PassiveMoveMult;
+                    break;
+            }
+
+            return Mathf.Max(0.1f, _config.ResolveGaitSpeed(isRun) * mult);
         }
 
         /// <summary>
         /// StuckHoldTracker (SPEC_04 §15.5 v0.75.30): wantsMove for 0.5s with XZ disp &lt;0.2
         /// → force Idle 1s. Attack-range Idle takes priority over hold.
         /// </summary>
-        private void TickStuckHoldAndAnim()
+        private void EvaluateLocomotion(out bool inAttackRange, out bool isLocomoting)
         {
-            var inAttackRange = false;
-            Vector3 attackTargetPos = default;
-            if (TryGetCombatTargetPosition(out attackTargetPos, out var body) && _config != null)
+            inAttackRange = false;
+            isLocomoting = false;
+            if (TryGetCombatTargetPosition(out var attackTargetPos, out var body) && _config != null)
             {
                 inAttackRange = CombatReach.IsInAttackRange(
                     Vector3.Distance(transform.position, attackTargetPos),
@@ -475,48 +526,63 @@ namespace Gravedigger2026.Gameplay.Defend
                     body);
             }
 
+            var hasSteerIntent = _scheduler != null &&
+                                 _moveId != 0 &&
+                                 _scheduler.TryGetSteer(_moveId, out var steerIntent) &&
+                                 steerIntent.sqrMagnitude > MoveAnimSpeedSqr;
             var wantsMove = _alive &&
                             !inAttackRange &&
-                            _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
+                            hasSteerIntent;
             _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
-            TickAnimPresentation(inAttackRange, attackTargetPos);
+            isLocomoting = wantsMove && !_stuckHold.IsHolding;
         }
 
         /// <summary>
-        /// In AttackRange → face target + idle; stuck hold → idle + face chase target;
-        /// else chase → IsRun + DirIndex from steer (SPEC_04 §15.5).
+        /// In AttackRange → idle (keep facing); stuck hold → idle keep facing;
+        /// else chase → walk/run gait + DirIndex from LastDesired (SPEC_04 §15.5).
         /// </summary>
-        private void TickAnimPresentation(bool inAttackRange, Vector3 attackTargetPos)
+        private void TickAnimPresentation(bool inAttackRange, bool isLocomoting)
         {
             if (_anim == null || !_alive || _config == null)
             {
                 return;
             }
 
-            if (inAttackRange)
+            if (inAttackRange || _stuckHold.IsHolding)
             {
                 _anim.SetMoving(false);
-                FaceToward(attackTargetPos);
                 return;
             }
 
-            if (_stuckHold.IsHolding)
+            _anim.SetMoving(isLocomoting, ResolveMoveTargetDistanceXZ(), _gait.IsRun);
+            if (isLocomoting)
             {
-                _anim.SetMoving(false);
-                if (TryGetCombatTargetPosition(out var stuckTargetPos, out _))
-                {
-                    FaceToward(stuckTargetPos);
-                }
+                ApplyMoveFacing();
+            }
+        }
 
+        private void CacheDesiredDirFromScheduler()
+        {
+            _lastDesiredDirXZ = Vector3.zero;
+            if (_scheduler == null || _moveId == 0)
+            {
                 return;
             }
 
-            var moving = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
-            _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
-            if (moving)
+            if (_scheduler.TryGetDesiredDir(_moveId, out var desired))
             {
-                _anim.SetFacing(_lastSteerDirXZ);
+                _lastDesiredDirXZ = new Vector3(desired.x, 0f, desired.y);
             }
+        }
+
+        private void ApplyMoveFacing()
+        {
+            if (_anim == null || _lastDesiredDirXZ.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            _anim.SetFacing(_lastDesiredDirXZ);
         }
 
         /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing → +∞).</summary>
@@ -556,7 +622,8 @@ namespace Gravedigger2026.Gameplay.Defend
             return true;
         }
 
-        private void FaceToward(Vector3 worldPos)
+        /// <summary>Attack start: snap DirIndex once so Attack1_* picks the correct clip.</summary>
+        private void FaceTowardForAttack(Vector3 worldPos)
         {
             if (_anim == null)
             {
@@ -567,7 +634,7 @@ namespace Gravedigger2026.Gameplay.Defend
             to.y = 0f;
             if (to.sqrMagnitude > 0.0001f)
             {
-                _anim.SetFacing(to);
+                _anim.ForceSetFacing(to);
             }
         }
 
@@ -596,6 +663,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void StopMovement()
         {
+            _gait.Reset();
             if (_agent == null || !_agent.isOnNavMesh)
             {
                 return;

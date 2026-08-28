@@ -56,6 +56,9 @@ namespace Gravedigger2026.Core.Config
         public static float DeathKnockbackMaxDistance { get; private set; } =
             CombatConstantKeys.Safety.DeathKnockbackMaxDistance;
 
+        public static float DeathDie2KnockbackThreshold { get; private set; } =
+            CombatConstantKeys.Safety.DeathDie2KnockbackThreshold;
+
         public static float FlowFieldDefaultCellSize { get; private set; } =
             CombatConstantKeys.Safety.FlowFieldDefaultCellSize;
 
@@ -177,6 +180,9 @@ namespace Gravedigger2026.Core.Config
                 F(
                     CombatConstantKeys.DeathKnockbackMaxDistance,
                     CombatConstantKeys.Safety.DeathKnockbackMaxDistance));
+            DeathDie2KnockbackThreshold = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathDie2KnockbackThreshold,
+                CombatConstantKeys.Safety.DeathDie2KnockbackThreshold));
 
             FlowFieldMinCellSize = Mathf.Max(0.05f, F(
                 CombatConstantKeys.FlowFieldMinCellSize,

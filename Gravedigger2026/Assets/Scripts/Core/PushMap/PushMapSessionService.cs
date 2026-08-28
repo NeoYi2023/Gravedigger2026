@@ -62,6 +62,18 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>PM-12: monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
         public event Action<string, string, float> MonsterKilled;
 
+        /// <summary>Monster may revive — presentation kill only; no kill count / Boss / Loot.</summary>
+        public event Action<string, string, float> MonsterEnteredCombatDead;
+
+        /// <summary>Revive delay elapsed — View plays reverse death anim (runtimeId, animSeconds).</summary>
+        public event Action<string, float> MonsterReviveStarted;
+
+        /// <summary>Revive anim complete — HP restored; post-revive invincible may apply.</summary>
+        public event Action<string> MonsterRevived;
+
+        /// <summary>D-074: post-revive invincible toggled (monsterRuntimeId, skillId, on).</summary>
+        public event Action<string, string, bool> MonsterInvincibleChanged;
+
         /// <summary>PM-13: monster AttackPower settled on a warrior (warriorId, damage).</summary>
         public event Action<string, float> WarriorDamageSettled;
 
@@ -80,6 +92,7 @@ namespace Gravedigger2026.Core.PushMap
             new Dictionary<string, DefendCombatMonsterState>(StringComparer.Ordinal);
         private readonly HashSet<string> _skill02PersistOn = new HashSet<string>(StringComparer.Ordinal);
         private readonly CombatStatusService _combatStatus = new CombatStatusService();
+        private readonly MonsterDeathSkillService _monsterDeathSkills = new MonsterDeathSkillService();
         private SkillEffectPipeline _skillEffectPipeline;
         private Func<string, Vector2?> _monsterWorldXZProvider;
         private readonly List<MonsterWorldXZ> _aliveMonstersXZScratch = new List<MonsterWorldXZ>(32);
@@ -184,7 +197,9 @@ namespace Gravedigger2026.Core.PushMap
             _monsters.Clear();
             _skill02PersistOn.Clear();
             _combatStatus.WarriorInvincibleChanged -= HandleWarriorInvincibleChanged;
+            _combatStatus.MonsterInvincibleChanged -= HandleMonsterInvincibleChangedInternal;
             _combatStatus.MonsterBurnTick -= HandleMonsterBurnTick;
+            _monsterDeathSkills.MonsterReviveStarted -= HandleMonsterReviveStartedInternal;
             _combatStatus.ClearAll();
         }
 
@@ -213,6 +228,28 @@ namespace Gravedigger2026.Core.PushMap
         public float GetMonsterSlowAttackMul(string monsterRuntimeId)
         {
             return _combatStatus.GetMonsterSlowAttackMul(monsterRuntimeId);
+        }
+
+        /// <summary>D-074: post-revive invincible gate for View darken clear.</summary>
+        public bool IsMonsterInvincible(string monsterRuntimeId)
+        {
+            return _combatStatus.IsMonsterInvincible(monsterRuntimeId);
+        }
+
+        /// <summary>PushMap: may soldiers select / HitConfirm this monster?</summary>
+        public bool IsMonsterTargetable(string runtimeId)
+        {
+            if (!TryGetMonster(runtimeId, out var state) || state == null)
+            {
+                return false;
+            }
+
+            if (state.IsCombatDead || !state.IsAlive || state.RemainingHp <= 0f)
+            {
+                return false;
+            }
+
+            return !_combatStatus.IsMonsterInvincible(runtimeId);
         }
 
         public bool CanStartBattle(int deployedSoldierCount)
@@ -259,8 +296,12 @@ namespace Gravedigger2026.Core.PushMap
             _skillEffectPipeline = configs != null ? new SkillEffectPipeline(configs) : null;
             _combatStatus.WarriorInvincibleChanged -= HandleWarriorInvincibleChanged;
             _combatStatus.WarriorInvincibleChanged += HandleWarriorInvincibleChanged;
+            _combatStatus.MonsterInvincibleChanged -= HandleMonsterInvincibleChangedInternal;
+            _combatStatus.MonsterInvincibleChanged += HandleMonsterInvincibleChangedInternal;
             _combatStatus.MonsterBurnTick -= HandleMonsterBurnTick;
             _combatStatus.MonsterBurnTick += HandleMonsterBurnTick;
+            _monsterDeathSkills.MonsterReviveStarted -= HandleMonsterReviveStartedInternal;
+            _monsterDeathSkills.MonsterReviveStarted += HandleMonsterReviveStartedInternal;
             if (_lockedLossOfControlTierId > 0
                 && configs != null
                 && configs.TryGetLossOfControlTier(_lockedLossOfControlTierId, out var tierRow)
@@ -821,6 +862,38 @@ namespace Gravedigger2026.Core.PushMap
                 RemainingHp = Math.Max(1f, maxHp),
                 IsAlive = true
             };
+            _monsterDeathSkills.InitializeMonsterState(_monsters[runtimeId], _configs);
+            return true;
+        }
+
+        /// <summary>View: knockback + die latch complete → start revive delay.</summary>
+        public bool TryNotifyMonsterDeathPresentationComplete(string runtimeId)
+        {
+            if (!TryGetMonster(runtimeId, out var monster))
+            {
+                return false;
+            }
+
+            return _monsterDeathSkills.TryNotifyDeathPresentationComplete(monster);
+        }
+
+        /// <summary>View: reverse death anim complete → restore HP + post-revive invincible.</summary>
+        public bool TryNotifyMonsterReviveAnimComplete(string runtimeId)
+        {
+            if (!TryGetMonster(runtimeId, out var monster))
+            {
+                return false;
+            }
+
+            if (!_monsterDeathSkills.TryCompleteReviveAnim(monster, _combatStatus))
+            {
+                return false;
+            }
+
+            Debug.Log(
+                $"[PushMapSession] MonsterRevived {runtimeId} ({monster.MonsterId}) " +
+                $"HP={monster.RemainingHp:0}/{monster.MaxHp} revivesLeft={monster.RevivesRemaining}");
+            MonsterRevived?.Invoke(runtimeId);
             return true;
         }
 
@@ -841,6 +914,36 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             _combatStatus.Tick(deltaTime);
+            TickMonsterRevive(deltaTime);
+        }
+
+        private void TickMonsterRevive(float deltaTime)
+        {
+            if (!IsCombatGameplayActive || deltaTime <= 0f)
+            {
+                return;
+            }
+
+            foreach (var pair in _monsters)
+            {
+                var monster = pair.Value;
+                if (monster == null || !monster.IsCombatDead)
+                {
+                    continue;
+                }
+
+                _monsterDeathSkills.Tick(monster, deltaTime);
+            }
+        }
+
+        private void HandleMonsterReviveStartedInternal(string runtimeId, float animSeconds)
+        {
+            MonsterReviveStarted?.Invoke(runtimeId, animSeconds);
+        }
+
+        private void HandleMonsterInvincibleChangedInternal(string runtimeId, string skillId, bool on)
+        {
+            MonsterInvincibleChanged?.Invoke(runtimeId, skillId, on);
         }
 
         /// <summary>D-069/D-073: tick Skill_03 CD and per-skill internal CDs while Combat is active.</summary>
@@ -1071,7 +1174,7 @@ namespace Gravedigger2026.Core.PushMap
                 return false;
             }
 
-            if (!IsMonsterAlive(ctx.OverrideTargetRuntimeId))
+            if (!IsMonsterTargetable(ctx.OverrideTargetRuntimeId))
             {
                 return false;
             }
@@ -1092,6 +1195,41 @@ namespace Gravedigger2026.Core.PushMap
             return true;
         }
 
+        private void TryFinalizeMonsterDeath(
+            DefendCombatMonsterState monster,
+            string monsterRuntimeId,
+            string killerWarriorId,
+            float outgoingDamage,
+            string logTag)
+        {
+            if (monster == null || monster.RemainingHp > 0f)
+            {
+                return;
+            }
+
+            if (_monsterDeathSkills.TryInterceptDeath(monster))
+            {
+                Debug.Log(
+                    $"[PushMapSession] MonsterCombatDead {monsterRuntimeId} ({monster.MonsterId}) " +
+                    $"revivesLeft={monster.RevivesRemaining} ({logTag})");
+                MonsterEnteredCombatDead?.Invoke(
+                    monsterRuntimeId,
+                    killerWarriorId ?? string.Empty,
+                    outgoingDamage);
+                return;
+            }
+
+            monster.IsAlive = false;
+            monster.IsCombatDead = false;
+            monster.RevivePhase = MonsterRevivePhase.None;
+            _combatStatus.ClearMonster(monsterRuntimeId);
+            _monstersKilled++;
+            Debug.Log(
+                $"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) " +
+                $"kills={_monstersKilled} ({logTag})");
+            MonsterKilled?.Invoke(monsterRuntimeId, killerWarriorId ?? string.Empty, outgoingDamage);
+        }
+
         private void HandleMonsterBurnTick(string monsterRuntimeId, string sourceWarriorId, float tickDamage, string skillId)
         {
             if (!IsCombatGameplayActive || tickDamage <= 0f)
@@ -1099,7 +1237,7 @@ namespace Gravedigger2026.Core.PushMap
                 return;
             }
 
-            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            if (!IsMonsterTargetable(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
             {
                 return;
             }
@@ -1110,16 +1248,7 @@ namespace Gravedigger2026.Core.PushMap
                 $"dmg={tickDamage:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
 
             MonsterDamageSettled?.Invoke(monsterRuntimeId, tickDamage);
-            if (monster.RemainingHp <= 0f)
-            {
-                monster.IsAlive = false;
-                _combatStatus.ClearMonster(monsterRuntimeId);
-                _monstersKilled++;
-                Debug.Log(
-                    $"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) " +
-                    $"kills={_monstersKilled} (Burn)");
-                MonsterKilled?.Invoke(monsterRuntimeId, sourceWarriorId ?? string.Empty, tickDamage);
-            }
+            TryFinalizeMonsterDeath(monster, monsterRuntimeId, sourceWarriorId, tickDamage, "Burn");
         }
 
         private void HandleWarriorInvincibleChanged(string warriorId, string skillId, bool on)
@@ -1256,7 +1385,10 @@ namespace Gravedigger2026.Core.PushMap
 
         public bool IsMonsterAlive(string runtimeId)
         {
-            return TryGetMonster(runtimeId, out var state) && state.IsAlive && state.RemainingHp > 0f;
+            return TryGetMonster(runtimeId, out var state)
+                   && state.IsAlive
+                   && !state.IsCombatDead
+                   && state.RemainingHp > 0f;
         }
 
         /// <summary>IProjectileCombatSession: gates ProjectileView flight/settlement.</summary>
@@ -1420,7 +1552,7 @@ namespace Gravedigger2026.Core.PushMap
             string tag,
             ProjectileHitFlightContext flight = null)
         {
-            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            if (!IsMonsterTargetable(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
             {
                 return false;
             }
@@ -1494,16 +1626,9 @@ namespace Gravedigger2026.Core.PushMap
                 $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}{comfortNote}{pipelineNote}");
 
             MonsterDamageSettled?.Invoke(monsterRuntimeId, dmg);
-            if (monster.RemainingHp <= 0f)
-            {
-                monster.IsAlive = false;
-                _combatStatus.ClearMonster(monsterRuntimeId);
-                _monstersKilled++;
-                Debug.Log($"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) kills={_monstersKilled}");
-                MonsterKilled?.Invoke(monsterRuntimeId, warrior.WarriorId, dmg);
-            }
+            TryFinalizeMonsterDeath(monster, monsterRuntimeId, warrior.WarriorId, dmg, tag);
 
-            if (_skillEffectPipeline != null && hasHitCenter)
+            if (_skillEffectPipeline != null && hasHitCenter && !monster.IsCombatDead)
             {
                 FillAliveMonstersXZScratch();
                 var aaCtx = new SkillEffectContext
@@ -1560,7 +1685,7 @@ namespace Gravedigger2026.Core.PushMap
             foreach (var pair in _monsters)
             {
                 var state = pair.Value;
-                if (state == null || !state.IsAlive || state.RemainingHp <= 0f)
+                if (state == null || !IsMonsterTargetable(pair.Key))
                 {
                     continue;
                 }

@@ -845,5 +845,15 @@ namespace Gravedigger2026.Core.Defend
         public float MaxHp;
         public float RemainingHp;
         public bool IsAlive;
+        /// <summary>PushMap: HP≤0 but may revive; not counted as kill until exhausted.</summary>
+        public bool IsCombatDead;
+        public MonsterRevivePhase RevivePhase;
+        public int RevivesRemaining;
+        public float PhaseTimer;
+        public string ReviveSkillId;
+        public MonsterSelfReviveOnDeathParams SelfReviveParams;
+        /// <summary>D-074: first revive applied EffectParams AlertRadius (instance only).</summary>
+        public bool PostReviveAlertRadiusApplied;
+        public float RuntimeAlertRadius;
     }
 }

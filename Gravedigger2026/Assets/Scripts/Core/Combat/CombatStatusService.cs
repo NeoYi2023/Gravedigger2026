@@ -33,6 +33,9 @@ namespace Gravedigger2026.Core.Combat
         private readonly Dictionary<string, TimedStatus> _monsterStun =
             new Dictionary<string, TimedStatus>(StringComparer.Ordinal);
 
+        private readonly Dictionary<string, TimedStatus> _monsterInvincible =
+            new Dictionary<string, TimedStatus>(StringComparer.Ordinal);
+
         private readonly Dictionary<string, TimedStatus> _monsterSlow =
             new Dictionary<string, TimedStatus>(StringComparer.Ordinal);
 
@@ -44,6 +47,9 @@ namespace Gravedigger2026.Core.Combat
 
         /// <summary>monsterRuntimeId, skillId, on</summary>
         public event Action<string, string, bool> MonsterStunChanged;
+
+        /// <summary>monsterRuntimeId, skillId, on</summary>
+        public event Action<string, string, bool> MonsterInvincibleChanged;
 
         /// <summary>monsterRuntimeId, skillId, on</summary>
         public event Action<string, string, bool> MonsterSlowChanged;
@@ -63,6 +69,14 @@ namespace Gravedigger2026.Core.Combat
         {
             return !string.IsNullOrEmpty(monsterRuntimeId)
                    && _monsterStun.TryGetValue(monsterRuntimeId, out var state)
+                   && state != null
+                   && state.RemainingSeconds > 0f;
+        }
+
+        public bool IsMonsterInvincible(string monsterRuntimeId)
+        {
+            return !string.IsNullOrEmpty(monsterRuntimeId)
+                   && _monsterInvincible.TryGetValue(monsterRuntimeId, out var state)
                    && state != null
                    && state.RemainingSeconds > 0f;
         }
@@ -140,6 +154,26 @@ namespace Gravedigger2026.Core.Combat
             if (!wasOn)
             {
                 MonsterStunChanged?.Invoke(monsterRuntimeId, skillId ?? string.Empty, true);
+            }
+        }
+
+        public void ApplyMonsterInvincible(string monsterRuntimeId, string skillId, float seconds)
+        {
+            if (string.IsNullOrEmpty(monsterRuntimeId) || seconds <= 0f)
+            {
+                return;
+            }
+
+            var wasOn = IsMonsterInvincible(monsterRuntimeId);
+            _monsterInvincible[monsterRuntimeId] = new TimedStatus
+            {
+                RemainingSeconds = seconds,
+                SkillId = skillId ?? string.Empty
+            };
+
+            if (!wasOn)
+            {
+                MonsterInvincibleChanged?.Invoke(monsterRuntimeId, skillId ?? string.Empty, true);
             }
         }
 
@@ -223,6 +257,7 @@ namespace Gravedigger2026.Core.Combat
 
             TickTimedBucket(_warriorInvincible, deltaTime, WarriorInvincibleChanged);
             TickTimedBucket(_monsterStun, deltaTime, MonsterStunChanged);
+            TickTimedBucket(_monsterInvincible, deltaTime, MonsterInvincibleChanged);
             TickTimedBucket(_monsterSlow, deltaTime, MonsterSlowChanged);
             TickBurnBucket(deltaTime);
         }
@@ -252,6 +287,11 @@ namespace Gravedigger2026.Core.Combat
                 MonsterStunChanged?.Invoke(monsterRuntimeId, stun.SkillId, false);
             }
 
+            if (_monsterInvincible.Remove(monsterRuntimeId, out var invincible) && invincible != null)
+            {
+                MonsterInvincibleChanged?.Invoke(monsterRuntimeId, invincible.SkillId, false);
+            }
+
             if (_monsterSlow.Remove(monsterRuntimeId, out var slow) && slow != null)
             {
                 MonsterSlowChanged?.Invoke(monsterRuntimeId, slow.SkillId, false);
@@ -271,9 +311,14 @@ namespace Gravedigger2026.Core.Combat
                 }
             }
 
-            if (_monsterStun.Count > 0 || _monsterSlow.Count > 0 || _monsterBurn.Count > 0)
+            if (_monsterStun.Count > 0 || _monsterInvincible.Count > 0 || _monsterSlow.Count > 0 || _monsterBurn.Count > 0)
             {
                 var monsterIds = new HashSet<string>(_monsterStun.Keys);
+                foreach (var id in _monsterInvincible.Keys)
+                {
+                    monsterIds.Add(id);
+                }
+
                 foreach (var id in _monsterSlow.Keys)
                 {
                     monsterIds.Add(id);

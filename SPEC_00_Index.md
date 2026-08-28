@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.26
-**最后更新 / Last Updated:** 2026-08-27
+**文档版本 / Document Version:** v0.83.38
+**最后更新 / Last Updated:** 2026-08-28
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,17 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-28 | v0.83.38 | Die/Die2 选用条件互换：默认 Die2；击飞 `distance≥DeathDie2KnockbackThreshold` → Die。同步 SPEC_03 §3.12、SPEC_04 §15.5、CONTEXT、`ShouldPreferDie2`、常量表注释 |
+| 2026-08-28 | v0.83.37 | Die/Die2 击退阈值迁入常量表：新增 `DeathDie2KnockbackThreshold`（样例 `1`）；`CombatRuntimeTuning` 加载；`ShouldPreferDie2`。同步 SPEC_03 §3.12、SPEC_04 §9.20b/§15.5、CONTEXT、主表/Mode2 CSV+Excel |
+| 2026-08-28 | v0.83.36 | `MonsterConfig` 字段表补齐 `PushCoefficient`/`RepulsionScale`/`FacingYawFlip`（与 CSV 列序一致）；Excel 第 1/2 行中文名与说明须对齐第 3 行英文字段。同步 SPEC_04 §9.19 |
+| 2026-08-28 | v0.83.35 | 怪物走跑步态：`MoveSpeed`=走速；增 `RunSpeed`/`WalkToRunSeconds`（缺→0.5）；持续走满阈值→跑；离开移动重置；有效移速= gait×Aggro 倍率；`WarriorAnimView` 怪物 `SetMoving(…, useRun)`。同步 SPEC_03 §3.12、SPEC_04 §9.19/§15.5、CONTEXT |
+| 2026-08-28 | v0.83.34 | 怪物动画选择：`MonsterConfig` 增 `NormalAttackAnims`/`WalkAnims`/`RunAnims`（`\|` 池）；普攻每次随机基名播 `{基名}_{dir}`；走/跑在 Bind 与复活完成各抽一次；本批移动默认走；士兵不变。同步 SPEC_03 §3.12、SPEC_04 §9.19/§15.5、CONTEXT、`WarriorAnimView` |
+| 2026-08-28 | v0.83.33 | 怪物死亡动画按击退距离选 Die/Die2：`distance≤1`→Die，`>1` 且有 Die2→Die2（否则 Die）；latch 认两者；士兵仍只 Die。同步 SPEC_03 §3.12、SPEC_04 §15.5、`WarriorAnimView` / `MonsterDeathPresentation` |
+| 2026-08-28 | v0.83.32 | `MonsterSelfReviveOnDeath` 增加可选 EffectParams `AlertRadius`：首次复活覆盖实例警戒半径（怪选敌+士兵遇敌）；后续复活不再改；缺省键=保持表值。Mode2 样例 `AlertRadius=6`。同步 SPEC_03 §3.14、SPEC_04 §9.21c |
+| 2026-08-28 | v0.83.31 | 八向朝向意图锁（难度 2，选定方案 B）：移动 `DirIndex` 跟 MassMove `LastDesired`（不跟 LocalDetour steer）；`PlayAttack` 朝目标切一次后冻结至 Attack1 结束；停步/进距 Idle 不每帧追目标。同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.7/§15.5、CONTEXT |
+| 2026-08-28 | v0.83.30 | 复活后攻击朝向：`ForceSetFacing` 在尸体 `_dead` 期间仍写 `DirIndex`；`FinishReviveToIdle` 保持朝向；`PlayAttack` 按 `DirIndex` 直接 `Play(Attack1_*)`（与 Idle/Run 的 `Direction` 对齐）。同步 SPEC_03 §3.14、SPEC_04 §15.5、`WarriorAnimView` |
+| 2026-08-28 | v0.83.29 | 推图怪复活倒放前按 `TargetSelect` 选敌 `ForceSetFacing` 决定 8 向 `DirIndex`（Die2/Die clip + 无敌初始 idle）；同步 SPEC_03 §3.14、SPEC_04 §15.5、`PushMapMonsterAgentView` |
+| 2026-08-28 | v0.83.27 | 死亡击飞比例公式修正：`raw=(OutgoingDamage/MaxHp)×DeathKnockbackRatioCoeff` 再 clamp Min/Max（废止 `MaxHp/OutgoingDamage`）；同步 SPEC_03 §3.12、SPEC_04 §9.20b/§15.5、CONTEXT、常量表注释、`MonsterDeathPresentation` |
 | 2026-08-27 | v0.83.26 | 进档门闩 Demo 旁路：新建/进入跳过 `CampaignModeSelect`，一律 `Mode2`；InSaveShell 默认难度/关卡 Hub（UI-029，仅普通可展开；地图区嵌 UI-008；自动选最大关+「进入」）；`InSaveShellPanel` 独立 Prefab。同步 SPEC_03 §3.1–§3.6/§3.8、SPEC_04 §6、CONTEXT；issues `.scratch/insave-difficulty-hub/` |
 | 2026-08-27 | v0.83.25 | 怪物死亡击飞改伤害比例：`distance=clamp(Min,Max,(MaxHp/OutgoingDamage)×RatioCoeff)`；常量表三键样例 `0.5/0.2/5`；方向远离杀手；废止镜像距与 `ClassConfig.DeathKnockbackMult`；`MonsterKilled` 带 `outgoingDamage`。同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.20b/§15.5、CONTEXT |
 | 2026-08-27 | v0.83.24 | UI-026：`ShopStageRoot` 底层全屏背景 `Title_Shop_1`（`AspectRatioFitter` EnvelopeParent 锁定长宽比铺满；其上半透明 `ShopBackdrop`；`ShopBox` 透明容器）；`ShopAssetBuilder.EnsureShopBackground`。同步 SPEC_03 §3.6、SPEC_04 §10、Title README |
@@ -126,6 +137,7 @@
 | 2026-08-18 | v0.82.68 | Mode2 `Skill_04` 先发制人 Lv1～5：`CastTarget=EnemySingle`、`ExtraActivationCondition=普攻攻击新目标敌人的第一次`、Description 攻击伤害提升 20%～60%、`SkillEffectId=SkillEffect_04_1`～`_5`（BaseCD=0）；`Combat_SkillEffectConfig` 补 FK 行与 Notes；同步 SPEC_04 §9.21/§9.21b |
 | 2026-08-18 | v0.82.67 | Mode2 `Skill_03` 连发 Lv1～5：`CastTarget=EnemySingle`、`ExtraActivationCondition` 空、Description 连续攻击 3 次、`SkillEffectId=SkillEffect_03_1`～`_5`（BaseCD 50/40/30/20/10）；`Combat_SkillEffectConfig` 补 FK 行与 Notes；同步 SPEC_04 §9.21/§9.21b |
 | 2026-08-18 | v0.82.66 | Mode2 `Skill_02` 舒适 Lv1～5：`CastTarget=Self`、`ExtraActivationCondition=自身血量=100%`、Description 伤害提升 5%～25%、`SkillEffectId=SkillEffect_02_1`～`_5`；`Combat_SkillEffectConfig` 补 FK 行与 Notes；同步 SPEC_04 §9.21/§9.21b |
+| 2026-08-28 | v0.83.28 | 怪物 `MonsterConfig.Skills` 编码改为 `SkillId;CdSeconds|…`（原 `SkillId_CdSeconds`）；避免与 `MonsterSkillId` 下划线命名冲突；`MonsterSkillParser` + Defend_MonsterConfig 样例同步 |
 | 2026-08-18 | v0.82.65 | Mode2 `Skill_01` 格挡 Lv1～5：Bake `Combat_SkillConfig`（`CastTarget=Self`、`ExtraActivationCondition=敌人普攻命中Self`、`SkillEffectId=SkillEffect_01_1`～`_5`）；`Combat_SkillEffectConfig` 补 FK 行与 Notes；同步 SPEC_04 §9.21/§9.21b |
 | 2026-08-18 | v0.82.64 | UI-016 Step2：书槽脉冲峰值 apply 后，若已烘进 VisualStyle/放大，士兵卡 Camera+RT 预览立即同步（`WarriorAllIn1StyleView` + `VisualModelScale`）；6 槽结束补播 Taunt。同步 SPEC_03 §3.15 §11 / D-055 |
 | 2026-08-18 | v0.82.63 | UI-016 士兵卡揭示：Taunt 一遍后改为固定循环默认 Idle（不再随机 Idle2/3/4）。同步 SPEC_03 §3.15 §11 / D-055、SPEC_04 §6/§15.5、CONTEXT |
@@ -392,6 +404,18 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-28 | v0.83.38 | Die/Die2 selection swapped: default Die2; knockback `distance≥DeathDie2KnockbackThreshold` → Die. Synced SPEC_03 §3.12, SPEC_04 §15.5, CONTEXT, `ShouldPreferDie2`, constant table comments |
+| 2026-08-28 | v0.83.37 | Die/Die2 knockback threshold moved to constant table: add `DeathDie2KnockbackThreshold` (sample `1`); loaded via `CombatRuntimeTuning`; `ShouldPreferDie2`. Synced SPEC_03 §3.12, SPEC_04 §9.20b/§15.5, CONTEXT, main+Mode2 CSV+Excel |
+| 2026-08-28 | v0.83.36 | `MonsterConfig` field table adds `PushCoefficient`/`RepulsionScale`/`FacingYawFlip` (CSV column order); Excel rows 1–2 ZH name/notes must match row-3 English ids. Synced SPEC_04 §9.19 |
+| 2026-08-28 | v0.83.35 | Monster walk/run gait: `MoveSpeed`=walk; adds `RunSpeed`/`WalkToRunSeconds` (default 0.5); walk→run after threshold; leaving move resets; effective speed = gait×Aggro mult; monster `SetMoving(…, useRun)`. Synced SPEC_03 §3.12, SPEC_04 §9.19/§15.5, CONTEXT |
+| 2026-08-28 | v0.83.34 | Monster anim pools: `MonsterConfig` adds `NormalAttackAnims`/`WalkAnims`/`RunAnims` (`\|` lists); each attack picks a base → `{base}_{dir}`; walk/run resampled on Bind and post-revive; this slice defaults move to walk; soldiers unchanged. Synced SPEC_03 §3.12, SPEC_04 §9.19/§15.5, CONTEXT, `WarriorAnimView` |
+| 2026-08-28 | v0.83.33 | Monster death anim picks Die/Die2 by knockback distance: `distance≤1`→Die, `>1` with Die2→Die2 (else Die); latch accepts both; soldiers still Die only. Synced SPEC_03 §3.12, SPEC_04 §15.5, `WarriorAnimView` / `MonsterDeathPresentation` |
+| 2026-08-28 | v0.83.32 | `MonsterSelfReviveOnDeath` optional EffectParams `AlertRadius`: first revive overrides instance detect radius (monster TargetSelect + soldier engage); later revives unchanged; missing key keeps table value. Mode2 sample `AlertRadius=6`. Synced SPEC_03 §3.14, SPEC_04 §9.21c |
+| 2026-08-28 | v0.83.31 | 8-dir facing intent lock (diff 2, Approach B): move `DirIndex` follows MassMove `LastDesired` (not LocalDetour steer); `PlayAttack` snaps once toward target then freezes until Attack1 ends; idle/in-range does not retarget facing every frame. Synced SPEC_03 §3.12/§3.14, SPEC_04 §9.7/§15.5, CONTEXT |
+| 2026-08-28 | v0.83.30 | Post-revive attack facing: `ForceSetFacing` still writes `DirIndex` while corpse `_dead`; `FinishReviveToIdle` keeps facing; `PlayAttack` `Play`s `Attack1_*` from `DirIndex` (aligned with Idle/Run `Direction`). Synced SPEC_03 §3.14, SPEC_04 §15.5, `WarriorAnimView` |
+| 2026-08-28 | v0.83.29 | PushMap monster revive: before Die2/Die reverse-play, `TargetSelect` + `ForceSetFacing` sets 8-dir `DirIndex` (clip pick + invincible idle); synced SPEC_03 §3.14, SPEC_04 §15.5, `PushMapMonsterAgentView` |
+| 2026-08-28 | v0.83.27 | Death knockback ratio fix: `raw=(OutgoingDamage/MaxHp)×DeathKnockbackRatioCoeff` then clamp Min/Max (retire `MaxHp/OutgoingDamage`); synced SPEC_03 §3.12, SPEC_04 §9.20b/§15.5, CONTEXT, constant table comments, `MonsterDeathPresentation` |
+| 2026-08-28 | v0.83.28 | Monster `MonsterConfig.Skills` encoding → `SkillId;CdSeconds|…` (was `SkillId_CdSeconds`); avoids underscore `MonsterSkillId` ambiguity; synced `MonsterSkillParser` + Defend_MonsterConfig samples |
 | 2026-08-27 | v0.83.26 | InSaveShell Demo gate bypass: create/enter skip `CampaignModeSelect`, always `Mode2`; default difficulty/level Hub (UI-029, Normal only expandable; map hosts UI-008; auto-select max LevelId + Enter); standalone `InSaveShellPanel` Prefab. Synced SPEC_03 §3.1–§3.6/§3.8, SPEC_04 §6, CONTEXT; issues `.scratch/insave-difficulty-hub/` |
 | 2026-08-27 | v0.83.25 | Monster death knockback by damage ratio: `distance=clamp(Min,Max,(MaxHp/OutgoingDamage)×RatioCoeff)`; constants sample `0.5/0.2/5`; direction away from killer; retire mirror distance and `ClassConfig.DeathKnockbackMult`; `MonsterKilled` carries `outgoingDamage`. Synced SPEC_03 §3.12/§3.14, SPEC_04 §9.20b/§15.5, CONTEXT |
 | 2026-08-27 | v0.83.24 | UI-026: `ShopStageRoot` bottom full-screen background `Title_Shop_1` (`AspectRatioFitter` EnvelopeParent keep-aspect cover; semi-transparent `ShopBackdrop`; transparent `ShopBox`); `ShopAssetBuilder.EnsureShopBackground`. Synced SPEC_03 §3.6, SPEC_04 §10, Title README |
