@@ -14,7 +14,7 @@ namespace Gravedigger2026.Editor.Maps
     public static class MapEdgeFogBuilder
     {
         public const string PrefabMapsDir = "Assets/Prefabs/Maps";
-        public const string FogSpritePath = "Assets/Art/Maps/Fog_1.png";
+        public const string FogSpritePath = "Assets/Art/Maps/Fogs/Fog_1.png";
 
         private const string OneShotPrefsKey = "Gravedigger2026.MapEdgeFog.Ensure.v1";
         private const float DefaultSizeMul = 2.4f;

@@ -19,7 +19,7 @@ selected_approach: A — MapEdgeFogView + MapEdgeFogBuilder；Fog_1 单片 RotX9
 
 - 运行时薄组件 `MapEdgeFogView`（SerializeField：贴图/颜色/尺寸倍率/sorting；相对 `DigMapBounds` 适配）
 - Editor `MapEdgeFogBuilder`：菜单 Ensure；one-shot InitializeOnLoad；Batch `-executeMethod`
-- 贴图默认 `Art/Maps/Fog_1.png`；Sorting 高于地面 Tilemap（含 Water/Foam），不挡玩法逻辑
+- 贴图默认 `Art/Maps/Fogs/Fog_1.png`；Sorting 高于地面 Tilemap（含 Water/Foam），不挡玩法逻辑
 - **不**改 NavMesh / AirWall / WalkSurface / CameraFogService
 
 ## 非范围

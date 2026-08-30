@@ -754,7 +754,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-008 | 关卡选择面板 | 已实现（方案 B → Hub 嵌入） | Prefab `LevelSelectPanel`（嵌于 DifficultySelectHost 地图区 / InSaveShell 子级）；去重 `LevelId`；选中高亮；自动选列表末项；底中「进入」→ Stage 1；验收见 §3.8 D-003 / D-081 |
 | UI-009 | 开战按钮 | 已定义（Demo 流水线） | Defend 准备态；点击 → StartBattle（§3.12）；验收见 §3.8 D-040 |
 | UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 默认全屏制造区；顶部「GM升级」打开升级 Modal（右上 X 关闭）；底栏库存方格拖拽 +「完成」与其右「布阵」；布阵打开共享 FormationEditor；验收见 §3.8 D-030～D-032 |
-| UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；`SummaryRoot` **1020×1150**、`Body` **920×1030**；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（精魂/非躯体仍 `{Id} × 数量`）；`ConfirmButton` 文案「X」、锚 `SummaryRoot` 右上角（语义仍为确认）；确认后接 §3.9；验收见 §3.8 D-020 |
+| UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；`SummaryRoot` **1103×796**（Image Sprite=`Art/UI/Meta/Title/UI_Kuang_09.png`、Color 纯白）、`Title`/`Body` 文字纯黑、`Body` **920×1030**；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（精魂/非躯体仍 `{Id} × 数量`）；`ConfirmButton` 文案「X」、锚 `SummaryRoot` 右上角（语义仍为确认）；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 | UI-013 | 战斗模式选关 | 已定义（Demo 流水线） | 进入 Defend 阶段后：选 `BattleMode` + 关卡（该模式全部玩法配置）；模式1进保卫战 Prepare；模式2选 `PushMapGameplayConfig` 后进 §3.14 Prepare；验收见 §3.8 D-044 |
 | UI-014 | 玩法模式选择 | Demo 旁路 | 组件保留；**本 Demo 新建/进入不弹出**（直进 Mode2）；Mode1 入口后置；**勿与** UI-013 混淆；验收见 §3.8 D-045 |
@@ -788,7 +788,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-008 | Level select panel | Done (Approach B → Hub embed) | Prefab `LevelSelectPanel` in DifficultySelectHost map host; distinct `LevelId`; highlight selection; auto-select last; bottom Enter → Stage 1; accept §3.8 D-003 / D-081 |
 | UI-009 | StartBattle button | Defined (Demo pipeline) | Defend Prepare; click → StartBattle (§3.12); accept §3.8 D-040 |
 | UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Full-screen manufacture by default; top "GM Upgrade" opens upgrade Modal (top-right X closes); bottom inventory square bar + drag + Complete with Formation to its right; opens shared FormationEditor; accept §3.8 D-030–D-032 |
-| UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; `SummaryRoot` **1020×1150**, `Body` **920×1030**; body-part lines `{DisplayName} Lv{BodyLevel} × count` (Spirit/non-body still `{Id} × count`); `ConfirmButton` label "X", top-right of `SummaryRoot` (still confirms); confirm → §3.9; accept §3.8 D-020 |
+| UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; `SummaryRoot` **1103×796** (Image Sprite=`Art/UI/Meta/Title/UI_Kuang_09.png`, Color white), `Title`/`Body` text black, `Body` **920×1030**; body-part lines `{DisplayName} Lv{BodyLevel} × count` (Spirit/non-body still `{Id} × count`); `ConfirmButton` label "X", top-right of `SummaryRoot` (still confirms); confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 | UI-013 | Battle mode/level select | Defined (Demo pipeline) | After entering Defend: pick `BattleMode` + level (all configs for mode); Mode1 → Defend Prepare; Mode2 pick `PushMapGameplayConfig` → §3.14 Prepare; accept §3.8 D-044 |
 | UI-014 | Campaign mode select | Demo bypass | Component retained; **not shown** on this Demo create/enter (straight Mode2); Mode1 entry deferred; **not** UI-013; accept §3.8 D-045 |
@@ -1154,7 +1154,7 @@ EnterLevel
 |------|------|
 | 地图实体 | Dig 阶段 **不** Instantiate 地图中心 Digger 模型（无整角 Visual、无待机/挖坟动画驱动） |
 | HUD 头像 | Dig HUD **左上角** 固定 **60×60**（Canvas 参考分辨率单位）方框，展示主角头像；Demo 可用占位图/色块，正式头像资源后换 |
-| 镜头迷雾滤镜 | 全局 **`CameraFogService`**（Meta 壳常驻）拥有独立 **`DigFogCanvas`**（`sortingOrder=10`）全屏 **`CameraFogOverlay`**：Sprite = `Assets/Art/Maps/Fog_1.png`；`raycastTarget=false`；**高于**世界地图/Sprite，**低于** Meta 壳 `MetaCanvas`（`20`）与 **DigHudCanvas**（`30`）。**显隐（权威）：** **仅** Dig 会话进行中（含 DigStageSummary）与 PushMap **`Combat`** 显示；Shop / AutoManufacture / UpgradeManufacture / Defend / PushMap **Prepare**/`Ended` / 进档壳其它界面 **不**显示。Dig 或 PushMap Combat 中打开装备仓 / 魔法书槽 / 商店 overlay / Tools / 关卡选择 / GM 弹窗 / 科技树等 Meta 弹窗时 **主动 `SetActive(false)` 隐藏** `DigFogCanvas`，关闭后若仍处合法玩法窗口则恢复。呼吸动效：`DigCameraFogOverlayView` 中心 pivot 缩放 1.0↔1.05 各 5s；Dig 倒计时进行中与 PushMap Combat 可见时 `Play`，倒计时归零 / 阶段 End / 隐藏时 `Stop`。禁止把 `DigFogCanvas` 挂到 `transform.root` 以致阶段销毁后残留。`DigUiLayering` 进 Dig 仅调 Meta/HUD 排序。**GM** 折叠：`GmToggleButton` + `GmMenuPanel` |
+| 镜头迷雾滤镜 | 全局 **`CameraFogService`**（Meta 壳常驻）拥有独立 **`DigFogCanvas`**（`sortingOrder=10`）全屏 **`CameraFogOverlay`**：Sprite = `Assets/Art/Maps/Fogs/Fog_1.png`；`raycastTarget=false`；**高于**世界地图/Sprite，**低于** Meta 壳 `MetaCanvas`（`20`）与 **DigHudCanvas**（`30`）。**显隐（权威）：** **仅** Dig 会话进行中（含 DigStageSummary）与 PushMap **`Combat`** 显示；Shop / AutoManufacture / UpgradeManufacture / Defend / PushMap **Prepare**/`Ended` / 进档壳其它界面 **不**显示。Dig 或 PushMap Combat 中打开装备仓 / 魔法书槽 / 商店 overlay / Tools / 关卡选择 / GM 弹窗 / 科技树等 Meta 弹窗时 **主动 `SetActive(false)` 隐藏** `DigFogCanvas`，关闭后若仍处合法玩法窗口则恢复。呼吸动效：`DigCameraFogOverlayView` 中心 pivot 缩放 1.0↔1.05 各 5s；Dig 倒计时进行中与 PushMap Combat 可见时 `Play`，倒计时归零 / 阶段 End / 隐藏时 `Stop`。禁止把 `DigFogCanvas` 挂到 `transform.root` 以致阶段销毁后残留。`DigUiLayering` 进 Dig 仅调 Meta/HUD 排序。**GM** 折叠：`GmToggleButton` + `GmMenuPanel` |
 | Prefab | `Digger` Prefab / Art 管线可保留（[SPEC_04 §15](SPEC_04_Technical.md)），但本阶段运行时 **不**作为场上实体 |
 
 **挖坟主角能力（DigProtagonistCapabilities）**
@@ -1240,7 +1240,7 @@ EnterLevel
 | 胜负 | Dig 阶段 **无胜 / 负**；**不**触发 `LevelFailure` |
 | 唯一结束条件 | **有效挖坟时长**倒计时归零 |
 | 归零瞬间 | 停止过程生成；**取消**所有进行中的 `DigAction`（**不**结算本次扣血）；不可再触发挖掘 |
-| 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分）。躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（`DisplayName` 空则回退 `BodyPartId`）；精魂与非躯体材料仍 `{Id} × 数量`。Demo 面板 `SummaryRoot` **1020×1150**、`Body` **920×1030**；关闭为右上「X」（`ConfirmButton`） |
+| 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分）。躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（`DisplayName` 空则回退 `BodyPartId`）；精魂与非躯体材料仍 `{Id} × 数量`。Demo 面板 `SummaryRoot` **1103×796**（`UI_Kuang_09`、纯白）、`Title`/`Body` 纯黑、`Body` **920×1030**；关闭为右上「X」（`ConfirmButton`） |
 | 确认后 | 玩家点右上「X」关闭弹窗 → 进入 §3.9 下一阶段 /（若末阶段）`VictorySettlement` |
 
 **Demo GM（Dig HUD）**
@@ -1346,7 +1346,7 @@ Only this type this stage (no other obstacle types yet):
 |------|-------|
 | Map entity | Dig stage does **not** Instantiate a map-center Digger model (no whole-character Visual, no idle/dig anim drive) |
 | HUD portrait | Dig HUD **top-left** fixed **60×60** (canvas reference-resolution units) frame showing protagonist portrait; Demo may use placeholder tint/sprite; swap formal art later |
-| Camera fog filter | Global **`CameraFogService`** (Meta-resident) owns **`DigFogCanvas`** (`sortingOrder=10`) full-screen **`CameraFogOverlay`** (Sprite = `Assets/Art/Maps/Fog_1.png`; `raycastTarget=false`); **above** world map/sprites, **below** Meta shell `MetaCanvas` (`20`) and **DigHudCanvas** (`30`). **Visibility (authority):** show **only** during Dig session (incl. DigStageSummary) and PushMap **`Combat`**; **never** for Shop / AutoManufacture / UpgradeManufacture / Defend / PushMap **Prepare**/`Ended` / other shell UIs. While Dig or PushMap Combat is eligible, opening Equipment / MagicBook / Shop overlay / Tools / LevelSelect / GM / TechTree Meta overlays **actively hides** `DigFogCanvas` (`SetActive(false)`); restore when overlays close if still eligible. Pulse: `DigCameraFogOverlayView` 1.0↔1.05 / 5s; `Play` while Dig countdown or PushMap Combat fog is shown, `Stop` on Dig time-up / stage End / hide. Do **not** parent `DigFogCanvas` to `transform.root` (leaks after Dig destroy). `DigUiLayering` only adjusts Meta/HUD order on Dig enter. **GM** foldout: `GmToggleButton` + `GmMenuPanel` |
+| Camera fog filter | Global **`CameraFogService`** (Meta-resident) owns **`DigFogCanvas`** (`sortingOrder=10`) full-screen **`CameraFogOverlay`** (Sprite = `Assets/Art/Maps/Fogs/Fog_1.png`; `raycastTarget=false`); **above** world map/sprites, **below** Meta shell `MetaCanvas` (`20`) and **DigHudCanvas** (`30`). **Visibility (authority):** show **only** during Dig session (incl. DigStageSummary) and PushMap **`Combat`**; **never** for Shop / AutoManufacture / UpgradeManufacture / Defend / PushMap **Prepare**/`Ended` / other shell UIs. While Dig or PushMap Combat is eligible, opening Equipment / MagicBook / Shop overlay / Tools / LevelSelect / GM / TechTree Meta overlays **actively hides** `DigFogCanvas` (`SetActive(false)`); restore when overlays close if still eligible. Pulse: `DigCameraFogOverlayView` 1.0↔1.05 / 5s; `Play` while Dig countdown or PushMap Combat fog is shown, `Stop` on Dig time-up / stage End / hide. Do **not** parent `DigFogCanvas` to `transform.root` (leaks after Dig destroy). `DigUiLayering` only adjusts Meta/HUD order on Dig enter. **GM** foldout: `GmToggleButton` + `GmMenuPanel` |
 | Prefab | `Digger` Prefab / art pipeline may remain ([SPEC_04 §15](SPEC_04_Technical.md)) but is **not** a runtime Dig-stage world entity |
 
 **DigProtagonistCapabilities**
@@ -1432,7 +1432,7 @@ For each settled `Id_Count` (not the raw table `Id;Weight;Count`):
 | Win/lose | Dig stage has **no win / lose**; does **not** trigger `LevelFailure` |
 | Sole end condition | **Effective Dig duration** countdown hits 0 |
 | On zero | Stop ongoing spawn; **cancel** all in-progress `DigAction`s (**no** damage resolve); no further dig triggers |
-| Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`). Body-part lines `{DisplayName} Lv{BodyLevel} × count` (empty `DisplayName` → `BodyPartId`); Spirit / non-body still `{Id} × count`. Demo panel `SummaryRoot` **1020×1150**, `Body` **920×1030**; dismiss via top-right "X" (`ConfirmButton`) |
+| Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`). Body-part lines `{DisplayName} Lv{BodyLevel} × count` (empty `DisplayName` → `BodyPartId`); Spirit / non-body still `{Id} × count`. Demo panel `SummaryRoot` **1103×796** (`UI_Kuang_09`, white), `Title`/`Body` black, `Body` **920×1030**; dismiss via top-right "X" (`ConfirmButton`) |
 | After confirm | Player taps top-right "X" → §3.9 next stage / (if last) `VictorySettlement` |
 
 **Demo GM (Dig HUD)**

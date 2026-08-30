@@ -65,7 +65,7 @@
 1. 父节点建议：`MapEdgeFog`（地图 Prefab 根下）；随地图 Instantiate/Destroy。
 2. 相对 `DigMapBounds` / IsoDiamond：**外侧**放 1 个环状软边雾片，或至多 4 条边雾片（`SpriteRenderer` / alpha 渐变 Quad）。
 3. Sorting：高于地面 / Water / Foam，低于单位与战斗特效。
-4. 配置：Prefab `SerializeField`（贴图、颜色、Alpha、尺寸/偏移、启用），或共享 SO → `Assets/Settings/Maps/`；贴图可复用 `Fog_1.png` 等 `Art/Maps/Fog_*.png`。
+4. 配置：Prefab `SerializeField`（贴图、颜色、Alpha、尺寸/偏移、启用），或共享 SO → `Assets/Settings/Maps/`；贴图可复用 `Fog_1.png` 等 `Art/Maps/Fogs/Fog_*.png`。
 5. **禁止**：粒子当遮罩、每帧 C# 动画、挂 `transform.root`、参与 NavMesh / 空气墙 / 占领。
 6. **Transform 归属：** 默认不自动回写。手动摆位置/角度后，Inspector 保持 **Auto Fit To Bounds = 关**（进 Play 不会弹回）；若要按 `DigMapBounds` 重算，勾选 Auto Fit 或组件上调用 `FitToBounds()`。Ensure 对已有 `MapEdgeFog` **不**覆盖已摆姿势。
 
@@ -74,5 +74,5 @@
 菜单：`Gravedigger2026/Maps/Ensure Map Edge Fog`  
 （one-shot：打开工程会跑一次；Batch：`-executeMethod Gravedigger2026.Editor.Maps.MapEdgeFogBuilder.EnsureMapEdgeFogBatch`）
 
-目标：`Ground_01`…`05`、`PushMap_Demo_01`…`03`。子物体名 `MapEdgeFog`，组件 `MapEdgeFogView`，默认 Sprite=`Fog_1.png`。
+目标：`Ground_01`…`05`、`PushMap_Demo_01`…`03`。子物体名 `MapEdgeFog`，组件 `MapEdgeFogView`，默认 Sprite=`Art/Maps/Fogs/Fog_1.png`。
 

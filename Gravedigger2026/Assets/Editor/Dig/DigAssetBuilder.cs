@@ -27,7 +27,8 @@ namespace Gravedigger2026.Editor.Dig
         private const string RewardPath = PrefabDigDir + "/DigRewardFlyer.prefab";
         private const string UiCursorRingPath = PrefabDigDir + "/UiDigCursorRing.prefab";
         private const string CircleSpritePath = ArtUiDigDir + "/Ui_DigCursor_Circle.png";
-        private const string CameraFogSpritePath = "Assets/Art/Maps/Fog_1.png";
+        private const string CameraFogSpritePath = "Assets/Art/Maps/Fogs/Fog_1.png";
+        private const string SummaryPanelSpritePath = "Assets/Art/UI/Meta/Title/UI_Kuang_09.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08304";
 
@@ -559,21 +560,34 @@ namespace Gravedigger2026.Editor.Dig
             hso.ApplyModifiedPropertiesWithoutUndo();
             hudRoot.SetActive(false);
 
-            var summaryRoot = CreateUiPanel(canvasGo.transform, "SummaryRoot", new Color(0.08f, 0.09f, 0.12f, 0.92f));
-            Place(summaryRoot.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1020f, 1150f));
+            var summaryRoot = CreateUiPanel(canvasGo.transform, "SummaryRoot", Color.white);
+            var summaryImage = summaryRoot.GetComponent<Image>();
+            var summarySprite = AssetDatabase.LoadAssetAtPath<Sprite>(SummaryPanelSpritePath);
+            if (summarySprite != null)
+            {
+                summaryImage.sprite = summarySprite;
+            }
+            else
+            {
+                Debug.LogWarning($"[DigAssetBuilder] Summary panel sprite missing: {SummaryPanelSpritePath}");
+            }
 
-            var summaryTitle = CreateUiText(summaryRoot.transform, "Title", "挖坟阶段汇总", 32, TextAnchor.UpperCenter);
+            Place(summaryRoot.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1103f, 796f));
+
+            var summaryTitle = CreateUiText(summaryRoot.transform, "Title", "挖坟阶段汇总", 40, TextAnchor.UpperCenter);
+            summaryTitle.color = Color.black;
             Place(summaryTitle.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(900f, 44f));
+                new Vector2(0.5f, 1f), new Vector2(0f, -50f), new Vector2(900f, 44f));
 
             var confirmBtn = CreateUiButton(summaryRoot.transform, "ConfirmButton", "X", new Color(0.28f, 0.55f, 0.35f, 1f));
             Place(confirmBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
 
-            var summaryBody = CreateUiText(summaryRoot.transform, "Body", "", 22, TextAnchor.UpperLeft);
+            var summaryBody = CreateUiText(summaryRoot.transform, "Body", "", 32, TextAnchor.UpperLeft);
+            summaryBody.color = Color.black;
             Place(summaryBody.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0f, -80f), new Vector2(920f, 1030f));
+                new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(920f, 1030f));
 
             var summary = summaryRoot.AddComponent<DigStageSummaryView>();
             var sso = new SerializedObject(summary);

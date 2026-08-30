@@ -64,7 +64,7 @@
 | FlowingWater | 流动水面 | 地图表现约定：Grid 下 `Water`（Chunk+Water.mat）/`Foam`（Individual+Foam.mat）两层；Built-in 资源 `Art/Maps/Shaders/Water/`；世界 UV=`xz`；不参与 NavMesh/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
 | MapAutoTile | 地图自动接边 | 编辑器刷图约定：Isometric Rule Tile（`tilemap.extras`）刷区域时自动换边/角砖；资产 `Art/Maps/RuleTiles/`；挂 **FantasyTileset_A** Palette；不含 FlowingWater 层；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
 | MapEdgeFog | 地图边缘迷雾 | 世界空间雾片挂 `Prefabs/Maps/{MapId}`，遮 IsoDiamond 可玩区外空白；方案 A；与 `CameraFogOverlay` 职责分离可叠加；静态零 Update；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
-| CameraFogOverlay | 镜头迷雾滤镜 | 全局 `CameraFogService` 拥有的 `DigFogCanvas` 全屏 Image；素材 `Art/Maps/Fog_1.png`；**仅** Dig 会话与 PushMap Combat（含 Intro）显示；Meta 弹窗打开时主动隐藏；呼吸缩放见 `DigCameraFogOverlayView` | [§3.10](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| CameraFogOverlay | 镜头迷雾滤镜 | 全局 `CameraFogService` 拥有的 `DigFogCanvas` 全屏 Image；素材 `Art/Maps/Fogs/Fog_1.png`；**仅** Dig 会话与 PushMap Combat（含 Intro）显示；Meta 弹窗打开时主动隐藏；呼吸缩放见 `DigCameraFogOverlayView` | [§3.10](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Grave | 坟墓 | 挖坟可生成实体；带品质 ID；未消除时为 DigObstacle | [§3.10](SPEC_03_GameRules.md) |
 | Digger | 挖坟主角 | Dig 阶段不生成地图模型；HUD 左上 60×60 头像框；Prefab 可保留于 Catalog/Art | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | DigAction | 挖掘流程 | 0.2s 停留触发；`DigActionDuration` 帧动画后扣血；busy 不可重触 | [§3.10](SPEC_03_GameRules.md) |

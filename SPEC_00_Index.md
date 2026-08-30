@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.38
-**最后更新 / Last Updated:** 2026-08-28
+**文档版本 / Document Version:** v0.83.41
+**最后更新 / Last Updated:** 2026-08-30
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,9 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-08-30 | v0.83.41 | DigStageSummary：`Title` PosY=-50、FontSize=40；`Body` PosY=-110、FontSize=32。同步 `DigStageRoot`/`DigAssetBuilder` |
+| 2026-08-30 | v0.83.40 | DigStageSummary（UI-011）：`SummaryRoot` 改为 **1103×796**，Image=`UI_Kuang_09`、Color 纯白；`Title`/`Body` 文字纯黑。同步 SPEC_03 §3.6/§3.10、`DigStageRoot`/`DigAssetBuilder` |
+| 2026-08-30 | v0.83.39 | 雾贴图目录迁至 `Art/Maps/Fogs/`：`MapEdgeFogBuilder` / `DigAssetBuilder` 默认路径改为 `Assets/Art/Maps/Fogs/Fog_1.png`。同步 SPEC_03 §3.10、SPEC_04 §6/§9.2/§13、CONTEXT、Art/Maps README、spec-map |
 | 2026-08-28 | v0.83.38 | Die/Die2 选用条件互换：默认 Die2；击飞 `distance≥DeathDie2KnockbackThreshold` → Die。同步 SPEC_03 §3.12、SPEC_04 §15.5、CONTEXT、`ShouldPreferDie2`、常量表注释 |
 | 2026-08-28 | v0.83.37 | Die/Die2 击退阈值迁入常量表：新增 `DeathDie2KnockbackThreshold`（样例 `1`）；`CombatRuntimeTuning` 加载；`ShouldPreferDie2`。同步 SPEC_03 §3.12、SPEC_04 §9.20b/§15.5、CONTEXT、主表/Mode2 CSV+Excel |
 | 2026-08-28 | v0.83.36 | `MonsterConfig` 字段表补齐 `PushCoefficient`/`RepulsionScale`/`FacingYawFlip`（与 CSV 列序一致）；Excel 第 1/2 行中文名与说明须对齐第 3 行英文字段。同步 SPEC_04 §9.19 |
@@ -404,6 +407,9 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-08-30 | v0.83.41 | DigStageSummary: `Title` PosY=-50, FontSize=40; `Body` PosY=-110, FontSize=32. Synced `DigStageRoot`/`DigAssetBuilder` |
+| 2026-08-30 | v0.83.40 | DigStageSummary (UI-011): `SummaryRoot` **1103×796**, Image=`UI_Kuang_09`, Color white; `Title`/`Body` text black. Synced SPEC_03 §3.6/§3.10, `DigStageRoot`/`DigAssetBuilder` |
+| 2026-08-30 | v0.83.39 | Fog sprites moved under `Art/Maps/Fogs/`: `MapEdgeFogBuilder` / `DigAssetBuilder` default path → `Assets/Art/Maps/Fogs/Fog_1.png`. Synced SPEC_03 §3.10, SPEC_04 §6/§9.2/§13, CONTEXT, Art/Maps README, spec-map |
 | 2026-08-28 | v0.83.38 | Die/Die2 selection swapped: default Die2; knockback `distance≥DeathDie2KnockbackThreshold` → Die. Synced SPEC_03 §3.12, SPEC_04 §15.5, CONTEXT, `ShouldPreferDie2`, constant table comments |
 | 2026-08-28 | v0.83.37 | Die/Die2 knockback threshold moved to constant table: add `DeathDie2KnockbackThreshold` (sample `1`); loaded via `CombatRuntimeTuning`; `ShouldPreferDie2`. Synced SPEC_03 §3.12, SPEC_04 §9.20b/§15.5, CONTEXT, main+Mode2 CSV+Excel |
 | 2026-08-28 | v0.83.36 | `MonsterConfig` field table adds `PushCoefficient`/`RepulsionScale`/`FacingYawFlip` (CSV column order); Excel rows 1–2 ZH name/notes must match row-3 English ids. Synced SPEC_04 §9.19 |
