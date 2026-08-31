@@ -12,7 +12,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         public const float CardHeight = 200f;
 
         [SerializeField] private Image _background;
-        [SerializeField] private Text _questionMark;
+        [SerializeField] private Image _questionMark;
         [SerializeField] private Text _className;
         [SerializeField] private Text _classLevel;
         [SerializeField] private Image _idleThumbnail;
@@ -27,7 +27,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
         public void RuntimeWire(
             Image background,
-            Text questionMark,
+            Image questionMark,
             Text className,
             Text classLevel,
             Image idleThumbnail,
@@ -52,7 +52,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
             if (_questionMark != null)
             {
-                _questionMark.text = "?";
+                _questionMark.enabled = true;
+                _questionMark.preserveAspect = true;
                 _questionMark.gameObject.SetActive(true);
             }
 

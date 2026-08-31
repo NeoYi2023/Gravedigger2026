@@ -47,6 +47,12 @@ namespace Gravedigger2026.UI
         private const int ShopConfirmSortingOrder = 201;
         private const int MaxOwnedEquipIcons = 6;
 
+        /// <summary>Unsold OfferSlot root Image: opaque pure white (UI-026).</summary>
+        private static readonly Color OfferSlotAvailableColor = Color.white;
+
+        /// <summary>Sold/disabled ColorTint: gray RGB only, alpha must stay 1 (no fade).</summary>
+        private static readonly Color OfferSlotSoldDisabledColor = new Color(0.78431374f, 0.78431374f, 0.78431374f, 1f);
+
         [SerializeField] private Canvas _canvas;
         [SerializeField] private Text _spiritText;
         [SerializeField] private Text _equipSummaryText;
@@ -426,12 +432,11 @@ namespace Gravedigger2026.UI
                 slotRect.offsetMax = Vector2.zero;
 
                 var slotBg = GetOrAdd<Image>(slot);
-                slotBg.color = new Color(0.15f, 0.18f, 0.23f, 0.95f);
+                slotBg.color = OfferSlotAvailableColor;
                 slotBg.raycastTarget = true;
 
                 var buyButton = GetOrAdd<Button>(slot);
-                buyButton.transition = Selectable.Transition.ColorTint;
-                buyButton.targetGraphic = slotBg;
+                ConfigureOfferSlotBuyButton(buyButton, slotBg);
 
                 var iconGo = EnsureChild("Icon", slot.transform);
                 var iconRect = iconGo.GetComponent<RectTransform>();
@@ -607,15 +612,16 @@ namespace Gravedigger2026.UI
                 var isSold = offer.IsSold;
 
                 slotUi.SoldText.gameObject.SetActive(isSold && !isEmpty);
-                slotUi.BuyButton.interactable = !isEmpty && !isSold;
 
-                var slotBg = slotUi.Root.GetComponent<Image>();
+                var slotBg = slotUi.Root != null ? slotUi.Root.GetComponent<Image>() : null;
+                ConfigureOfferSlotBuyButton(slotUi.BuyButton, slotBg);
                 if (slotBg != null)
                 {
-                    slotBg.color = offer.Category == ShopPoolItemCategory.A
-                        ? new Color(0.15f, 0.18f, 0.23f, 0.95f)
-                        : new Color(0.2f, 0.15f, 0.28f, 0.95f);
+                    // Base stays opaque white; sold look comes from ColorTint DisabledColor (alpha=1).
+                    slotBg.color = OfferSlotAvailableColor;
                 }
+
+                slotUi.BuyButton.interactable = !isEmpty && !isSold;
 
                 if (isEmpty)
                 {
@@ -1277,6 +1283,28 @@ namespace Gravedigger2026.UI
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(host, false);
             return go;
+        }
+
+        private static void ConfigureOfferSlotBuyButton(Button button, Image targetGraphic)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.transition = Selectable.Transition.ColorTint;
+            if (targetGraphic != null)
+            {
+                button.targetGraphic = targetGraphic;
+            }
+
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.9607843f, 0.9607843f, 0.9607843f, 1f);
+            colors.pressedColor = new Color(0.78431374f, 0.78431374f, 0.78431374f, 1f);
+            colors.selectedColor = new Color(0.9607843f, 0.9607843f, 0.9607843f, 1f);
+            colors.disabledColor = OfferSlotSoldDisabledColor;
+            button.colors = colors;
         }
 
         private static T GetOrAdd<T>(GameObject go) where T : Component

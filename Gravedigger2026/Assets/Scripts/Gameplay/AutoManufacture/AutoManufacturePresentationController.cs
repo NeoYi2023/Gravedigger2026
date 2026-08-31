@@ -867,12 +867,17 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             thumb.enabled = false;
             thumb.raycastTarget = false;
 
-            var q = CreateText(go.transform, "Question", "?", 42, TextAnchor.MiddleCenter);
-            var qRt = q.GetComponent<RectTransform>();
+            var qGo = new GameObject("Question", typeof(RectTransform), typeof(Image));
+            qGo.transform.SetParent(go.transform, false);
+            var qRt = qGo.GetComponent<RectTransform>();
             qRt.anchorMin = new Vector2(0f, 0.35f);
             qRt.anchorMax = new Vector2(1f, 0.85f);
             qRt.offsetMin = Vector2.zero;
             qRt.offsetMax = Vector2.zero;
+            var q = qGo.GetComponent<Image>();
+            q.color = Color.white;
+            q.preserveAspect = true;
+            q.raycastTarget = false;
 
             var className = CreateText(go.transform, "ClassName", string.Empty, 32, TextAnchor.MiddleCenter);
             var cRt = className.GetComponent<RectTransform>();
