@@ -1432,7 +1432,6 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var cam = _configs.GetCameraPresentationConstants();
-            DeathKnockbackGroundShadowView.ConfigureFloorTilt(cam.CombatCameraPitchDegrees);
             cam.ApplyCombatCameraPose(
                 _defendCamera,
                 _mapCenter,

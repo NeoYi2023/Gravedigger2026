@@ -12,19 +12,14 @@ namespace Gravedigger2026.Gameplay.Defend
     {
         public const int SortingOrder = 45;
         public const float GroundOffsetY = 0.02f;
+        public const float DiscLocalEulerX = -45f;
         private const int DiscTextureSize = 128;
-        private const float HeightEpsilon = 1e-3f;
 
         private static Sprite s_discSprite;
-        private static float s_floorLocalEulerX =
-            CombatConstantKeys.Safety.CombatCameraPitchDegrees - 90f;
 
         private Transform _discRoot;
         private SpriteRenderer _renderer;
         private bool _visible;
-
-        public static void ConfigureFloorTilt(float combatCameraPitchDegrees) =>
-            s_floorLocalEulerX = combatCameraPitchDegrees - 90f;
 
         public void Show()
         {
@@ -38,6 +33,7 @@ namespace Gravedigger2026.Gameplay.Defend
             if (_discRoot != null)
             {
                 _discRoot.gameObject.SetActive(false);
+                _discRoot.localPosition = Vector3.zero;
             }
         }
 
@@ -52,17 +48,20 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            EnsureVisuals();
+
             var scaleMul = MonsterDeathPresentation.ComputeShadowScaleMul(heightAboveGround);
             if (scaleMul <= 0f)
             {
-                Hide();
+                // Keep _visible true during knockback; height=0 at arc start/end is expected.
+                _discRoot.gameObject.SetActive(false);
                 return;
             }
 
-            EnsureVisuals();
             _discRoot.gameObject.SetActive(true);
 
-            transform.position = new Vector3(
+            // World-position the disc only — never move the monster root (this component's transform).
+            _discRoot.position = new Vector3(
                 corpsePos.x,
                 groundY + GroundOffsetY,
                 corpsePos.z);
@@ -81,7 +80,7 @@ namespace Gravedigger2026.Gameplay.Defend
         {
             if (_discRoot != null)
             {
-                _discRoot.localRotation = Quaternion.Euler(s_floorLocalEulerX, 0f, 0f);
+                _discRoot.localRotation = Quaternion.Euler(DiscLocalEulerX, 0f, 0f);
                 if (_renderer != null)
                 {
                     _renderer.sortingOrder = SortingOrder;
@@ -94,7 +93,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _discRoot = go.transform;
             _discRoot.SetParent(transform, false);
             _discRoot.localPosition = Vector3.zero;
-            _discRoot.localRotation = Quaternion.Euler(s_floorLocalEulerX, 0f, 0f);
+            _discRoot.localRotation = Quaternion.Euler(DiscLocalEulerX, 0f, 0f);
             _discRoot.localScale = Vector3.one;
 
             _renderer = go.AddComponent<SpriteRenderer>();

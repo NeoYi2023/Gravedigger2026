@@ -2172,7 +2172,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             var cam = _configs != null
                 ? _configs.GetCameraPresentationConstants()
                 : CameraPresentationConstants.SafetyDefaults;
-            DeathKnockbackGroundShadowView.ConfigureFloorTilt(cam.CombatCameraPitchDegrees);
             cam.ApplyCombatCameraPose(_pushMapCamera, _mapCenter, cam.PushMapOrthoSize);
             ApplyCombatCameraTransparencySort(_pushMapCamera);
         }
