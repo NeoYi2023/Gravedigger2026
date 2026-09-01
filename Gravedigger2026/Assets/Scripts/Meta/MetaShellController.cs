@@ -213,6 +213,7 @@ namespace Gravedigger2026.Meta
                         _warriorPool,
                         _formation,
                         _warehouse,
+                        _specialEquipSlots,
                         HandleDefendVictory,
                         HandleDefendLevelFailure,
                         HandlePushMapModeConfirmed,

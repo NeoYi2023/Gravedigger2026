@@ -30,7 +30,7 @@ namespace Gravedigger2026.Editor.Dig
         private const string CameraFogSpritePath = "Assets/Art/Maps/Fogs/Fog_1.png";
         private const string SummaryPanelSpritePath = "Assets/Art/UI/Meta/Title/UI_Kuang_09.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08304";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08356_gmMenuTwoCol";
 
         private static readonly string[] MapIds =
         {
@@ -493,44 +493,92 @@ namespace Gravedigger2026.Editor.Dig
             Place(gmToggleBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(-24f, -86f), new Vector2(80f, 40f));
 
+            const float gmColWidth = 172f;
+            const float gmColGap = 8f;
+            const float gmRowStep = 48f;
+            const float gmLayerGap = 16f;
+            const float gmPanelWidth = gmColWidth * 2f + gmColGap;
+            const int digMagicFixedRows = 2;
+            const int equipRows = 8;
+            // Prefab seeds Dig commons only; MagicBooks are runtime. Height = dig(2) + gap + equip(8).
+            var digHeight = digMagicFixedRows * gmRowStep;
+            var equipHeight = equipRows * gmRowStep;
+            var panelHeight = digHeight + gmLayerGap + equipHeight;
+
             var gmMenuPanel = new GameObject("GmMenuPanel", typeof(RectTransform));
             gmMenuPanel.transform.SetParent(hudRoot.transform, false);
             Place(gmMenuPanel.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                new Vector2(-24f, -134f), new Vector2(200f, 780f));
+                new Vector2(-24f, -134f), new Vector2(gmPanelWidth, panelHeight));
             gmMenuPanel.SetActive(false);
 
-            var addGravesBtn = CreateUiButton(gmMenuPanel.transform, "GmAddGravesButton", "增加坟墓",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(addGravesBtn.GetComponent<RectTransform>(), 0);
+            var digMagicLayer = new GameObject("GmLayerDigMagic", typeof(RectTransform));
+            digMagicLayer.transform.SetParent(gmMenuPanel.transform, false);
+            PlaceGmLayer(digMagicLayer.GetComponent<RectTransform>(), 0f, digHeight, gmPanelWidth);
 
-            var addBodyPartsBtn = CreateUiButton(gmMenuPanel.transform, "GmAddBodyPartsButton", "增加躯体材料",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(addBodyPartsBtn.GetComponent<RectTransform>(), 1);
+            var equipLayer = new GameObject("GmLayerEquip", typeof(RectTransform));
+            equipLayer.transform.SetParent(gmMenuPanel.transform, false);
+            PlaceGmLayer(equipLayer.GetComponent<RectTransform>(), -(digHeight + gmLayerGap), equipHeight, gmPanelWidth);
 
-            var equipWarriorEnhanceBtn = CreateUiButton(gmMenuPanel.transform, "GmEquipWarriorEnhanceButton", "装备战士强化",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(equipWarriorEnhanceBtn.GetComponent<RectTransform>(), 2);
-            equipWarriorEnhanceBtn.SetActive(false);
+            var gmBtnColor = new Color(0.22f, 0.28f, 0.38f, 0.92f);
 
-            var acquireDigRingBtn = CreateUiButton(gmMenuPanel.transform, "GmAcquireDigRingButton", "获得铁铲",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(acquireDigRingBtn.GetComponent<RectTransform>(), 3);
+            var addGravesBtn = CreateUiButton(digMagicLayer.transform, "GmAddGravesButton", "增加坟墓", gmBtnColor);
+            PlaceGmMenuButton(addGravesBtn.GetComponent<RectTransform>(), 0, 0);
 
-            var grantEquipCommonExpBtn = CreateUiButton(gmMenuPanel.transform, "GmGrantEquipCommonExpButton", "装备公共经验+50",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(grantEquipCommonExpBtn.GetComponent<RectTransform>(), 4);
+            var addBodyPartsBtn = CreateUiButton(digMagicLayer.transform, "GmAddBodyPartsButton", "增加躯体材料", gmBtnColor);
+            PlaceGmMenuButton(addBodyPartsBtn.GetComponent<RectTransform>(), 0, 1);
 
-            var spendDigRingCommonExpBtn = CreateUiButton(gmMenuPanel.transform, "GmSpendDigRingCommonExpButton", "划入铁铲升级",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(spendDigRingCommonExpBtn.GetComponent<RectTransform>(), 5);
+            var grantEquipCommonExpBtn = CreateUiButton(
+                digMagicLayer.transform, "GmGrantEquipCommonExpButton", "装备公共经验+50", gmBtnColor);
+            PlaceGmMenuButton(grantEquipCommonExpBtn.GetComponent<RectTransform>(), 1, 0);
 
-            var acquireMinerLampBtn = CreateUiButton(gmMenuPanel.transform, "GmAcquireMinerLampButton", "获得矿灯",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(acquireMinerLampBtn.GetComponent<RectTransform>(), 6);
+            var acquireDigRingBtn = CreateUiButton(equipLayer.transform, "GmAcquireDigRingButton", "获得铁铲", gmBtnColor);
+            PlaceGmMenuButton(acquireDigRingBtn.GetComponent<RectTransform>(), 0, 0);
+            var spendDigRingCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendDigRingCommonExpButton", "划入铁铲升级", gmBtnColor);
+            PlaceGmMenuButton(spendDigRingCommonExpBtn.GetComponent<RectTransform>(), 0, 1);
 
-            var spendMinerLampCommonExpBtn = CreateUiButton(gmMenuPanel.transform, "GmSpendMinerLampCommonExpButton", "划入矿灯升级",
-                new Color(0.22f, 0.28f, 0.38f, 0.92f));
-            PlaceGmMenuButton(spendMinerLampCommonExpBtn.GetComponent<RectTransform>(), 7);
+            var acquireMinerLampBtn = CreateUiButton(equipLayer.transform, "GmAcquireMinerLampButton", "获得矿灯", gmBtnColor);
+            PlaceGmMenuButton(acquireMinerLampBtn.GetComponent<RectTransform>(), 1, 0);
+            var spendMinerLampCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendMinerLampCommonExpButton", "划入矿灯升级", gmBtnColor);
+            PlaceGmMenuButton(spendMinerLampCommonExpBtn.GetComponent<RectTransform>(), 1, 1);
+
+            var acquireExplosivesBtn = CreateUiButton(equipLayer.transform, "GmAcquireExplosivesButton", "获得炸药", gmBtnColor);
+            PlaceGmMenuButton(acquireExplosivesBtn.GetComponent<RectTransform>(), 2, 0);
+            var spendExplosivesCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendExplosivesCommonExpButton", "划入炸药升级", gmBtnColor);
+            PlaceGmMenuButton(spendExplosivesCommonExpBtn.GetComponent<RectTransform>(), 2, 1);
+
+            var acquireLightningBtn = CreateUiButton(equipLayer.transform, "GmAcquireLightningButton", "获得引雷", gmBtnColor);
+            PlaceGmMenuButton(acquireLightningBtn.GetComponent<RectTransform>(), 3, 0);
+            var spendLightningCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendLightningCommonExpButton", "划入引雷升级", gmBtnColor);
+            PlaceGmMenuButton(spendLightningCommonExpBtn.GetComponent<RectTransform>(), 3, 1);
+
+            var acquireDetectorBtn = CreateUiButton(equipLayer.transform, "GmAcquireDetectorButton", "获得探测器", gmBtnColor);
+            PlaceGmMenuButton(acquireDetectorBtn.GetComponent<RectTransform>(), 4, 0);
+            var spendDetectorCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendDetectorCommonExpButton", "划入探测器升级", gmBtnColor);
+            PlaceGmMenuButton(spendDetectorCommonExpBtn.GetComponent<RectTransform>(), 4, 1);
+
+            var acquireHumanTokenBtn = CreateUiButton(
+                equipLayer.transform, "GmAcquireHumanTokenButton", "获得人类信物", gmBtnColor);
+            PlaceGmMenuButton(acquireHumanTokenBtn.GetComponent<RectTransform>(), 5, 0);
+            var spendHumanTokenCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendHumanTokenCommonExpButton", "划入人类信物升级", gmBtnColor);
+            PlaceGmMenuButton(spendHumanTokenCommonExpBtn.GetComponent<RectTransform>(), 5, 1);
+
+            var acquireElfTokenBtn = CreateUiButton(equipLayer.transform, "GmAcquireElfTokenButton", "获得精灵信物", gmBtnColor);
+            PlaceGmMenuButton(acquireElfTokenBtn.GetComponent<RectTransform>(), 6, 0);
+            var spendElfTokenCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendElfTokenCommonExpButton", "划入精灵信物升级", gmBtnColor);
+            PlaceGmMenuButton(spendElfTokenCommonExpBtn.GetComponent<RectTransform>(), 6, 1);
+
+            var acquireOrcTokenBtn = CreateUiButton(equipLayer.transform, "GmAcquireOrcTokenButton", "获得兽人信物", gmBtnColor);
+            PlaceGmMenuButton(acquireOrcTokenBtn.GetComponent<RectTransform>(), 7, 0);
+            var spendOrcTokenCommonExpBtn = CreateUiButton(
+                equipLayer.transform, "GmSpendOrcTokenCommonExpButton", "划入兽人信物升级", gmBtnColor);
+            PlaceGmMenuButton(spendOrcTokenCommonExpBtn.GetComponent<RectTransform>(), 7, 1);
 
             // Transparent HUD panel must not eat mouse for Dig cursor / Meta buttons.
             var hudImage = hudRoot.GetComponent<Image>();
@@ -546,12 +594,23 @@ namespace Gravedigger2026.Editor.Dig
             hso.FindProperty("_warehouseText").objectReferenceValue = warehouse;
             hso.FindProperty("_addGravesButton").objectReferenceValue = addGravesBtn.GetComponent<Button>();
             hso.FindProperty("_addBodyPartsButton").objectReferenceValue = addBodyPartsBtn.GetComponent<Button>();
-            hso.FindProperty("_equipWarriorEnhanceButton").objectReferenceValue = equipWarriorEnhanceBtn.GetComponent<Button>();
             hso.FindProperty("_acquireDigRingButton").objectReferenceValue = acquireDigRingBtn.GetComponent<Button>();
             hso.FindProperty("_grantEquipCommonExpButton").objectReferenceValue = grantEquipCommonExpBtn.GetComponent<Button>();
             hso.FindProperty("_spendDigRingCommonExpButton").objectReferenceValue = spendDigRingCommonExpBtn.GetComponent<Button>();
             hso.FindProperty("_acquireMinerLampButton").objectReferenceValue = acquireMinerLampBtn.GetComponent<Button>();
             hso.FindProperty("_spendMinerLampCommonExpButton").objectReferenceValue = spendMinerLampCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireExplosivesButton").objectReferenceValue = acquireExplosivesBtn.GetComponent<Button>();
+            hso.FindProperty("_spendExplosivesCommonExpButton").objectReferenceValue = spendExplosivesCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireLightningButton").objectReferenceValue = acquireLightningBtn.GetComponent<Button>();
+            hso.FindProperty("_spendLightningCommonExpButton").objectReferenceValue = spendLightningCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireDetectorButton").objectReferenceValue = acquireDetectorBtn.GetComponent<Button>();
+            hso.FindProperty("_spendDetectorCommonExpButton").objectReferenceValue = spendDetectorCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireHumanTokenButton").objectReferenceValue = acquireHumanTokenBtn.GetComponent<Button>();
+            hso.FindProperty("_spendHumanTokenCommonExpButton").objectReferenceValue = spendHumanTokenCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireElfTokenButton").objectReferenceValue = acquireElfTokenBtn.GetComponent<Button>();
+            hso.FindProperty("_spendElfTokenCommonExpButton").objectReferenceValue = spendElfTokenCommonExpBtn.GetComponent<Button>();
+            hso.FindProperty("_acquireOrcTokenButton").objectReferenceValue = acquireOrcTokenBtn.GetComponent<Button>();
+            hso.FindProperty("_spendOrcTokenCommonExpButton").objectReferenceValue = spendOrcTokenCommonExpBtn.GetComponent<Button>();
             hso.FindProperty("_gmToggleButton").objectReferenceValue = gmToggleBtn.GetComponent<Button>();
             hso.FindProperty("_gmMenuPanel").objectReferenceValue = gmMenuPanel;
             hso.FindProperty("_rewardFlyerLayer").objectReferenceValue = rewardFlyerLayer.GetComponent<RectTransform>();
@@ -699,14 +758,27 @@ namespace Gravedigger2026.Editor.Dig
             rt.offsetMax = Vector2.zero;
         }
 
-        private static void PlaceGmMenuButton(RectTransform rt, int index)
+        private static void PlaceGmMenuButton(RectTransform rt, int row, int col)
         {
-            const float step = 48f;
+            const float colWidth = 172f;
+            const float colGap = 8f;
+            const float rowStep = 48f;
+            const float buttonHeight = 40f;
             rt.anchorMin = new Vector2(1f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(1f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -index * step);
-            rt.sizeDelta = new Vector2(180f, 40f);
+            var x = col <= 0 ? -(colWidth + colGap) : 0f;
+            rt.anchoredPosition = new Vector2(x, -row * rowStep);
+            rt.sizeDelta = new Vector2(colWidth, buttonHeight);
+        }
+
+        private static void PlaceGmLayer(RectTransform rt, float anchoredY, float height, float width)
+        {
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(0f, anchoredY);
+            rt.sizeDelta = new Vector2(width, height);
         }
 
         private static void Place(RectTransform rt, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,

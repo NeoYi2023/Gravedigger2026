@@ -9,7 +9,7 @@ PushMap_02,SP_02,Monster_03,20,3,,0,1
 PushMap_02,SP_02,Monster_11,2,3,,0,2
 PushMap_02,Boss_01,Monster_11,1,0,,1,1
 PushMap_03,SP_01,Monster_01,20,1,,0,1
-PushMap_03,SP_01,Monster_04,20,1,,0,2
+PushMap_03,SP_01,Monster_01,20,1,,0,2
 PushMap_03,SP_03,Monster_01,20,2,TZ_01,0,1
 PushMap_03,SP_02,Monster_01,20,3,,0,1
 PushMap_03,SP_02,Monster_12,2,3,,0,2

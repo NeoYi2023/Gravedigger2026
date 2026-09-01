@@ -724,14 +724,17 @@ namespace Gravedigger2026.Editor.Defend
             var rows = SimpleCsv.ReadRows(csvPath);
             for (var i = 0; i < rows.Count; i++)
             {
-                if (!rows[i].TryGetValue("ModelId", out var modelId) || string.IsNullOrEmpty(modelId))
+                if (!rows[i].TryGetValue("ModelId", out var modelIdRaw) || string.IsNullOrEmpty(modelIdRaw))
                 {
                     continue;
                 }
 
-                if (seen.Add(modelId))
+                foreach (var modelId in MonsterModelIdFieldParser.EnumerateModelIds(modelIdRaw))
                 {
-                    ordered.Add(modelId);
+                    if (seen.Add(modelId))
+                    {
+                        ordered.Add(modelId);
+                    }
                 }
             }
         }

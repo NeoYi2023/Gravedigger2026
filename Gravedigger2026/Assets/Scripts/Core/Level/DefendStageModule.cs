@@ -1,6 +1,7 @@
 using System;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Audio;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
@@ -25,6 +26,7 @@ namespace Gravedigger2026.Core.Level
         private readonly WarriorPoolService _warriorPool;
         private readonly BattleFormationService _formation;
         private readonly WarehouseService _warehouse;
+        private readonly SpecialEquipSlotsService _specialEquipSlots;
         private readonly Action _onVictoryAdvance;
         private readonly Action<string> _onLevelFailure;
         private readonly Action<string> _onPushMapModeConfirmed;
@@ -46,6 +48,7 @@ namespace Gravedigger2026.Core.Level
             WarriorPoolService warriorPool,
             BattleFormationService formation,
             WarehouseService warehouse,
+            SpecialEquipSlotsService specialEquipSlots,
             Action onVictoryAdvance,
             Action<string> onLevelFailure,
             Action<string> onPushMapModeConfirmed,
@@ -60,6 +63,7 @@ namespace Gravedigger2026.Core.Level
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _warehouse = warehouse;
+            _specialEquipSlots = specialEquipSlots;
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
             _onPushMapModeConfirmed = onPushMapModeConfirmed
@@ -223,6 +227,7 @@ namespace Gravedigger2026.Core.Level
                 _warriorPool,
                 _formation,
                 _warehouse,
+                _specialEquipSlots,
                 _onVictoryAdvance,
                 _onLevelFailure);
 

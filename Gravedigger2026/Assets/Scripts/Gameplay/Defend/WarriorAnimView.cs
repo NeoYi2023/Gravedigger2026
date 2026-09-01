@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Gameplay.Defend
@@ -14,7 +15,7 @@ namespace Gravedigger2026.Gameplay.Defend
     /// Move facing uses MassMove LastDesired; PlayAttack freezes DirIndex until attack ends (v0.83.31).
     /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
     /// Monsters may inject NormalAttackAnims/WalkAnims/RunAnims pools (v0.83.34); soldiers leave unset.
-    /// Death: latch last non-null Die sprite + darken + CorpseSortingOrder=100 + disable Animator.
+    /// Death: latch last non-null Die sprite + tiered corpse presentation (RGB/alpha) + CorpseSortingOrder=100 + disable Animator.
     /// </summary>
     public sealed class WarriorAnimView : MonoBehaviour
     {
@@ -38,8 +39,14 @@ namespace Gravedigger2026.Gameplay.Defend
         /// </summary>
         private const float DieLatchNormalizedTime = 0.92f;
 
-        /// <summary>SPEC_04 §15.5: RGB multiply on corpse sprites (α unchanged).</summary>
-        private const float CorpseDarkenMul = 0.4f;
+        /// <summary>SPEC_04 §15.5: RGB multiply on corpse sprites. ← CombatConstantConfig.</summary>
+        public static float CorpseDarkenMul => CombatRuntimeTuning.DeathCorpseDarkenMul;
+
+        /// <summary>PushMap fake-death corpse RGB multiply. ← CombatConstantConfig.</summary>
+        public static float FakeDeathCorpseDarkenMul => CombatRuntimeTuning.DeathFakeDeathCorpseDarkenMul;
+
+        /// <summary>Defend corpses: alpha after RGB darken. ← CombatConstantConfig.</summary>
+        public static float DefendCorpseAlphaMul => CombatRuntimeTuning.DeathDefendCorpseAlphaMul;
 
         /// <summary>Fallback if Die clip never enters after PlayDie.</summary>
         private const float DieLatchFallbackSeconds = 2f;
@@ -116,6 +123,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private float _reviveDuration;
         private float _reviveStartNormalizedTime;
         private bool _corpseDarkened;
+        private float _corpseDarkenMul = CombatConstantKeys.Safety.DeathCorpseDarkenMul;
+        private float _corpseAlphaMul = 1f;
         private Dictionary<SpriteRenderer, Color> _spriteOriginals;
         private Dictionary<SpriteRenderer, Sprite> _lastNonNullDieSprites;
 
@@ -224,6 +233,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _animator.speed = 1f;
             RestoreSpriteColors();
             _corpseDarkened = false;
+            _corpseDarkenMul = CombatRuntimeTuning.DeathCorpseDarkenMul;
+            _corpseAlphaMul = 1f;
             ClearLocomotionBools();
             _facingDirIndex = _defaultDirIndex;
             SetDirIndexValue(_defaultDirIndex);
@@ -231,7 +242,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _animator.Update(0f);
         }
 
-        /// <summary>Revive reverse-play finished — restore locomotion; keep corpse darken until invincible ends.</summary>
+        /// <summary>Revive reverse-play finished — restore locomotion; true-death darken kept until invincible ends.</summary>
         public void FinishReviveToIdle()
         {
             EnsureAnimator();
@@ -329,14 +340,14 @@ namespace Gravedigger2026.Gameplay.Defend
             FlushAnimatorParams();
         }
 
-        /// <summary>Clear post-death RGB darken (SPEC_04 §15.5 D-074 invincible end).</summary>
+        /// <summary>Clear post-death corpse presentation (RGB/alpha); restores cached sprite colors.</summary>
         public void ClearCorpseDarken()
         {
             RestoreSpriteColors();
             _corpseDarkened = false;
         }
 
-        /// <summary>Reverse latched die clip over durationSeconds, then FinishReviveToIdle (keeps darken).</summary>
+        /// <summary>Reverse latched die clip over durationSeconds, then FinishReviveToIdle.</summary>
         public void PlayReviveFromDeath(float durationSeconds)
         {
             if (!_dieLatched || durationSeconds <= 0f)
@@ -362,7 +373,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _animator.speed = 0f;
             if (!_corpseDarkened)
             {
-                ApplyCorpseDarken();
+                ApplyCorpsePresentation();
+                _corpseDarkened = true;
             }
 
             if (!TryBeginReviveDieClip(out _reviveStartNormalizedTime))
@@ -814,9 +826,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
         /// <summary>
         /// SPEC_04 §15.5: play Die (default) or Die2 when preferDie2 and Controller has Die2 Trigger.
-        /// Soldiers always call with preferDie2=false.
+        /// Tiered corpse presentation via corpseDarkenMul / corpseAlphaMul (see SPEC §15.5).
         /// </summary>
-        public void PlayDie(bool preferDie2 = false)
+        public void PlayDie(
+            bool preferDie2 = false,
+            float? corpseDarkenMul = null,
+            float? corpseAlphaMul = null)
         {
             if (_dead)
             {
@@ -824,6 +839,8 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _dead = true;
+            _corpseDarkenMul = Mathf.Clamp01(corpseDarkenMul ?? CombatRuntimeTuning.DeathCorpseDarkenMul);
+            _corpseAlphaMul = Mathf.Clamp01(corpseAlphaMul ?? 1f);
             _dieLatched = false;
             _enteredDieClip = false;
             _moving = false;
@@ -1059,8 +1076,9 @@ namespace Gravedigger2026.Gameplay.Defend
 
             // Re-apply last corpse pose: trailing null key / Play(…,1) would otherwise clear sprites.
             RestoreLastNonNullDieSprites();
-            ApplyCorpseDarken();
+            ApplyCorpsePresentation();
             _corpseDarkened = true;
+
             ApplySortingOrder(CorpseSortingOrder);
 
             // Stop Animator writes so the null key cannot clear sprites on a later evaluate.
@@ -1209,7 +1227,7 @@ namespace Gravedigger2026.Gameplay.Defend
             return IsDieClipName(clip.name);
         }
 
-        private void ApplyCorpseDarken()
+        private void ApplyCorpsePresentation()
         {
             CacheSpriteOriginals();
             if (_spriteOriginals == null)
@@ -1227,10 +1245,10 @@ namespace Gravedigger2026.Gameplay.Defend
 
                 var c = pair.Value;
                 sprite.color = new Color(
-                    c.r * CorpseDarkenMul,
-                    c.g * CorpseDarkenMul,
-                    c.b * CorpseDarkenMul,
-                    c.a);
+                    c.r * _corpseDarkenMul,
+                    c.g * _corpseDarkenMul,
+                    c.b * _corpseDarkenMul,
+                    c.a * _corpseAlphaMul);
             }
         }
 

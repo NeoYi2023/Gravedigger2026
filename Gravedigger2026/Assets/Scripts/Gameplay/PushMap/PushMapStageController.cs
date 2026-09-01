@@ -77,6 +77,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private string _pendingFailureReason;
 
         private PushMapSessionService _session;
+        private CombatStatMulBuff _combatMagicBookBuff = CombatStatMulBuff.Identity;
         private GameObject _mapInstance;
         private FormationEditorController _formationEditor;
         private Vector2 _mapHalfExtents = new Vector2(5f, 2.5f);
@@ -159,6 +160,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _specialEquipSlots = specialEquipSlots;
             _protagonistEquipment = protagonistEquipment;
             _dungeonUnlocks = dungeonUnlocks;
+            _combatMagicBookBuff = CombatStatMulBuff.Identity;
             _rewardGrant = new RewardGrantService(_configs, _warehouse, _specialEquipSlots, _protagonistEquipment);
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
@@ -351,6 +353,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             ConfigureFlowFieldPathing(airWallBoxes);
 
             BeginObjectiveChain();
+            _combatMagicBookBuff = _specialEquipSlots != null
+                ? CombatMagicBookStatMul.Aggregate(_specialEquipSlots, _configs)
+                : CombatStatMulBuff.Identity;
             if (_session != null && _session.CurrentObjectiveOrder <= 0)
             {
                 // No objectives authored: CurrentObjectiveChanged never fires, so aim the
@@ -555,15 +560,25 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>PM-12: monster RemainingHp≤0 — final death; Boss clear when applicable.</summary>
-        private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage)
+        private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage, string deathTag)
         {
-            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, notifyBoss: true);
+            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, notifyBoss: true, deathTag);
         }
 
         /// <summary>MonsterCombatDead — may revive; no kill count / Boss.</summary>
-        private void HandleMonsterEnteredCombatDead(string runtimeId, string killerWarriorId, float outgoingDamage)
+        private void HandleMonsterEnteredCombatDead(
+            string runtimeId,
+            string killerWarriorId,
+            float outgoingDamage,
+            string deathTag)
         {
-            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, notifyBoss: false);
+            ApplyMonsterDeathPresentation(
+                runtimeId,
+                killerWarriorId,
+                outgoingDamage,
+                notifyBoss: false,
+                deathTag,
+                fakeDeathCorpse: true);
         }
 
         private void HandleMonsterReviveStarted(string runtimeId, float reviveAnimSeconds)
@@ -610,7 +625,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             string runtimeId,
             string killerWarriorId,
             float outgoingDamage,
-            bool notifyBoss)
+            bool notifyBoss,
+            string deathTag = "",
+            bool fakeDeathCorpse = false)
         {
             var monster = FindMonsterView(runtimeId);
             if (monster == null)
@@ -635,8 +652,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                 maxHp = state.MaxHp;
             }
 
-            var distance = MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
-            monster.NotifyKilled(killerPos, distance);
+            var isCorpseSmashKill = string.Equals(deathTag, "CorpseSmash", StringComparison.Ordinal);
+            var distance = isCorpseSmashKill
+                ? 0f
+                : MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
+            monster.NotifyKilled(killerPos, distance, killerWarriorId, outgoingDamage, fakeDeathCorpse);
             if (isBoss)
             {
                 _session?.TryNotifyBossKilled();
@@ -660,6 +680,33 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             return null;
+        }
+
+        /// <summary>D-083: living monster targets for in-flight / landing corpse smash sweep.</summary>
+        private void EnumerateLivingMonstersForCorpseSmash(Action<string, Vector2, float> visit)
+        {
+            if (visit == null || _session == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null)
+                {
+                    continue;
+                }
+
+                var runtimeId = monster.RuntimeTargetId;
+                if (string.IsNullOrEmpty(runtimeId) || !_session.IsMonsterTargetable(runtimeId))
+                {
+                    continue;
+                }
+
+                var p = monster.transform.position;
+                visit(runtimeId, new Vector2(p.x, p.z), monster.BodyRadius);
+            }
         }
 
         // PM-06 Demo contract: a loyal soldier's first entry into a passive monster's
@@ -921,13 +968,6 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            _catalog.TryGetMonsterModel(monsterRow.ModelId, out var modelPrefab);
-            if (modelPrefab == null)
-            {
-                Debug.LogWarning(
-                    $"[PushMapStage] Monster prefab missing: Assets/Prefabs/Defend/Monsters/{monsterRow.ModelId}.prefab — runtime temp cube.");
-            }
-
             var basePos = ResolveSpawnPosition(request);
             var protagonistTf = _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null;
             var bodyRadius = Mathf.Max(0.05f, monsterRow.BodyRadius);
@@ -958,6 +998,21 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 var pos = i < spreadPositions.Count ? spreadPositions[i] : basePos;
 
+                var pickedModelId = monsterRow.PickSpawnModelId();
+                if (string.IsNullOrEmpty(pickedModelId))
+                {
+                    Debug.LogWarning(
+                        $"[PushMapStage] Monster ModelId pool empty for {monsterRow.MonsterId} — skip spawn.");
+                    continue;
+                }
+
+                _catalog.TryGetMonsterModel(pickedModelId, out var modelPrefab);
+                if (modelPrefab == null)
+                {
+                    Debug.LogWarning(
+                        $"[PushMapStage] Monster prefab missing: Assets/Prefabs/Defend/Monsters/{pickedModelId}.prefab — runtime temp cube.");
+                }
+
                 GameObject go;
                 if (modelPrefab != null)
                 {
@@ -965,7 +1020,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
                 else
                 {
-                    go = CreateTempMonsterVisual(monsterRow.ModelId);
+                    go = CreateTempMonsterVisual(pickedModelId);
                     go.transform.SetParent(_worldRoot, false);
                 }
 
@@ -998,6 +1053,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                 {
                     view.MarkAsBoss(true);
                 }
+
+                view.SetCorpseSmashBridge(
+                    (corpseRuntimeId, killerId, killerOutgoing, targetRuntimeId) =>
+                        _session != null &&
+                        _session.TryApplyCorpseSmashDamage(
+                            corpseRuntimeId,
+                            killerId,
+                            killerOutgoing,
+                            targetRuntimeId),
+                    EnumerateLivingMonstersForCorpseSmash);
 
                 view.SetReviveCallbacks(
                     () => _session?.TryNotifyMonsterDeathPresentationComplete(runtimeId),
@@ -1156,7 +1221,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 // PM-12: register combat stats (HP / NormalAttackPower / AttackSpeed / windup /
                 // projectile) on the PushMap session before the view goes live.
                 if (_session != null &&
-                    !_session.TryRegisterWarrior(warrior, classRow, out _, out var regError))
+                    !_session.TryRegisterWarrior(warrior, classRow, _combatMagicBookBuff, out _, out var regError))
                 {
                     Debug.LogWarning($"[PushMapStage] RegisterWarrior failed: {regError}");
                     Destroy(go);

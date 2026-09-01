@@ -5,12 +5,12 @@ namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
     /// Monster-only death knockback (SPEC_04 §15.5): distance from OutgoingDamage/MaxHp
-    /// × CombatConstantConfig coeffs; direction away from killer on XZ.
+    /// × CombatConstantConfig coeffs; parabolic arc on Y; direction away from killer on XZ.
     /// </summary>
     public static class MonsterDeathPresentation
     {
-        /// <summary>Demo-locked duration for M→end linear lerp.</summary>
-        public const float DeathKnockbackSeconds = 0.3f;
+        /// <summary>Demo duration; aligns with parabolic param t∈[0,1]. ← CombatConstantConfig.</summary>
+        public static float DeathKnockbackSeconds => CombatRuntimeTuning.DeathKnockbackSeconds;
 
         /// <summary>
         /// SPEC_04 §15.5: default Die2; when knockback distance reaches/exceeds threshold → Die.
@@ -18,6 +18,12 @@ namespace Gravedigger2026.Gameplay.Defend
         /// </summary>
         public static bool ShouldPreferDie2(float knockbackDistance) =>
             knockbackDistance < CombatRuntimeTuning.DeathDie2KnockbackThreshold;
+
+        /// <summary>
+        /// D-083 smash gate: distance ≥ DeathDie2KnockbackThreshold → flight sweep + landing smash.
+        /// </summary>
+        public static bool ShouldEnableCorpseSmash(float knockbackDistance) =>
+            knockbackDistance >= CombatRuntimeTuning.DeathDie2KnockbackThreshold;
 
         /// <summary>
         /// raw = (OutgoingDamage / MaxHp) × RatioCoeff; clamp [Min, Max].
@@ -69,10 +75,14 @@ namespace Gravedigger2026.Gameplay.Defend
             return true;
         }
 
-        /// <summary>Linear lerp origin→target by elapsed/duration; returns true while still animating.</summary>
-        public static bool TrySampleKnockback(
+        /// <summary>
+        /// Parabolic arc: XZ linear origin→end; Y = y0 + 4×PeakHeight×t×(1−t).
+        /// Returns true while t &lt; 1.
+        /// </summary>
+        public static bool TrySampleParabolicKnockback(
             Vector3 origin,
-            Vector3 target,
+            Vector3 end,
+            float y0,
             float startedAt,
             float durationSeconds,
             float now,
@@ -80,13 +90,35 @@ namespace Gravedigger2026.Gameplay.Defend
         {
             if (durationSeconds <= 0.0001f)
             {
-                position = target;
+                position = new Vector3(end.x, y0, end.z);
                 return false;
             }
 
             var t = Mathf.Clamp01((now - startedAt) / durationSeconds);
-            position = Vector3.Lerp(origin, target, t);
+            var peak = CombatRuntimeTuning.DeathKnockbackPeakHeight;
+            var y = y0 + 4f * peak * t * (1f - t);
+            position = new Vector3(
+                Mathf.Lerp(origin.x, end.x, t),
+                y,
+                Mathf.Lerp(origin.z, end.z, t));
             return t < 1f;
         }
+
+        /// <summary>Delegates to parabolic sampling with y0 = origin.y (retired pure XZ Lerp).</summary>
+        public static bool TrySampleKnockback(
+            Vector3 origin,
+            Vector3 target,
+            float startedAt,
+            float durationSeconds,
+            float now,
+            out Vector3 position) =>
+            TrySampleParabolicKnockback(
+                origin,
+                target,
+                origin.y,
+                startedAt,
+                durationSeconds,
+                now,
+                out position);
     }
 }

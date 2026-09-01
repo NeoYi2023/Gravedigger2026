@@ -964,10 +964,19 @@ namespace Gravedigger2026.Core.Config
                 var walkToRunSeconds = ParseOptionalNonNegFloat(
                     raw, "WalkToRunSeconds", MonsterConfigRow.DefaultWalkToRunSeconds, table, rowIndex);
 
+                var modelIdRaw = SimpleCsv.Require(raw, "ModelId", table, rowIndex);
+                var modelIdPool = MonsterModelIdFieldParser.Parse(modelIdRaw);
+                if (modelIdPool.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal ModelId '{modelIdRaw}' (empty or invalid weighted pool).");
+                }
+
                 _monsterById[id] = new MonsterConfigRow
                 {
                     MonsterId = id,
-                    ModelId = SimpleCsv.Require(raw, "ModelId", table, rowIndex),
+                    ModelId = modelIdRaw,
+                    ModelIdPool = modelIdPool,
                     DisplayName = SimpleCsv.Require(raw, "DisplayName", table, rowIndex),
                     TargetSelect = targetSelect,
                     AttackMode = attackMode,
@@ -2474,22 +2483,31 @@ namespace Gravedigger2026.Core.Config
             var flipByModel = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var row in _monsterById.Values)
             {
-                if (row == null || string.IsNullOrEmpty(row.ModelId))
+                if (row == null || row.ModelIdPool == null || row.ModelIdPool.Count == 0)
                 {
                     continue;
                 }
 
-                if (!flipByModel.TryGetValue(row.ModelId, out var existing))
+                for (var p = 0; p < row.ModelIdPool.Count; p++)
                 {
-                    flipByModel[row.ModelId] = row.FacingYawFlip;
-                    continue;
-                }
+                    var subModelId = row.ModelIdPool[p].Id;
+                    if (string.IsNullOrEmpty(subModelId))
+                    {
+                        continue;
+                    }
 
-                if (existing != row.FacingYawFlip)
-                {
-                    Debug.LogWarning(
-                        $"[ConfigCsvRepository] Defend_MonsterConfig: ModelId '{row.ModelId}' has inconsistent " +
-                        $"FacingYawFlip values ({existing} vs {row.FacingYawFlip} on MonsterId '{row.MonsterId}').");
+                    if (!flipByModel.TryGetValue(subModelId, out var existing))
+                    {
+                        flipByModel[subModelId] = row.FacingYawFlip;
+                        continue;
+                    }
+
+                    if (existing != row.FacingYawFlip)
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] Defend_MonsterConfig: ModelId '{subModelId}' has inconsistent " +
+                            $"FacingYawFlip values ({existing} vs {row.FacingYawFlip} on MonsterId '{row.MonsterId}').");
+                    }
                 }
             }
         }

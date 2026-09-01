@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Audio;
+using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
@@ -45,6 +46,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private WarriorPoolService _warriorPool;
         private BattleFormationService _formation;
         private WarehouseService _warehouse;
+        private SpecialEquipSlotsService _specialEquipSlots;
+        private CombatStatMulBuff _combatMagicBookBuff = CombatStatMulBuff.Identity;
         private Action _onVictoryAdvance;
         private Action<string> _onLevelFailure;
         private BgmService _bgm;
@@ -91,6 +94,7 @@ namespace Gravedigger2026.Gameplay.Defend
             WarriorPoolService warriorPool,
             BattleFormationService formation,
             WarehouseService warehouse = null,
+            SpecialEquipSlotsService specialEquipSlots = null,
             Action onVictoryAdvance = null,
             Action<string> onLevelFailure = null)
         {
@@ -113,6 +117,8 @@ namespace Gravedigger2026.Gameplay.Defend
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _warehouse = warehouse;
+            _specialEquipSlots = specialEquipSlots;
+            _combatMagicBookBuff = CombatStatMulBuff.Identity;
             _onVictoryAdvance = onVictoryAdvance;
             _onLevelFailure = onLevelFailure;
             _selectedWarriorId = null;
@@ -386,6 +392,9 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             EnsurePathingServices();
+            _combatMagicBookBuff = _specialEquipSlots != null
+                ? CombatMagicBookStatMul.Aggregate(_specialEquipSlots, _configs)
+                : CombatStatMulBuff.Identity;
             DeployCombatUnits();
             RefreshCombatBondHud();
             _session.ResolveStartBattleRebelRolls(_configs);
@@ -470,13 +479,6 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            _catalog.TryGetMonsterModel(monsterRow.ModelId, out var modelPrefab);
-            if (modelPrefab == null)
-            {
-                Debug.LogWarning(
-                    $"[DefendStage] Monster Prefab missing: Assets/Prefabs/Defend/Monsters/{monsterRow.ModelId}.prefab — runtime temp cube.");
-            }
-
             var retarget = _session.Config != null
                 ? Mathf.Max(0.1f, _session.Config.TargetRetargetIntervalSeconds)
                 : 1f;
@@ -500,6 +502,21 @@ namespace Gravedigger2026.Gameplay.Defend
                     pos = hit.position;
                 }
 
+                var pickedModelId = monsterRow.PickSpawnModelId();
+                if (string.IsNullOrEmpty(pickedModelId))
+                {
+                    Debug.LogWarning(
+                        $"[DefendStage] Monster ModelId pool empty for {monsterRow.MonsterId} — skip spawn.");
+                    continue;
+                }
+
+                _catalog.TryGetMonsterModel(pickedModelId, out var modelPrefab);
+                if (modelPrefab == null)
+                {
+                    Debug.LogWarning(
+                        $"[DefendStage] Monster Prefab missing: Assets/Prefabs/Defend/Monsters/{pickedModelId}.prefab — runtime temp cube.");
+                }
+
                 GameObject go;
                 if (modelPrefab != null)
                 {
@@ -507,7 +524,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
                 else
                 {
-                    go = CreateTempMonsterVisual(monsterRow.ModelId);
+                    go = CreateTempMonsterVisual(pickedModelId);
                     go.transform.SetParent(_worldRoot, false);
                 }
 
@@ -539,6 +556,10 @@ namespace Gravedigger2026.Gameplay.Defend
                     _moveScheduler,
                     _attackSlots,
                     moveId);
+                agentView.SetCorpseSmashBridge(
+                    (corpseId, killerId, killerDmg, targetId) =>
+                        _session.TryApplyCorpseSmashDamage(corpseId, killerId, killerDmg, targetId),
+                    EnumerateLivingMonstersForCorpseSmash);
                 _monsters.Add(agentView);
             }
 
@@ -672,7 +693,16 @@ namespace Gravedigger2026.Gameplay.Defend
             RefreshHud();
         }
 
-        private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage)
+        private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage, string deathTag)
+        {
+            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, deathTag);
+        }
+
+        private void ApplyMonsterDeathPresentation(
+            string runtimeId,
+            string killerWarriorId,
+            float outgoingDamage,
+            string deathTag = "")
         {
             if (string.IsNullOrEmpty(runtimeId))
             {
@@ -718,8 +748,38 @@ namespace Gravedigger2026.Gameplay.Defend
                 maxHp = state.MaxHp;
             }
 
-            var distance = MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
-            monster.NotifyKilled(killerPos, distance);
+            var isCorpseSmashKill = string.Equals(deathTag, "CorpseSmash", StringComparison.Ordinal);
+            var distance = isCorpseSmashKill
+                ? 0f
+                : MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
+            monster.NotifyKilled(killerPos, distance, killerWarriorId, outgoingDamage);
+        }
+
+        /// <summary>D-083: living monster targets for in-flight / landing corpse smash sweep.</summary>
+        private void EnumerateLivingMonstersForCorpseSmash(Action<string, Vector2, float> visit)
+        {
+            if (visit == null || _session == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null)
+                {
+                    continue;
+                }
+
+                var runtimeId = monster.RuntimeId;
+                if (string.IsNullOrEmpty(runtimeId) || !_session.IsMonsterAlive(runtimeId))
+                {
+                    continue;
+                }
+
+                var p = monster.transform.position;
+                visit(runtimeId, new Vector2(p.x, p.z), monster.BodyRadius);
+            }
         }
 
         private void HandleWarriorCombatStateChanged(string warriorId)
@@ -794,7 +854,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
 
                 _configs.TryGetClass(warrior.ClassId, out var classRow);
-                if (!_session.TryRegisterWarrior(warrior, classRow, out _, out var regError))
+                if (!_session.TryRegisterWarrior(warrior, classRow, _combatMagicBookBuff, out _, out var regError))
                 {
                     Debug.LogWarning($"[DefendStage] RegisterWarrior failed: {regError}");
                     continue;

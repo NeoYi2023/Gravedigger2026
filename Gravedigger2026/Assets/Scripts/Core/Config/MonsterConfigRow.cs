@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Gravedigger2026.Core.Config
 {
     public sealed class MonsterConfigRow
@@ -18,7 +20,10 @@ namespace Gravedigger2026.Core.Config
         public const float DefaultWalkToRunSeconds = 0.5f;
 
         public string MonsterId;
+        /// <summary>Raw config: single ModelId or weighted pool ModelId;Weight|… (SPEC_04 §9.19).</summary>
         public string ModelId;
+        /// <summary>Parsed weighted pool; filled at load time.</summary>
+        public IReadOnlyList<WeightedFieldParser.WeightedId> ModelIdPool;
         public string DisplayName;
         public TargetSelect TargetSelect;
         public AttackMode AttackMode;
@@ -75,6 +80,12 @@ namespace Gravedigger2026.Core.Config
         public float ResolveGaitSpeed(bool isRun)
         {
             return isRun ? ResolveRunSpeed() : ResolveWalkSpeed();
+        }
+
+        /// <summary>Pick one sub-ModelId from the weighted pool for spawn (SPEC_04 §9.19).</summary>
+        public string PickSpawnModelId()
+        {
+            return MonsterModelIdFieldParser.PickSpawnModelId(ModelIdPool);
         }
     }
 }

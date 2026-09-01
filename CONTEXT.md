@@ -94,7 +94,7 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
-| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（士兵：`IsRun`/`Attack1`/`Die`/`Taunt`/`DirIndex`+`Direction`）；怪物可选池：`NormalAttackAnims` 每次普攻随机基名、`WalkAnims`/`RunAnims` 在 Bind/复活完成各抽一次；怪物 `SetMoving(…, useRun)` 走/跑门控；可选 `FacingYawFlip`；移动朝向跟 MassMove `LastDesired`；`PlayAttack` 锁 `DirIndex` 至本次攻击结束；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制打断攻击；士兵死亡锁存+变暗；Defend/PushMap 共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（士兵：`IsRun`/`Attack1`/`Die`/`Taunt`/`DirIndex`+`Direction`）；怪物可选池：`NormalAttackAnims` 每次普攻随机基名、`WalkAnims`/`RunAnims` 在 Bind/复活完成各抽一次；怪物 `SetMoving(…, useRun)` 走/跑门控；可选 `FacingYawFlip`；移动朝向跟 MassMove `LastDesired`；`PlayAttack` 锁 `DirIndex` 至本次攻击结束；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制打断攻击；尸体分级：`PlayDie(corpseDarkenMul, corpseAlphaMul)` — 彻底死亡/PushMap 士兵 `RGB×0.4`；PushMap 假死 `RGB×0.7`；Defend 怪/士兵另 `alpha×0.85`；Defend/PushMap 共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/`PushCoefficient`/`RepulsionScale`/FacingYawFlip/血量/`MoveSpeed`(走)/`RunSpeed`(跑)/`WalkToRunSeconds`/Aggro 移速倍率/攻力/攻速/AttackRange 等/技能/`NormalAttackAnims`/`WalkAnims`/`RunAnims`/掉落；PushMap D-074：`Skills` 可驱动 `MonsterSelfReviveOnDeath` | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | FacingHysteresis | 朝向迟滞 | `WarriorAnimView.SetFacing`：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；叠在意图朝向上防 FlowField 格边界缓抖 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
@@ -116,15 +116,17 @@
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult) | [§3.11](SPEC_03_GameRules.md) |
 | NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（职业覆盖，否则 CombatConstantConfig；样例 15） | [§3.12](SPEC_03_GameRules.md) |
-| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞三键与 Die2 阈值 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞/尸体投射键（含 Die2 阈值、抛物线峰值、砸击系数/半径） | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
 | DeathKnockbackRatioCoeff | 死亡击飞比例系数 | 常量表键；击飞 raw=`(OutgoingDamage/MaxHp)×本值` 再 clamp | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
-| DeathDie2KnockbackThreshold | 死亡 Die2 击退阈值 | 常量表键；默认 Die2；击飞 distance≥本值时播 Die；样例 `1` | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| DeathDie2KnockbackThreshold | 死亡 Die2 击退阈值 | 常量表键；默认 Die2；击飞 distance≥本值时播 Die；**尸体砸击门闩**同键 | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| DeathCorpseProjectile | 尸体投射 | 怪物致命击后抛物线击飞；达阈值可飞行/落地砸其它存活怪；砸死不连锁；D-083 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |
+| CorpseSmashDamage | 尸体砸击伤害 | `killerOutgoingDamage×DeathCorpseSmashDamageMul`；独立通道；不叠 Comfort/D-073 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |
 | OutgoingDamage | 打出伤害 | 扣血前结算伤害（含 Comfort/管线）；致命击驱动击飞距离；≠实际扣血量 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |
 | MaxHpStrengthMult | 血量力量系数 | 常量表键；MaxHP=ceil(BodyLife+Str×本值)；样例 3 | [§3.11](SPEC_03_GameRules.md) |
 | AttackSpeed | 攻击速度 | 次/秒：0.5+60/max(Agi,1)（过渡） | [§3.12](SPEC_03_GameRules.md) |
 | BodyAppearance | 躯体外观 | 预设整体造型；按平均等级+种族+职业选取；烘焙整角 Prefab | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| VisualStyle | 特效外观 | Mode2 书命中后烘进：AllIn1 材质通道（优先级赢家）+ 放大通道 `Style_ScaleModel`（`VisualModelScale` 连乘 k，可与材质共存）；世界 Instantiate 换材质/改 Visual Scale，BodyRadius 与 AttackRange ×k | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md)/[§15.2](SPEC_04_Technical.md) |
-| VisualModelScale | 模型缩放系数 | 放大通道连乘系数 k（缺省 1）；`VisualIntensityAdd` 即该书 k | [§3.15](SPEC_03_GameRules.md) 6b、[SPEC_04 §9.9](SPEC_04_Technical.md) |
+| VisualStyle | 特效外观 | Mode2 书命中后烘进：AllIn1 材质通道（优先级赢家）+ 放大通道 `Style_ScaleModel`（可与材质共存）；同次命中另 ×`WarriorVisualModelScalePerHit` 再夹 Max；世界 Instantiate 换材质/改 Visual Scale，BodyRadius 与 AttackRange ×k | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md)/[§15.2](SPEC_04_Technical.md) |
+| VisualModelScale | 模型缩放系数 | 命中步进 + 可选 `Style_ScaleModel` 连乘后夹 Max 的系数 k（缺省 1） | [§3.15](SPEC_03_GameRules.md) 6b、[SPEC_04 §9.9](SPEC_04_Technical.md)/[§9.20b](SPEC_04_Technical.md) |
 | BodyAppearanceConfig | 躯体外观配置表 | AppearanceId → Prefab 逻辑名（`Prefabs/Defend/Warriors/{Id}`）/等级/种族/职业倾向/保底/`BodyRadius`（士兵占地；缺省 0.1）/`FacingYawFlip` | [SPEC_04 §9.13](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
 | IsFallback | 保底外形 | 外观表字段；1=种族保底；每种族至多一行；职业不匹配时走保底；A 空先改亡灵 | [§3.11](SPEC_03_GameRules.md) |
 | DefaultAppearanceId | 职业默认外形 | Mode2 ClassConfig 字段；B 空或亡灵改写后 A 仍空时优先于 IsFallback | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |

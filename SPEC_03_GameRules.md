@@ -26,8 +26,8 @@
 | FormationClassZone | 职业布阵区 | 布阵地图 Prefab 上按职业标定的空间区域（**IsoDiamond**：`HalfExtents` 为菱形顶点到中心；与 WalkSurface 同形；无 Y 旋转）；自动上阵落入对应区并做碰撞挤开（§3.15，[SPEC_04 §13](SPEC_04_Technical.md)）。 |
 | MagicBook | 魔法书 | 主角特殊装备；效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发；含「还原」（`RaceWeightPick`）、「战士强化」（`StatMul`/`Primary`）、「士兵技能升级」（`SoldierSkillLevelAdd`）、「职业进阶」（`ForceClass`）等；命中时可烘进 `VisualStyle`（材质和/或放大）（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。**勿与** §3.16 `ProtagonistEquipment` 混淆。 |
 | MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique、IsProbabilistic、EffectPhase、EffectPayload、EffectParams、VisualStyleId/VisualPriority/VisualIntensityAdd、Icon、名称、介绍（§3.15，[SPEC_04 §9.24](SPEC_04_Technical.md)）。 |
-| VisualStyle | 特效外观 | Mode2 魔法书 Token **命中**后烘进实例的特效：AllIn1 **材质通道**（每兵一套优先级赢家）与 **放大通道**（`Style_ScaleModel`，独立字段 `VisualModelScale`，可与材质共存）；世界单位 Instantiate 套用（§3.15，[SPEC_04 §15.2](SPEC_04_Technical.md)）。 |
-| VisualModelScale | 模型缩放系数 | 放大通道烘进的连乘系数 k（缺省 1）；`VisualIntensityAdd` 即该书的 k；世界 `Visual.localScale=(k,k,k)`，`BodyRadius`/`AttackRange` 均 ×k（§3.15 6b）。 |
+| VisualStyle | 特效外观 | Mode2 魔法书 Token **命中**后烘进实例的特效：AllIn1 **材质通道**（每兵一套优先级赢家）与 **放大通道**（`Style_ScaleModel`，可与材质共存）；同次命中另附带体型步进（§3.15，[SPEC_04 §15.2](SPEC_04_Technical.md)）。 |
+| VisualModelScale | 模型缩放系数 | 实例连乘系数 k（缺省 1）：每次 Token **命中**先 ×`WarriorVisualModelScalePerHit`（样例 1.15），若该书为 `Style_ScaleModel` 再 ×`VisualIntensityAdd`，再夹 `WarriorVisualModelScaleMax`（样例 3）；世界 `Visual.localScale=(k,k,k)`，`BodyRadius`/`AttackRange` 均 ×k（§3.15 6b）。 |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 **6** 槽装配魔法书；同书默认可叠，`IsUnique=1` 不可（§3.15）。 |
 | ProtagonistEquipment | 主角装备 | 主角成长型装备；仓内拥有即按当前等级生效；同 Id 转化经验 / 公共经验升级；与 MagicBook、材料 Warehouse、士兵 ExtraEquipment **并行**（§3.16，[SPEC_04 §9.25](SPEC_04_Technical.md)）。 |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档级状态仓：存 `OwnedEquip[]`；不限种类总数；每种 `EquipId` 至多 1 件（§3.16）。 |
@@ -234,8 +234,8 @@
 | FormationClassZone | 职业布阵区 | Authoring zone on formation map Prefab per ClassId (**IsoDiamond**: `HalfExtents` = vertex-to-center; same shape as WalkSurface; no Y rotation); auto-deploy lands there with separation (§3.15, [SPEC_04 §13](SPEC_04_Technical.md)). |
 | MagicBook | 魔法书 | Protagonist special equipment; Mode2 applies at UI-016 Step2 **per-slot pulse peak**; includes Restore (`RaceWeightPick`), Warrior Enhance (`StatMul`/`Primary`), Soldier skill level (`SoldierSkillLevelAdd`), class advance (`ForceClass`); a **hit** may bake `VisualStyle` (material and/or scale) (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). **Distinct from** §3.16 `ProtagonistEquipment`. |
 | MagicBookConfig | 魔法书配置表 | MagicBookId → IsUnique, IsProbabilistic, EffectPhase, EffectPayload, EffectParams, VisualStyleId/VisualPriority/VisualIntensityAdd, Icon, name, description (§3.15, [SPEC_04 §9.24](SPEC_04_Technical.md)). |
-| VisualStyle | 特效外观 | Mode2 visual baked on MagicBook token **hit**: AllIn1 **material channel** (one winner by priority) plus **scale channel** (`Style_ScaleModel`, independent `VisualModelScale`, coexists with material); applied at world Instantiate (§3.15, [SPEC_04 §15.2](SPEC_04_Technical.md)). |
-| VisualModelScale | 模型缩放系数 | Scale-channel stacked multiplier k (default 1); book `VisualIntensityAdd` is that k; world `Visual.localScale=(k,k,k)`; `BodyRadius`/`AttackRange` both ×k (§3.15 6b). |
+| VisualStyle | 特效外观 | Mode2 visual baked on MagicBook token **hit**: AllIn1 **material channel** (one winner by priority) plus **scale channel** (`Style_ScaleModel`, coexists with material); same hit also applies the body-scale step (§3.15, [SPEC_04 §15.2](SPEC_04_Technical.md)). |
+| VisualModelScale | 模型缩放系数 | Instance stacked multiplier k (default 1): each token **hit** first ×`WarriorVisualModelScalePerHit` (sample 1.15), then if book is `Style_ScaleModel` ×`VisualIntensityAdd`, then clamp `WarriorVisualModelScaleMax` (sample 3); world `Visual.localScale=(k,k,k)`; `BodyRadius`/`AttackRange` both ×k (§3.15 6b). |
 | SpecialEquipSlot | 特殊装备槽 | Default **6** protagonist slots for MagicBooks; same book stackable unless `IsUnique=1` (§3.15). |
 | ProtagonistEquipment | 主角装备 | Leveling protagonist gear; owned-in-warehouse applies at current level; same-Id convert Exp / common Exp upgrade; **parallel** to MagicBook, material Warehouse, soldier ExtraEquipment (§3.16, [SPEC_04 §9.25](SPEC_04_Technical.md)). |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | Save-scoped status warehouse of `OwnedEquip[]`; unlimited distinct kinds; at most one entry per `EquipId` (§3.16). |
@@ -603,7 +603,7 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 本期条目 | **设置**（含科技树画布入口，见 §3.13 / UI-012）、**关卡**（打开关卡列表，见 UI-008）、**商店**（Mode2 全屏商店：开放/自动刷新/刷新价格递进/购买扣精魂）、**增加主角装备**、**增加魔法书**（Demo GM，见 UI-019 / D-061）、**添加士兵**（Demo GM，见 UI-020 / D-064） |
 | 关卡语义 | 工具「关卡」入口 **不等于** 直接切换三种 `GameplayState`；关卡多阶段规则见 §3.9。进档默认 / 点击「关卡」→ 打开 **DifficultySelectHost**（普通已展开）+ 嵌入 **LevelSelectPanel**（UI-008）：列出当前 `CampaignMode` 已加载的 `Level_LevelOperationConfig` 中全部 **去重 `LevelId`**；**自动选中列表末项**（Demo「最大一关」）；底中「进入」→ `LevelOperationDriver.TryEnterLevel(levelId)` 自 Stage 1。关列表空则 Toast。困难/地狱 → Toast「还未制作」。 |
 | Demo GM：增加主角装备 | 点击 → 关闭 ToolsPanel → 打开 **GmGrantListPanel**：列出当前模式 `ProtagonistEquipmentConfig` **按 EquipId 去重**（取 Level 1 行 `DisplayName`，空则 Id）。点行 → **嵌套 LevelPicker**（该 EquipId 全部 `EquipLevel` 升序按钮，文案 `Lv.{n}`）→ `ProtagonistEquipmentService.DebugGrantAtLevel(equipId, level)`（未拥有则入仓该级 `CurrentExp=0`；已拥有则覆盖 `Level` 且 `CurrentExp=0`）。成功/失败 Toast + 日志；关 LevelPicker；**列表保持打开**。Dig HUD「获得铁铲/矿灯/炸药」仍 `TryAcquire`。 |
-| Demo GM：增加魔法书 | 点击 → 关闭 ToolsPanel → 同一 **GmGrantListPanel**：列出当前模式 `MagicBookConfig` 全表（`DisplayName`，空则 Id）。点一次 → `SpecialEquipSlotsService.TryEquip(magicBookId)`（装入第一个空槽；**无**独立仓库）。`IsUnique=1` 已装或 6 槽满 → 失败 Toast。Dig HUD「装备战士强化」等 GM **保留**。 |
+| Demo GM：增加魔法书 | 点击 → 关闭 ToolsPanel → 同一 **GmGrantListPanel**：列出当前模式 `MagicBookConfig` 全表（`DisplayName`，空则 Id）。点一次 → `SpecialEquipSlotsService.TryEquip(magicBookId)`（装入第一个空槽；**无**独立仓库）。`IsUnique=1` 已装或 6 槽满 → 失败 Toast。Dig HUD Mode2 `GmMenuPanel` 魔法书全表 GM **保留**。 |
 | Demo GM：添加士兵 | 点击 → 关闭 ToolsPanel。**仅**当 UM「布阵」编辑器已打开（`FormationEditorMode.UpgradeManufacture`）可用；否则 Toast「请先打开布阵界面」、不打开面板。可用时打开左侧 **GmAddSoldierPanel**（UI-020）：职业下拉=`ClassConfig` 全表；种族下拉=`RaceConfig` 全表；数量输入（默认 1，钳制 1～999）；「自动上阵」默认勾选；底「关闭」「添加」。「添加」**不关面板**：在当前模式 `BodyAppearanceConfig` 中查找 `RaceId` 精确匹配 **且** `ClassAffinity` 含该职业 `ClassName`（`|` 分隔，与制造亲和一致）的外观行；**无匹配** → Toast「找不到此种士兵！」且不入池（**不**回退 `DefaultAppearanceId`）。**多条匹配不得均匀随机**：优先匹配集内 `AppearanceId` 等于该职业 `DefaultAppearanceId` 的行；否则 `AppearanceLevel` 等于该职业 `ClassLevel` 的行；再否则取表内首次出现。有匹配 → 不耗材料/精魂，由 `GmSoldierGrantService` 按 Demo 固定 `BaseStats` + 职业/种族行构造实例入 `WarriorPool`（授予 `DefaultSkillIds`@Lv1）；若勾选自动上阵 → 对本批 Id 调 `AutoFormationDeployService.DeployBatch`（缺职业区则留池，不弹「找不到士兵」）。Defend/PushMap Prepare **不可用**。 |
 | Demo Debug：士兵任务标签 | 进档壳 **Debug** 区提供开关（**默认开**）：Defend / PushMap Combat 中士兵脚下 TextMesh 显示当前 `GoalKind` 中文简标（推进 / 回阵 / 追击 / 追击锚）；仅目标类，不含攻击前摇等细态；见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | 后续条目 | 装备升级 / 划入 `EquipCommonExp` / 卸下 UI、魔法书从弹窗装入，其余 TBD。装备仓只读见 D-067；魔法书排序见 D-068；弹窗删除见 D-072；GM 见 D-061 / D-064（P1） |
@@ -678,7 +678,7 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | This version | **Settings** (hosts TechTree canvas, §3.13 / UI-012), **Level** (opens level list, UI-008), **Shop** (Mode2 full-screen shop: unlock/open + auto refresh + refresh price progression + buy with Spirit cost), **Grant Protagonist Equipment**, **Grant MagicBook** (Demo GM, UI-019 / D-061), **Add Soldier** (Demo GM, UI-020 / D-064) |
 | Level meaning | Tools Level entry is **not** a direct three-state switch; multi-stage Level rules in §3.9. Enter-shell default / Level click → **DifficultySelectHost** (Normal expanded) + embedded **LevelSelectPanel** (UI-008): lists all **distinct `LevelId`** from the current `CampaignMode`'s loaded `Level_LevelOperationConfig`; **auto-select last list item** (Demo「max level」); bottom Enter → `LevelOperationDriver.TryEnterLevel(levelId)` at Stage 1. Empty list → Toast. Hard/Hell → Toast「还未制作」. |
 | Demo GM: Grant Protagonist Equipment | Click → hide ToolsPanel → **GmGrantListPanel**: distinct `EquipId` from current-mode `ProtagonistEquipmentConfig` (Level 1 `DisplayName`, else Id). Pick a row → nested **LevelPicker** (all `EquipLevel` rows for that Id, ascending, label `Lv.{n}`) → `ProtagonistEquipmentService.DebugGrantAtLevel(equipId, level)` (not owned → add at that level `CurrentExp=0`; owned → overwrite `Level` and `CurrentExp=0`). Success/fail Toast + log; close LevelPicker; **list stays open**. Dig HUD Grant Iron Shovel / Miner Lamp / Explosives still `TryAcquire`. |
-| Demo GM: Grant MagicBook | Click → hide ToolsPanel → same **GmGrantListPanel**: all current-mode `MagicBookConfig` rows (`DisplayName`, else Id). One click → `SpecialEquipSlotsService.TryEquip(magicBookId)` (first empty slot; **no** warehouse). Unique already equipped or 6 slots full → fail Toast. Dig HUD GM (e.g. Equip Warrior Enhance) **kept**. |
+| Demo GM: Grant MagicBook | Click → hide ToolsPanel → same **GmGrantListPanel**: all current-mode `MagicBookConfig` rows (`DisplayName`, else Id). One click → `SpecialEquipSlotsService.TryEquip(magicBookId)` (first empty slot; **no** warehouse). Unique already equipped or 6 slots full → fail Toast. Dig HUD Mode2 `GmMenuPanel` full MagicBook GM **kept**. |
 | Demo GM: Add Soldier | Click → hide ToolsPanel. **Only** when UM Formation editor is open (`FormationEditorMode.UpgradeManufacture`); else Toast「请先打开布阵界面」and do not open panel. When allowed → left **GmAddSoldierPanel** (UI-020): class dropdown = full `ClassConfig`; race dropdown = full `RaceConfig`; count input (default 1, clamp 1–999); Auto-deploy default on; bottom Close / Add. Add **keeps panel open**: find current-mode `BodyAppearanceConfig` rows with exact `RaceId` **and** `ClassAffinity` containing that class `ClassName` (`|`-split, same as manufacture affinity); **no match** → Toast「找不到此种士兵！」and no pool add (**no** `DefaultAppearanceId` fallback). **If several rows match, do not pick uniformly at random**: prefer the match whose `AppearanceId` equals that class's `DefaultAppearanceId`; else `AppearanceLevel` equals `ClassLevel`; else first table order. On match → no material/Spirit cost; `GmSoldierGrantService` builds instances with Demo fixed `BaseStats` + class/race rows into `WarriorPool` (`DefaultSkillIds`@Lv1); if Auto-deploy → `AutoFormationDeployService.DeployBatch` for batch Ids (missing class zone → leave in pool; not「找不到士兵」). Defend/PushMap Prepare **not** allowed. |
 | Demo Debug: soldier task label | InSaveShell **Debug** toggle (**default on**): during Defend / PushMap Combat, TextMesh under each soldier shows current `GoalKind` short ZH label (advance / home / chase / chase-anchor); goal-kind only — no attack windup detail; see [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | Future entries | Equipment level-up / spend `EquipCommonExp` / unequip UI, MagicBook grant-from-popup, other TBD. Warehouse read-only = D-067; MagicBook reorder = D-068; popup delete = D-072; GM = D-061 / D-064 (P1) |
@@ -900,6 +900,8 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-079 | 主角装备「探测器」`Equip_Detector`：5 级表行 + 静态键 `DigProcessSpawnCountBonus`（L1～5 = +1～+5，并入 Dig caps）+ 过程生成 `SpawnRate` 的 **M** 加法（**不**改 N、**不**改开局坟数）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：caps 静态键） |
 | D-080 | 主角装备种族信物 `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`：各 5 级表行 + 静态键 `GraveSpawnWeightBonus`（L1～5 对应品质带权重累计 10/15/20/25/30；表缺席视为 0 再插入）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入；Mode2 Prefab/Catalog 覆盖 Q16–Q27（Q21–Q27 可占位） | P1 | **完成**（方案 A：复用矿灯 `GraveSpawnWeightBonus`） |
 | D-081 | 进档默认难度/关卡 Hub（UI-029）：进档打开三栏；仅普通展开并嵌 LevelSelectPanel；自动选末项 LevelId；「进入」开 Stage 1；困难/地狱 Toast；左下/右上按钮位置不变；`InSaveShellPanel` 独立 Prefab | P0 | 本片实现（方案 A） |
+| D-082 | Mode2 魔法书 Token **命中**附带体型放大：`VisualModelScale` ×`WarriorVisualModelScalePerHit`（样例 1.15，可叠）后夹 `WarriorVisualModelScaleMax`（样例 3）；可与 `Style_ScaleModel` 通道同次再 ×`VisualIntensityAdd`；`BodyRadius`/`AttackRange` 仍 ×k；空 `VisualStyleId` 命中也放大；存档→布阵/Defend/PushMap | P1 | **完成**（选定方案：命中步进 + Style_ScaleModel 并存夹紧；Correctness 菜单 `Run Warrior VisualModelScale Correctness (D-082)`） |
+| D-083 | 怪物尸体投射（抛物线击飞+砸击合一）：`distance≥DeathDie2KnockbackThreshold` 时飞行扫掠+落地砸其它存活怪；`OutgoingDamage×DeathCorpseSmashDamageMul`；同目标只结算一次；砸死不连锁；`MonsterCombatDead` 亦飞砸后 Delay→倒放；Defend+PushMap | P1 | **完成**（方案 A：Session `TryApplyCorpseSmashDamage` + View 抛物线/扫掠；Correctness 菜单 `Run Corpse Projectile Correctness Checks (D-083)`；issues `.scratch/corpse-projectile/`） |
 **Demo 范围外（仍排除）：**
 
 - 魔法书从弹窗装入（装入仍 Tools GM `TryEquip`；槽排序见 D-068；弹窗删除见 D-072）；其余未实现效果行（「还原」`RaceWeightPick`、「战士强化」`StatMul`/`Primary`、职业进阶 `ForceClass` 已实现）
@@ -970,6 +972,8 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-079 | ProtagonistEquipment Detector `Equip_Detector`: 5-level rows + static key `DigProcessSpawnCountBonus` (L1–5 = +1–+5, merges into Dig caps) + additive to process-spawn `SpawnRate` **M** (**not** N, **not** initial grave count) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend | P1 | **Done** (Approach A: static cap key) |
 | D-080 | ProtagonistEquipment race tokens `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`: 5-level rows each + static `GraveSpawnWeightBonus` (L1–5 cumulative weights 10/15/20/25/30 on quality bands; missing table Id = 0 then insert) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend; Mode2 Prefab/Catalog covers Q16–Q27 (Q21–Q27 may be placeholders) | P1 | **Done** (Approach A: reuse Miner Lamp `GraveSpawnWeightBonus`) |
 | D-081 | Enter-shell default difficulty/level Hub (UI-029): three columns; Normal only expands with LevelSelectPanel; auto-select last LevelId; Enter → Stage 1; Hard/Hell Toast; chrome buttons unchanged; standalone `InSaveShellPanel` Prefab | P0 | This slice (Approach A) |
+| D-082 | Mode2 MagicBook token **hit** appends body scale: `VisualModelScale` ×`WarriorVisualModelScalePerHit` (sample 1.15, stackable) then clamp `WarriorVisualModelScaleMax` (sample 3); same hit may also ×`VisualIntensityAdd` via `Style_ScaleModel`; `BodyRadius`/`AttackRange` still ×k; empty `VisualStyleId` hit still scales; persist → formation/Defend/PushMap | P1 | **Done** (chosen: hit step + Style_ScaleModel coexist + clamp; menu `Run Warrior VisualModelScale Correctness (D-082)`) |
+| D-083 | Monster corpse projectile (parabolic knockback + smash unified): when `distance≥DeathDie2KnockbackThreshold`, flight sweep + landing smash other living monsters; `OutgoingDamage×DeathCorpseSmashDamageMul`; once per target; smash kills no chain; `MonsterCombatDead` also flies/smashes then Delay→reverse revive; Defend+PushMap | P1 | **Done** (Approach A: Session `TryApplyCorpseSmashDamage` + View parabolic/sweep; menu `Run Corpse Projectile Correctness Checks (D-083)`; issues `.scratch/corpse-projectile/`) |
 **Out of Demo scope (still excluded):**
 
 - MagicBook grant-from-popup (grant still Tools GM `TryEquip`; slot reorder = D-068; popup delete = D-072); remaining unimplemented effect rows (Restore `RaceWeightPick`, Warrior Enhance `StatMul`/`Primary`, and class-advance `ForceClass` done)
@@ -1245,28 +1249,16 @@ EnterLevel
 
 **Demo GM（Dig HUD）**
 
-| 按钮 | 行为 |
-|------|------|
-| 增加坟墓 | 点一次：按**当前有效权重**（表 `GraveSpawnWeights` + caps `GraveSpawnWeightBonus`）加权抽品质，落点/避障/32 次重试规则同开局与过程生成；循环尝试 **10** 次；空间不足或有效权重为空时该次放弃，实际生成可少于 10 |
-| 增加躯体材料 | 点一次：对当前已加载 `Manufacture_BodyPartConfig` **全部行**各 `Warehouse.AddItem(BodyPartId, 10)`（堆叠上限 10000 钳制；**不**走 LootDrop / AutoConvert） |
-| 装备战士强化 | **仅 Mode2**：点一次 `SpecialEquipSlotsService.TryEquip("MagicBook_WarriorEnhance")`（可叠；槽满则 Tips/日志失败）。槽排序见 UI-023 / D-068；手验 D-058 |
-| 获得铁铲 | 点一次：`ProtagonistEquipmentService.TryAcquire("Equip_IronShovel")`（首获 / 同 Id 转化连升 / 满级转公共池）；日志打印 Level / CurrentExp / `DigCursorRadius`。仓只读见 UI-022 / D-067；手验 D-059 |
-| 装备公共经验+50 | 点一次：GM 注入 `EquipCommonExp += 50`（`DebugGrantCommonExp`）；日志打印公共池与仓状态 |
-| 划入铁铲升级 | 点一次：`TrySpendCommonExp("Equip_IronShovel", 1)`（池不足或未拥有则日志失败）；与每级 `ExpToNextLevel=1` 对齐，便于手验公共经验→升级 |
-| 获得矿灯 | 点一次：`TryAcquire("Equip_MinerLamp")`（首获 / 同 Id 转化连升 / 满级转公共池）；日志打印 Level / CurrentExp / Q4·Q5·Q6 `GraveSpawnWeightBonus`。仓只读见 UI-022 / D-067；手验 D-060 |
-| 划入矿灯升级 | 点一次：`TrySpendCommonExp("Equip_MinerLamp", 1)`（池不足或未拥有则日志失败）；与每级 `ExpToNextLevel=1` 对齐 |
-| 获得炸药 | 点一次：`TryAcquire("Equip_Explosives")`；日志打印 Level / CurrentExp / `ExplosiveBlastDamage`。手验 D-077 |
-| 划入炸药升级 | 点一次：`TrySpendCommonExp("Equip_Explosives", 1)`（池不足或未拥有则日志失败） |
-| 获得引雷 | 点一次：`TryAcquire("Equip_Elctr")`；日志打印 Level / CurrentExp / `DigLightningIntervalSec`。手验 D-078 |
-| 划入引雷升级 | 点一次：`TrySpendCommonExp("Equip_Elctr", 1)`（池不足或未拥有则日志失败） |
-| 获得探测器 | 点一次：`TryAcquire("Equip_Detector")`；日志打印 Level / CurrentExp / `DigProcessSpawnCountBonus`。手验 D-079 |
-| 划入探测器升级 | 点一次：`TrySpendCommonExp("Equip_Detector", 1)`（池不足或未拥有则日志失败） |
-| 获得人类信物 | 点一次：`TryAcquire("Equip_HumanToken")`；日志打印 Level / CurrentExp / Q16～Q19 `GraveSpawnWeightBonus`。手验 D-080 |
-| 划入人类信物升级 | 点一次：`TrySpendCommonExp("Equip_HumanToken", 1)` |
-| 获得精灵信物 | 点一次：`TryAcquire("Equip_ElfToken")`；日志打印 Level / CurrentExp / Q20～Q23 `GraveSpawnWeightBonus`。手验 D-080 |
-| 划入精灵信物升级 | 点一次：`TrySpendCommonExp("Equip_ElfToken", 1)` |
-| 获得兽人信物 | 点一次：`TryAcquire("Equip_OrcToken")`；日志打印 Level / CurrentExp / Q24～Q27 `GraveSpawnWeightBonus`。手验 D-080 |
-| 划入兽人信物升级 | 点一次：`TrySpendCommonExp("Equip_OrcToken", 1)` |
+`GmMenuPanel`（`GmToggleButton` 折叠）：**两层两列**网格（列宽 172、列间距 8、行步进 48）。**上层** `GmLayerDigMagic`：Dig 通用 + Mode2 魔法书；**下层** `GmLayerEquip`：主角装备「获得」左列 / 「划入升级」右列配对。面板右上锚点，宽约 360。
+
+| 区域 | 按钮 | 行为 |
+|------|------|------|
+| 上层 | 增加坟墓 | 点一次：按**当前有效权重**（表 `GraveSpawnWeights` + caps `GraveSpawnWeightBonus`）加权抽品质，落点/避障/32 次重试规则同开局与过程生成；循环尝试 **10** 次；空间不足或有效权重为空时该次放弃，实际生成可少于 10 |
+| 上层 | 增加躯体材料 | 点一次：对当前已加载 `Manufacture_BodyPartConfig` **全部行**各 `Warehouse.AddItem(BodyPartId, 10)`（堆叠上限 10000 钳制；**不**走 LootDrop / AutoConvert） |
+| 上层 | 装备公共经验+50 | 点一次：GM 注入 `EquipCommonExp += 50`（`DebugGrantCommonExp`）；日志打印公共池与仓状态 |
+| 上层 | 装备魔法书（全表） | **仅 Mode2**：列出当前模式 `MagicBookConfig` **全表**（两列网格；文案=`DisplayName`，空则 `MagicBookId`）。点一次 `SpecialEquipSlotsService.TryEquip(magicBookId)`（装入第一个空槽；与 UI-019 / D-061 一致；唯一已装或 6 槽满 → 失败日志）。Mode1 **不**显示。槽排序见 UI-023 / D-068 |
+| 下层左 | 获得铁铲 / 矿灯 / 炸药 / 引雷 / 探测器 / 人类信物 / 精灵信物 / 兽人信物 | 各点一次：`TryAcquire` 对应 EquipId；日志打印 Level / CurrentExp / 相关 caps。仓只读见 UI-022 / D-067；手验 D-059 / D-060 / D-077～D-080 |
+| 下层右 | 划入对应升级 | 各点一次：`TrySpendCommonExp(equipId, 1)`（池不足或未拥有则日志失败）；与每级 `ExpToNextLevel=1` 对齐 |
 
 - 仅 Dig 进行中（未归零 / 未弹 Summary）可用；为 Demo/手验工具。
 - GM 直接写入仓库的躯体材料 **不**计入 DigStageSummary「本阶段已获奖励」。
@@ -1437,28 +1429,16 @@ For each settled `Id_Count` (not the raw table `Id;Weight;Count`):
 
 **Demo GM (Dig HUD)**
 
-| Button | Behavior |
-|--------|----------|
-| Add Graves | One click: weighted pick via **current effective weights** (table `GraveSpawnWeights` + caps `GraveSpawnWeightBonus`); placement / obstacle / 32-retry same as initial & process spawn; attempt **10** times; fewer than 10 if no space or empty effective weights |
-| Add Body Parts | One click: for **every** loaded `Manufacture_BodyPartConfig` row, `Warehouse.AddItem(BodyPartId, 10)` (stack cap 10000; **no** LootDrop / AutoConvert) |
-| Equip Warrior Enhance | **Mode2 only**: one click `SpecialEquipSlotsService.TryEquip("MagicBook_WarriorEnhance")` (stackable; full slots → fail log/Tips). Slot reorder = UI-023 / D-068; hand-check D-058 |
-| Grant Iron Shovel | One click: `ProtagonistEquipmentService.TryAcquire("Equip_IronShovel")` (first / same-Id convert level-up / maxed→common pool); log Level / CurrentExp / `DigCursorRadius`. Warehouse read-only = UI-022 / D-067; hand-check D-059 |
-| Equip Common Exp +50 | One click: GM inject `EquipCommonExp += 50` (`DebugGrantCommonExp`); log pool + warehouse |
-| Spend Into Iron Shovel | One click: `TrySpendCommonExp("Equip_IronShovel", 1)` (fail log if pool short / not owned); matches per-level `ExpToNextLevel=1`; hand-check common Exp → level-up |
-| Grant Miner Lamp | One click: `TryAcquire("Equip_MinerLamp")` (first / same-Id convert level-up / maxed→common pool); log Level / CurrentExp / Q4·Q5·Q6 `GraveSpawnWeightBonus`. Warehouse read-only = UI-022 / D-067; hand-check D-060 |
-| Spend Into Miner Lamp | One click: `TrySpendCommonExp("Equip_MinerLamp", 1)` (fail log if pool short / not owned); matches per-level `ExpToNextLevel=1` |
-| Grant Explosives | One click: `TryAcquire("Equip_Explosives")`; log Level / CurrentExp / `ExplosiveBlastDamage`. Hand-check D-077 |
-| Spend Into Explosives | One click: `TrySpendCommonExp("Equip_Explosives", 1)` (fail log if pool short / not owned) |
-| Grant Lightning | One click: `TryAcquire("Equip_Elctr")`; log Level / CurrentExp / `DigLightningIntervalSec`. Hand-check D-078 |
-| Spend Into Lightning | One click: `TrySpendCommonExp("Equip_Elctr", 1)` (fail log if pool short / not owned) |
-| Grant Detector | One click: `TryAcquire("Equip_Detector")`; log Level / CurrentExp / `DigProcessSpawnCountBonus`. Hand-check D-079 |
-| Spend Into Detector | One click: `TrySpendCommonExp("Equip_Detector", 1)` (fail log if pool short / not owned) |
-| Grant Human Token | One click: `TryAcquire("Equip_HumanToken")`; log Level / CurrentExp / Q16–Q19 `GraveSpawnWeightBonus`. Hand-check D-080 |
-| Spend Into Human Token | One click: `TrySpendCommonExp("Equip_HumanToken", 1)` |
-| Grant Elf Token | One click: `TryAcquire("Equip_ElfToken")`; log Level / CurrentExp / Q20–Q23 `GraveSpawnWeightBonus`. Hand-check D-080 |
-| Spend Into Elf Token | One click: `TrySpendCommonExp("Equip_ElfToken", 1)` |
-| Grant Orc Token | One click: `TryAcquire("Equip_OrcToken")`; log Level / CurrentExp / Q24–Q27 `GraveSpawnWeightBonus`. Hand-check D-080 |
-| Spend Into Orc Token | One click: `TrySpendCommonExp("Equip_OrcToken", 1)` |
+`GmMenuPanel` (foldout via `GmToggleButton`): **two layers × two columns** (col width 172, gap 8, row step 48). **Top** `GmLayerDigMagic`: Dig commons + Mode2 MagicBooks; **bottom** `GmLayerEquip`: protagonist gear Grant (left) / Spend-into-upgrade (right) pairs. Top-right anchor; panel width ≈360.
+
+| Zone | Button | Behavior |
+|------|--------|----------|
+| Top | Add Graves | One click: weighted pick via **current effective weights** (table `GraveSpawnWeights` + caps `GraveSpawnWeightBonus`); placement / obstacle / 32-retry same as initial & process spawn; attempt **10** times; fewer than 10 if no space or empty effective weights |
+| Top | Add Body Parts | One click: for **every** loaded `Manufacture_BodyPartConfig` row, `Warehouse.AddItem(BodyPartId, 10)` (stack cap 10000; **no** LootDrop / AutoConvert) |
+| Top | Equip Common Exp +50 | One click: GM inject `EquipCommonExp += 50` (`DebugGrantCommonExp`); log pool + warehouse |
+| Top | Equip MagicBook (full table) | **Mode2 only**: list all current-mode `MagicBookConfig` rows (two-col grid; label=`DisplayName`, else `MagicBookId`). One click `SpecialEquipSlotsService.TryEquip(magicBookId)` (first empty slot; same as UI-019 / D-061; unique already equipped or 6 slots full → fail log). **Hidden** in Mode1. Slot reorder = UI-023 / D-068 |
+| Bottom left | Grant Iron Shovel / Miner Lamp / Explosives / Lightning / Detector / Human / Elf / Orc Token | One click each: `TryAcquire` matching EquipId; log Level / CurrentExp / related caps. Warehouse read-only = UI-022 / D-067; hand-check D-059 / D-060 / D-077–D-080 |
+| Bottom right | Spend Into matching upgrade | One click each: `TrySpendCommonExp(equipId, 1)` (fail log if pool short / not owned); matches per-level `ExpToNextLevel=1` |
 
 - Available only while Dig is active (before duration zero / Summary). Demo / hand-check tools.
 - Body parts granted via GM **do not** count toward DigStageSummary “rewards earned this stage”.
@@ -2403,13 +2383,30 @@ UpgradeManufacture stage
 | 普攻伤害 | `HitConfirm`（或远程命中）后：对怪物 `HP -= OutgoingDamage`（本批无护甲）；`OutgoingDamage = NormalAttackPower × (1 + Skill_02 Comfort) × Π(D-073 OnOutgoingDamageSettle muls)`；Comfort 满血且持有 `Skill_02` 时随等级 5%～25%，否则 0；管线倍率缺省 1；见下公式与 SkillCast |
 | 怪物走跑步态 | Defend+PushMap：`MoveSpeed`=走速；`RunSpeed`=跑速（缺/≤0→回退走速）；`WalkToRunSeconds`（缺→**0.5**；`0`=一开跑）。每次进入「正在移动」从走开始；持续走满阈值→跑（移速+`RunAnims`/`IsRun`）；离开移动（攻击/死亡/进距 Idle/受堵/击晕/无 steer）立即退出跑并清计时；有效移速=`gaitSpeed×Aggro倍率×减速`（`ActiveMoveMult`/`PassiveMoveMult`）；详见 [SPEC_04 §9.19](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
 | 怪物动画选型 | 表现层（Defend+PushMap）：`MonsterConfig.NormalAttackAnims` / `WalkAnims` / `RunAnims`（`\|` 池）；普攻每次随机基名播 `{基名}_{dir}`；走/跑在 Bind 与复活完成各抽一次；移动时按走跑步态门控播 Walk/`IsWalk` 或 Run/`IsRun`；士兵仍固定 `Attack1`+`IsRun`/`RunBT`；详见 [SPEC_04 §15.5](SPEC_04_Technical.md) |
-| 怪物死亡击飞 | 表现层（Defend+PushMap）：致命击带 `OutgoingDamage`（扣血前打出值）；距离=`clamp(Min,Max,(OutgoingDamage/MaxHp)×RatioCoeff)`，三键 ← `CombatConstantConfig`；方向远离杀手；死亡 clip：默认 Die2，`distance≥DeathDie2KnockbackThreshold`→Die（阈值 ← 常量表，样例 `1`）；士兵无击退；详见 [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| 怪物尸体投射 | **规则+表现**（Defend+PushMap；D-083）：致命击后尸体沿 **抛物线**飞向终点（取代纯 XZ 线性滑移）；`distance`/`方向`/`Die`/`Die2` 同源 [SPEC_04 §15.5](SPEC_04_Technical.md)。`distance ≥ DeathDie2KnockbackThreshold` → 飞行扫掠 + 落地可砸其它存活怪（`OutgoingDamage×DeathCorpseSmashDamageMul`）；低于阈值仅飞不砸。砸击致死 **不**连锁投射。`MonsterCombatDead` 亦飞砸；完成后仍 Delay→倒放复活。士兵无击退 |
+| 怪物死亡击飞 | **废止为独立条目**；并入上「怪物尸体投射」。历史：水平滑移 + 无 Y 抛物线 + 无砸击 |
 | 攻速 | 两次攻击**开始**间隔 = `1 / AttackSpeed`；`AttackWindup` **计入**该周期内（不另加在周期外） |
 | 技能 CD | 实际冷却见下式；`CooldownMode=Mode2`：**释放提交后**进入 CD（不等连发全部命中）。`CooldownMode=Mode1` 本 Demo 不驱动。详见 SkillCast |
 | 战斗死亡 | 无宝石士兵 `HP ≤ 0` → `CombatDead`（可被战斗中复活技能拉起；**TBD**）；不触发 §3.11 物资去向 |
 | 宝石特例 | `GemIds` 非空且 `HP ≤ 0` → **立即** `PermanentDeath`（§3.11 物资去向） |
 | 彻底死亡结算 | 本阶段胜利 `Ended` **或** LevelFailure 时：仍为 `CombatDead` 且无「战斗结束复活」类技能 → `PermanentDeath`（实例消失、布阵位空） |
 | 叛变 | **Rebel 不受 EngageZone 限制**；选目标仍为就近主角 / 其他士兵 / 敌人（见上）；攻击距离与命中走士兵通道（方案 D，按该兵 `AttackMode`）；对士兵/怪物普攻同用 `NormalAttackPower`；**不**施放 `SoldierSkills` 主动技能（含 `Skill_03`） |
+
+**怪物尸体投射（DeathCorpseProjectile；D-083 规则锁；Defend + PushMap）**
+
+| 规则 | 说明 |
+|------|------|
+| 合一语义 | 抛物线击飞与尸体砸人 **同一通道**：尸体 Transform 沿轨迹运动；规则层在飞行/落地检测命中并扣 HP |
+| 触发 | 怪物 `RemainingHp≤0` 进入死亡表现时均启动（彻底击杀 + PushMap **`MonsterCombatDead` 假死**） |
+| 击飞距离 | 与历史击飞同源：`raw=(OutgoingDamage/MaxHp)×DeathKnockbackRatioCoeff`；`distance=clamp(Min,Max,raw)`；`OutgoingDamage` = 致命击扣血前打出值（含 Comfort / D-073；**不是** `min(伤害, RemainingHp)`） |
+| 砸击门闩 | **`distance < DeathDie2KnockbackThreshold`**（← `CombatConstantConfig`，样例 `1`）→ **仅**抛物线位移 + 死亡 latch；**不产生**砸击伤害。`distance ≥ 阈值` → 启用飞行扫掠 + 落地砸击 |
+| 可砸目标 | **仅**其它 **存活**怪物（`RemainingHp>0`、可选中、非飞行尸体自身）。**不含**己方士兵、主角护盾 |
+| 伤害时机 | **飞行途中**软碰撞扫掠 + **落地瞬间**落点检测；同一尸体飞行对同一 `targetRuntimeId` **只结算一次**（`alreadyHit` 集合；途中已命中者落地 **不**重复） |
+| 砸击伤害 | 规则层独立通道：`CorpseSmashDamage = killerOutgoingDamage × DeathCorpseSmashDamageMul`（← `CombatConstantConfig`）。**不**叠 `Skill_02` Comfort、**不**走 D-073 `OnOutgoingDamageSettle` 管线 |
+| 连锁 | 砸击致死 **不**再启动尸体投射；在原位 `PlayDie` latch（**无**击飞位移、**无**砸击） |
+| 假死复活 | `MonsterCombatDead` 同样抛物线（砸击按门闩）；飞行 + latch **完成后**仍走原 `DelaySeconds` → 倒放复活；无敌 / `AlertRadius` 首次覆盖契约 **不变**（§3.14）；**假死 latch `RGB×0.7`**（彻底死亡 0.4 的一半变暗深度），经 Delay/倒放/无敌保持 |
+| 击杀事件 | 原致命击 `MonsterKilled` / `NotifyKilled` 契约 **不变**（假死仍 **不计**击杀）。砸击扣血走 `TryApplyCorpseSmashDamage`；砸死触发正常 `MonsterKilled`，但 **不**触发新投射 |
+| 表现边界 | View 驱动尸体抛物线位移 + 死亡 latch；规则层确认伤害；禁止 View 直接改目标 HP。详见 [SPEC_04 §15.5](SPEC_04_Technical.md) |
 
 **SkillCast（士兵技能施放；D-069 连发/格挡/舒适 + D-073 EffectKind 登记制 / 方案 B+）**
 
@@ -2792,13 +2789,30 @@ Optional `CombatMoveMode` beside `GoalKind` (default derived from GoalKind). **E
 | Normal damage | On `HitConfirm` (or ranged hit): monster `HP -= OutgoingDamage` (no armor this batch); `OutgoingDamage = NormalAttackPower × (1 + Skill_02 Comfort) × Π(D-073 OnOutgoingDamageSettle muls)` — Comfort is 5%–25% by level when holding `Skill_02` at full HP, else 0; pipeline muls default to 1; see formulas and SkillCast |
 | Monster walk/run gait | Defend+PushMap: `MoveSpeed`=walk; `RunSpeed`=run (missing/≤0→walk); `WalkToRunSeconds` (missing→**0.5**; `0`=run immediately). Each move bout starts walk; after threshold→run (speed + `RunAnims`/`IsRun`); leaving move (attack/death/in-range idle/stuck/stun/no steer) exits run and clears timer; effective speed=`gaitSpeed×Aggro mult×slow` (`ActiveMoveMult`/`PassiveMoveMult`); see [SPEC_04 §9.19](SPEC_04_Technical.md), [§15.5](SPEC_04_Technical.md) |
 | Monster anim pools | Presentation (Defend+PushMap): `MonsterConfig.NormalAttackAnims` / `WalkAnims` / `RunAnims` (`\|` pools); each attack picks a random base → `{base}_{dir}`; walk/run resampled on Bind and post-revive; move plays Walk/`IsWalk` or Run/`IsRun` per gait gate; soldiers stay `Attack1`+`IsRun`/`RunBT`; see [SPEC_04 §15.5](SPEC_04_Technical.md) |
-| Monster death knockback | Presentation (Defend+PushMap): fatal hit carries `OutgoingDamage` (pre-HP-clamp dealt); distance=`clamp(Min,Max,(OutgoingDamage/MaxHp)×RatioCoeff)` from `CombatConstantConfig`; direction away from killer; death clip: default Die2, `distance≥DeathDie2KnockbackThreshold`→Die (threshold from constant table, sample `1`); soldiers have no knockback; see [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| Monster corpse projectile | **Rules + presentation** (Defend+PushMap; D-083): on fatal hit corpse flies a **parabolic arc** to endpoint (replaces pure XZ linear slide); `distance` / direction / `Die` / `Die2` same source [SPEC_04 §15.5](SPEC_04_Technical.md). When `distance ≥ DeathDie2KnockbackThreshold` → flight sweep + landing may smash other living monsters (`OutgoingDamage×DeathCorpseSmashDamageMul`); below threshold fly only, no smash. Smash kills **no** chain projectile. `MonsterCombatDead` also flies/smashes; then original Delay→reverse revive. Soldiers have no knockback |
+| Monster death knockback | **Retired as standalone row**; merged into «Monster corpse projectile» above. Legacy: horizontal slide, no Y arc, no smash |
 | Attack speed | Interval between attack **starts** = `1 / AttackSpeed`; `AttackWindup` is **inside** that interval (not added outside) |
 | Skill CD | Actual cooldown per formula below; `CooldownMode=Mode2`: CD starts **on cast commit** (do not wait for all burst hits). `CooldownMode=Mode1` unused this Demo. See SkillCast |
 | CombatDead | Soldier with no gems and `HP ≤ 0` → `CombatDead` (revivable by in-combat revive skills; **TBD**); no §3.11 material fate |
 | Gem exception | Non-empty `GemIds` and `HP ≤ 0` → **immediate** `PermanentDeath` (§3.11 material fate) |
 | PermanentDeath settle | On stage victory `Ended` **or** LevelFailure: still `CombatDead` and no end-of-battle revive skill → `PermanentDeath` (instance gone; formation slot empty) |
 | Rebel | **Rebels ignore EngageZone**; targeting remains nearest protagonist / other soldiers / enemies (above); AttackRange and hit use soldier channel (scheme D per that soldier’s `AttackMode`); vs soldier/monster also uses `NormalAttackPower`; **do not** cast `SoldierSkills` active skills (incl. `Skill_03`) |
+
+**Monster corpse projectile (DeathCorpseProjectile; D-083 rules lock; Defend + PushMap)**
+
+| Rule | Notes |
+|------|-------|
+| Unified semantics | Parabolic knockback and corpse smash share **one channel**: corpse `Transform` follows the arc; rules layer detects hits during flight / landing and subtracts HP |
+| Trigger | Starts on any monster death presentation entry (`RemainingHp≤0`): true kill + PushMap **`MonsterCombatDead` fake death** |
+| Knockback distance | Same as legacy knockback: `raw=(OutgoingDamage/MaxHp)×DeathKnockbackRatioCoeff`; `distance=clamp(Min,Max,raw)`; `OutgoingDamage` = pre-HP-clamp dealt on the fatal hit (incl. Comfort / D-073; **not** `min(damage, RemainingHp)`) |
+| Smash gate | **`distance < DeathDie2KnockbackThreshold`** (← `CombatConstantConfig`, sample `1`) → parabolic move + death latch only; **no** smash damage. `distance ≥ threshold` → flight sweep + landing smash enabled |
+| Smash targets | **Only** other **living** monsters (`RemainingHp>0`, selectable, not the flying corpse). **Excludes** loyal soldiers and protagonist shield |
+| Damage timing | **In-flight** soft sweep + **landing** impact at endpoint; each corpse flight settles **once per** `targetRuntimeId` (`alreadyHit` set; mid-flight hits are **not** repeated on landing) |
+| Smash damage | Rules-only channel: `CorpseSmashDamage = killerOutgoingDamage × DeathCorpseSmashDamageMul` (← `CombatConstantConfig`). **Does not** stack `Skill_02` Comfort or D-073 `OnOutgoingDamageSettle` pipeline |
+| Chain | Smash kills **do not** start another corpse projectile; death latch at death position (**no** knockback displacement, **no** smash) |
+| Fake-death revive | `MonsterCombatDead` uses the same arc (smash per gate); after flight + latch completes, original `DelaySeconds` → reverse revive unchanged; invincible / first-revive `AlertRadius` contracts unchanged (§3.14); **fake-death latch `RGB×0.7`** (half the darken depth of true death 0.4), held through Delay/reverse/invincible |
+| Kill events | Original fatal `MonsterKilled` / `NotifyKilled` contracts unchanged (fake death still **not** counted as kill). Smash damage via `TryApplyCorpseSmashDamage`; smash kill fires normal `MonsterKilled` but **does not** trigger a new projectile |
+| Presentation | View drives parabolic corpse motion + death latch; rules confirm damage; View must not write target HP directly. See [SPEC_04 §15.5](SPEC_04_Technical.md) |
 
 **SkillCast (soldier skill cast; D-069 burst/block/Comfort + D-073 EffectKind registry / Approach B+)**
 
@@ -3193,7 +3207,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | Demo BOSS 引导边界 | v0.74.10：目标链耗尽（`CurrentObjectiveOrder=0`，全部占领）且地图有 `BossPoint` → `FlowField` 重建指向 BossPoint 世界 XZ（`CurrentObjectiveChanged(0)` 触发一次；无目标点地图开战后立即重建）；此时 `ObjectiveArriveRadius` 收紧为 **`BossAdvanceArriveRadius`（默认 0.35，常量）**，保证士兵贴近 BOSS 点；**v0.82.55：** 主动态 BOSS 另靠 `AlertRadius` 把附近友军拉进 `AttackSlot`（`Monster_12`=4）；`Stationary*` BOSS 不移动时本引导仍是唯一接近手段；无 `BossPoint` → 维持「保持当前位置/就近守备」原语义；镜头跟随仍走 `CameraFollowPath` 最大投影（不跟士兵本人） |
 | Demo 士兵受击边界 | **PM-13：** 怪物对忠诚士兵按 `MonsterConfig.AttackPower` 扣士兵 `RemainingHp`（无护甲）；持有 `Skill_01` 时结算前按等级概率将本次伤害变为 0（仍判命中，仍发白飘字/白 HitFlash）。`HP≤0` → `CombatDead`（停手；宝石/PermanentDeath 对齐 §3.12 Demo 最小即可）。对主角仍 `Shield -= 1`（忽略 AttackPower；不要求主角飘字/闪烁） |
 || Demo 八向朝向稳定边界 | **v0.83.31 方案 B（Defend+PushMap 敌我）：** 移动八向跟 MassMove **意图方向** `LastDesired`（FlowField / 槽位直线），**不**跟 LocalDetour steer / 软碰撞冲量；`IsRun` 仍由 steer 判定。开始攻击时朝目标切 **一次** 后冻结至 Attack1 结束（移动打断解锁）。停步 / 进距 Idle / 受堵停滞 **不**每帧追目标。既有扇区迟滞+最短保持仍作用于 `SetFacing`。不改攻击判定 / 槽位 / 寻路。详见 SPEC_04 §15.5 |
-| Demo 怪物死亡复活边界 | **PushMap 仅（D-074）：** 持有 `MonsterConfig.Skills` 中 `MonsterSelfReviveOnDeath` 效果（§9.21c）的怪 HP≤0 → **MonsterCombatDead**（表现 `NotifyKilled` + 击飞；**不计**击杀 / BOSS / Loot）；击飞+latch 完成后等待 `DelaySeconds` → **倒放前**按 `TargetSelect` 选敌并 `ForceSetFacing`（尸体 `_dead` 期间仍写入）决定 8 向 `DirIndex`（倒放 **优先** Creator `Die2` Trigger 对应 clip，Controller 无 `Die2` 则倒放原 `Die` latch clip；该朝向保持进 Idle，复活后 `Attack1_*` 与当前目标 8 向一致）→ HP=`MaxHp×ReviveHpRatio` + 无敌 `InvincibleSeconds`（不可选中）；**首次复活**若 EffectParams 含 `AlertRadius` → 该实例警戒半径改为该值（怪选敌 + 士兵遇敌检测均读实例值；**不**改表行；第二次及以后复活不再改）；**尸体 RGB×`CorpseDarkenMul` 变暗**自死亡 latch 起保持，经倒放与无敌全程，至 `InvincibleSeconds` 结束（`InvincibleSeconds=0` 则倒放结束即清）再恢复亮色；`MaxReviveCount` 用尽 → 彻底死亡走 `MonsterKilled`。Defend **不接线** |
+| Demo 怪物死亡复活边界 | **PushMap 仅（D-074）：** 持有 `MonsterConfig.Skills` 中 `MonsterSelfReviveOnDeath` 效果（§9.21c）的怪 HP≤0 → **MonsterCombatDead**（表现 `NotifyKilled(fakeDeathCorpse=true)` + **尸体投射抛物线**（D-083；达阈值可砸其它怪）；**不计**击杀 / BOSS / Loot）；抛物线+latch 完成后等待 `DelaySeconds` → **倒放前**按 `TargetSelect` 选敌并 `ForceSetFacing`（尸体 `_dead` 期间仍写入）决定 8 向 `DirIndex`（倒放 **优先** Creator `Die2` Trigger 对应 clip，Controller 无 `Die2` 则倒放原 `Die` latch clip；该朝向保持进 Idle，复活后 `Attack1_*` 与当前目标 8 向一致）→ HP=`MaxHp×ReviveHpRatio` + 无敌 `InvincibleSeconds`（不可选中）；**首次复活**若 EffectParams 含 `AlertRadius` → 该实例警戒半径改为该值（怪选敌 + 士兵遇敌检测均读实例值；**不**改表行；第二次及以后复活不再改）；**假死 latch `RGB×0.7` 变暗**（彻底死亡 `×0.4` 的一半深度），经 Delay/倒放/无敌保持，至无敌结束恢复；`MaxReviveCount` 用尽 → 彻底死亡走 `MonsterKilled`，`PlayDie` latch **`RGB×0.4`**。Defend **不接线** |
 
 **刷怪（非 WaveSpawn 倒计时）**
 
@@ -3352,7 +3366,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Demo Boss guidance edge | v0.74.10: when the objective chain is exhausted (`CurrentObjectiveOrder=0`, all captured) and the map has a `BossPoint` → rebuild the `FlowField` toward the BossPoint world XZ (fired once by `CurrentObjectiveChanged(0)`; maps with no objectives rebuild right after StartBattle); `ObjectiveArriveRadius` tightens to **`BossAdvanceArriveRadius` (default 0.35, constant)** so soldiers close on the Boss point; **v0.82.55:** active-stance bosses also pull nearby allies into `AttackSlot` via `AlertRadius` (`Monster_12`=4); for `Stationary*` bosses this guidance is still the only approach means; no `BossPoint` → keep the original "hold position / guard nearby" semantics; camera follow still uses `CameraFollowPath` max projection (does not follow the soldier) |
 | Demo soldier-hit edge | **PM-13:** monsters subtract soldier `RemainingHp` by `MonsterConfig.AttackPower` (no armor); holding `Skill_01` may zero this hit’s damage by level chance before subtract (still a hit; still white popup/HitFlash). `HP≤0` → `CombatDead` (stop acting; gems / PermanentDeath follow §3.12 Demo-min). Protagonist hits still `Shield -= 1` (ignore AttackPower; no protagonist popup/flash required) |
 || Demo 8-dir facing stabilization edge | **v0.83.31 Approach B (Defend+PushMap both factions):** move 8-dir follows MassMove **intent** `LastDesired` (FlowField / slot line), **not** LocalDetour steer / soft-collision impulse; `IsRun` still from steer. On attack start, snap **once** toward the target then freeze until Attack1 ends (unlock if move interrupts). Idle / in-range / StuckHold do **not** retarget facing every frame. Existing sector hysteresis + min dwell still apply to `SetFacing`. Attack checks / slots / pathing unchanged. See SPEC_04 §15.5 |
-| Demo monster death-revive edge | **PushMap only (D-074):** monsters with `MonsterSelfReviveOnDeath` in `MonsterConfig.Skills` (§9.21c) at HP≤0 → **MonsterCombatDead** (presentation `NotifyKilled` + knockback; **no** kill / BOSS / Loot); after knockback+latch wait `DelaySeconds` → reverse-play death anim → HP=`MaxHp×ReviveHpRatio` + invincible `InvincibleSeconds`; **first revive** if EffectParams has `AlertRadius` → instance detect radius becomes that value (monster TargetSelect + soldier engage both read the instance; **do not** mutate the table row; later revives do not change it); `MaxReviveCount` exhausted → true death `MonsterKilled`. Defend **unwired** |
+| Demo monster death-revive edge | **PushMap only (D-074):** monsters with `MonsterSelfReviveOnDeath` in `MonsterConfig.Skills` (§9.21c) at HP≤0 → **MonsterCombatDead** (presentation `NotifyKilled(fakeDeathCorpse=true)` + **corpse projectile parabolic arc** (D-083; smash other monsters when threshold met); **no** kill / BOSS / Loot); after arc+latch wait `DelaySeconds` → **before** reverse-play pick target via `TargetSelect` and `ForceSetFacing` (still writes 8-dir `DirIndex` while corpse `_dead`) → reverse **prefer** Creator `Die2` Trigger clip (else latched `Die` clip); that facing kept into Idle; post-revive `Attack1_*` matches target 8-dir → HP=`MaxHp×ReviveHpRatio` + invincible `InvincibleSeconds`; **first revive** if EffectParams has `AlertRadius` → instance detect radius becomes that value (monster TargetSelect + soldier engage both read the instance; **do not** mutate the table row; later revives do not change it); **fake-death latch `RGB×0.7` darken** (half depth of true death 0.4), held through Delay/reverse/invincible until invincible ends; `MaxReviveCount` exhausted → true death `MonsterKilled`, latch **`RGB×0.4`**. Defend **unwired** |
 
 **Spawning (not WaveSpawn countdown)**
 
@@ -3498,7 +3512,17 @@ while 仓库满足最低配方:
 | 排序 | 任意两槽 `SpecialEquipSlotsService.TrySwap(indexA, indexB)`（含空槽=搬书）；越界/未绑档失败；成功立即 persist + `Changed` |
 | 仓库 | **无**独立魔法书仓库；装入仍 Tools GM `TryEquip`（UI-019 / D-061） |
 | UI | InSaveShell「魔法书」打开 UI-023（共享 `BookRow` + 拖拽排序 D-068 + 点槽删除 D-072）；不从弹窗装入。AM Step2 进行中：已脉冲槽不回滚；未脉冲槽读当前槽（空则跳过） |
-| Combat 环节 | 枚举预留；本轮不实现 |
+
+**4b. 战斗魔法书（Combat 环节）**
+
+| 规则 | 说明 |
+|------|------|
+| 触发 | Defend / PushMap **`StartBattle` 后**、`TryRegisterWarrior` 登记**每个上阵士兵**时；读取主角 6 槽（左→右），非单兵装备 |
+| Token | `EffectPhase` 含 `Combat` 且 `EffectPayload=StatMul`；参数见 [SPEC_04 §9.24](SPEC_04_Technical.md) Combat `StatMul` 行 |
+| 样例 | 8 本战斗属性书：`MagicBook_CombatMaxHpLow/High`、`CombatStrengthLow/High`、`CombatAgilityLow/High`、`CombatIntelligenceLow/High`；低阶 `Mul=1.15`、高阶 `Mul=1.30`；`IsUnique=1` `IsProbabilistic=0` |
+| 叠乘 | 同维多书连乘（例生命初+高 = `1.15×1.30`）；不同维可共存 |
+| 持久化 | **不**写入 `WarriorInstance.BaseStats`；战斗结束效果消失；**不**触发 VisualStyle / 体型步进 |
+| 实现 | `CombatMagicBookStatMul.Aggregate` → `TryRegisterWarrior` 乘 BodyLife / StaticStat 后再派生 HP/Atk/ASPD/CD |
 
 **5. 士兵最终属性确认（造兵时）**
 
@@ -3518,26 +3542,38 @@ while 仓库满足最低配方:
 
 **6b. 特效外观定稿（`VisualStyle`；与造型 `AppearanceId` 独立）**
 
-Mode2 Step2 **仅当该书 `EffectPayload` 真正命中**（skip / miss / 无效 Token **不**写入）才按 `MagicBookConfig.VisualStyleId` 处理。特效分 **两条独立通道**（一书一 `VisualStyleId`，可被不同书分别命中后共存）：
+Mode2 Step2 **仅当该书 `EffectPayload` 真正命中**（skip / miss / 无效 Token **不**写入）才处理体型步进与 `MagicBookConfig.VisualStyleId`。闸门与 `WarriorVisualStyleBake.TryApply` 调用点一致（含 `SoldierSkillLevelAdd` 等级已被钳在上下限、数值未变仍算命中）。
+
+**命中附带体型步进（与 VisualStyle 通道并存；空 `VisualStyleId` 也执行）**
+
+| 规则 | 说明 |
+|------|------|
+| 触发 | Token **真正命中**（与下材质/放大通道同一闸门） |
+| 步进 | `VisualModelScale *= WarriorVisualModelScalePerHit`（← `CombatConstantConfig`，样例 **1.15**；`≤0` 视为 1.15） |
+| 再叠 | 若该书为 `Style_ScaleModel`，同次再 `*= VisualIntensityAdd`（见下） |
+| 上限 | 每次 apply **末尾** `VisualModelScale = min(·, WarriorVisualModelScaleMax)`（样例 **3**；缺键兜底同值） |
+| 下游 | 世界 `Visual.localScale=(k,k,k)`；`BodyRadius`/`AttackRange` 均 ×k（布阵/Defend/PushMap 复用存档字段） |
+
+特效另分 **两条独立 VisualStyle 通道**（一书一 `VisualStyleId`，可被不同书分别命中后共存）：
 
 **材质通道（AllIn1；每兵一套赢家）**
 
 | 规则 | 说明 |
 |------|------|
-| 空列 | `VisualStyleId` 空 → 该书无特效；实例字段保持 |
+| 空列 | `VisualStyleId` 空 → 该书无材质/放大通道特效；**仍**执行上表体型步进 |
 | 放大 Id | `Style_ScaleModel` / 别名 `放大模型` → **不**走本通道（见下） |
 | 覆盖 | 实例尚无材质 style，**或** 该书 `VisualPriority` **大于** 当前 `VisualPriority` → 换成该书 style，`VisualIntensity = VisualIntensityAdd`（列空缺省 1） |
 | 同 Id 叠加 | 该书 style **等于** 当前材质赢家 → `VisualIntensity += VisualIntensityAdd` |
 | 低优先 | 否则保留材质赢家（低优先书 **不**给赢家加强度） |
 | 套用 | 保卫 / 推图 / 布阵场上预览 / 拖拽预览 / **UI-016 士兵卡 Camera+RT** Instantiate 后：Catalog 取材质赋 `sharedMaterial`（禁止 `new Material` / 运行时 `EnableKeyword`），MPB 写强度；缺 `AllIn1AtlasUvDriver` 则补 |
 
-**放大通道（`Style_ScaleModel`；可与材质共存）**
+**放大通道（`Style_ScaleModel`；可与材质共存；叠在命中步进之后）**
 
 | 规则 | 说明 |
 |------|------|
 | 识别 | `VisualStyleId` 为 `Style_ScaleModel` 或中文别名 `放大模型`；**不**参与材质优先级竞争、**不**改 `VisualStyleId`/`VisualPriority`/`VisualIntensity` |
-| 系数 k | `VisualIntensityAdd` 即缩放系数（例 `1.5`）；列空缺省 1；`k≤0` 视为 1 |
-| 叠加 | 实例 `VisualModelScale` 缺省 **1**；每本命中：`VisualModelScale *= k`（两本 1.5 → 2.25） |
+| 系数 | `VisualIntensityAdd` 即再乘系数（例 `1.5`）；列空缺省 1；`≤0` 视为 1 |
+| 叠加 | 在命中步进之后：`VisualModelScale *= VisualIntensityAdd`，再夹 Max |
 | 表现 | 子节点 `Visual.localScale = (k,k,k)`（`App_0_00` Visual 预制为 `(1,1,1)`，根仍 `(1.2,1.2,1.2)`，世界视觉约 `1.2k`） |
 | 碰撞 / 寻路 | 出场 `BodyRadius × k`（含 `NavMeshAgent.radius`、软碰撞、布阵螺旋占位） |
 | 攻击距离 | 战斗状态 `AttackRange = ClassConfig.AttackRange × k`；`CombatReach` 仍为 `AttackRange + 双方 BodyRadius` |
@@ -3545,7 +3581,7 @@ Mode2 Step2 **仅当该书 `EffectPayload` 真正命中**（skip / miss / 无效
 
 共用：`RefinalizeInstance` 可改 `AppearanceId`，**不得**清空 `VisualStyle*` 或 `VisualModelScale`。UI-016 士兵卡揭示为世界 Instantiation + Camera/RT，**套用** AllIn1 与 `VisualModelScale`；布阵底栏缩略图本轮 **不**套 AllIn1、**不**缩放。
 
-Demo 样例：`MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1；四本 `*Advance`→`Style_AdvanceOutline` P30 Add1（仅 hit）；`MagicBook_SoldierSkillLevel`→`Style_SkillAberration` P10 Add1；`MagicBook_Restore` 默认可空（手验放大可填 `Style_ScaleModel` / `VisualIntensityAdd=1.5`，不覆盖其它书的 AllIn1 列）。
+Demo 样例：`MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1（命中仍 ×1.15）；四本 `*Advance`→`Style_AdvanceOutline` P30 Add1（仅 hit）；`MagicBook_SoldierSkillLevel`→`Style_SkillAberration` P10 Add1；`MagicBook_Restore` 默认可空（命中仍 ×1.15；手验可再填 `Style_ScaleModel` / `VisualIntensityAdd=1.5`）。
 
 新增 Style 的材质 / Catalog / Excel Bake 步骤见 [SPEC_04 §15.2](SPEC_04_Technical.md)「新增 VisualStyle 预设」。放大模型 **不必**建 `.mat`。
 
@@ -3709,7 +3745,17 @@ Clear formation → (if crafted>0) UI-016 Step2 per-slot MagicBook apply → aut
 | Reorder | Any two slots `SpecialEquipSlotsService.TrySwap(indexA, indexB)` (empty slot = move book); out-of-range / unbound save fails; success persists immediately + `Changed` |
 | Warehouse | **No** independent MagicBook warehouse; grant still Tools GM `TryEquip` (UI-019 / D-061) |
 | UI | InSaveShell MagicBook opens UI-023 (shared `BookRow` + drag reorder D-068 + click-slot delete D-072); no grant-from-popup. During AM Step2: already-pulsed slots do not roll back; remaining pulses read current slots (empty = skip) |
-| Combat phase | Enum reserved; not implemented |
+
+**4b. Combat MagicBooks (`Combat` phase)**
+
+| Rule | Notes |
+|------|-------|
+| Trigger | After Defend / PushMap **`StartBattle`**, on each deployed soldier `TryRegisterWarrior`; reads protagonist 6 slots (left→right), not per-soldier gear |
+| Token | `EffectPhase` includes `Combat` and `EffectPayload=StatMul`; params per [SPEC_04 §9.24](SPEC_04_Technical.md) Combat `StatMul` row |
+| Samples | Eight combat stat books: `MagicBook_CombatMaxHpLow/High`, `CombatStrengthLow/High`, `CombatAgilityLow/High`, `CombatIntelligenceLow/High`; low `Mul=1.15`, high `Mul=1.30`; `IsUnique=1` `IsProbabilistic=0` |
+| Stack | Same-dim books multiply (e.g. HP low+high = `1.15×1.30`); different dims coexist |
+| Persist | **Does not** write `WarriorInstance.BaseStats`; effect ends when combat ends; **no** VisualStyle / scale step |
+| Impl | `CombatMagicBookStatMul.Aggregate` → `TryRegisterWarrior` multiplies BodyLife / StaticStat before HP/Atk/ASPD/CD derives |
 
 **5. Final soldier stats (at craft)**
 
@@ -3729,26 +3775,38 @@ In craft loop: grant `DefaultSkillIds` (Lv1) from hand `ClassId` → finalize St
 
 **6b. VisualStyle finalize (independent of `AppearanceId`)**
 
-Mode2 Step2 writes from `MagicBookConfig.VisualStyleId` **only on a real token hit** (skip / miss / invalid do **not** write). Two **independent channels** (one `VisualStyleId` per book; different books may land both):
+Mode2 Step2 applies the body-scale step and `MagicBookConfig.VisualStyleId` **only on a real token hit** (skip / miss / invalid do **not** write). Same gate as `WarriorVisualStyleBake.TryApply` call sites (incl. `SoldierSkillLevelAdd` when level is already clamped and unchanged).
+
+**Hit body-scale step (coexists with VisualStyle channels; runs even if `VisualStyleId` empty)**
+
+| Rule | Notes |
+|------|-------|
+| Trigger | Real token **hit** (same gate as material/scale channels below) |
+| Step | `VisualModelScale *= WarriorVisualModelScalePerHit` (← `CombatConstantConfig`, sample **1.15**; `≤0` treated as 1.15) |
+| Extra | If book is `Style_ScaleModel`, same hit then `*= VisualIntensityAdd` (below) |
+| Cap | End of each apply: `VisualModelScale = min(·, WarriorVisualModelScaleMax)` (sample **3**) |
+| Downstream | World `Visual.localScale=(k,k,k)`; `BodyRadius`/`AttackRange` both ×k (formation/Defend/PushMap read persisted field) |
+
+VisualStyle also has **two independent channels** (one `VisualStyleId` per book; different books may land both):
 
 **Material channel (AllIn1; one winner per soldier)**
 
 | Rule | Notes |
 |------|-------|
-| Empty | Empty `VisualStyleId` → no visual from that book |
+| Empty | Empty `VisualStyleId` → no material/scale-channel visual; **still** runs the body-scale step above |
 | Scale Id | `Style_ScaleModel` / alias `放大模型` → **not** this channel (below) |
 | Replace | No current material style, **or** book `VisualPriority` **>** current → set style, `VisualIntensity = VisualIntensityAdd` (empty column defaults to 1) |
 | Same Id | Same as current material winner → `VisualIntensity += VisualIntensityAdd` |
 | Lower | Else keep material winner (loser does **not** add intensity) |
 | Apply | After Defend / PushMap / formation battlefield / drag-preview / **UI-016 card Camera+RT** Instantiate: Catalog `sharedMaterial` (no `new Material` / runtime `EnableKeyword`) + MPB intensity; add `AllIn1AtlasUvDriver` if missing |
 
-**Scale channel (`Style_ScaleModel`; coexists with material)**
+**Scale channel (`Style_ScaleModel`; coexists with material; after hit step)**
 
 | Rule | Notes |
 |------|-------|
 | Match | `VisualStyleId` is `Style_ScaleModel` or ZH alias `放大模型`; does **not** compete for material; does **not** change `VisualStyleId`/`VisualPriority`/`VisualIntensity` |
-| Factor k | `VisualIntensityAdd` is the scale factor (e.g. `1.5`); empty defaults to 1; `k≤0` treated as 1 |
-| Stack | Instance `VisualModelScale` defaults to **1**; each hit: `VisualModelScale *= k` (two 1.5 books → 2.25) |
+| Factor | `VisualIntensityAdd` is the extra multiplier (e.g. `1.5`); empty defaults to 1; `≤0` treated as 1 |
+| Stack | After hit step: `VisualModelScale *= VisualIntensityAdd`, then clamp Max |
 | Visual | Child `Visual.localScale = (k,k,k)` (`App_0_00` Visual prefab is `(1,1,1)`, root stays `(1.2,1.2,1.2)`, world ≈ `1.2k`) |
 | Collision | Spawn `BodyRadius × k` (`NavMeshAgent.radius`, soft collision, formation spiral footprints) |
 | Attack | Combat `AttackRange = ClassConfig.AttackRange × k`; `CombatReach` remains `AttackRange + both BodyRadii` |
@@ -3756,7 +3814,7 @@ Mode2 Step2 writes from `MagicBookConfig.VisualStyleId` **only on a real token h
 
 Shared: `RefinalizeInstance` may change `AppearanceId` and **must not** clear `VisualStyle*` or `VisualModelScale`. UI-016 card reveal is world Instantiate + Camera/RT and **does** apply AllIn1 and `VisualModelScale`; formation bar thumbs **do not** this round.
 
-Demo samples: `MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1; four `*Advance`→`Style_AdvanceOutline` P30 Add1 (hit only); `MagicBook_SoldierSkillLevel`→`Style_SkillAberration` P10 Add1; `MagicBook_Restore` may stay empty (hand-check scale: `Style_ScaleModel` / `VisualIntensityAdd=1.5`; do not overwrite other books' AllIn1 cells).
+Demo samples: `MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1 (hit still ×1.15); four `*Advance`→`Style_AdvanceOutline` P30 Add1 (hit only); `MagicBook_SoldierSkillLevel`→`Style_SkillAberration` P10 Add1; `MagicBook_Restore` may stay empty (hit still ×1.15; hand-check may also set `Style_ScaleModel` / `VisualIntensityAdd=1.5`).
 
 New Style mats / Catalog / Excel Bake: [SPEC_04 §15.2](SPEC_04_Technical.md) “Adding a VisualStyle preset”. Scale-model needs **no** `.mat`.
 

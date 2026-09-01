@@ -249,7 +249,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Defend Prepare / 开战 / 护盾（方案 A→共享编辑器，D-040）：** `DefendStageModule` 在 ModeSelect 确认保卫战后 Instantiate `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`；Prepare 挂同一 `FormationEditorRoot` UI（复用本阶段地图，不双开地图）；开战 ≥1 → 销毁预览后按布阵正式部署；`Shield`/`CombatDurationSeconds` 逻辑不变。禁止运行时引用 `SmallScaleInt/`。
 
-**Defend 刷怪与寻路（方案 A，D-041）：** `ConfigCsvRepository` 追加加载 `Defend_WaveSpawnConfig.csv` / `Defend_MonsterConfig.csv`。开战时 `DefendSessionService` 按 `WaveConfigId` 装载刷怪行；`Combat` 中每当 `RemainingCombatSeconds` 变为某整秒（含开战瞬间）时，触发尚未触发且 `SpawnRemainingSeconds` 相等的行（同秒按 `SpawnOrder` 升序），经事件交给 View Instantiate。Demo 最小出生点：地图 Prefab 上 `DefendSpawnPointSet` 固定点（`ClockDirection`→钟点位；`RegionRandom`→点池随机；Inside/Outside 本片均用固定点，精确 OutsideMap **后置**）。Instantiate 地图后 Runtime 烘焙最小可走 NavMesh（覆盖地图活动区 + 出生点）。怪物 Prefab：`Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（有 Art 则 §15.2 `Visual` 组装；否则临时立方体；Catalog 绑定）。`MonsterAgentView`（`NavMeshAgent`）按 `TargetSelect` 选目的地（本片士兵位可作为 PreferWarrior/Nearest 候选；无士兵则回退主角），按 `TargetRetargetIntervalSeconds` 重寻路；进 `AttackRange` 后按 `AttackSpeed` 普攻 → `Shield -= 1`（忽略 AttackPower）。`Shield ≤ 0` → `DefendPhase.Ended` + LevelFailure 钩子（打日志；完整关卡中止见 D-043）。士兵普攻 / 清场胜利 **不做**。禁止运行时引用 `SmallScaleInt/`。
+**Defend 刷怪与寻路（方案 A，D-041）：** `ConfigCsvRepository` 追加加载 `Defend_WaveSpawnConfig.csv` / `Defend_MonsterConfig.csv`。开战时 `DefendSessionService` 按 `WaveConfigId` 装载刷怪行；`Combat` 中每当 `RemainingCombatSeconds` 变为某整秒（含开战瞬间）时，触发尚未触发且 `SpawnRemainingSeconds` 相等的行（同秒按 `SpawnOrder` 升序），经事件交给 View Instantiate。Demo 最小出生点：地图 Prefab 上 `DefendSpawnPointSet` 固定点（`ClockDirection`→钟点位；`RegionRandom`→点池随机；Inside/Outside 本片均用固定点，精确 OutsideMap **后置**）。Instantiate 地图后 Runtime 烘焙最小可走 NavMesh（覆盖地图活动区 + 出生点）。怪物 Prefab：Instantiate 前按 `MonsterConfig.ModelId` 加权池（§9.19）**每只怪物独立**随机 1 个子 ModelId → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`（有 Art 则 §15.2 `Visual` 组装；否则临时立方体；Catalog 绑定池内全部子 ID）。`MonsterAgentView`（`NavMeshAgent`）按 `TargetSelect` 选目的地（本片士兵位可作为 PreferWarrior/Nearest 候选；无士兵则回退主角），按 `TargetRetargetIntervalSeconds` 重寻路；进 `AttackRange` 后按 `AttackSpeed` 普攻 → `Shield -= 1`（忽略 AttackPower）。`Shield ≤ 0` → `DefendPhase.Ended` + LevelFailure 钩子（打日志；完整关卡中止见 D-043）。士兵普攻 / 清场胜利 **不做**。禁止运行时引用 `SmallScaleInt/`。
 
 **Defend 士兵近战（方案 A，D-042 近战片 + MP-06）：** `WarriorCombatMath` 按 `ClassConfig.PrimaryStat` + `CombatConvertCoeffs`（缺键回退 **`CombatConstantConfig`**）派生 `NormalAttackPower` / `AttackSpeed`。`DefendSessionService` 开战登记士兵 HP（`MaxHP=ceil(BodyLife+StaticStat(Str)×MaxHpStrengthMult)`，`RemainingHP` clamp）与刷怪登记怪物 HP；规则层确认近战 `HitConfirm`（前摇结束且目标仍存活、在 `AttackRange` 内）→ 怪 `HP -= NormalAttackPower`；怪对兵 `AttackPower` 直接扣 HP（无护甲）。`HP≤0` 无宝石 → `CombatDead`（停手）；有宝石 → 立即 PermanentDeath 标记（物资去向见 D-043）。表现：`WarriorAgentView` 仅在 EngageZone 内选最近存活怪；追击 `GoalKind=AttackSlot`（`AttackSlotService`+`MassMoveScheduler` Move）；无候选时非叛变士兵 `GoalKind=FormationHome`（返回途中继续选敌，发现目标即中断返回）；`AttackMode=Melee` 走近战前摇；`WarriorAnimView` 播移动/攻击/死亡（见 §15.5）。清场条件（刷怪行全触发 + 已刷怪全灭）→ `ClearVictoryConditionDetected` 事件/日志（**不**入账、**不**切胜利 Ended；见 D-043）。禁止运行时引用 `SmallScaleInt/`。
 
@@ -331,7 +331,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Defend Prepare / StartBattle / Shield (Approach A→shared editor, D-040):** After ModeSelect confirms Mode1, `DefendStageModule` instantiates `DefendStageRoot` + `Prefabs/Maps/{BattleMapId}`; Prepare hosts same `FormationEditorRoot` UI on that map (no second map); StartBattle ≥1 → destroy preview then formal deploy; Shield/countdown unchanged. Do not runtime-reference `SmallScaleInt/`.
 
-**Defend spawn + path (Approach A, D-041):** `ConfigCsvRepository` additionally loads `Defend_WaveSpawnConfig.csv` / `Defend_MonsterConfig.csv`. On StartBattle, `DefendSessionService` loads rows for `WaveConfigId`; in `Combat`, whenever `RemainingCombatSeconds` becomes a whole second (including StartBattle instant), fires unfired rows with matching `SpawnRemainingSeconds` (`SpawnOrder` ascending within the same second) via events to View. Demo-min spawn: fixed `DefendSpawnPointSet` on map Prefab (`ClockDirection`→clock markers; `RegionRandom`→pool pick; Inside/Outside both use fixed points this slice; exact OutsideMap **deferred**). After map instantiate, runtime-bake a minimal walkable NavMesh covering activity area + spawn points. Monster Prefabs: `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (§15.2 `Visual` when Art ready; else temp cubes; Catalog-bound). `MonsterAgentView` (`NavMeshAgent`) picks destination by `TargetSelect` (warrior transforms are PreferWarrior/Nearest candidates; fall back to protagonist), repaths on `TargetRetargetIntervalSeconds`; when in `AttackRange`, normal-attacks at `AttackSpeed` → `Shield -= 1` (ignore AttackPower). `Shield ≤ 0` → `DefendPhase.Ended` + LevelFailure hook (log; full Level abort in D-043). Soldier attacks / clear-spawn victory **out of scope**. Do not runtime-reference `SmallScaleInt/`.
+**Defend spawn + path (Approach A, D-041):** `ConfigCsvRepository` additionally loads `Defend_WaveSpawnConfig.csv` / `Defend_MonsterConfig.csv`. On StartBattle, `DefendSessionService` loads rows for `WaveConfigId`; in `Combat`, whenever `RemainingCombatSeconds` becomes a whole second (including StartBattle instant), fires unfired rows with matching `SpawnRemainingSeconds` (`SpawnOrder` ascending within the same second) via events to View. Demo-min spawn: fixed `DefendSpawnPointSet` on map Prefab (`ClockDirection`→clock markers; `RegionRandom`→pool pick; Inside/Outside both use fixed points this slice; exact OutsideMap **deferred**). After map instantiate, runtime-bake a minimal walkable NavMesh covering activity area + spawn points. Monster Prefabs: before Instantiate, **each monster independently** picks one sub-ModelId from `MonsterConfig.ModelId` weighted pool (§9.19) → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab` (§15.2 `Visual` when Art ready; else temp cubes; Catalog binds all pool sub-IDs). `MonsterAgentView` (`NavMeshAgent`) picks destination by `TargetSelect` (warrior transforms are PreferWarrior/Nearest candidates; fall back to protagonist), repaths on `TargetRetargetIntervalSeconds`; when in `AttackRange`, normal-attacks at `AttackSpeed` → `Shield -= 1` (ignore AttackPower). `Shield ≤ 0` → `DefendPhase.Ended` + LevelFailure hook (log; full Level abort in D-043). Soldier attacks / clear-spawn victory **out of scope**. Do not runtime-reference `SmallScaleInt/`.
 
 **Defend warrior melee (Approach A, D-042 melee slice + MP-06):** `WarriorCombatMath` derives `NormalAttackPower` / `AttackSpeed` from `ClassConfig.PrimaryStat` + `CombatConvertCoeffs` (missing keys → **`CombatConstantConfig`**). `DefendSessionService` registers warrior HP at StartBattle (`MaxHP=ceil(BodyLife+StaticStat(Str)×MaxHpStrengthMult)`, RemainingHP clamped) and monster HP on spawn; rules confirm melee `HitConfirm` (windup end + target alive + in `AttackRange`) → monster `HP -= NormalAttackPower`; monster→warrior uses `AttackPower` directly (no armor). `HP≤0` without gems → `CombatDead` (stop acting); with gems → immediate PermanentDeath mark (material fate in D-043). Presentation: `WarriorAgentView` picks nearest living monster inside EngageZone; chase via `GoalKind=AttackSlot` (`AttackSlotService`+`MassMoveScheduler` Move); when none, loyal soldiers use `GoalKind=FormationHome` (keep retargeting; abort return on new target); `AttackMode=Melee` uses windup; `WarriorAnimView` plays move/attack/death (§15.5). Clear condition (all wave rows fired + all spawned monsters dead) → `ClearVictoryConditionDetected` event/log (**no** Exp credit, **no** victory Ended; see D-043). Do not runtime-reference `SmallScaleInt/`.
 
@@ -880,11 +880,11 @@ WarriorInstance {
   VisualStyleId: Id | ""          // Mode2 AllIn1 preset; empty = Prefab default (§3.15 6b)
   VisualPriority: int             // last winning book priority; 0 if none
   VisualIntensity: number         // stack add of VisualIntensityAdd on winning style
-  VisualModelScale: number        // scale channel; default 1; *= VisualIntensityAdd on Style_ScaleModel hit
+  VisualModelScale: number        // hit step × PerHit; optional Style_ScaleModel × IntensityAdd; clamp Max; default 1
 }
 ```
 
-**说明（存档）：** Demo 按槽将上述快照整段序列化进 `PlayerPrefs`（§6）；`NextSerial` 与池同键，保证再进档 Id 不冲突。`SoldierSkills` 经 `WarriorSaveDto.SoldierSkills`（`SoldierSkillEntry[]`，`[Serializable]` + **public 字段**，JsonUtility）与 `WarriorInstance` 往返；缺字段 / null / 空 → 空列表，不丢其它快照字段。`VisualStyleId` / `VisualPriority` / `VisualIntensity` / `VisualModelScale` 同键往返；旧档缺字段 → 空 style / 0 / 0 / **1**（Prefab 默认材质与原尺寸）。`RepairMissingStatSnapshots` 只补 StatBlock/配方相关字段，**不得**清空已有 `SoldierSkills`、`VisualStyle*` 或 `VisualModelScale`。彻底死亡删整实例，技能与特效外观随实例消失（不另迁技能）。Mode1 制造/再造：`ManufactureService.BuildWarriorFromAggregate` 在 `ResolveInstanceClassId` 之后调用 `SoldierSkillGrant.GrantDefaultSkillsAtLevel1`（Lv1；不读魔法书；VisualStyle 空；`VisualModelScale=1`）。Mode2 AutoManufacture：造兵时按双手 `ClassId` 授予 `DefaultSkillIds`；UI-016 Step2 单槽脉冲时 `ApplyEquippedBookAtSlot`（含 `SoldierSkillLevelAdd` / `ForceClass` 命中重授；**Token 命中**才 `TryApplyVisualStyle`：材质竞争或放大连乘）。`RefinalizeInstance` 重选 `AppearanceId`，**不得**清空 `VisualStyle*` / `VisualModelScale`。
+**说明（存档）：** Demo 按槽将上述快照整段序列化进 `PlayerPrefs`（§6）；`NextSerial` 与池同键，保证再进档 Id 不冲突。`SoldierSkills` 经 `WarriorSaveDto.SoldierSkills`（`SoldierSkillEntry[]`，`[Serializable]` + **public 字段**，JsonUtility）与 `WarriorInstance` 往返；缺字段 / null / 空 → 空列表，不丢其它快照字段。`VisualStyleId` / `VisualPriority` / `VisualIntensity` / `VisualModelScale` 同键往返；旧档缺字段 → 空 style / 0 / 0 / **1**（Prefab 默认材质与原尺寸）。`RepairMissingStatSnapshots` 只补 StatBlock/配方相关字段，**不得**清空已有 `SoldierSkills`、`VisualStyle*` 或 `VisualModelScale`。彻底死亡删整实例，技能与特效外观随实例消失（不另迁技能）。Mode1 制造/再造：`ManufactureService.BuildWarriorFromAggregate` 在 `ResolveInstanceClassId` 之后调用 `SoldierSkillGrant.GrantDefaultSkillsAtLevel1`（Lv1；不读魔法书；VisualStyle 空；`VisualModelScale=1`）。Mode2 AutoManufacture：造兵时按双手 `ClassId` 授予 `DefaultSkillIds`；UI-016 Step2 单槽脉冲时 `ApplyEquippedBookAtSlot`（含 `SoldierSkillLevelAdd` / `ForceClass` 命中重授；**Token 命中**才 `WarriorVisualStyleBake.TryApply`：先 ×`WarriorVisualModelScalePerHit`，再材质竞争或 `Style_ScaleModel` 连乘，末尾夹 `WarriorVisualModelScaleMax`）。`RefinalizeInstance` 重选 `AppearanceId`，**不得**清空 `VisualStyle*` / `VisualModelScale`。
 **关联说明：**
 
 - 职业表见 **§9.9b**；躯体材料 / 躯体外观 / 额外装备 / 宝石后缀表见 **§9.12–§9.15**。
@@ -1328,7 +1328,7 @@ WaveSpawnConfig {
 | 字段 (EN) | 中文 | 类型（伪） | 说明 |
 |-----------|------|------------|------|
 | MonsterId | 怪物ID | `string` 或 `int` | 主键；被 `WaveSpawnConfig` 引用 |
-| ModelId | 怪物模型ID | `string` | Prefab 逻辑名（无路径、无扩展名）；运行时解析 → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`；美术源 `Assets/Art/Characters/Monsters/{ModelId}/`（Character Creator 烘焙整角，见 [§15](#15-角色美术管线character-creator-烘焙整角)） |
+| ModelId | 怪物模型ID | `string` | 见 **`ModelId` 编码**；战斗地图 Instantiate 时**每只怪物独立**按权重随机 1 个子 ModelId → Prefab `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`；美术源 `Assets/Art/Characters/Monsters/{ModelId}/`（Character Creator 烘焙整角，见 [§15](#15-角色美术管线character-creator-烘焙整角)） |
 | DisplayName | 怪物名称 | `string` | 展示名或本地化 Key（若启用 i18n） |
 | TargetSelect | 目标选择 | `enum` / `string` | `Nearest` \| `PreferWarrior` \| `PreferProtagonist`（与 `SoulConfig.AttackPriority` 同枚举） |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged` |
@@ -1338,7 +1338,7 @@ WaveSpawnConfig {
 | BodyRadius | 占地半径 | `float` | ≥ 0；XZ 占地圆半径（世界单位）；PushMap 刷出散开与移动怪 `NavMeshAgent.radius` 共用；**加载缺省：** 列缺失或空 → `0.35`；若解析值 < 0 → 加载失败 |
 | PushCoefficient | 推开系数 | `float` | ≥ 0；SoftCollision 排斥冲量缩放（邻域贡献 × 对方系数）；**不**改变占地圆；**加载缺省：** 列缺失或空 → **1**；< 0 → 加载失败 |
 | RepulsionScale | 排斥强度系数 | `float` | ≥ 0；SoftCollision 单体排斥（有效 = 全局 × 本系数）；Register 注入；**加载缺省：** 列缺失或空 → **1**；< 0 → 加载失败 |
-| FacingYawFlip | 朝向整圈翻转 | `int` | `0`=不转 \| `1`=`(DirIndex+4)%8`（写入 Animator 前，见 [§15.5](#155-动画映射demo-锁定)）；表现层；**加载缺省：** 列缺失或空 → `0`；非法值 → 加载失败；同 `ModelId` 多行须一致（不一致打警告） |
+| FacingYawFlip | 朝向整圈翻转 | `int` | `0`=不转 \| `1`=`(DirIndex+4)%8`（写入 Animator 前，见 [§15.5](#155-动画映射demo-锁定)）；表现层；**加载缺省：** 列缺失或空 → `0`；非法值 → 加载失败；同**子** ModelId（池内单个 ID）跨行须一致（不一致打警告） |
 | MaxHP | 怪物血量 | `int` 或 `float` | 生成时初始化怪物 maxHP / 当前 HP |
 | MoveSpeed | 怪物走速度 | `float` | ≥ 0；世界单位/秒；走态移速权威来源 |
 | RunSpeed | 怪物跑速度 | `float` | ≥ 0；跑态移速；**加载缺省：** 列缺失或空或 ≤0 → 运行时回退 `MoveSpeed` |
@@ -1357,6 +1357,14 @@ WaveSpawnConfig {
 | RunAnims | 跑 | `string` | 表现层；跑 BlendTree 状态名池（如 `RunBT`）；与走同生命周期重抽；空 → `RunBT`；跑态移动时播 |
 | LootDrop | 怪物掉落 | 见编码 | 击杀产出；编码为 `Id;Count\|Id;Count\|...`（**不是** [§9.3](#93-坟墓品质定义表-gravequalityconfig) 的 `DropMode` / `Id;Weight;Count`） |
 
+**`ModelId` 编码（固定）：** `ModelId;Weight|ModelId;Weight|...`
+
+- 段分隔符：`|`
+- 段内：`模型ID;权重值`（`;` 分隔）；权重 `> 0` 才参与抽取
+- **向后兼容：** 无有效加权段时，整段 trim 后视为单一 ModelId、权重 `1`
+- 有效池为空 → **加载失败**
+- 运行时：Defend / PushMap 刷怪 **每只怪物独立** roll 1 个子 ModelId（同批 `SpawnCount>1` 可出不同模型）
+
 **`Skills` 编码（固定）：** `SkillId;CdSeconds|SkillId;CdSeconds|...`
 
 - 段分隔符：`|`
@@ -1370,7 +1378,7 @@ WaveSpawnConfig {
 ```
 MonsterConfig {
   MonsterId: Id
-  ModelId: string                  // Prefab logical name → Assets/Prefabs/Defend/Monsters/{Id}.prefab; art §15
+  ModelId: string                  // weighted pool → pick one sub-Id per spawn → Prefabs/Defend/Monsters/{Id}.prefab; art §15
   DisplayName: string
   TargetSelect: Nearest | PreferWarrior | PreferProtagonist
   AttackMode: Melee | Ranged
@@ -1499,7 +1507,16 @@ LossOfControlConfig {
 | `DeathKnockbackRatioCoeff` | 死亡击飞比例系数 | `0.5` | 击飞距离 raw=`(OutgoingDamage/MaxHp)×本值`（§15.5） |
 | `DeathKnockbackMinDistance` | 死亡击飞最小距离 | `0.2` | 击飞距离下限（世界单位） |
 | `DeathKnockbackMaxDistance` | 死亡击飞最大距离 | `5` | 击飞距离上限；`OutgoingDamage≤0` 或 `MaxHp≤0` 时用本值 |
-| `DeathDie2KnockbackThreshold` | 死亡 Die2 击退阈值 | `1` | 默认 Die2；击飞 `distance ≥ 本值` → Die；否则 Die2（无 Die2 → Die）（§15.5） |
+| `DeathDie2KnockbackThreshold` | 死亡 Die2 击退阈值 | `1` | 默认 Die2；击飞 `distance ≥ 本值` → Die；**尸体砸击门闩**同键（§15.5 / D-083） |
+| `DeathKnockbackPeakHeight` | 死亡击飞抛物线峰值高度 | `1.2` | 尸体投射 Y 弧峰值（世界单位；§15.5） |
+| `DeathCorpseSmashDamageMul` | 尸体砸击伤害系数 | `1` | `CorpseSmashDamage = killerOutgoingDamage × 本值`（§15.5 / D-083） |
+| `DeathCorpseSmashHitRadius` | 尸体砸击命中半径 | `0.55` | 飞行/落地软碰撞半径；缺省对齐 `ProjectileDefaultHitRadius` |
+| `DeathKnockbackSeconds` | 死亡击飞时长 | `0.3` | 尸体投射抛物线时长（秒；与 `t∈[0,1]` 对齐） |
+| `DeathDefendCorpseAlphaMul` | Defend 尸体透明度系数 | `0.85` | Defend 怪/士兵尸体 sprite alpha × 本值 |
+| `DeathCorpseDarkenMul` | 尸体变暗系数 | `0.4` | 彻底死亡 / PushMap 士兵尸体 RGB × 本值 |
+| `DeathFakeDeathCorpseDarkenMul` | 假死尸体变暗系数 | `0.7` | PushMap 假死尸体 RGB × 本值 |
+| `WarriorVisualModelScalePerHit` | 士兵命中体型步进 | `1.15` | Mode2 魔法书 Token **命中**时 `VisualModelScale *=` 本值（可叠；§3.15 6b / D-082） |
+| `WarriorVisualModelScaleMax` | 士兵模型缩放上限 | `3` | `VisualModelScale` 每次 apply 末尾夹紧上限 |
 
 **P2 寻路/性能必填键：**
 
@@ -2095,9 +2112,9 @@ PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitPro
 | Description | 魔法书介绍 | `string` | 展示文案 |
 | VisualStyleId | 特效外观ID | `string` 或空 | **不是 Token**。空=该书无特效外观。非空 → Catalog `WarriorVisualStyleCatalog` 的 StyleId。`Style_ScaleModel`（别名 `放大模型`）走 **放大通道**（不必有 `.mat`）；其它 Id 走 AllIn1 **材质通道**（`Assets/Materials/AllIn1/` 预设材质）。仅当该书 `EffectPayload` **命中**才烘进实例（skip/miss/无效不写）。**改 Excel 后 Bake Mode2 Tables**；勿只改 CSV。`ClassId` 含逗号时该格须加引号（Bake 会转义）。新增 Style 的材质/Catalog 步骤见 [§15.2](#152-项目落盘目录) |
 | VisualPriority | 特效优先级 | `int` | 缺/空=0。仅材质通道：高于当前则覆盖 style 并重置 Intensity；同 StyleId 则累加 Intensity；更低则忽略。放大通道 **忽略**本列。Demo 材质：技能 10、强化 20、进阶 30 |
-| VisualIntensityAdd | 特效强度加算 | `float` | 缺/空=**1**。材质通道：覆盖时写入；同 style 累加；表现层 MPB 乘到该预设登记的 float 属性。放大通道：即模型缩放系数 k；命中后 `VisualModelScale *= k`（`k≤0` 视为 1） |
+| VisualIntensityAdd | 特效强度加算 | `float` | 缺/空=**1**。材质通道：覆盖时写入；同 style 累加；表现层 MPB 乘到该预设登记的 float 属性。放大通道：在命中步进之后再 `VisualModelScale *=` 本值（`≤0` 视为 1），然后夹 Max |
 
-**`EffectPhase` 编码（固定）：** `Phase` 或 `Phase|Phase|…`。本轮枚举至少：`SoldierManufacture` \| `Combat`（Combat 本轮不实现）。
+**`EffectPhase` 编码（固定）：** `Phase` 或 `Phase|Phase|…`。本轮枚举至少：`SoldierManufacture` \| `Combat`（Combat 已实现：`StatMul` 首 Token）。
 
 **`EffectPayload` 编码（固定）：**
 
@@ -2127,6 +2144,7 @@ PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitPro
 | `ForceRace` | `SoldierManufacture` | **必填** `RaceId`（`RaceConfig` 主键） | 强制定稿为该种族；**定稿前探测**；优先于 `RaceWeightPick`；多本按槽左→右后者覆盖；`RaceId` 缺/非法 → 该书无效并忽略 |
 | `ForceClass` | `SoldierManufacture` | **必填** `ClassId`（目标，`ClassConfig` 主键）；**可选** `RequireClassId`、`Chance` | 钩子按槽左→右。改写职业：`ClassId` + 重载 `ClassName` / `AttackMode`（`DefaultAppearanceId` / `PlacementOrder` 随新 ClassId 读取）。`RequireClassId`：有则仅当前 `draft.ClassId` 精确匹配才尝试（须在 `ClassConfig`；非法→该书无效）；不匹配→跳过（不当无效）。`Chance`：\[0,1\]；缺省=1；`Random.value < Chance` 才改写；非法/越界→该书无效。缺必填 `ClassId` / 目标非法 → 该书无效，保留当前职业 |
 | `StatMul` | `SoldierManufacture` | **必填** `Stat`、`Mul`；**可选** `ClassId` | 钩子按槽左→右。`Mul`≥0；缺/非法 → 该书无效。`Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`。可选 `ClassId`：逗号分隔多个主键（OR）；有则仅 `draft.ClassId` **命中任一**才 apply（每个 Id 须在 `ClassConfig`；任一非法→该书无效）；缺省=全兵。五维或 `All`：`Base(S)*=Mul`（All=五维都乘）。`Stat=Primary`：`S`=当前 `ClassConfig.PrimaryStat`；`BodySum(S)=Σ` 已消耗躯体 `StatBonus(S)`（不含种族/宝石/装备，不用已被前书改过的 Base）；`Base(S)+=(Mul−1)×BodySum(S)`；可叠=各书对同一 BodySum 再加一次。写入 Base 后走 StaticStat；持续至 PermanentDeath |
+| `StatMul` | `Combat` | **必填** `Stat`、`Mul` | Defend / PushMap **开战登记每个上阵士兵**时：读取主角 `SpecialEquipSlots` 6 槽（左→右），对 `EffectPhase` 含 `Combat` 且 `EffectPayload=StatMul` 的书聚合。`Mul`≥0；缺/非法 → 该书无效。本片 `Stat`∈`MaxHP`/`Strength`/`Agility`/`Intelligence`（不含 `Primary`/`All`/`MoveSpeed`）。同维连乘；**不改** `WarriorInstance.BaseStats`（与制造 `StatMul` 区分）。`MaxHP`：对 `BodyLife`（`Base(MaxHP)+Equip(MaxHP)`）乘 `Mul` 后再 `ceil(BodyLife+Str×MaxHpStrengthMult)`；`Strength`/`Agility`/`Intelligence`：对开战时 `StaticStat` 该维乘 `Mul` 后再派生普攻/攻速/技能 CD。不触发 VisualStyle / 体型步进；战斗结束不持久化 |
 | `StatAdd` | `SoldierManufacture` | **必填** `Stat`、`Add` | 钩子：`Base(S) += Add`。`Stat`∈五维/`All`（**不含** `Primary`）。`Add` 须可解析为数（可负；随后 StaticStat 仍 `max(0,·)`）；缺/非法 → 该书无效 |
 | `QualityDelta` | `SoldierManufacture` | **必填** `Delta`（整数，可负） | 外观定稿：`AvgLevelInt = round(mean BodyLevel) + ΣDelta`；不重选料、不改 Base；多本 Delta 相加；`Delta` 缺/非整数 → 该书无效（贡献 0） |
 | `SoldierSkillLevelAdd` | `SoldierManufacture` | **必填** `SkillId`、`Delta`（整数，可负） | **二次扫描**（在 `ForceClass` 等第一次钩子与 `DefaultSkillIds` 授予 **之后**）：仅当实例 **已有** 该 `SkillId` 时 `SkillLevel += Delta`；钳制到 `SkillConfig` 中该 Id 存在的最小/最大 `SkillLevel`；无该技能则跳过（不新授）。多本按槽左→右。缺/非法 Key → 该书无效。Mode1 制造不跑本 Token |
@@ -2136,6 +2154,7 @@ PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitPro
 - `MagicBook_WarriorEnhance` | `ClassId=Class_BaseWarrior,Class_Warrior` | `VisualStyleId=Style_WarriorGlow` | `VisualPriority=20` | `VisualIntensityAdd=1` | DisplayName=`战士强化`
 - `MagicBook_SoldierSkillLevel` | … | `VisualStyleId=Style_SkillAberration` | `VisualPriority=10` | `VisualIntensityAdd=1` | DisplayName=`士兵技能升级`
 - `MagicBook_WarriorAdvance` / `ArcherAdvance` / `MageAdvance` / `RogueAdvance` | … | `VisualStyleId=Style_AdvanceOutline` | `VisualPriority=30` | `VisualIntensityAdd=1`（仅 `ForceClass` **hit**）
+- `MagicBook_CombatMaxHpLow` / `CombatMaxHpHigh` / `CombatStrengthLow` / `CombatStrengthHigh` / `CombatAgilityLow` / `CombatAgilityHigh` / `CombatIntelligenceLow` / `CombatIntelligenceHigh` | `EffectPhase=Combat` `EffectPayload=StatMul` `IsUnique=1` `IsProbabilistic=0` | 低阶 `Mul=1.15` / 高阶 `Mul=1.30`；`VisualStyleId` 空
 
 ```
 MagicBookConfig {
@@ -2160,6 +2179,7 @@ MagicBookConfig {
 - 装配闸门（规则）：槽未满；若目标书 `IsUnique=1` 且已装备同 Id → 拒绝；**Demo**：表行缺失时仍允许写入以便空表手验持久化（打 Warning；按可叠处理）
 - AutoManufacture：**造兵时不套书**（默认定种族 + 授予双手职业 `DefaultSkillIds`）。UI-016 Step2 每槽脉冲峰值：`ApplyEquippedBookAtSlot(warrior, slotIndex)` 仅执行该槽 Token（`RaceWeightPick` / `StatMul` / `ForceClass` / `SoldierSkillLevelAdd`；`ForceClass` 命中 Clear 后重授技能；其它未实现空 apply + 日志）；每槽后 `RefinalizeInstance`；全部完成后按最终 ClassId 上阵。演出失败/`Exit`：`ApplyRemainingSlots`。取消「定稿前探测还原」与「技能二次扫描」
 - **实现：** `SpecialEquipSlotsService`（`TryEquip` + `TrySwap` + `TryUnequip` + `Changed`）+ `SoldierManufactureMagicBookHook.ApplyEquippedBookAtSlot` / `ApplyRemainingSlots`；`AutoManufacturePresentationController` 脉冲峰值回调并订阅 `Changed` 刷新共享 `BookRow.prefab`；`MagicBookSlotsPanelView` 弹窗删除（D-072）；`AutoManufactureStageModule` Deploy 延后；MetaShell 进档绑定；手验 Tools「增加魔法书」+ UI-023 拖拽/删除
+- **Combat StatMul：** `CombatMagicBookStatMul.Aggregate`（读 6 槽）→ `DefendSessionService` / `PushMapSessionService.TryRegisterWarrior` 开战登记时乘到 BodyLife / StaticStat 三维后再派生 HP/Atk/ASPD/CD；`DefendStageModule` 注入 `SpecialEquipSlotsService`
 
 #### 9.25 主角装备配置表 `ProtagonistEquipmentConfig`
 
@@ -2676,11 +2696,11 @@ WarriorInstance {
   VisualStyleId: Id | ""          // Mode2 AllIn1 preset; empty = Prefab default
   VisualPriority: int
   VisualIntensity: number
-  VisualModelScale: number        // scale channel; default 1
+  VisualModelScale: number        // hit step × PerHit; optional Style_ScaleModel × IntensityAdd; clamp Max; default 1
 }
 ```
 
-**Save note:** Demo serializes the full snapshot per slot into `PlayerPrefs` (§6); `NextSerial` shares the pool key so re-enter does not collide Ids. `SoldierSkills` round-trips via `WarriorSaveDto.SoldierSkills` (`SoldierSkillEntry[]`, `[Serializable]` + **public fields**, JsonUtility); missing field / null / empty → empty list without dropping other snapshot fields. `VisualStyleId` / `VisualPriority` / `VisualIntensity` / `VisualModelScale` round-trip on the same DTO; missing on old saves → empty style / 0 / 0 / **1** (Prefab default mat and size). `RepairMissingStatSnapshots` only rebuilds StatBlock/recipe fields and **must not** clear existing `SoldierSkills`, `VisualStyle*`, or `VisualModelScale`. PermanentDeath deletes the whole instance (skills and visual style drop with it; no separate skill migrate). Mode1 manufacture/remake: `ManufactureService.BuildWarriorFromAggregate` calls `SoldierSkillGrant.GrantDefaultSkillsAtLevel1` after `ResolveInstanceClassId` (Lv1; no MagicBook; VisualStyle empty; `VisualModelScale=1`). Mode2 AutoManufacture: grant `DefaultSkillIds` from hand ClassId at craft; UI-016 Step2 per-slot pulse `ApplyEquippedBookAtSlot` (incl. `SoldierSkillLevelAdd` / `ForceClass` hit re-grant; `TryApplyVisualStyle` **only on token hit**: material compete or scale multiply). `RefinalizeInstance` may re-pick `AppearanceId` and **must not** clear `VisualStyle*` / `VisualModelScale`.
+**Save note:** Demo serializes the full snapshot per slot into `PlayerPrefs` (§6); `NextSerial` shares the pool key so re-enter does not collide Ids. `SoldierSkills` round-trips via `WarriorSaveDto.SoldierSkills` (`SoldierSkillEntry[]`, `[Serializable]` + **public fields**, JsonUtility); missing field / null / empty → empty list without dropping other snapshot fields. `VisualStyleId` / `VisualPriority` / `VisualIntensity` / `VisualModelScale` round-trip on the same DTO; missing on old saves → empty style / 0 / 0 / **1** (Prefab default mat and size). `RepairMissingStatSnapshots` only rebuilds StatBlock/recipe fields and **must not** clear existing `SoldierSkills`, `VisualStyle*`, or `VisualModelScale`. PermanentDeath deletes the whole instance (skills and visual style drop with it; no separate skill migrate). Mode1 manufacture/remake: `ManufactureService.BuildWarriorFromAggregate` calls `SoldierSkillGrant.GrantDefaultSkillsAtLevel1` after `ResolveInstanceClassId` (Lv1; no MagicBook; VisualStyle empty; `VisualModelScale=1`). Mode2 AutoManufacture: grant `DefaultSkillIds` from hand ClassId at craft; UI-016 Step2 per-slot pulse `ApplyEquippedBookAtSlot` (incl. `SoldierSkillLevelAdd` / `ForceClass` hit re-grant; `WarriorVisualStyleBake.TryApply` **only on token hit**: first ×`WarriorVisualModelScalePerHit`, then material compete or `Style_ScaleModel` multiply, then clamp `WarriorVisualModelScaleMax`). `RefinalizeInstance` may re-pick `AppearanceId` and **must not** clear `VisualStyle*` / `VisualModelScale`.
 **Related:**
 
 - Class schema: **§9.9b**; BodyPart / BodyAppearance / ExtraEquipment / GemSuffix schemas: **§9.12–§9.15**.
@@ -3106,7 +3126,7 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 | Field (EN) | ZH | Type (pseudo) | Notes |
 |------------|-----|---------------|-------|
 | MonsterId | 怪物ID | `string` or `int` | PK; referenced by `WaveSpawnConfig` |
-| ModelId | 怪物模型ID | `string` | Prefab logical name (no path/ext); resolve → `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`; art source `Assets/Art/Characters/Monsters/{ModelId}/` (Character Creator baked whole characters; see [§15](#15-角色美术管线character-creator-烘焙整角)) |
+| ModelId | 怪物模型ID | `string` | See **`ModelId` encoding**; on battle-map spawn **each monster independently** picks one sub-ModelId by weight → Prefab `Assets/Prefabs/Defend/Monsters/{ModelId}.prefab`; art source `Assets/Art/Characters/Monsters/{ModelId}/` (Character Creator baked whole characters; see [§15](#15-角色美术管线character-creator-烘焙整角)) |
 | DisplayName | 怪物名称 | `string` | Display name or localization key (if i18n enabled) |
 | TargetSelect | 目标选择 | `enum` / `string` | `Nearest` \| `PreferWarrior` \| `PreferProtagonist` (same enum as `SoulConfig.AttackPriority`) |
 | AttackMode | 攻击模式 | `enum` / `string` | `Melee` \| `Ranged` |
@@ -3116,7 +3136,7 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 | BodyRadius | 占地半径 | `float` | ≥ 0; XZ footprint radius (world units); shared by PushMap spawn spread and moving-monster `NavMeshAgent.radius`; **load default:** missing/empty → `0.35`; value < 0 → load fail |
 | PushCoefficient | 推开系数 | `float` | ≥ 0; SoftCollision shove scale (neighbor contrib × other's coeff); does **not** change footprint; **load default:** missing/empty → **1**; < 0 → load fail |
 | RepulsionScale | 排斥强度系数 | `float` | ≥ 0; SoftCollision per-body repulsion (effective = global × this); injected at Register; **load default:** missing/empty → **1**; < 0 → load fail |
-| FacingYawFlip | 朝向整圈翻转 | `int` | `0`=off \| `1`=`(DirIndex+4)%8` before Animator write (see [§15.5](#155-动画映射demo-锁定)); presentation; **load default:** missing/empty → `0`; illegal → load fail; same `ModelId` rows must agree (mismatch warns) |
+| FacingYawFlip | 朝向整圈翻转 | `int` | `0`=off \| `1`=`(DirIndex+4)%8` before Animator write (see [§15.5](#155-动画映射demo-锁定)); presentation; **load default:** missing/empty → `0`; illegal → load fail; same **sub** ModelId (single ID in pool) across rows must agree (mismatch warns) |
 | MaxHP | 怪物血量 | `int` or `float` | Init monster maxHP / current HP on spawn |
 | MoveSpeed | 怪物走速度 | `float` | ≥ 0; world units/sec; authoritative walk speed |
 | RunSpeed | 怪物跑速度 | `float` | ≥ 0; run speed; **load default:** missing/empty/≤0 → runtime fallback `MoveSpeed` |
@@ -3135,6 +3155,14 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 | RunAnims | 跑 | `string` | Presentation; run BlendTree state pool (e.g. `RunBT`); same resample lifecycle; empty → `RunBT`; played during run gait |
 | LootDrop | 怪物掉落 | see encoding | On kill; encoding `Id;Count\|Id;Count\|...` (**not** [§9.3](#93-gravequalityconfig) `DropMode` / `Id;Weight;Count`) |
 
+**`ModelId` encoding (fixed):** `ModelId;Weight|ModelId;Weight|...`
+
+- Segment separator: `|`
+- Segment: `ModelId;Weight` (`;` separator); only weights `> 0` participate
+- **Backward compatible:** when no valid weighted segments, whole trimmed string = single ModelId with weight `1`
+- Empty effective pool → **load fail**
+- Runtime: Defend / PushMap spawn **each monster independently** rolls one sub-ModelId (`SpawnCount>1` may yield different models)
+
 **`Skills` encoding (fixed):** `SkillId;CdSeconds|SkillId;CdSeconds|...`
 
 - Segment separator: `|`
@@ -3148,7 +3176,7 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 ```
 MonsterConfig {
   MonsterId: Id
-  ModelId: string                  // Prefab logical name → Assets/Prefabs/Defend/Monsters/{Id}.prefab; art §15
+  ModelId: string                  // weighted pool → pick one sub-Id per spawn → Prefabs/Defend/Monsters/{Id}.prefab; art §15
   DisplayName: string
   TargetSelect: Nearest | PreferWarrior | PreferProtagonist
   AttackMode: Melee | Ranged
@@ -3277,7 +3305,16 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `DeathKnockbackRatioCoeff` | 死亡击飞比例系数 | `0.5` | Knockback raw=`(OutgoingDamage/MaxHp)×this` (§15.5) |
 | `DeathKnockbackMinDistance` | 死亡击飞最小距离 | `0.2` | Knockback distance floor (world units) |
 | `DeathKnockbackMaxDistance` | 死亡击飞最大距离 | `5` | Knockback distance ceiling; used when `OutgoingDamage≤0` or `MaxHp≤0` |
-| `DeathDie2KnockbackThreshold` | 死亡 Die2 击退阈值 | `1` | Default Die2; knockback `distance ≥ this` → Die; else Die2 (no Die2 → Die) (§15.5) |
+| `DeathDie2KnockbackThreshold` | 死亡 Die2 击退阈值 | `1` | Default Die2; knockback `distance ≥ this` → Die; **corpse smash gate** same key (§15.5 / D-083) |
+| `DeathKnockbackPeakHeight` | 死亡击飞抛物线峰值高度 | `1.2` | Corpse projectile Y arc peak (world units; §15.5) |
+| `DeathCorpseSmashDamageMul` | 尸体砸击伤害系数 | `1` | `CorpseSmashDamage = killerOutgoingDamage × this` (§15.5 / D-083) |
+| `DeathCorpseSmashHitRadius` | 尸体砸击命中半径 | `0.55` | In-flight / landing soft-hit radius; default aligns `ProjectileDefaultHitRadius` |
+| `DeathKnockbackSeconds` | 死亡击飞时长 | `0.3` | Corpse projectile parabolic duration (seconds; aligns with `t∈[0,1]`) |
+| `DeathDefendCorpseAlphaMul` | Defend 尸体透明度系数 | `0.85` | Defend monster/soldier corpse sprite alpha × this |
+| `DeathCorpseDarkenMul` | 尸体变暗系数 | `0.4` | Permanent-death / PushMap soldier corpse RGB × this |
+| `DeathFakeDeathCorpseDarkenMul` | 假死尸体变暗系数 | `0.7` | PushMap fake-death corpse RGB × this |
+| `WarriorVisualModelScalePerHit` | 士兵命中体型步进 | `1.15` | Mode2 MagicBook token **hit**: `VisualModelScale *=` this (stackable; §3.15 6b / D-082) |
+| `WarriorVisualModelScaleMax` | 士兵模型缩放上限 | `3` | Clamp `VisualModelScale` at end of each apply |
 
 **Required P2 pathing/perf keys:**
 
@@ -3700,9 +3737,9 @@ Rules: [SPEC_03 §3.15](SPEC_03_GameRules.md) MagicBook / SpecialEquipSlot / Eff
 | Description | 魔法书介绍 | `string` | Display copy |
 | VisualStyleId | 特效外观ID | `string` or empty | **Not a token.** Empty = no visual. Non-empty → `WarriorVisualStyleCatalog` StyleId. `Style_ScaleModel` (alias `放大模型`) is the **scale channel** (no `.mat` required); other Ids are AllIn1 **material** (mats under `Assets/Materials/AllIn1/`). Baked only on `EffectPayload` **hit**. **Edit Excel then Bake Mode2 Tables**; do not edit CSV only. Quote the cell if `ClassId` contains commas (Bake escapes). New Style mats/Catalog: [§15.2](#152-项目落盘目录) |
 | VisualPriority | 特效优先级 | `int` | Missing/empty = 0. Material channel only: higher replaces style and resets Intensity; same StyleId adds Intensity; lower ignored. Scale channel **ignores** this column. Demo material: skill 10, enhance 20, advance 30 |
-| VisualIntensityAdd | 特效强度加算 | `float` | Missing/empty = **1**. Material: written on replace; added on same style; View MPB-multiplies registered float props. Scale: the model factor k; on hit `VisualModelScale *= k` (`k≤0` treated as 1) |
+| VisualIntensityAdd | 特效强度加算 | `float` | Missing/empty = **1**. Material: written on replace; added on same style; View MPB-multiplies registered float props. Scale: after hit step, `VisualModelScale *=` this (`≤0` treated as 1), then clamp Max |
 
-**`EffectPhase` encoding (fixed):** `Phase` or `Phase|Phase|…`. Enums at least: `SoldierManufacture` \| `Combat` (Combat not implemented this round).
+**`EffectPhase` encoding (fixed):** `Phase` or `Phase|Phase|…`. Enums at least: `SoldierManufacture` \| `Combat` (Combat implemented: `StatMul` first token).
 
 **`EffectPayload` encoding (fixed):**
 
@@ -3732,6 +3769,7 @@ Rules: [SPEC_03 §3.15](SPEC_03_GameRules.md) MagicBook / SpecialEquipSlot / Eff
 | `ForceRace` | `SoldierManufacture` | **required** `RaceId` (`RaceConfig` PK) | Force finalized race; **probe before finalize**; beats `RaceWeightPick`; multiple left→right last wins; missing/illegal `RaceId` → book invalid, skip |
 | `ForceClass` | `SoldierManufacture` | **required** `ClassId` (target, `ClassConfig` PK); **optional** `RequireClassId`, `Chance` | Hook left→right. Rewrites class: `ClassId` + reload `ClassName` / `AttackMode` (`DefaultAppearanceId` / `PlacementOrder` follow new ClassId). `RequireClassId`: if set, attempt only when current `draft.ClassId` exact-matches (must exist in `ClassConfig`; illegal → book invalid); mismatch → skip (not invalid). `Chance`: [0,1]; default 1; rewrite only if `Random.value < Chance`; illegal/out of range → book invalid. Missing/illegal target `ClassId` → book invalid, keep current class |
 | `StatMul` | `SoldierManufacture` | **required** `Stat`, `Mul`; **optional** `ClassId` | Hook left→right. `Mul`≥0; missing/illegal → book invalid. `Stat`∈`MaxHP`/`MoveSpeed`/`Strength`/`Agility`/`Intelligence`/`All`/`Primary`. Optional `ClassId`: comma-separated PKs (OR); if set, apply only when `draft.ClassId` **matches any** (each Id must exist in `ClassConfig`; any illegal → book invalid); omit = all soldiers. Five-dim or `All`: `Base(S)*=Mul`. `Stat=Primary`: `S`=current `ClassConfig.PrimaryStat`; `BodySum(S)=Σ` consumed BodyPart `StatBonus(S)` (no race/gem/equip; not already-mutated Base); `Base(S)+=(Mul−1)×BodySum(S)`; stackable = each book adds once against the same BodySum. Baked into Base then StaticStat; lasts until PermanentDeath |
+| `StatMul` | `Combat` | **required** `Stat`, `Mul` | On Defend / PushMap **StartBattle warrior registration**: read protagonist `SpecialEquipSlots` 6 slots (left→right); aggregate books with `EffectPhase` containing `Combat` and `EffectPayload=StatMul`. `Mul`≥0; missing/illegal → book invalid. This slice `Stat`∈`MaxHP`/`Strength`/`Agility`/`Intelligence` (not `Primary`/`All`/`MoveSpeed`). Same-dim multiplies; **does not** mutate `WarriorInstance.BaseStats`. `MaxHP`: multiply `BodyLife` (`Base(MaxHP)+Equip(MaxHP)`) by `Mul` then `ceil(BodyLife+Str×MaxHpStrengthMult)`; `Strength`/`Agility`/`Intelligence`: multiply that `StaticStat` dim by `Mul` before attack/ASPD/skill-CD derives. No VisualStyle / scale step; not persisted after combat |
 | `StatAdd` | `SoldierManufacture` | **required** `Stat`, `Add` | Hook: `Base(S) += Add`. `Stat`∈ five dims/`All` (**not** `Primary`). `Add` must parse as a number (may be negative; StaticStat still `max(0,·)`); missing/illegal → book invalid |
 | `QualityDelta` | `SoldierManufacture` | **required** `Delta` (int, may be negative) | Appearance: `AvgLevelInt = round(mean BodyLevel) + ΣDelta`; no re-pick, no Base change; Deltas sum; missing/non-int `Delta` → book invalid (contributes 0) |
 | `SoldierSkillLevelAdd` | `SoldierManufacture` | **required** `SkillId`, `Delta` (int, may be negative) | **Second pass** (after first hook incl. `ForceClass` and `DefaultSkillIds` grant): if the instance **already has** that `SkillId`, `SkillLevel += Delta`; clamp to min/max `SkillLevel` rows in `SkillConfig` for that Id; if missing, skip (no new grant). Multiple books left→right. Missing/illegal keys → book invalid. Mode1 manufacture does not run this token |
@@ -3741,6 +3779,7 @@ Rules: [SPEC_03 §3.15](SPEC_03_GameRules.md) MagicBook / SpecialEquipSlot / Eff
 - `MagicBook_WarriorEnhance` | `ClassId=Class_BaseWarrior,Class_Warrior` | `VisualStyleId=Style_WarriorGlow` | `VisualPriority=20` | `VisualIntensityAdd=1` | DisplayName=`战士强化`
 - `MagicBook_SoldierSkillLevel` | … | `VisualStyleId=Style_SkillAberration` | `VisualPriority=10` | `VisualIntensityAdd=1` | DisplayName=`士兵技能升级`
 - `MagicBook_WarriorAdvance` / `ArcherAdvance` / `MageAdvance` / `RogueAdvance` | … | `VisualStyleId=Style_AdvanceOutline` | `VisualPriority=30` | `VisualIntensityAdd=1` (`ForceClass` **hit** only)
+- `MagicBook_CombatMaxHpLow` / `CombatMaxHpHigh` / `CombatStrengthLow` / `CombatStrengthHigh` / `CombatAgilityLow` / `CombatAgilityHigh` / `CombatIntelligenceLow` / `CombatIntelligenceHigh` | `EffectPhase=Combat` `EffectPayload=StatMul` `IsUnique=1` `IsProbabilistic=0` | low `Mul=1.15` / high `Mul=1.30`; empty `VisualStyleId`
 
 ```
 MagicBookConfig {
@@ -3765,6 +3804,7 @@ MagicBookConfig {
 - Equip gate: free slot; reject if book `IsUnique=1` and same Id already equipped; **Demo**: missing config row still allows write for empty-table persistence handcheck (Warning; treat as stackable)
 - AutoManufacture: **no MagicBook at craft** (default race + hand-class `DefaultSkillIds`). UI-016 Step2 pulse peak: `ApplyEquippedBookAtSlot(warrior, slotIndex)` for that slot only (`RaceWeightPick` / `StatMul` / `ForceClass` / `SoldierSkillLevelAdd`; `ForceClass` hit Clear+re-grant skills; unimplemented empty apply + log); then `RefinalizeInstance`; deploy by final ClassId after all soldiers. Fail/`Exit`: `ApplyRemainingSlots`. Dropped pre-finalize Restore probe and skill second pass
 - **Impl:** `SpecialEquipSlotsService` (`TryEquip` + `TrySwap` + `TryUnequip` + `Changed`) + `SoldierManufactureMagicBookHook.ApplyEquippedBookAtSlot` / `ApplyRemainingSlots`; `AutoManufacturePresentationController` pulse-peak callback and `Changed` refresh of shared `BookRow.prefab`; `MagicBookSlotsPanelView` popup delete (D-072); `AutoManufactureStageModule` deferred Deploy; MetaShell bind; hand-check Tools Grant MagicBook + UI-023 drag/delete
+- **Combat StatMul:** `CombatMagicBookStatMul.Aggregate` (6 slots) → `DefendSessionService` / `PushMapSessionService.TryRegisterWarrior` multiplies BodyLife / StaticStat dims before HP/Atk/ASPD/CD derives at StartBattle registration; `DefendStageModule` injects `SpecialEquipSlotsService`
 
 #### 9.25 ProtagonistEquipmentConfig
 
@@ -4401,7 +4441,9 @@ Demo 优先级：士兵技能 10、战士强化 20、职业进阶 30（进阶与
 | 无 Sprite 仍建 Controller | 空状态机误当成功 | `AnimatorClipBuilder`：零 Clip 时 **LogError 并中止**，不写空 `.controller` |
 | 切片用 NPOT 膨胀后的 `tex.width`（常见 2048） | 源 PNG 为 1920×1024（15×8→格宽 **128**），却按 `2048/15≈136.53` 切；换帧时角色相对中心持续左漂，循环后跳回 | 切片前设 `npotScale=None`；用 `TextureImporter.GetSourceTextureWidthAndHeight`（或重导后再读）算格宽；`CharacterCreatorExportRepair`：已有 120 格但 `rect.width` 与 `sourceWidth/columns` 差 >0.5 时 **强制重建 rect** |
 
-**修复已坏导出：** Editor 菜单 `Tools/Gravedigger/Art/Repair Character Creator Export`（对选中或指定角色文件夹：纠正 importer → 重导 → 重建 Clips/Controller）。批量：`Tools/Gravedigger/Art/Repair All Character Creator Exports (Art/Characters)`。
+**修复已坏导出：** Editor 菜单 `Tools/Gravedigger/Art/Repair Character Creator Export`（对选中或指定角色文件夹：纠正 importer → 重导 → 重建 Clips/Controller）。批量：`Tools/Gravedigger/Art/Repair All Character Creator Exports (Art/Characters)`。单模型批跑：`CharacterCreatorExportRepair.RepairMonsterModel02Batch` / `RepairMonsterModel03Batch` / `RepairMonsterModel08Batch`（`-executeMethod`）。
+
+**2D Zombie Pack 怪物 Art（Demo）：** 除 Character Creator 烘焙外，允许从 `Assets/SmallScaleInt/2D Zombie Pack 1/Spritesheets/{Variant}/` **复制** PNG 至 `Assets/Art/Characters/Monsters/{ModelId}/`，再经 `CharacterCreatorExportRepair`（或离线脚本 `Tools/bake_monster_model_0N_from_zombie.py`）切片并重建 Clips/Controller。1920×1024（128px/格）Variant（如 `ZombieFemale1` → `MonsterModel_04`、`ZombieFemale2` → `MonsterModel_08`、`ZombieFemale6` → `MonsterModel_07`）与 CC 标准一致，`Visual.localScale=1`；2880×1536（192px/格）Variant（如 `ZombieMonster2` → `MonsterModel_02`）须在 Prefab `Visual.localScale` 乘 **2/3** 与 128px 怪物对齐；Boss 体型 `MonsterModel_03` 另设 Root `localScale=(3.5,3.5,3)`。**仍禁止**运行时引用 `SmallScaleInt/`。
 
 **升级风险：** 重新导入 `.unitypackage` 会覆盖补丁脚本 → 每次导入后须 `diff` `SpritesheetGenerator.cs` / `AnimatorClipBuilder.cs`（及相关写盘路径）并重打补丁。
 
@@ -4457,18 +4499,26 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 
 `WarriorAnimView.SetFacing` 仍带扇区迟滞（中心 ±22.5° 外再 +`FacingHysteresisDegrees`=12°）与最短保持 `FacingSwitchMinDwellSeconds`=0.12s。`IsRun` 判定与位移 **仍**用 steer。不改 HitConfirm / 槽位 / 寻路规则。
 
-**怪物死亡击飞（表现层，Demo 锁定；Defend + PushMap）：** 击杀播死亡动画 + 尸体锁存（**不** `SetActive(false)`）。仅怪物位移；士兵死亡无击退（士兵仍只 `PlayDie()` → `Die`）。Session 致命事件 `MonsterKilled(runtimeId, killerWarriorId, outgoingDamage)`；`outgoingDamage` = 扣血前打出值（含 Comfort / 管线倍率；**不是** `min(伤害, RemainingHp)`）。
+**怪物尸体投射（规则+表现，Demo 锁定；Defend + PushMap；取代纯 XZ 线性击飞）：** 致命击后播死亡动画 + 尸体 latch（**不** `SetActive(false)`）。仅怪物位移；士兵死亡无击退（士兵仍只 `PlayDie()` → `Die`）。Session 致命事件 `MonsterKilled(runtimeId, killerWarriorId, outgoingDamage)`；`outgoingDamage` = 扣血前打出值（含 Comfort / 管线倍率；**不是** `min(伤害, RemainingHp)`）。**抛物线击飞与尸体砸人合一**：尸体 `Transform` 沿同一条轨迹运动；规则层在飞行/落地检测并结算砸击伤害（D-083）。
 
 | 项 | 规则 |
 |----|------|
 | 距离 | `raw = (OutgoingDamage / monster.MaxHp) × DeathKnockbackRatioCoeff`；`distance = clamp(DeathKnockbackMinDistance, DeathKnockbackMaxDistance, raw)`；三键 ← `CombatConstantConfig`（样例 `0.5` / `0.2` / `5`） |
 | 边界 | `OutgoingDamage ≤ 0` 或 `MaxHp ≤ 0` → `distance = DeathKnockbackMaxDistance` |
-| 方向 | XZ 上 `normalize(M − S)`（远离杀手）；终点 `M + dir × distance`（Y 保持）；无杀手位或零向量 → 不位移 |
-| 时长 | `DeathKnockbackSeconds = 0.3`（线性插值；代码常量） |
+| 方向 | XZ 上 `normalize(M − S)`（远离杀手）；终点 `end = M + dir × distance`；无杀手位或零向量 → **不位移**（仍 latch 死亡；**无**砸击） |
+| 轨迹 | **抛物线**（废止纯 XZ `Lerp`）：XZ 自 `M`→`end` 线性；Y 在 `t∈[0,1]` 上 `y(t)=y0 + 4×DeathKnockbackPeakHeight×t×(1−t)`（`y0` = 起点采样地面 Y；峰值 ← `CombatConstantConfig`，样例 **`1.2`**） |
+| 时长 | `DeathKnockbackSeconds` ← `CombatConstantConfig`（样例 **`0.3`**；与轨迹参数化 `t` 对齐） |
 | 死亡 clip | 与 `distance` 同源：**默认** Animator 有 **`Die2` Trigger** → `Die2`；`distance ≥ DeathDie2KnockbackThreshold`（← `CombatConstantConfig`，样例 **`1`**）→ `Die`；无 `Die2` → 回退 `Die`。尸体 latch 认 `Die_*` 与 `Die2_*` |
-| 废止 | 镜像 `T=2M−S` 与 `ClassConfig.DeathKnockbackMult` **不再**驱动击飞距离；「死亡只走 Die、Die2 仅复活」**废止** |
+| 砸击门闩 | `distance < DeathDie2KnockbackThreshold` → **仅**抛物线 + latch；**不产生**砸击伤害 |
+| 砸击目标 | 其它 **存活**怪物（`RemainingHp>0`、可选中）；**不含**飞行尸体自身、己方士兵、主角护盾 |
+| 砸击时机 | **飞行途中**每帧软碰撞扫掠 + **落地瞬间**（`t≥1`）落点检测；同一飞行对同一 `targetRuntimeId` **只结算一次** |
+| 命中判定 | XZ 中心距 `≤ DeathCorpseSmashHitRadius + target.BodyRadius`（`DeathCorpseSmashHitRadius` ← 常量表，缺省对齐 `ProjectileDefaultHitRadius` 样例 **`0.55`**）；对齐 `ProjectileView` 软碰撞语义，**不**另走 A* |
+| 砸击伤害 | 规则层 `TryApplyCorpseSmashDamage(corpseRuntimeId, killerWarriorId, killerOutgoingDamage, targetRuntimeId)`：`CorpseSmashDamage = killerOutgoingDamage × DeathCorpseSmashDamageMul`（样例 **`1`**）；**不**叠 Comfort / D-073 管线 |
+| 连锁 | 砸击致死 **不**再启动尸体投射；原位 latch（无位移、无砸击） |
+| 假死 | PushMap `MonsterCombatDead` 同样抛物线（砸击按门闩）；飞行 + latch **完成后**仍 Delay→倒放复活（D-074 契约不变） |
+| 废止 | 纯 XZ 线性 `Lerp` 击飞；镜像 `T=2M−S` 与 `ClassConfig.DeathKnockbackMult` 驱动距离；「死亡只走 Die、Die2 仅复活」 |
 
-**怪物复活倒放（PushMap D-074，表现层 Demo 锁定）：** `PushMapMonsterAgentView.NotifyReviveStarted` 在调用 `PlayReviveFromDeath` **之前**按 `MonsterConfig.TargetSelect` + `AlertRadius` 选敌（与追击/攻击同源 `ResolveTarget`），`ForceSetFacing` **在尸体 `_dead` 期间仍写入** 8 向 `DirIndex`（无目标则回退末次 steer）；据此选定 `Die2_*` / `Die_*` 倒放 clip。`FinishReviveToIdle` **保持**该 `DirIndex` 进入 Idle（不清成默认南）。`PlayAttack` 按当前 `DirIndex` 直接 `Play(Attack1_*)`（Idle/Run 八向走 `Direction` 浮点，攻击 AnyState 走 `DirIndex` 整数，复活后须两者对齐）。`WarriorAnimView.PlayReviveFromDeath` 自 latch 末帧倒放 `ReviveAnimSeconds`。**优先** Animator 存在 **`Die2` Trigger**（View 序列化 `_die2TriggerParam`，默认 `"Die2"`）时 `SetTrigger(Die2)` 进入 `Die2_*` clip 并倒放；Controller 无 `Die2` 则倒放死亡 latch 所用 clip。倒放结束恢复 sorting=200 与 locomotion，**不**清变暗；`NotifyRevived` 再次对齐目标朝向。**变暗延续：** 自 `LatchDeathPresentation` 的 RGB×`CorpseDarkenMul=0.4` 起，经 Delay 等待、倒放、复活后无敌 `InvincibleSeconds` 全程保持；`CombatStatusService.MonsterInvincibleChanged(on=false)` 或 `InvincibleSeconds=0` 时 View `ClearCorpseDarken`。规则层不写动画名字符串。
+**怪物复活倒放（PushMap D-074，表现层 Demo 锁定）：** `PushMapMonsterAgentView.NotifyReviveStarted` 在调用 `PlayReviveFromDeath` **之前**按 `MonsterConfig.TargetSelect` + `AlertRadius` 选敌（与追击/攻击同源 `ResolveTarget`），`ForceSetFacing` **在尸体 `_dead` 期间仍写入** 8 向 `DirIndex`（无目标则回退末次 steer）；据此选定 `Die2_*` / `Die_*` 倒放 clip。`FinishReviveToIdle` **保持**该 `DirIndex` 进入 Idle（不清成默认南）。`PlayAttack` 按当前 `DirIndex` 直接 `Play(Attack1_*)`（Idle/Run 八向走 `Direction` 浮点，攻击 AnyState 走 `DirIndex` 整数，复活后须两者对齐）。`WarriorAnimView.PlayReviveFromDeath` 自 latch 末帧倒放 `ReviveAnimSeconds`。**优先** Animator 存在 **`Die2` Trigger**（View 序列化 `_die2TriggerParam`，默认 `"Die2"`）时 `SetTrigger(Die2)` 进入 `Die2_*` clip 并倒放；Controller 无 `Die2` 则倒放死亡 latch 所用 clip。倒放结束恢复 sorting=200 与 locomotion；`NotifyRevived` 再次对齐目标朝向。**尸体表现分级：** `PlayDie(preferDie2, corpseDarkenMul, corpseAlphaMul)` — PushMap 假死 `RGB×0.7`（彻底死亡 0.4 的一半变暗深度）；彻底死亡 / PushMap 士兵 `RGB×0.4`；**Defend** 怪/士兵 `RGB×0.4` 且 `alpha×0.85`（不透明度 85%）。假死变暗经 Delay/倒放/无敌保持；`ClearCorpseDarken` 于无敌结束恢复。规则层不写动画名字符串。
 
 **移动打断攻击（表现层，Demo 锁定）：** Creator `Attack*_` 仅经 ExitTime 回 Idle，locomotion Bool alone 无法中途切出。`WarriorAnimView.SetMoving(true)` 在需要时 `ResetTrigger` 当前普攻并 `CrossFade` 移动态（士兵 `RunBT`+`IsRun`；已注入怪物池时本批为走态+`IsWalk`）。**距离门控：** 仅当「当前 XZ → 移动目标点」平面距离 `moveTargetDistanceXZ > 0.4`（常量 `AttackInterruptMinMoveTargetDistance`）时才强制打断；≤0.4 的近距微调只写移动 Bool、不 CrossFade（AttackSlot 旁微移不砍普攻）。`GoalKind.Objective`（FlowField）或拿不到目标点时按「足够远」处理（仍可打断）。规则前摇 / HitConfirm **不变**。
 
@@ -4559,7 +4609,9 @@ Vendor `SpritesheetGenerator` defaults `outputParent` to in-package `Created Spr
 | Controller built with zero clips | Empty state machine looks “successful” | `AnimatorClipBuilder`: **LogError and abort** when clip count is zero |
 | Slice uses NPOT-padded `tex.width` (often 2048) | Source PNG is 1920×1024 (15×8 → cell **128**), but sliced as `2048/15≈136.53`; frames drift left vs pivot, then jump back on loop | Set `npotScale=None` before slice; use `TextureImporter.GetSourceTextureWidthAndHeight` (or reimport then read) for cell size; `CharacterCreatorExportRepair`: if 120 cells exist but `rect.width` differs from `sourceWidth/columns` by >0.5 → **force rebuild rects** |
 
-**Repair broken exports:** Editor menu `Tools/Gravedigger/Art/Repair Character Creator Export` (fix importer → reimport → rebuild Clips/Controller for selected/target character folder). Batch: `Tools/Gravedigger/Art/Repair All Character Creator Exports (Art/Characters)`.
+**Repair broken exports:** Editor menu `Tools/Gravedigger/Art/Repair Character Creator Export` (fix importer → reimport → rebuild Clips/Controller for selected/target character folder). Batch: `Tools/Gravedigger/Art/Repair All Character Creator Exports (Art/Characters)`. Single-model batch: `CharacterCreatorExportRepair.RepairMonsterModel02Batch` / `RepairMonsterModel03Batch` / `RepairMonsterModel08Batch` (`-executeMethod`).
+
+**2D Zombie Pack monster art (Demo):** In addition to Character Creator bakes, PNGs may be **copied** from `Assets/SmallScaleInt/2D Zombie Pack 1/Spritesheets/{Variant}/` into `Assets/Art/Characters/Monsters/{ModelId}/`, then sliced via `CharacterCreatorExportRepair` (or offline `Tools/bake_monster_model_0N_from_zombie.py`). 1920×1024 (128px/cell) variants (e.g. `ZombieFemale1` → `MonsterModel_04`, `ZombieFemale2` → `MonsterModel_08`, `ZombieFemale6` → `MonsterModel_07`) match CC standard with `Visual.localScale=1`; 2880×1536 (192px/cell) variants (e.g. `ZombieMonster2` → `MonsterModel_02`, `ZombieMonster3` → `MonsterModel_03`) need Prefab `Visual.localScale` × **2/3** to match 128px monsters; Boss `MonsterModel_03` also uses Root `localScale=(3.5,3.5,3)`. **Still forbidden** to runtime-reference `SmallScaleInt/`.
 
 **Upgrade risk:** Re-importing the `.unitypackage` overwrites the patch → after each import, `diff` `SpritesheetGenerator.cs` / `AnimatorClipBuilder.cs` (and related write paths) and re-apply.
 
@@ -4602,18 +4654,26 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 
 `WarriorAnimView.SetFacing` still applies sector hysteresis (beyond center ±22.5° plus `FacingHysteresisDegrees`=12°) and min dwell `FacingSwitchMinDwellSeconds`=0.12s. `IsRun` and displacement **still** use steer. HitConfirm / slots / pathing unchanged.
 
-**Monster death knockback (presentation, Demo lock; Defend + PushMap):** On kill play death anim + corpse latch (**not** `SetActive(false)`). Monster-only displacement; soldiers have no knockback (soldiers still `PlayDie()` → `Die` only). Session fatal event `MonsterKilled(runtimeId, killerWarriorId, outgoingDamage)`; `outgoingDamage` is pre-HP-clamp dealt value (incl. Comfort / pipeline muls; **not** `min(damage, RemainingHp)`).
+**Monster corpse projectile (rules + presentation, Demo lock; Defend + PushMap; replaces pure XZ linear knockback):** On fatal hit play death anim + corpse latch (**not** `SetActive(false)`). Monster-only displacement; soldiers have no knockback (soldiers still `PlayDie()` → `Die` only). Session fatal event `MonsterKilled(runtimeId, killerWarriorId, outgoingDamage)`; `outgoingDamage` is pre-HP-clamp dealt value (incl. Comfort / pipeline muls; **not** `min(damage, RemainingHp)`). **Parabolic knockback and corpse smash unified**: corpse `Transform` follows one arc; rules layer detects and settles smash during flight / landing (D-083).
 
 | Item | Rule |
 |------|------|
 | Distance | `raw = (OutgoingDamage / monster.MaxHp) × DeathKnockbackRatioCoeff`; `distance = clamp(DeathKnockbackMinDistance, DeathKnockbackMaxDistance, raw)`; three keys ← `CombatConstantConfig` (sample `0.5` / `0.2` / `5`) |
 | Edge | `OutgoingDamage ≤ 0` or `MaxHp ≤ 0` → `distance = DeathKnockbackMaxDistance` |
-| Direction | XZ `normalize(M − S)` (away from killer); end `M + dir × distance` (keep Y); no killer pos or zero vector → no slide |
-| Duration | `DeathKnockbackSeconds = 0.3` (linear lerp; code constant) |
+| Direction | XZ `normalize(M − S)` (away from killer); endpoint `end = M + dir × distance`; no killer pos or zero vector → **no move** (still latch death; **no** smash) |
+| Trajectory | **Parabolic arc** (retired pure XZ `Lerp`): XZ linear `M`→`end`; Y over `t∈[0,1]`: `y(t)=y0 + 4×DeathKnockbackPeakHeight×t×(1−t)` (`y0` = sampled ground Y at start; peak ← `CombatConstantConfig`, sample **`1.2`**) |
+| Duration | `DeathKnockbackSeconds` ← `CombatConstantConfig` (sample **`0.3`**; aligns with param `t`) |
 | Death clip | Same `distance`: **default** Animator **`Die2` Trigger** → `Die2`; `distance ≥ DeathDie2KnockbackThreshold` (← `CombatConstantConfig`, sample **`1`**) → `Die`; no `Die2` → fall back to `Die`. Corpse latch accepts both `Die_*` and `Die2_*` |
-| Retired | Mirror `T=2M−S` and `ClassConfig.DeathKnockbackMult` **no longer** drive knockback distance; «death uses Die only; Die2 revive-only» **retired** |
+| Smash gate | `distance < DeathDie2KnockbackThreshold` → parabolic + latch only; **no** smash damage |
+| Smash targets | Other **living** monsters (`RemainingHp>0`, selectable); **excludes** flying corpse, loyal soldiers, protagonist shield |
+| Smash timing | **In-flight** per-frame soft sweep + **landing** (`t≥1`) endpoint check; **once per** `targetRuntimeId` per flight |
+| Hit test | XZ center distance `≤ DeathCorpseSmashHitRadius + target.BodyRadius` (`DeathCorpseSmashHitRadius` ← constant table; default aligns `ProjectileDefaultHitRadius` sample **`0.55`**); same soft-hit semantics as `ProjectileView`; **no** extra A* |
+| Smash damage | Rules `TryApplyCorpseSmashDamage(corpseRuntimeId, killerWarriorId, killerOutgoingDamage, targetRuntimeId)`: `CorpseSmashDamage = killerOutgoingDamage × DeathCorpseSmashDamageMul` (sample **`1`**); **no** Comfort / D-073 pipeline |
+| Chain | Smash kills **do not** start another corpse projectile; latch at death pos (**no** displacement, **no** smash) |
+| Fake death | PushMap `MonsterCombatDead` uses same arc (smash per gate); after flight + latch still Delay→reverse revive (D-074 unchanged) |
+| Retired | Pure XZ linear `Lerp` knockback; mirror `T=2M−S` and `ClassConfig.DeathKnockbackMult` distance drive; «death uses Die only; Die2 revive-only» |
 
-**Monster revive reverse-play (PushMap D-074, presentation Demo lock):** `PushMapMonsterAgentView.NotifyReviveStarted` **before** `PlayReviveFromDeath` picks a target via `MonsterConfig.TargetSelect` + `AlertRadius` (same `ResolveTarget` as chase/attack). `ForceSetFacing` **still writes** 8-dir `DirIndex` while the corpse is `_dead` (fallback: last steer); this selects the `Die2_*` / `Die_*` reverse clip. `FinishReviveToIdle` **keeps** that `DirIndex` into Idle (does not reset to default South). `PlayAttack` `Play`s `Attack1_*` from current `DirIndex` (Idle/Run 8-dir uses `Direction` float; Attack AnyState uses `DirIndex` int — must stay aligned after revive). `WarriorAnimView.PlayReviveFromDeath` reverse-scrubs from latched end frame over `ReviveAnimSeconds`. **Prefer** Animator **`Die2` Trigger** (View serialized `_die2TriggerParam`, default `"Die2"`) → `Die2_*` clip; if Controller has no `Die2`, fall back to latched death clip. Restore sorting=200 + locomotion, **do not** clear darken; `NotifyRevived` re-aligns toward target. **Darken hold:** RGB×`CorpseDarkenMul=0.4` from `LatchDeathPresentation` through Delay, reverse-play, and post-revive `InvincibleSeconds`; cleared on `CombatStatusService.MonsterInvincibleChanged(on=false)` or when `InvincibleSeconds=0`. Rules do not hardcode animation names.
+**Monster revive reverse-play (PushMap D-074, presentation Demo lock):** `PushMapMonsterAgentView.NotifyReviveStarted` **before** `PlayReviveFromDeath` picks a target via `MonsterConfig.TargetSelect` + `AlertRadius` (same `ResolveTarget` as chase/attack). `ForceSetFacing` **still writes** 8-dir `DirIndex` while the corpse is `_dead` (fallback: last steer); this selects the `Die2_*` / `Die_*` reverse clip. `FinishReviveToIdle` **keeps** that `DirIndex` into Idle (does not reset to default South). `PlayAttack` `Play`s `Attack1_*` from current `DirIndex` (Idle/Run 8-dir uses `Direction` float; Attack AnyState uses `DirIndex` int — must stay aligned after revive). `WarriorAnimView.PlayReviveFromDeath` reverse-scrubs from latched end frame over `ReviveAnimSeconds`. **Prefer** Animator **`Die2` Trigger** (View serialized `_die2TriggerParam`, default `"Die2"`) → `Die2_*` clip; if Controller has no `Die2`, fall back to latched death clip. Restore sorting=200 + locomotion; `NotifyRevived` re-aligns toward target. **Tiered corpse presentation:** `PlayDie(preferDie2, corpseDarkenMul, corpseAlphaMul)` — PushMap fake-death `RGB×0.7` (half the darken depth of true death 0.4); true death / PushMap soldiers `RGB×0.4`; **Defend** monsters/soldiers `RGB×0.4` and `alpha×0.85` (85% opacity). Fake-death darken held through Delay/reverse/invincible; `ClearCorpseDarken` on invincible end. Rules do not hardcode animation names.
 
 **Move interrupts attack (presentation, Demo lock):** Creator `Attack*_` exits only via ExitTime; locomotion Bool alone cannot cut mid-attack. `WarriorAnimView.SetMoving(true)` may `ResetTrigger` the current attack and `CrossFade` move state (soldiers `RunBT`+`IsRun`; with monster pools this slice uses walk state+`IsWalk`). **Distance gate:** force-interrupt only when planar distance current XZ → move target `moveTargetDistanceXZ > 0.4` (`AttackInterruptMinMoveTargetDistance`); ≤0.4 near-target nudges set move Bool without CrossFade (AttackSlot micro-moves do not chop attack). `GoalKind.Objective` (FlowField) or missing target → treat as far enough (interrupt still allowed). Windup / HitConfirm rules **unchanged**.
 

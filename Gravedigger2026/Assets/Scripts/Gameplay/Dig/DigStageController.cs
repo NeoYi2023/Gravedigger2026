@@ -150,13 +150,19 @@ namespace Gravedigger2026.Gameplay.Dig
             fog?.SetPulseDesired(true);
             _summaryView?.Hide();
             var mode2 = _configs != null && _configs.LoadedCampaignMode == CampaignMode.Mode2;
-            _hudView?.SetWarriorEnhanceGmVisible(mode2 && _specialEquipSlots != null);
+            if (_hudView != null)
+            {
+                var showMagicBooks = mode2 && _specialEquipSlots != null;
+                _hudView.RebuildMagicBookGmButtons(
+                    showMagicBooks ? BuildMagicBookGmEntries() : null,
+                    showMagicBooks);
+            }
 
             if (_hudView != null)
             {
                 _hudView.AddGravesRequested += HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested += HandleGmAddBodyParts;
-                _hudView.EquipWarriorEnhanceRequested += HandleGmEquipWarriorEnhance;
+                _hudView.EquipMagicBookRequested += HandleGmEquipMagicBook;
                 _hudView.AcquireDigRingRequested += HandleGmAcquireDigRing;
                 _hudView.GrantEquipCommonExpRequested += HandleGmGrantEquipCommonExp;
                 _hudView.SpendDigRingCommonExpRequested += HandleGmSpendDigRingCommonExp;
@@ -555,21 +561,54 @@ namespace Gravedigger2026.Gameplay.Dig
             Debug.Log("[DigStageController] GM Add Body Parts → +10 each BodyPartConfig row");
         }
 
-        private void HandleGmEquipWarriorEnhance()
+        private List<GmMagicBookGmEntry> BuildMagicBookGmEntries()
+        {
+            var items = new List<GmMagicBookGmEntry>();
+            if (_configs == null)
+            {
+                return items;
+            }
+
+            foreach (var row in _configs.MagicBooks)
+            {
+                if (row == null || string.IsNullOrEmpty(row.MagicBookId))
+                {
+                    continue;
+                }
+
+                var id = row.MagicBookId.Trim();
+                if (id.Length == 0)
+                {
+                    continue;
+                }
+
+                var label = string.IsNullOrEmpty(row.DisplayName) ? id : row.DisplayName;
+                items.Add(new GmMagicBookGmEntry(id, label));
+            }
+
+            return items;
+        }
+
+        private void HandleGmEquipMagicBook(string magicBookId)
         {
             if (_specialEquipSlots == null)
             {
-                Debug.LogWarning("[DigStageController] GM Equip Warrior Enhance — no SpecialEquipSlots bound.");
+                Debug.LogWarning("[DigStageController] GM Equip MagicBook — no SpecialEquipSlots bound.");
                 return;
             }
 
-            if (!_specialEquipSlots.TryEquip(SoldierManufactureMagicBookHook.WarriorEnhanceBookId, out var error))
+            if (string.IsNullOrEmpty(magicBookId))
             {
-                Debug.LogWarning($"[DigStageController] GM Equip Warrior Enhance failed: {error}");
                 return;
             }
 
-            Debug.Log("[DigStageController] GM Equip Warrior Enhance → MagicBook_WarriorEnhance");
+            if (!_specialEquipSlots.TryEquip(magicBookId, out var error))
+            {
+                Debug.LogWarning($"[DigStageController] GM Equip MagicBook '{magicBookId}' failed: {error}");
+                return;
+            }
+
+            Debug.Log($"[DigStageController] GM Equip MagicBook → {magicBookId}");
         }
 
         private void HandleGmAcquireDigRing()
@@ -978,7 +1017,7 @@ namespace Gravedigger2026.Gameplay.Dig
             {
                 _hudView.AddGravesRequested -= HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested -= HandleGmAddBodyParts;
-                _hudView.EquipWarriorEnhanceRequested -= HandleGmEquipWarriorEnhance;
+                _hudView.EquipMagicBookRequested -= HandleGmEquipMagicBook;
                 _hudView.AcquireDigRingRequested -= HandleGmAcquireDigRing;
                 _hudView.GrantEquipCommonExpRequested -= HandleGmGrantEquipCommonExp;
                 _hudView.SpendDigRingCommonExpRequested -= HandleGmSpendDigRingCommonExp;

@@ -58,4 +58,13 @@ PushMapSpawnAbsoluteLeashBodyMul,刷怪绝对拴绳体倍数,10,Absolute leash =
 DeathKnockbackRatioCoeff,死亡击飞比例系数,0.5,Knockback raw=(OutgoingDamage/MaxHp)*Coeff,击飞距离raw=(OutgoingDamage/MaxHp)×本系数；再clamp到Min/Max
 DeathKnockbackMinDistance,死亡击飞最小距离,0.2,Death knockback distance floor,怪物死亡击飞距离下限（世界单位）
 DeathKnockbackMaxDistance,死亡击飞最大距离,5,Death knockback distance ceiling,怪物死亡击飞距离上限；伤害或MaxHp<=0时用本值
-DeathDie2KnockbackThreshold,死亡Die2击退阈值,1,Death Die2 knockback threshold,默认Die2；击飞distance>=本值时播Die；否则Die2（无Die2回退Die）
+DeathDie2KnockbackThreshold,死亡Die2击退阈值,1,Default Die2; distance>=threshold plays Die; corpse smash gate same key,默认Die2；击飞distance>=本值时播Die；否则Die2（无Die2回退Die）；尸体砸击门闩同键
+DeathKnockbackPeakHeight,死亡击飞抛物线峰值高度,1.2,Corpse projectile Y arc peak (world units),尸体投射Y弧峰值（世界单位；§15.5）
+DeathCorpseSmashDamageMul,尸体砸击伤害系数,1,CorpseSmashDamage = killerOutgoingDamage × this,尸体砸击伤害=致命击OutgoingDamage×本值（§15.5/D-083）
+DeathCorpseSmashHitRadius,尸体砸击命中半径,0.55,In-flight/landing soft-hit radius,飞行/落地软碰撞半径；缺省对齐ProjectileDefaultHitRadius
+DeathKnockbackSeconds,死亡击飞时长,0.3,Corpse projectile parabolic duration (seconds),尸体投射抛物线时长（秒；与t∈[0,1]对齐）
+DeathDefendCorpseAlphaMul,Defend尸体透明度系数,0.85,Defend corpse sprite alpha multiplier,Defend怪/士兵尸体透明度×本值
+DeathCorpseDarkenMul,尸体变暗系数,0.4,Permanent-death corpse RGB multiplier,彻底死亡/PushMap士兵尸体RGB×本值
+DeathFakeDeathCorpseDarkenMul,假死尸体变暗系数,0.7,PushMap fake-death corpse RGB multiplier,PushMap假死尸体RGB×本值
+WarriorVisualModelScalePerHit,士兵命中体型步进,1.15,Mode2 MagicBook token hit: VisualModelScale *= this (stackable),Mode2魔法书Token命中时VisualModelScale乘以本值（可叠；夹Max）
+WarriorVisualModelScaleMax,士兵模型缩放上限,3,Clamp VisualModelScale at end of each MagicBook hit apply,VisualModelScale每次命中apply末尾夹紧上限

@@ -67,6 +67,7 @@ namespace Gravedigger2026.Gameplay.Formation
                     _mapCenter.x + e.PositionX,
                     _mapCenter.y,
                     _mapCenter.z + e.PositionZ);
+                TryApplyWarriorVisual(go, e.WarriorId, pool);
                 PreparePreviewVisual(go);
             }
 
@@ -231,6 +232,44 @@ namespace Gravedigger2026.Gameplay.Formation
             return null;
         }
 
+        private static WarriorInstance ResolveWarrior(WarriorPoolService pool, string warriorId)
+        {
+            if (pool == null || string.IsNullOrEmpty(warriorId))
+            {
+                return null;
+            }
+
+            var warriors = pool.Warriors;
+            for (var i = 0; i < warriors.Count; i++)
+            {
+                if (string.Equals(warriors[i].Id, warriorId, StringComparison.Ordinal))
+                {
+                    return warriors[i];
+                }
+            }
+
+            return null;
+        }
+
+        private void TryApplyWarriorVisual(GameObject go, string warriorId, WarriorPoolService pool)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var warrior = ResolveWarrior(pool, warriorId);
+            if (warrior == null)
+            {
+                return;
+            }
+
+            WarriorAllIn1StyleView.ApplyTo(
+                go,
+                _catalog != null ? _catalog.VisualStyleCatalog : null,
+                warrior);
+        }
+
         private GameObject SpawnPreview(string warriorId, WarriorPoolService pool)
         {
             if (_catalog == null || pool == null || _parent == null)
@@ -238,17 +277,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 return null;
             }
 
-            WarriorInstance warrior = null;
-            var warriors = pool.Warriors;
-            for (var i = 0; i < warriors.Count; i++)
-            {
-                if (string.Equals(warriors[i].Id, warriorId, StringComparison.Ordinal))
-                {
-                    warrior = warriors[i];
-                    break;
-                }
-            }
-
+            var warrior = ResolveWarrior(pool, warriorId);
             var appearanceId = warrior != null ? warrior.AppearanceId : null;
             if (string.IsNullOrEmpty(appearanceId) || !_catalog.TryGetWarriorAppearance(appearanceId, out var prefab))
             {
@@ -262,7 +291,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
             var go = Instantiate(prefab, _parent);
             go.name = $"FormationPreview_{warriorId}";
-            WarriorAllIn1StyleView.ApplyTo(go, _catalog != null ? _catalog.VisualStyleCatalog : null, warrior);
+            TryApplyWarriorVisual(go, warriorId, pool);
             PreparePreviewVisual(go);
             AttachMarker(go, warriorId);
             return go;

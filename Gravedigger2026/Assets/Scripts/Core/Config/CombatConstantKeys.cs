@@ -51,6 +51,15 @@ namespace Gravedigger2026.Core.Config
         public const string DeathKnockbackMinDistance = "DeathKnockbackMinDistance";
         public const string DeathKnockbackMaxDistance = "DeathKnockbackMaxDistance";
         public const string DeathDie2KnockbackThreshold = "DeathDie2KnockbackThreshold";
+        public const string DeathKnockbackPeakHeight = "DeathKnockbackPeakHeight";
+        public const string DeathCorpseSmashDamageMul = "DeathCorpseSmashDamageMul";
+        public const string DeathCorpseSmashHitRadius = "DeathCorpseSmashHitRadius";
+        public const string DeathKnockbackSeconds = "DeathKnockbackSeconds";
+        public const string DeathDefendCorpseAlphaMul = "DeathDefendCorpseAlphaMul";
+        public const string DeathCorpseDarkenMul = "DeathCorpseDarkenMul";
+        public const string DeathFakeDeathCorpseDarkenMul = "DeathFakeDeathCorpseDarkenMul";
+        public const string WarriorVisualModelScalePerHit = "WarriorVisualModelScalePerHit";
+        public const string WarriorVisualModelScaleMax = "WarriorVisualModelScaleMax";
 
         // P2 — pathing / perf
         public const string FlowFieldDefaultCellSize = "FlowFieldDefaultCellSize";
@@ -113,6 +122,15 @@ namespace Gravedigger2026.Core.Config
             public const float DeathKnockbackMinDistance = 0.2f;
             public const float DeathKnockbackMaxDistance = 5f;
             public const float DeathDie2KnockbackThreshold = 1f;
+            public const float DeathKnockbackPeakHeight = 1.2f;
+            public const float DeathCorpseSmashDamageMul = 1f;
+            public const float DeathCorpseSmashHitRadius = 0.55f;
+            public const float DeathKnockbackSeconds = 0.3f;
+            public const float DeathDefendCorpseAlphaMul = 0.85f;
+            public const float DeathCorpseDarkenMul = 0.4f;
+            public const float DeathFakeDeathCorpseDarkenMul = 0.7f;
+            public const float WarriorVisualModelScalePerHit = 1.15f;
+            public const float WarriorVisualModelScaleMax = 3f;
 
             public const float FlowFieldDefaultCellSize = 0.5f;
             public const float FlowFieldMinCellSize = 0.25f;

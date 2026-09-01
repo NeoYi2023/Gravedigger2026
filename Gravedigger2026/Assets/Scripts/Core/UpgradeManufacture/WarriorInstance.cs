@@ -51,7 +51,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public float VisualIntensity;
 
         /// <summary>
-        /// Scale-channel multiplier (SPEC_03 §3.15 6b). Default 1; *= VisualIntensityAdd on Style_ScaleModel hit.
+        /// Model scale k (SPEC_03 §3.15 6b / D-082). Default 1; on MagicBook hit ×PerHit,
+        /// optional Style_ScaleModel ×IntensityAdd, then clamp Max.
         /// </summary>
         public float VisualModelScale = 1f;
     }

@@ -59,11 +59,11 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>PM-12: soldier HitConfirm settled damage on a monster (runtimeId, damage).</summary>
         public event Action<string, float> MonsterDamageSettled;
 
-        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
-        public event Action<string, string, float> MonsterKilled;
+        /// <summary>PM-12: monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage, deathTag). View NotifyKilled; Boss → TryNotifyBossKilled.</summary>
+        public event Action<string, string, float, string> MonsterKilled;
 
         /// <summary>Monster may revive — presentation kill only; no kill count / Boss / Loot.</summary>
-        public event Action<string, string, float> MonsterEnteredCombatDead;
+        public event Action<string, string, float, string> MonsterEnteredCombatDead;
 
         /// <summary>Revive delay elapsed — View plays reverse death anim (runtimeId, animSeconds).</summary>
         public event Action<string, float> MonsterReviveStarted;
@@ -738,6 +738,21 @@ namespace Gravedigger2026.Core.PushMap
             out DefendCombatWarriorState state,
             out string error)
         {
+            return TryRegisterWarrior(
+                warrior,
+                classRow,
+                CombatStatMulBuff.Identity,
+                out state,
+                out error);
+        }
+
+        public bool TryRegisterWarrior(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            CombatStatMulBuff combatBuff,
+            out DefendCombatWarriorState state,
+            out string error)
+        {
             state = null;
             error = null;
             if (!_active || Phase != PushMapPhase.Combat)
@@ -761,6 +776,11 @@ namespace Gravedigger2026.Core.PushMap
             var battleStats = WarriorCombatMath.ComputeBattleStats(
                 warrior,
                 WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow));
+            var bodyLife = warrior.BodyLife > 0f
+                ? warrior.BodyLife
+                : WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats);
+            bodyLife = combatBuff.ApplyToBodyLife(bodyLife);
+            combatBuff.ApplyToBattleStats(ref battleStats);
             var coeffDefaults = _configs != null
                 ? _configs.GetCombatConvertCoeffDefaults()
                 : CombatConvertCoeffs.SafetyDefaults;
@@ -772,7 +792,7 @@ namespace Gravedigger2026.Core.PushMap
             var maxHpMult = _configs != null
                 ? _configs.GetMaxHpStrengthMult()
                 : CombatConvertCoeffs.SafetyMaxHpStrengthMult;
-            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats, maxHpMult);
+            var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, battleStats.Strength, maxHpMult);
             var remaining = Math.Min(Math.Max(0f, warrior.RemainingHP), maxHp);
             if (remaining <= 0f && maxHp > 0)
             {
@@ -831,12 +851,13 @@ namespace Gravedigger2026.Core.PushMap
             var skillLog = string.IsNullOrEmpty(state.CastSkillId)
                 ? "Skill=none"
                 : $"Skill={state.CastSkillId} Lv{state.CastSkillLevel} CD={state.SkillCooldownSeconds:0.##}s";
+            var buffLog = combatBuff.IsIdentity ? string.Empty : $" CombatBuff={combatBuff}";
             Debug.Log(
                 $"[PushMapSession] RegisterWarrior {state.WarriorId} Mode={state.AttackMode} " +
                 $"HP={state.RemainingHp:0}/{state.MaxHp} Atk={state.NormalAttackPower:0.##} " +
                 $"ASPD={state.AttackSpeed:0.##} Range={state.AttackRange:0.##} " +
                 $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##} " +
-                skillLog);
+                skillLog + buffLog);
             return true;
         }
 
@@ -1215,7 +1236,8 @@ namespace Gravedigger2026.Core.PushMap
                 MonsterEnteredCombatDead?.Invoke(
                     monsterRuntimeId,
                     killerWarriorId ?? string.Empty,
-                    outgoingDamage);
+                    outgoingDamage,
+                    logTag ?? string.Empty);
                 return;
             }
 
@@ -1227,7 +1249,11 @@ namespace Gravedigger2026.Core.PushMap
             Debug.Log(
                 $"[PushMapSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId}) " +
                 $"kills={_monstersKilled} ({logTag})");
-            MonsterKilled?.Invoke(monsterRuntimeId, killerWarriorId ?? string.Empty, outgoingDamage);
+            MonsterKilled?.Invoke(
+                monsterRuntimeId,
+                killerWarriorId ?? string.Empty,
+                outgoingDamage,
+                logTag ?? string.Empty);
         }
 
         private void HandleMonsterBurnTick(string monsterRuntimeId, string sourceWarriorId, float tickDamage, string skillId)
@@ -1454,6 +1480,49 @@ namespace Gravedigger2026.Core.PushMap
             }
 
             return SettleMonsterDamage(warrior, monsterRuntimeId, "RangedHit", flight);
+        }
+
+        /// <summary>
+        /// D-083: corpse projectile smash — independent damage channel (no Comfort / D-073).
+        /// View supplies killerOutgoingDamage from the original fatal hit; smash kill uses same
+        /// TryFinalizeMonsterDeath branch as normal hits (fake-death → MonsterEnteredCombatDead).
+        /// </summary>
+        public bool TryApplyCorpseSmashDamage(
+            string corpseRuntimeId,
+            string killerWarriorId,
+            float killerOutgoingDamage,
+            string targetRuntimeId)
+        {
+            if (!IsCombatGameplayActive || killerOutgoingDamage <= 0f)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(targetRuntimeId)
+                || string.Equals(targetRuntimeId, corpseRuntimeId, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!IsMonsterTargetable(targetRuntimeId) || !TryGetMonster(targetRuntimeId, out var monster))
+            {
+                return false;
+            }
+
+            var dmg = CorpseSmashCombatMath.ComputeSmashDamage(killerOutgoingDamage);
+            if (dmg <= 0f)
+            {
+                return false;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - dmg);
+            Debug.Log(
+                $"[PushMapSession] CorpseSmash {killerWarriorId} corpse={corpseRuntimeId} -> {targetRuntimeId} " +
+                $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+
+            MonsterDamageSettled?.Invoke(targetRuntimeId, dmg);
+            TryFinalizeMonsterDeath(monster, targetRuntimeId, killerWarriorId ?? string.Empty, dmg, "CorpseSmash");
+            return true;
         }
 
         /// <summary>

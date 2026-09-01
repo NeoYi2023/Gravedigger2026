@@ -268,10 +268,11 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             WarriorAllIn1StyleView.ApplyTo(bay.Instance, styleCatalog, warrior);
-            var scale = WarriorVisualModelScale.Resolve(warrior);
+            // Fixed ortho: let Visual.localScale show VisualModelScale (D-066 / D-082).
+            // Scaling ortho by k would cancel the apparent size change in the card RT.
             if (bay.Camera != null)
             {
-                bay.Camera.orthographicSize = BaseOrthoSize * (scale > 0.01f ? scale : 1f);
+                bay.Camera.orthographicSize = BaseOrthoSize;
             }
         }
 

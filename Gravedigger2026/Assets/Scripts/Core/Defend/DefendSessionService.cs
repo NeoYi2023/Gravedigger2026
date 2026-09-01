@@ -47,8 +47,8 @@ namespace Gravedigger2026.Core.Defend
         public event Action<long> VictorySettled;
         public event Action<string> WarriorCombatStateChanged;
         public event Action<string> MonsterCombatStateChanged;
-        /// <summary>Monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage). View NotifyKilled + death knockback.</summary>
-        public event Action<string, string, float> MonsterKilled;
+        /// <summary>Monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage, deathTag). View NotifyKilled + death knockback.</summary>
+        public event Action<string, string, float, string> MonsterKilled;
 
         public bool IsActive => _active;
         public DefendPhase Phase => _phase;
@@ -269,6 +269,21 @@ namespace Gravedigger2026.Core.Defend
             out DefendCombatWarriorState state,
             out string error)
         {
+            return TryRegisterWarrior(
+                warrior,
+                classRow,
+                CombatStatMulBuff.Identity,
+                out state,
+                out error);
+        }
+
+        public bool TryRegisterWarrior(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            CombatStatMulBuff combatBuff,
+            out DefendCombatWarriorState state,
+            out string error)
+        {
             state = null;
             error = null;
             if (!_active || _phase != DefendPhase.Combat)
@@ -292,6 +307,11 @@ namespace Gravedigger2026.Core.Defend
             var battleStats = WarriorCombatMath.ComputeBattleStats(
                 warrior,
                 WarriorCombatMath.ResolveClassBaseMoveSpeed(classRow));
+            var bodyLife = warrior.BodyLife > 0f
+                ? warrior.BodyLife
+                : WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats);
+            bodyLife = combatBuff.ApplyToBodyLife(bodyLife);
+            combatBuff.ApplyToBattleStats(ref battleStats);
             var coeffDefaults = _configs != null
                 ? _configs.GetCombatConvertCoeffDefaults()
                 : CombatConvertCoeffs.SafetyDefaults;
@@ -303,7 +323,7 @@ namespace Gravedigger2026.Core.Defend
             var maxHpMult = _configs != null
                 ? _configs.GetMaxHpStrengthMult()
                 : CombatConvertCoeffs.SafetyMaxHpStrengthMult;
-            var maxHp = WarriorCombatMath.ComputeBattleMaxHp(warrior, battleStats, maxHpMult);
+            var maxHp = WarriorStatMath.ComputeMaxHP(bodyLife, battleStats.Strength, maxHpMult);
             var remaining = Math.Min(Math.Max(0f, warrior.RemainingHP), maxHp);
             if (remaining <= 0f && maxHp > 0)
             {
@@ -343,10 +363,11 @@ namespace Gravedigger2026.Core.Defend
 
             _warriors[warrior.Id] = state;
             warrior.RemainingHP = state.RemainingHp;
+            var buffLog = combatBuff.IsIdentity ? string.Empty : $" CombatBuff={combatBuff}";
             Debug.Log(
                 $"[DefendSession] RegisterWarrior {state.WarriorId} Mode={state.AttackMode} HP={state.RemainingHp:0}/{state.MaxHp} " +
                 $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##} Range={state.AttackRange:0.##} " +
-                $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##}");
+                $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##}{buffLog}");
             WarriorCombatStateChanged?.Invoke(state.WarriorId);
             return true;
         }
@@ -437,7 +458,7 @@ namespace Gravedigger2026.Core.Defend
             {
                 monster.IsAlive = false;
                 Debug.Log($"[DefendSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
-                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower);
+                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
             MonsterCombatStateChanged?.Invoke(monsterRuntimeId);
@@ -480,10 +501,59 @@ namespace Gravedigger2026.Core.Defend
             {
                 monster.IsAlive = false;
                 Debug.Log($"[DefendSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
-                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower);
+                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
             MonsterCombatStateChanged?.Invoke(monsterRuntimeId);
+            TrySignalClearVictory();
+            return true;
+        }
+
+        /// <summary>
+        /// D-083: corpse projectile smash — independent damage channel (no Comfort / D-073).
+        /// Smash kill aligns with Melee/Ranged: IsAlive=false + MonsterKilled(outgoingDamage=dmg).
+        /// </summary>
+        public bool TryApplyCorpseSmashDamage(
+            string corpseRuntimeId,
+            string killerWarriorId,
+            float killerOutgoingDamage,
+            string targetRuntimeId)
+        {
+            if (!_active || _phase != DefendPhase.Combat || killerOutgoingDamage <= 0f)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(targetRuntimeId)
+                || string.Equals(targetRuntimeId, corpseRuntimeId, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!IsMonsterAlive(targetRuntimeId) || !TryGetMonster(targetRuntimeId, out var monster))
+            {
+                return false;
+            }
+
+            var dmg = CorpseSmashCombatMath.ComputeSmashDamage(killerOutgoingDamage);
+            if (dmg <= 0f)
+            {
+                return false;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - dmg);
+            Debug.Log(
+                $"[DefendSession] CorpseSmash {killerWarriorId} corpse={corpseRuntimeId} -> {targetRuntimeId} " +
+                $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+
+            if (monster.RemainingHp <= 0f)
+            {
+                monster.IsAlive = false;
+                Debug.Log($"[DefendSession] MonsterDead {targetRuntimeId} ({monster.MonsterId}) (CorpseSmash)");
+                MonsterKilled?.Invoke(targetRuntimeId, killerWarriorId ?? string.Empty, dmg, "CorpseSmash");
+            }
+
+            MonsterCombatStateChanged?.Invoke(targetRuntimeId);
             TrySignalClearVictory();
             return true;
         }

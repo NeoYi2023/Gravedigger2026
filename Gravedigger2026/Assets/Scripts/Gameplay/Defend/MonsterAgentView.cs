@@ -41,6 +41,13 @@ namespace Gravedigger2026.Gameplay.Defend
         private Vector3 _deathKnockOrigin;
         private Vector3 _deathKnockTarget;
         private float _deathKnockStartedAt;
+        private bool _deathKnockWasAnimating;
+        private bool _corpseSmashEnabled;
+        private string _killerWarriorId = string.Empty;
+        private float _killerOutgoingDamage;
+        private readonly HashSet<string> _corpseSmashHit = new HashSet<string>(StringComparer.Ordinal);
+        private Func<string, string, float, string, bool> _tryApplyCorpseSmash;
+        private CorpseProjectileSmashSweep.LivingMonsterEnumerator _enumerateLivingMonsters;
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
@@ -88,6 +95,14 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _alive = alive;
             }
+        }
+
+        public void SetCorpseSmashBridge(
+            Func<string, string, float, string, bool> tryApplyCorpseSmash,
+            CorpseProjectileSmashSweep.LivingMonsterEnumerator enumerateLivingMonsters)
+        {
+            _tryApplyCorpseSmash = tryApplyCorpseSmash;
+            _enumerateLivingMonsters = enumerateLivingMonsters;
         }
 
         public void Bind(
@@ -186,7 +201,9 @@ namespace Gravedigger2026.Gameplay.Defend
         /// </summary>
         public void NotifyKilled(
             Vector3? killerWorldPos = null,
-            float knockbackDistance = 0f)
+            float knockbackDistance = 0f,
+            string killerWarriorId = null,
+            float killerOutgoingDamage = 0f)
         {
             if (!_alive)
             {
@@ -211,9 +228,14 @@ namespace Gravedigger2026.Gameplay.Defend
 
             EnsureAnim();
             var preferDie2 = MonsterDeathPresentation.ShouldPreferDie2(knockbackDistance);
-            _anim.PlayDie(preferDie2);
+            _anim.PlayDie(preferDie2, corpseAlphaMul: WarriorAnimView.DefendCorpseAlphaMul);
 
+            _killerWarriorId = killerWarriorId ?? string.Empty;
+            _killerOutgoingDamage = Mathf.Max(0f, killerOutgoingDamage);
+            _corpseSmashEnabled = MonsterDeathPresentation.ShouldEnableCorpseSmash(knockbackDistance);
+            _corpseSmashHit.Clear();
             _deathKnockActive = false;
+            _deathKnockWasAnimating = false;
             if (killerWorldPos.HasValue &&
                 MonsterDeathPresentation.TryDirectionalKnockbackTarget(
                     transform.position,
@@ -225,6 +247,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 _deathKnockTarget = target;
                 _deathKnockStartedAt = Time.time;
                 _deathKnockActive = true;
+                _deathKnockWasAnimating = true;
             }
         }
 
@@ -235,18 +258,51 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            var animating = MonsterDeathPresentation.TrySampleKnockback(
+            var animating = MonsterDeathPresentation.TrySampleParabolicKnockback(
                 _deathKnockOrigin,
                 _deathKnockTarget,
+                _deathKnockOrigin.y,
                 _deathKnockStartedAt,
                 MonsterDeathPresentation.DeathKnockbackSeconds,
                 Time.time,
                 out var pos);
             transform.position = pos;
+
+            if (_corpseSmashEnabled)
+            {
+                var corpseXZ = new Vector2(pos.x, pos.z);
+                if (animating)
+                {
+                    TickCorpseSmashSweep(corpseXZ);
+                }
+                else if (_deathKnockWasAnimating)
+                {
+                    TryCorpseSmashLanding(corpseXZ);
+                }
+            }
+
+            _deathKnockWasAnimating = animating;
             if (!animating)
             {
                 _deathKnockActive = false;
             }
+        }
+
+        private void TickCorpseSmashSweep(Vector2 corpseXZ)
+        {
+            CorpseProjectileSmashSweep.TryHitNearby(
+                corpseXZ,
+                _runtimeId,
+                _killerWarriorId,
+                _killerOutgoingDamage,
+                _corpseSmashHit,
+                _enumerateLivingMonsters,
+                _tryApplyCorpseSmash);
+        }
+
+        private void TryCorpseSmashLanding(Vector2 corpseXZ)
+        {
+            TickCorpseSmashSweep(corpseXZ);
         }
 
         /// <summary>XZ sample for MassMoveScheduler.</summary>

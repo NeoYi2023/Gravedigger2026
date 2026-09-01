@@ -185,7 +185,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 warrior.RaceAdjustCoeff = default;
             }
 
-            WarriorVisualStyleBake.TryApply(warrior, row);
+            WarriorVisualStyleBake.TryApply(warrior, row, _configs);
             Debug.Log(
                 $"[MagicBook] SoldierManufacture Restore (RaceWeightPick) book={magicBookId} " +
                 $"warrior={warrior.Id} Race={raceId} VisualStyle={warrior.VisualStyleId ?? ""} " +
@@ -242,7 +242,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             entry.SkillLevel = next;
-            WarriorVisualStyleBake.TryApply(warrior, row);
+            WarriorVisualStyleBake.TryApply(warrior, row, _configs);
             Debug.Log(
                 $"[MagicBook] SoldierSkillLevelAdd skill={skillId} {before}{delta:+0;-0;+0}→{next} " +
                 $"(clamp {minLevel}..{maxLevel}) book={magicBookId} warrior={warrior.Id} class={warrior.ClassId}");
@@ -333,7 +333,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             warrior.ClassId = targetRow.ClassId;
             warrior.AttackMode = targetRow.AttackMode;
             SoldierSkillGrant.GrantDefaultSkillsAtLevel1(warrior, _configs);
-            WarriorVisualStyleBake.TryApply(warrior, row);
+            WarriorVisualStyleBake.TryApply(warrior, row, _configs);
             Debug.Log(
                 $"[MagicBook] ForceClass hit roll={roll:0.###} chance={chance} " +
                 $"book={magicBookId} warrior={warrior.Id} {fromClassId}→{warrior.ClassId} " +
@@ -376,7 +376,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 var block = warrior.BaseStats;
                 ScaleAll(ref block, mul);
                 warrior.BaseStats = block;
-                WarriorVisualStyleBake.TryApply(warrior, row);
+                WarriorVisualStyleBake.TryApply(warrior, row, _configs);
                 Debug.Log(
                     $"[MagicBook] StatMul All *={mul} book={magicBookId} warrior={warrior.Id}");
                 return;
@@ -393,7 +393,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             var stats = warrior.BaseStats;
             stats.Set(kind, stats.Get(kind) * mul);
             warrior.BaseStats = stats;
-            WarriorVisualStyleBake.TryApply(warrior, row);
+            WarriorVisualStyleBake.TryApply(warrior, row, _configs);
             Debug.Log(
                 $"[MagicBook] StatMul {kind} *={mul} book={magicBookId} warrior={warrior.Id} " +
                 $"Base={stats.Get(kind)}");
@@ -419,7 +419,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             var stats = warrior.BaseStats;
             stats.Add(kind, delta);
             warrior.BaseStats = stats;
-            WarriorVisualStyleBake.TryApply(warrior, row);
+            WarriorVisualStyleBake.TryApply(warrior, row, _configs);
             Debug.Log(
                 $"[MagicBook] StatMul Primary {kind} +=({mul}-1)*{bodySum}={delta} " +
                 $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} Base={stats.Get(kind)} " +

@@ -19,6 +19,20 @@ namespace Gravedigger2026.Editor.Art
         private const string MenuPath = "Tools/Gravedigger/Art/Assemble Monster Model Prefabs";
         private const int SortingOrder = 200;
         private const int FixedDirIndexSouth = 2;
+        private const float Zombie192VisualScale = 2f / 3f;
+
+        private static readonly Dictionary<string, Vector3> VisualScaleByModelId =
+            new Dictionary<string, Vector3>
+            {
+                { "MonsterModel_02", Vector3.one * Zombie192VisualScale },
+                { "MonsterModel_03", Vector3.one * Zombie192VisualScale },
+            };
+
+        private static readonly Dictionary<string, Vector3> RootScaleByModelId =
+            new Dictionary<string, Vector3>
+            {
+                { "MonsterModel_03", new Vector3(3.5f, 3.5f, 3f) },
+            };
 
         [MenuItem(MenuPath)]
         public static void AssembleAll()
@@ -80,7 +94,8 @@ namespace Gravedigger2026.Editor.Art
             var root = new GameObject(modelId);
             try
             {
-                BuildVisualChild(root, controller, sprite, FixedDirIndexSouth);
+                ApplyRootScale(root.transform, modelId);
+                BuildVisualChild(root, controller, sprite, FixedDirIndexSouth, modelId);
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
                 return true;
             }
@@ -124,18 +139,29 @@ namespace Gravedigger2026.Editor.Art
             return result;
         }
 
+        private static void ApplyRootScale(Transform root, string modelId)
+        {
+            if (RootScaleByModelId.TryGetValue(modelId, out var rootScale))
+            {
+                root.localScale = rootScale;
+            }
+        }
+
         private static void BuildVisualChild(
             GameObject root,
             RuntimeAnimatorController controller,
             Sprite sprite,
-            int dirIndex)
+            int dirIndex,
+            string modelId)
         {
             var visualGo = new GameObject("Visual");
             var visual = visualGo.transform;
             visual.SetParent(root.transform, false);
             visual.localPosition = Vector3.zero;
             visual.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            visual.localScale = Vector3.one;
+            visual.localScale = VisualScaleByModelId.TryGetValue(modelId, out var visualScale)
+                ? visualScale
+                : Vector3.one;
 
             var sr = visualGo.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;

@@ -59,6 +59,27 @@ namespace Gravedigger2026.Core.Config
         public static float DeathDie2KnockbackThreshold { get; private set; } =
             CombatConstantKeys.Safety.DeathDie2KnockbackThreshold;
 
+        public static float DeathKnockbackPeakHeight { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackPeakHeight;
+
+        public static float DeathCorpseSmashDamageMul { get; private set; } =
+            CombatConstantKeys.Safety.DeathCorpseSmashDamageMul;
+
+        public static float DeathCorpseSmashHitRadius { get; private set; } =
+            CombatConstantKeys.Safety.DeathCorpseSmashHitRadius;
+
+        public static float DeathKnockbackSeconds { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackSeconds;
+
+        public static float DeathDefendCorpseAlphaMul { get; private set; } =
+            CombatConstantKeys.Safety.DeathDefendCorpseAlphaMul;
+
+        public static float DeathCorpseDarkenMul { get; private set; } =
+            CombatConstantKeys.Safety.DeathCorpseDarkenMul;
+
+        public static float DeathFakeDeathCorpseDarkenMul { get; private set; } =
+            CombatConstantKeys.Safety.DeathFakeDeathCorpseDarkenMul;
+
         public static float FlowFieldDefaultCellSize { get; private set; } =
             CombatConstantKeys.Safety.FlowFieldDefaultCellSize;
 
@@ -183,6 +204,27 @@ namespace Gravedigger2026.Core.Config
             DeathDie2KnockbackThreshold = Mathf.Max(0f, F(
                 CombatConstantKeys.DeathDie2KnockbackThreshold,
                 CombatConstantKeys.Safety.DeathDie2KnockbackThreshold));
+            DeathKnockbackPeakHeight = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathKnockbackPeakHeight,
+                CombatConstantKeys.Safety.DeathKnockbackPeakHeight));
+            DeathCorpseSmashDamageMul = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathCorpseSmashDamageMul,
+                CombatConstantKeys.Safety.DeathCorpseSmashDamageMul));
+            DeathCorpseSmashHitRadius = Mathf.Max(0.05f, F(
+                CombatConstantKeys.DeathCorpseSmashHitRadius,
+                CombatConstantKeys.Safety.DeathCorpseSmashHitRadius));
+            DeathKnockbackSeconds = Mathf.Max(0.01f, F(
+                CombatConstantKeys.DeathKnockbackSeconds,
+                CombatConstantKeys.Safety.DeathKnockbackSeconds));
+            DeathDefendCorpseAlphaMul = Mathf.Clamp01(F(
+                CombatConstantKeys.DeathDefendCorpseAlphaMul,
+                CombatConstantKeys.Safety.DeathDefendCorpseAlphaMul));
+            DeathCorpseDarkenMul = Mathf.Clamp01(F(
+                CombatConstantKeys.DeathCorpseDarkenMul,
+                CombatConstantKeys.Safety.DeathCorpseDarkenMul));
+            DeathFakeDeathCorpseDarkenMul = Mathf.Clamp01(F(
+                CombatConstantKeys.DeathFakeDeathCorpseDarkenMul,
+                CombatConstantKeys.Safety.DeathFakeDeathCorpseDarkenMul));
 
             FlowFieldMinCellSize = Mathf.Max(0.05f, F(
                 CombatConstantKeys.FlowFieldMinCellSize,

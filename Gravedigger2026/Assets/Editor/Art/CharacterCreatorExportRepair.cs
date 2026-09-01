@@ -107,6 +107,86 @@ namespace Gravedigger2026.Editor.Art
         /// <summary>
         /// Batch entry for -executeMethod / tests.
         /// </summary>
+        public static void RepairMonsterModel02Batch()
+        {
+            const string path = "Assets/Art/Characters/Monsters/MonsterModel_02";
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                Debug.LogError("[CharacterCreatorExportRepair] Missing " + path);
+                return;
+            }
+
+            if (!RepairFolder(path, DefaultColumns))
+                Debug.LogError("[CharacterCreatorExportRepair] RepairMonsterModel02Batch failed.");
+        }
+
+        /// <summary>
+        /// Batch entry for -executeMethod / tests.
+        /// </summary>
+        public static void RepairMonsterModel03Batch()
+        {
+            const string path = "Assets/Art/Characters/Monsters/MonsterModel_03";
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                Debug.LogError("[CharacterCreatorExportRepair] Missing " + path);
+                return;
+            }
+
+            if (!RepairFolder(path, DefaultColumns))
+                Debug.LogError("[CharacterCreatorExportRepair] RepairMonsterModel03Batch failed.");
+        }
+
+        /// <summary>
+        /// Batch entry for -executeMethod / tests.
+        /// </summary>
+        public static void RepairMonsterModel04Batch()
+        {
+            const string path = "Assets/Art/Characters/Monsters/MonsterModel_04";
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                Debug.LogError("[CharacterCreatorExportRepair] Missing " + path);
+                return;
+            }
+
+            if (!RepairFolder(path, DefaultColumns))
+                Debug.LogError("[CharacterCreatorExportRepair] RepairMonsterModel04Batch failed.");
+        }
+
+        /// <summary>
+        /// Batch entry for -executeMethod / tests.
+        /// </summary>
+        public static void RepairMonsterModel08Batch()
+        {
+            const string path = "Assets/Art/Characters/Monsters/MonsterModel_08";
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                Debug.LogError("[CharacterCreatorExportRepair] Missing " + path);
+                return;
+            }
+
+            if (!RepairFolder(path, DefaultColumns))
+                Debug.LogError("[CharacterCreatorExportRepair] RepairMonsterModel08Batch failed.");
+        }
+
+        /// <summary>
+        /// Batch entry for -executeMethod / tests.
+        /// </summary>
+        public static void RepairMonsterModel07Batch()
+        {
+            const string path = "Assets/Art/Characters/Monsters/MonsterModel_07";
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                Debug.LogError("[CharacterCreatorExportRepair] Missing " + path);
+                return;
+            }
+
+            if (!RepairFolder(path, DefaultColumns))
+                Debug.LogError("[CharacterCreatorExportRepair] RepairMonsterModel07Batch failed.");
+        }
+
+        /// <summary>
+        /// Batch entry for -executeMethod / tests.
+        /// </summary>
         public static void RepairApp01Batch()
         {
             string[] targets =

@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.43
-**最后更新 / Last Updated:** 2026-08-31
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1））  
+**文档版本 / Document Version:** v0.83.56
+**最后更新 / Last Updated:** 2026-09-01
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）+ 命中附带体型步进 D-082；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1）；怪物尸体投射 D-083 **完成**（issues `.scratch/corpse-projectile/`））  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,18 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-01 | v0.83.56 | Dig HUD `GmMenuPanel`：两层两列布局（上层 Dig+Mode2 魔法书全表 `TryEquip`；下层装备获得/划入配对）；废止单键「装备战士强化」。同步 SPEC_03 §3.10、`DigHudView`/`DigStageController`/`DigAssetBuilder` |
+| 2026-09-01 | v0.83.55 | `MonsterModel_04` 替换为 2D Zombie Pack `ZombieFemale1` 精灵表（1920×1024，128px/格）；Prefab `Visual.localScale=1`；`Monster_04` 配置改绑 `ModelId=MonsterModel_04`；离线烘焙 `Tools/bake_monster_model_04_from_zombie.py`；同步 SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.54 | `Defend_MonsterConfig.ModelId` 支持加权池 `ModelId;Weight|…`；Defend/PushMap 刷怪每只怪物独立随机子 ModelId；`MonsterModelIdFieldParser` + Catalog 拆池内 ID。同步 SPEC_04 §6/§9.19 |
+| 2026-09-01 | v0.83.50 | 死亡变暗分级：PushMap 假死 `RGB×0.7`（彻底死亡 0.4 的一半深度）；Defend 怪/士兵尸体额外 `alpha×0.85`；`PlayDie(corpseDarkenMul, corpseAlphaMul)`。同步 SPEC_03 §3.8/§3.12、SPEC_04 §15.5、CONTEXT、`WarriorAnimView` |
+| 2026-09-01 | v0.83.52 | `MonsterModel_08` 替换为 2D Zombie Pack `ZombieFemale2` 精灵表（1920×1024，128px/格）；Prefab `Visual.localScale=1`；`Monster_08` 配置改绑 `ModelId=MonsterModel_08`；离线烘焙 `Tools/bake_monster_model_08_from_zombie.py`；同步 SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.51 | `MonsterModel_03` 替换为 2D Zombie Pack `ZombieMonster3` 精灵表（2880×1536）；Prefab `Visual.localScale=2/3`、Root `(3.5,3.5,3)` Boss 缩放；新增 Die2；离线烘焙 `Tools/bake_monster_model_03_from_zombie.py`；同步 SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.49 | `MonsterModel_02` 替换为 2D Zombie Pack `ZombieMonster2` 精灵表（2880×1536）；Prefab `Visual.localScale=2/3`；`Monster_02` 配置改绑 `ModelId=MonsterModel_02`；离线烘焙 `Tools/bake_monster_model_02_from_zombie.py`；同步 SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.48 | 假死怪物不变暗：`MonsterCombatDead` → `PlayDie(suppressCorpseDarken:true)`，假死全程跳过 `CorpseDarkenMul`；彻底死亡/士兵/Defend 仍 latch 变暗。同步 SPEC_03 §3.8/§3.12、SPEC_04 §15.5、CONTEXT、`WarriorAnimView` |
+| 2026-09-01 | v0.83.47 | 怪物尸体投射 D-083 **完成**（方案 A）：PushMap/Defend 抛物线+飞行扫掠/落地砸击；Session `TryApplyCorpseSmashDamage`；Correctness 菜单 `Run Corpse Projectile Correctness Checks (D-083)`。issues `.scratch/corpse-projectile/`。同步 SPEC_03 §3.8 |
+| 2026-09-01 | v0.83.46 | 战斗属性魔法书 8 本：`EffectPhase=Combat` `StatMul`（低阶 15%/高阶 30% 生命/力量/敏捷/智力）；开战登记士兵时按主角 6 槽叠乘；不改 Base。同步 SPEC_03 §3.15 4b、SPEC_04 §9.24、`CombatMagicBookStatMul`、Defend/PushMap 接线 |
+| 2026-09-01 | v0.83.45 | 怪物尸体投射 D-083 规则录入：抛物线击飞+砸击合一；`distance≥DeathDie2KnockbackThreshold` 才砸；`OutgoingDamage×DeathCorpseSmashDamageMul`；途中+落地各一次；仅砸怪；砸死不连锁；假死亦飞砸。同步 SPEC_03 §3.12/§3.14/§3.8、SPEC_04 §9.20b/§15.5、CONTEXT |
+| 2026-09-01 | v0.83.44 | Mode2 魔法书 Token 命中附带体型放大 D-082：`VisualModelScale` ×`WarriorVisualModelScalePerHit`(1.15) 可叠，夹 `WarriorVisualModelScaleMax`(3)；与 `Style_ScaleModel` 并存；BodyRadius/AttackRange 仍 ×k。同步 SPEC_03 §3.15 6b/§3.8、SPEC_04 §9.9/§9.20b/§9.24、CONTEXT、常量表 |
 | 2026-08-31 | v0.83.43 | UI-016 士兵卡谜底：`SoldierCardTemplate/Question` 由 Text「?」改为 Image `UnknownSoldier_1`（`Art/UI/Icons`）。同步 SPEC_03 §3.6/§3.8、SPEC_04 §6、`AutoMfgSoldierCardView` |
 | 2026-08-31 | v0.83.42 | UI-026 OfferSlot 着色：未购纯白不透明；已购仅 RGB 变色、禁用态 alpha=1（禁半透明）。同步 SPEC_03 §3.6、SPEC_04 §10、`ShopStageRootView`/`ShopStageRoot` |
 | 2026-08-30 | v0.83.41 | DigStageSummary：`Title` PosY=-50、FontSize=40；`Body` PosY=-110、FontSize=32。同步 `DigStageRoot`/`DigAssetBuilder` |
@@ -409,6 +421,18 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-01 | v0.83.56 | Dig HUD `GmMenuPanel`: two-layer two-column layout (top Dig + Mode2 full MagicBook `TryEquip`; bottom gear grant/spend pairs); retire single Equip Warrior Enhance button. Synced SPEC_03 §3.10, `DigHudView`/`DigStageController`/`DigAssetBuilder` |
+| 2026-09-01 | v0.83.55 | `MonsterModel_04` replaced with 2D Zombie Pack `ZombieFemale1` sheets (1920×1024, 128px/cell); Prefab `Visual.localScale=1`; `Monster_04` config rebound to `ModelId=MonsterModel_04`; offline bake `Tools/bake_monster_model_04_from_zombie.py`; synced SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.54 | `Defend_MonsterConfig.ModelId` weighted pool `ModelId;Weight|…`; Defend/PushMap spawn picks one sub-ModelId per monster independently; `MonsterModelIdFieldParser` + Catalog enumerates pool IDs. Synced SPEC_04 §6/§9.19 |
+| 2026-09-01 | v0.83.52 | `MonsterModel_08` replaced with 2D Zombie Pack `ZombieFemale2` sheets (1920×1024, 128px/cell); Prefab `Visual.localScale=1`; `Monster_08` config rebound to `ModelId=MonsterModel_08`; offline bake `Tools/bake_monster_model_08_from_zombie.py`; synced SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.51 | `MonsterModel_03` replaced with 2D Zombie Pack `ZombieMonster3` sheets (2880×1536); Prefab `Visual.localScale=2/3`, Root `(3.5,3.5,3)` Boss scale; Die2 added; offline bake `Tools/bake_monster_model_03_from_zombie.py`; synced SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.50 | Tiered corpse presentation: PushMap fake-death `RGB×0.7` (half darken depth of true death 0.4); Defend monster/soldier corpses also `alpha×0.85`; `PlayDie(corpseDarkenMul, corpseAlphaMul)`. Synced SPEC_03 §3.8/§3.12, SPEC_04 §15.5, CONTEXT, `WarriorAnimView` |
+| 2026-09-01 | v0.83.49 | `MonsterModel_02` replaced with 2D Zombie Pack `ZombieMonster2` sheets (2880×1536); Prefab `Visual.localScale=2/3`; `Monster_02` config rebound to `ModelId=MonsterModel_02`; offline bake `Tools/bake_monster_model_02_from_zombie.py`; synced SPEC_04 §15.3 |
+| 2026-09-01 | v0.83.48 | Fake-death monsters skip darken: `MonsterCombatDead` → `PlayDie(suppressCorpseDarken:true)`; entire fake-death skips `CorpseDarkenMul`; true death/soldiers/Defend still darken at latch. Synced SPEC_03 §3.8/§3.12, SPEC_04 §15.5, CONTEXT, `WarriorAnimView` |
+| 2026-09-01 | v0.83.47 | Monster corpse projectile D-083 **done** (Approach A): PushMap/Defend parabolic + flight sweep/landing smash; Session `TryApplyCorpseSmashDamage`; menu `Run Corpse Projectile Correctness Checks (D-083)`. issues `.scratch/corpse-projectile/`. Synced SPEC_03 §3.8 |
+| 2026-09-01 | v0.83.46 | Eight combat stat MagicBooks: `EffectPhase=Combat` `StatMul` (low 15% / high 30% MaxHP/Str/Agi/Int); aggregate protagonist 6 slots at StartBattle warrior registration; no Base mutation. Synced SPEC_03 §3.15 4b, SPEC_04 §9.24, `CombatMagicBookStatMul`, Defend/PushMap wiring |
+| 2026-09-01 | v0.83.45 | Monster corpse projectile D-083 rules: parabolic knockback + smash unified; smash only when `distance≥DeathDie2KnockbackThreshold`; `OutgoingDamage×DeathCorpseSmashDamageMul`; in-flight + landing once each; monsters only; smash kills no chain; fake-death also flies/smashes. Synced SPEC_03 §3.12/§3.14/§3.8, SPEC_04 §9.20b/§15.5, CONTEXT |
+| 2026-09-01 | v0.83.44 | Mode2 MagicBook token-hit body scale D-082: `VisualModelScale` ×`WarriorVisualModelScalePerHit`(1.15) stackable, clamp `WarriorVisualModelScaleMax`(3); coexists with `Style_ScaleModel`; BodyRadius/AttackRange still ×k. Synced SPEC_03 §3.15 6b/§3.8, SPEC_04 §9.9/§9.20b/§9.24, CONTEXT, constant tables |
 | 2026-08-31 | v0.83.43 | UI-016 soldier-card mystery: `SoldierCardTemplate/Question` Text "?" → Image `UnknownSoldier_1` (`Art/UI/Icons`). Synced SPEC_03 §3.6/§3.8, SPEC_04 §6, `AutoMfgSoldierCardView` |
 | 2026-08-31 | v0.83.42 | UI-026 OfferSlot tint: unsold pure opaque white; sold RGB tint only, disabled alpha=1 (no fade). Synced SPEC_03 §3.6, SPEC_04 §10, `ShopStageRootView`/`ShopStageRoot` |
 | 2026-08-30 | v0.83.41 | DigStageSummary: `Title` PosY=-50, FontSize=40; `Body` PosY=-110, FontSize=32. Synced `DigStageRoot`/`DigAssetBuilder` |

@@ -587,7 +587,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _diePlayed = true;
             HideFootCircle();
             _stuckHold.Reset();
-            _anim.PlayDie();
+            _anim.PlayDie(corpseAlphaMul: WarriorAnimView.DefendCorpseAlphaMul);
         }
 
         private void TickLoyalMelee(DefendCombatWarriorState state)

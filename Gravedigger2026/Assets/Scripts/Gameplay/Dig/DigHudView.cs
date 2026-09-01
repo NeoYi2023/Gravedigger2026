@@ -1,22 +1,41 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
+    public readonly struct GmMagicBookGmEntry
+    {
+        public readonly string MagicBookId;
+        public readonly string Label;
+
+        public GmMagicBookGmEntry(string magicBookId, string label)
+        {
+            MagicBookId = magicBookId ?? string.Empty;
+            Label = string.IsNullOrEmpty(label) ? MagicBookId : label;
+        }
+    }
+
     public sealed class DigHudView : MonoBehaviour
     {
         private const float PortraitSize = 60f;
         private const float GmButtonHeight = 40f;
         private const float GmButtonGap = 8f;
-        private const float GmButtonStep = GmButtonHeight + GmButtonGap;
+        private const float GmRowStep = GmButtonHeight + GmButtonGap;
+        private const float GmColWidth = 172f;
+        private const float GmColGap = 8f;
+        private const float GmLayerGap = 16f;
+        private const float GmPanelWidth = GmColWidth * 2f + GmColGap;
+        private const int DigMagicFixedRows = 2;
+        private const int EquipRows = 8;
+        private const string MagicBookButtonPrefix = "GmEquipMagicBook_";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _timerText;
         [SerializeField] private Text _warehouseText;
         [SerializeField] private Button _addGravesButton;
         [SerializeField] private Button _addBodyPartsButton;
-        [SerializeField] private Button _equipWarriorEnhanceButton;
         [SerializeField] private Button _acquireDigRingButton;
         [SerializeField] private Button _grantEquipCommonExpButton;
         [SerializeField] private Button _spendDigRingCommonExpButton;
@@ -43,7 +62,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public event Action AddGravesRequested;
         public event Action AddBodyPartsRequested;
-        public event Action EquipWarriorEnhanceRequested;
+        public event Action<string> EquipMagicBookRequested;
         public event Action AcquireDigRingRequested;
         public event Action GrantEquipCommonExpRequested;
         public event Action SpendDigRingCommonExpRequested;
@@ -73,6 +92,12 @@ namespace Gravedigger2026.Gameplay.Dig
         }
 
         private bool _gmMenuOpen;
+        private Transform _digMagicLayer;
+        private Transform _equipLayer;
+        private int _magicBookRows;
+        private readonly List<Button> _magicBookButtons = new List<Button>();
+        private readonly List<UnityEngine.Events.UnityAction> _magicBookHandlers =
+            new List<UnityEngine.Events.UnityAction>();
 
         private void OnEnable()
         {
@@ -82,7 +107,6 @@ namespace Gravedigger2026.Gameplay.Dig
             Wire(_gmToggleButton, HandleGmToggle);
             Wire(_addGravesButton, HandleAddGraves);
             Wire(_addBodyPartsButton, HandleAddBodyParts);
-            Wire(_equipWarriorEnhanceButton, HandleEquipWarriorEnhance);
             Wire(_acquireDigRingButton, HandleAcquireDigRing);
             Wire(_grantEquipCommonExpButton, HandleGrantEquipCommonExp);
             Wire(_spendDigRingCommonExpButton, HandleSpendDigRingCommonExp);
@@ -107,7 +131,6 @@ namespace Gravedigger2026.Gameplay.Dig
             Unwire(_gmToggleButton, HandleGmToggle);
             Unwire(_addGravesButton, HandleAddGraves);
             Unwire(_addBodyPartsButton, HandleAddBodyParts);
-            Unwire(_equipWarriorEnhanceButton, HandleEquipWarriorEnhance);
             Unwire(_acquireDigRingButton, HandleAcquireDigRing);
             Unwire(_grantEquipCommonExpButton, HandleGrantEquipCommonExp);
             Unwire(_spendDigRingCommonExpButton, HandleSpendDigRingCommonExp);
@@ -205,6 +228,51 @@ namespace Gravedigger2026.Gameplay.Dig
             }
         }
 
+        /// <summary>
+        /// Rebuild Mode2 MagicBook GM buttons (two-col under Dig commons). Mode1: visible=false.
+        /// </summary>
+        public void RebuildMagicBookGmButtons(IReadOnlyList<GmMagicBookGmEntry> entries, bool visible)
+        {
+            EnsureGmMenu();
+            ClearMagicBookButtons();
+
+            if (!visible || entries == null || entries.Count == 0)
+            {
+                _magicBookRows = 0;
+                RefreshGmMenuPanelSize();
+                return;
+            }
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (string.IsNullOrEmpty(entry.MagicBookId))
+                {
+                    continue;
+                }
+
+                var row = DigMagicFixedRows + (i / 2);
+                var col = i % 2;
+                var safeName = MagicBookButtonPrefix + SanitizeButtonName(entry.MagicBookId);
+                var button = FindOrCreateGmButton(
+                    _digMagicLayer,
+                    safeName,
+                    entry.Label,
+                    ColAnchoredPos(row, col),
+                    new Vector2(GmColWidth, GmButtonHeight));
+                PlaceGmMenuButton(button.GetComponent<RectTransform>(), row, col);
+
+                var bookId = entry.MagicBookId;
+                UnityEngine.Events.UnityAction handler = () => EquipMagicBookRequested?.Invoke(bookId);
+                button.onClick.AddListener(handler);
+                _magicBookButtons.Add(button);
+                _magicBookHandlers.Add(handler);
+            }
+
+            _magicBookRows = (_magicBookButtons.Count + 1) / 2;
+            RefreshGmMenuPanelSize();
+        }
+
         private void HandleAddGraves()
         {
             AddGravesRequested?.Invoke();
@@ -213,11 +281,6 @@ namespace Gravedigger2026.Gameplay.Dig
         private void HandleAddBodyParts()
         {
             AddBodyPartsRequested?.Invoke();
-        }
-
-        private void HandleEquipWarriorEnhance()
-        {
-            EquipWarriorEnhanceRequested?.Invoke();
         }
 
         private void HandleAcquireDigRing()
@@ -303,15 +366,6 @@ namespace Gravedigger2026.Gameplay.Dig
         private void HandleSpendOrcTokenCommonExp()
         {
             SpendOrcTokenCommonExpRequested?.Invoke();
-        }
-
-        public void SetWarriorEnhanceGmVisible(bool visible)
-        {
-            EnsureGmMenu();
-            if (_equipWarriorEnhanceButton != null)
-            {
-                _equipWarriorEnhanceButton.gameObject.SetActive(visible);
-            }
         }
 
         private void HandleGmToggle()
@@ -401,7 +455,9 @@ namespace Gravedigger2026.Gameplay.Dig
             var parent = _root != null ? _root.transform : transform;
             if (_gmToggleButton == null)
             {
-                _gmToggleButton = FindOrCreateGmButton(parent, "GmToggleButton", "GM", new Vector2(-24f, -86f), new Vector2(80f, GmButtonHeight));
+                _gmToggleButton = FindOrCreateGmButton(
+                    parent, "GmToggleButton", "GM",
+                    new Vector2(-24f, -86f), new Vector2(80f, GmButtonHeight));
             }
 
             if (_gmMenuPanel == null)
@@ -420,7 +476,7 @@ namespace Gravedigger2026.Gameplay.Dig
                     panelRt.anchorMax = new Vector2(1f, 1f);
                     panelRt.pivot = new Vector2(1f, 1f);
                     panelRt.anchoredPosition = new Vector2(-24f, -134f);
-                    panelRt.sizeDelta = new Vector2(200f, 780f);
+                    panelRt.sizeDelta = new Vector2(GmPanelWidth, 780f);
                     _gmMenuPanel = panelGo;
                 }
 
@@ -428,46 +484,99 @@ namespace Gravedigger2026.Gameplay.Dig
             }
 
             var menuParent = _gmMenuPanel.transform;
-            ReparentGmButton(menuParent, ref _addGravesButton, "GmAddGravesButton", "增加坟墓", 0);
-            ReparentGmButton(menuParent, ref _addBodyPartsButton, "GmAddBodyPartsButton", "增加躯体材料", 1);
-            ReparentGmButton(menuParent, ref _equipWarriorEnhanceButton, "GmEquipWarriorEnhanceButton", "装备战士强化", 2);
-            if (_equipWarriorEnhanceButton != null)
-            {
-                _equipWarriorEnhanceButton.gameObject.SetActive(false);
-            }
-            ReparentGmButton(menuParent, ref _acquireDigRingButton, "GmAcquireDigRingButton", "获得铁铲", 3);
-            ReparentGmButton(menuParent, ref _grantEquipCommonExpButton, "GmGrantEquipCommonExpButton", "装备公共经验+50", 4);
-            ReparentGmButton(menuParent, ref _spendDigRingCommonExpButton, "GmSpendDigRingCommonExpButton", "划入铁铲升级", 5);
-            ReparentGmButton(menuParent, ref _acquireMinerLampButton, "GmAcquireMinerLampButton", "获得矿灯", 6);
-            ReparentGmButton(menuParent, ref _spendMinerLampCommonExpButton, "GmSpendMinerLampCommonExpButton", "划入矿灯升级", 7);
-            ReparentGmButton(menuParent, ref _acquireExplosivesButton, "GmAcquireExplosivesButton", "获得炸药", 8);
-            ReparentGmButton(menuParent, ref _spendExplosivesCommonExpButton, "GmSpendExplosivesCommonExpButton", "划入炸药升级", 9);
-            ReparentGmButton(menuParent, ref _acquireLightningButton, "GmAcquireLightningButton", "获得引雷", 10);
-            ReparentGmButton(menuParent, ref _spendLightningCommonExpButton, "GmSpendLightningCommonExpButton", "划入引雷升级", 11);
-            ReparentGmButton(menuParent, ref _acquireDetectorButton, "GmAcquireDetectorButton", "获得探测器", 12);
-            ReparentGmButton(menuParent, ref _spendDetectorCommonExpButton, "GmSpendDetectorCommonExpButton", "划入探测器升级", 13);
-            ReparentGmButton(menuParent, ref _acquireHumanTokenButton, "GmAcquireHumanTokenButton", "获得人类信物", 14);
-            ReparentGmButton(menuParent, ref _spendHumanTokenCommonExpButton, "GmSpendHumanTokenCommonExpButton", "划入人类信物升级", 15);
-            ReparentGmButton(menuParent, ref _acquireElfTokenButton, "GmAcquireElfTokenButton", "获得精灵信物", 16);
-            ReparentGmButton(menuParent, ref _spendElfTokenCommonExpButton, "GmSpendElfTokenCommonExpButton", "划入精灵信物升级", 17);
-            ReparentGmButton(menuParent, ref _acquireOrcTokenButton, "GmAcquireOrcTokenButton", "获得兽人信物", 18);
-            ReparentGmButton(menuParent, ref _spendOrcTokenCommonExpButton, "GmSpendOrcTokenCommonExpButton", "划入兽人信物升级", 19);
+            DestroyLegacyWarriorEnhanceButton(menuParent);
+
+            _digMagicLayer = EnsureGmLayer(menuParent, "GmLayerDigMagic", 0f);
+            _equipLayer = EnsureGmLayer(menuParent, "GmLayerEquip", 0f);
+
+            // Top layer: Dig commons (row0–1) + MagicBooks (row2+)
+            ReparentGmButton(_digMagicLayer, ref _addGravesButton, "GmAddGravesButton", "增加坟墓", 0, 0);
+            ReparentGmButton(_digMagicLayer, ref _addBodyPartsButton, "GmAddBodyPartsButton", "增加躯体材料", 0, 1);
+            ReparentGmButton(
+                _digMagicLayer, ref _grantEquipCommonExpButton, "GmGrantEquipCommonExpButton",
+                "装备公共经验+50", 1, 0);
+
+            // Bottom layer: grant (col0) / spend (col1) pairs
+            ReparentGmButton(_equipLayer, ref _acquireDigRingButton, "GmAcquireDigRingButton", "获得铁铲", 0, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendDigRingCommonExpButton, "GmSpendDigRingCommonExpButton",
+                "划入铁铲升级", 0, 1);
+            ReparentGmButton(_equipLayer, ref _acquireMinerLampButton, "GmAcquireMinerLampButton", "获得矿灯", 1, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendMinerLampCommonExpButton, "GmSpendMinerLampCommonExpButton",
+                "划入矿灯升级", 1, 1);
+            ReparentGmButton(
+                _equipLayer, ref _acquireExplosivesButton, "GmAcquireExplosivesButton", "获得炸药", 2, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendExplosivesCommonExpButton, "GmSpendExplosivesCommonExpButton",
+                "划入炸药升级", 2, 1);
+            ReparentGmButton(
+                _equipLayer, ref _acquireLightningButton, "GmAcquireLightningButton", "获得引雷", 3, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendLightningCommonExpButton, "GmSpendLightningCommonExpButton",
+                "划入引雷升级", 3, 1);
+            ReparentGmButton(
+                _equipLayer, ref _acquireDetectorButton, "GmAcquireDetectorButton", "获得探测器", 4, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendDetectorCommonExpButton, "GmSpendDetectorCommonExpButton",
+                "划入探测器升级", 4, 1);
+            ReparentGmButton(
+                _equipLayer, ref _acquireHumanTokenButton, "GmAcquireHumanTokenButton", "获得人类信物", 5, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendHumanTokenCommonExpButton, "GmSpendHumanTokenCommonExpButton",
+                "划入人类信物升级", 5, 1);
+            ReparentGmButton(
+                _equipLayer, ref _acquireElfTokenButton, "GmAcquireElfTokenButton", "获得精灵信物", 6, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendElfTokenCommonExpButton, "GmSpendElfTokenCommonExpButton",
+                "划入精灵信物升级", 6, 1);
+            ReparentGmButton(
+                _equipLayer, ref _acquireOrcTokenButton, "GmAcquireOrcTokenButton", "获得兽人信物", 7, 0);
+            ReparentGmButton(
+                _equipLayer, ref _spendOrcTokenCommonExpButton, "GmSpendOrcTokenCommonExpButton",
+                "划入兽人信物升级", 7, 1);
+
+            RefreshGmMenuPanelSize();
         }
 
-        private void ReparentGmButton(Transform menuParent, ref Button button, string name, string label, int index)
+        private void RefreshGmMenuPanelSize()
         {
-            if (button == null)
+            if (_gmMenuPanel == null)
             {
-                button = FindOrCreateGmButton(menuParent, name, label, new Vector2(0f, -index * GmButtonStep), new Vector2(180f, GmButtonHeight));
                 return;
             }
 
-            button.transform.SetParent(menuParent, false);
-            PlaceGmMenuButton(button.GetComponent<RectTransform>(), index);
-            SetGmButtonLabel(button, label);
+            var digRows = DigMagicFixedRows + Mathf.Max(0, _magicBookRows);
+            var digHeight = digRows * GmRowStep;
+            var equipHeight = EquipRows * GmRowStep;
+            var totalHeight = digHeight + GmLayerGap + equipHeight;
+
+            var panelRt = _gmMenuPanel.GetComponent<RectTransform>();
+            if (panelRt != null)
+            {
+                panelRt.sizeDelta = new Vector2(GmPanelWidth, totalHeight);
+            }
+
+            PlaceGmLayer(_digMagicLayer as RectTransform, 0f, digHeight);
+            PlaceGmLayer(_equipLayer as RectTransform, -(digHeight + GmLayerGap), equipHeight);
         }
 
-        private static void PlaceGmMenuButton(RectTransform rt, int index)
+        private static Transform EnsureGmLayer(Transform menuParent, string name, float anchoredY)
+        {
+            var existing = menuParent.Find(name);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(menuParent, false);
+            var rt = go.GetComponent<RectTransform>();
+            PlaceGmLayer(rt, anchoredY, 0f);
+            return go.transform;
+        }
+
+        private static void PlaceGmLayer(RectTransform rt, float anchoredY, float height)
         {
             if (rt == null)
             {
@@ -477,8 +586,147 @@ namespace Gravedigger2026.Gameplay.Dig
             rt.anchorMin = new Vector2(1f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(1f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -index * GmButtonStep);
-            rt.sizeDelta = new Vector2(180f, GmButtonHeight);
+            rt.anchoredPosition = new Vector2(0f, anchoredY);
+            rt.sizeDelta = new Vector2(GmPanelWidth, height);
+        }
+
+        private void ReparentGmButton(
+            Transform layer,
+            ref Button button,
+            string name,
+            string label,
+            int row,
+            int col)
+        {
+            if (button == null)
+            {
+                button = FindOrCreateGmButton(
+                    layer, name, label, ColAnchoredPos(row, col),
+                    new Vector2(GmColWidth, GmButtonHeight));
+                // Also migrate if button lived under panel root (legacy prefab).
+                if (button.transform.parent != layer)
+                {
+                    button.transform.SetParent(layer, false);
+                }
+
+                PlaceGmMenuButton(button.GetComponent<RectTransform>(), row, col);
+                SetGmButtonLabel(button, label);
+                return;
+            }
+
+            // Prefer serialized ref; if still under old parent, move into layer.
+            if (_gmMenuPanel != null && button.transform.IsChildOf(_gmMenuPanel.transform)
+                && button.transform.parent != layer)
+            {
+                button.transform.SetParent(layer, false);
+            }
+            else if (button.transform.parent != layer)
+            {
+                var found = FindDeep(layer, name) ?? FindDeep(_gmMenuPanel != null ? _gmMenuPanel.transform : null, name);
+                if (found != null)
+                {
+                    button = found.GetComponent<Button>() ?? button;
+                }
+
+                button.transform.SetParent(layer, false);
+            }
+
+            PlaceGmMenuButton(button.GetComponent<RectTransform>(), row, col);
+            SetGmButtonLabel(button, label);
+        }
+
+        private static void PlaceGmMenuButton(RectTransform rt, int row, int col)
+        {
+            if (rt == null)
+            {
+                return;
+            }
+
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = ColAnchoredPos(row, col);
+            rt.sizeDelta = new Vector2(GmColWidth, GmButtonHeight);
+        }
+
+        /// <summary>col 0 = left, col 1 = right (right-anchored panel).</summary>
+        private static Vector2 ColAnchoredPos(int row, int col)
+        {
+            var x = col <= 0
+                ? -(GmColWidth + GmColGap)
+                : 0f;
+            return new Vector2(x, -row * GmRowStep);
+        }
+
+        private void ClearMagicBookButtons()
+        {
+            for (var i = 0; i < _magicBookButtons.Count; i++)
+            {
+                var button = _magicBookButtons[i];
+                if (button == null)
+                {
+                    continue;
+                }
+
+                if (i < _magicBookHandlers.Count && _magicBookHandlers[i] != null)
+                {
+                    button.onClick.RemoveListener(_magicBookHandlers[i]);
+                }
+
+                Destroy(button.gameObject);
+            }
+
+            _magicBookButtons.Clear();
+            _magicBookHandlers.Clear();
+        }
+
+        private static void DestroyLegacyWarriorEnhanceButton(Transform menuParent)
+        {
+            if (menuParent == null)
+            {
+                return;
+            }
+
+            var legacy = FindDeep(menuParent, "GmEquipWarriorEnhanceButton");
+            if (legacy != null)
+            {
+                Destroy(legacy.gameObject);
+            }
+        }
+
+        private static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null || string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+
+            var direct = root.Find(name);
+            if (direct != null)
+            {
+                return direct;
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var found = FindDeep(root.GetChild(i), name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        private static string SanitizeButtonName(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return "Unknown";
+            }
+
+            return id.Replace('/', '_').Replace('\\', '_').Replace(' ', '_');
         }
 
         private void EnsurePortraitFrame()
@@ -570,12 +818,26 @@ namespace Gravedigger2026.Gameplay.Dig
             Vector2 anchoredPos,
             Vector2 size)
         {
-            var existing = parent.Find(name);
+            Transform existing = null;
+            if (parent != null)
+            {
+                existing = parent.Find(name);
+                if (existing == null && parent.parent != null)
+                {
+                    existing = FindDeep(parent.parent, name);
+                }
+            }
+
             if (existing != null)
             {
                 var existingBtn = existing.GetComponent<Button>();
                 if (existingBtn != null)
                 {
+                    if (existing.parent != parent && parent != null)
+                    {
+                        existing.SetParent(parent, false);
+                    }
+
                     SetGmButtonLabel(existingBtn, label);
                     var existingRt = existingBtn.GetComponent<RectTransform>();
                     if (existingRt != null)
@@ -610,7 +872,7 @@ namespace Gravedigger2026.Gameplay.Dig
             textRt.offsetMax = Vector2.zero;
             var text = textGo.GetComponent<Text>();
             text.text = label;
-            text.fontSize = 20;
+            text.fontSize = 18;
             text.alignment = TextAnchor.MiddleCenter;
             text.color = Color.white;
             text.raycastTarget = false;
