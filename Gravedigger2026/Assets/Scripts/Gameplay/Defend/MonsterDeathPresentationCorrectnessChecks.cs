@@ -21,6 +21,7 @@ namespace Gravedigger2026.Gameplay.Defend
             CheckSmashGate(sb);
             CheckKnockbackDistanceUnchanged(sb);
             CheckShouldPreferDie2Unchanged(sb);
+            CheckShadowScaleMul(sb);
             return sb.Length == 0 ? null : sb.ToString();
         }
 
@@ -175,6 +176,31 @@ namespace Gravedigger2026.Gameplay.Defend
             if (MonsterDeathPresentation.ShouldPreferDie2(threshold))
             {
                 sb.AppendLine($"ShouldPreferDie2: {threshold:F2} (at threshold) should be false");
+            }
+        }
+
+        private static void CheckShadowScaleMul(StringBuilder sb)
+        {
+            if (MonsterDeathPresentation.ComputeShadowScaleMul(0f) > 0f)
+            {
+                sb.AppendLine("ShadowScaleMul: height 0 should return 0");
+            }
+
+            var atGround = MonsterDeathPresentation.ComputeShadowScaleMul(1e-4f);
+            var min = CombatRuntimeTuning.DeathKnockbackShadowScaleMin;
+            if (Mathf.Abs(atGround - min) > 0.05f)
+            {
+                sb.AppendLine($"ShadowScaleMul: near ground {atGround:F4} expect ≈{min:F4}");
+            }
+
+            var peak = CombatRuntimeTuning.DeathKnockbackPeakHeight;
+            if (peak > 1e-5f)
+            {
+                var atPeak = MonsterDeathPresentation.ComputeShadowScaleMul(peak);
+                if (Mathf.Abs(atPeak - 1f) > 0.01f)
+                {
+                    sb.AppendLine($"ShadowScaleMul: at peak {atPeak:F4} expect 1");
+                }
             }
         }
     }

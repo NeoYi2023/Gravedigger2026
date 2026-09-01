@@ -5,7 +5,8 @@ AttackSpeedAgiDiv,攻击速度敏捷除数,60,AttackSpeed Agility divisor,攻速
 SkillCdIntDiv,技能冷却智力除数,30,SkillCooldown Intelligence divisor,"技能CD=max(下限,基础CD−本值/max(智力,1))；Demo不施放"
 SkillCdFloor,技能冷却下限,0.1,SkillCooldown floor seconds,技能冷却最短秒数，防止智力过高使CD过低
 MaxHpStrengthMult,血量力量系数,3,MaxHP = ceil(BodyLife + Str x Mult),士兵最大生命=ceil(躯体生命+力量×本系数)
-CameraHeightY,镜头高度,18,Top-down camera world Y above map center,俯视正交相机相对地图中心的世界Y高度；Dig/Defend/布阵/PushMap共用
+CameraHeightY,镜头高度,18,Camera vertical height above mapCenter/lookAt,相机相对mapCenter/lookAt的垂直高度；ApplyTopDownPose与ApplyCombatCameraPose共用
+CombatCameraPitchDegrees,战斗相机倾角,60,Defend+PushMap Combat ortho Euler X (90=top-down),Defend+PushMap开战Combat正交相机Euler X（90=纯俯视；Prepare/Dig仍90）
 CameraOrthoSizeMargin,地图适配Size余量,1.5,orthoSize = max(halfExtents) - margin,Dig/Defend/布阵：正交Size=地图半幅较大边减去本余量
 PushMapCameraOrthoSize,推图开战默认Size,2,PushMap combat default orthographicSize,PushMap开战默认正交Size（异于Defend的地图适配公式）
 PushMapPrepareOrthoSize,推图布阵默认Size,4.5,PushMap Prepare FormationCamera orthographicSize (not map-fit),PushMap Prepare 布阵 FormationCamera 正交Size（不用地图适配公式）
@@ -63,6 +64,9 @@ DeathKnockbackPeakHeight,死亡击飞抛物线峰值高度,1.2,Corpse projectile
 DeathCorpseSmashDamageMul,尸体砸击伤害系数,1,CorpseSmashDamage = killerOutgoingDamage × this,尸体砸击伤害=致命击OutgoingDamage×本值（§15.5/D-083）
 DeathCorpseSmashHitRadius,尸体砸击命中半径,0.55,In-flight/landing soft-hit radius,飞行/落地软碰撞半径；缺省对齐ProjectileDefaultHitRadius
 DeathKnockbackSeconds,死亡击飞时长,0.3,Corpse projectile parabolic duration (seconds),尸体投射抛物线时长（秒；与t∈[0,1]对齐）
+DeathKnockbackShadowAlphaMul,击飞腾空地面黑影透明度,0.6,Ground shadow alpha during corpse parabolic flight (0-1),尸体抛物线腾空阶段地面黑影alpha（0~1；§15.5）
+DeathKnockbackShadowScaleMin,击飞腾空地面黑影最小缩放,0.35,Min shadow diameter scale at ground height (0-1),离地时黑影直径相对满缩放的最小系数（0~1；随高度lerp至1）
+DeathKnockbackShadowBaseRadiusMul,击飞腾空地面黑影基准半径倍率,1,At peak height: diameter=BodyRadius×2×this×scaleMul,峰值高度时黑影直径=BodyRadius×2×本值×scaleMul
 DeathDefendCorpseAlphaMul,Defend尸体透明度系数,0.85,Defend corpse sprite alpha multiplier,Defend怪/士兵尸体透明度×本值
 DeathCorpseDarkenMul,尸体变暗系数,0.4,Permanent-death corpse RGB multiplier,彻底死亡/PushMap士兵尸体RGB×本值
 DeathFakeDeathCorpseDarkenMul,假死尸体变暗系数,0.7,PushMap fake-death corpse RGB multiplier,PushMap假死尸体RGB×本值

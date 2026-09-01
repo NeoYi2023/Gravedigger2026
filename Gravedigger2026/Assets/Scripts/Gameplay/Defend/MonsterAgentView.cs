@@ -48,6 +48,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private readonly HashSet<string> _corpseSmashHit = new HashSet<string>(StringComparer.Ordinal);
         private Func<string, string, float, string, bool> _tryApplyCorpseSmash;
         private CorpseProjectileSmashSweep.LivingMonsterEnumerator _enumerateLivingMonsters;
+        private DeathKnockbackGroundShadowView _knockbackShadow;
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
@@ -248,7 +249,22 @@ namespace Gravedigger2026.Gameplay.Defend
                 _deathKnockStartedAt = Time.time;
                 _deathKnockActive = true;
                 _deathKnockWasAnimating = true;
+                EnsureKnockbackShadow().Show();
             }
+        }
+
+        private DeathKnockbackGroundShadowView EnsureKnockbackShadow()
+        {
+            if (_knockbackShadow == null)
+            {
+                _knockbackShadow = GetComponent<DeathKnockbackGroundShadowView>();
+                if (_knockbackShadow == null)
+                {
+                    _knockbackShadow = gameObject.AddComponent<DeathKnockbackGroundShadowView>();
+                }
+            }
+
+            return _knockbackShadow;
         }
 
         private void TickDeathKnockback()
@@ -268,6 +284,13 @@ namespace Gravedigger2026.Gameplay.Defend
                 out var pos);
             transform.position = pos;
 
+            var heightAboveGround = pos.y - _deathKnockOrigin.y;
+            EnsureKnockbackShadow().UpdateGroundShadow(
+                _deathKnockOrigin.y,
+                pos,
+                BodyRadius,
+                heightAboveGround);
+
             if (_corpseSmashEnabled)
             {
                 var corpseXZ = new Vector2(pos.x, pos.z);
@@ -285,6 +308,7 @@ namespace Gravedigger2026.Gameplay.Defend
             if (!animating)
             {
                 _deathKnockActive = false;
+                EnsureKnockbackShadow().Hide();
             }
         }
 
@@ -696,6 +720,8 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void OnDisable()
         {
+            _knockbackShadow?.Hide();
+
             if (_probeOnly)
             {
                 return;

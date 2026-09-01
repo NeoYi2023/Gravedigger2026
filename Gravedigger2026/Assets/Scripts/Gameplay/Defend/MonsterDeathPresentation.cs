@@ -104,6 +104,30 @@ namespace Gravedigger2026.Gameplay.Defend
             return t < 1f;
         }
 
+        /// <summary>
+        /// Shadow diameter scale for airborne corpse: lerp(Min, 1) by height/peak.
+        /// Returns 0 when height ≤ epsilon or peak ≤ 0.
+        /// </summary>
+        public static float ComputeShadowScaleMul(float heightAboveGround)
+        {
+            if (heightAboveGround <= 1e-3f)
+            {
+                return 0f;
+            }
+
+            var peak = CombatRuntimeTuning.DeathKnockbackPeakHeight;
+            if (peak <= 1e-5f)
+            {
+                return 0f;
+            }
+
+            var t = Mathf.Clamp01(heightAboveGround / peak);
+            return Mathf.Lerp(
+                CombatRuntimeTuning.DeathKnockbackShadowScaleMin,
+                1f,
+                t);
+        }
+
         /// <summary>Delegates to parabolic sampling with y0 = origin.y (retired pure XZ Lerp).</summary>
         public static bool TrySampleKnockback(
             Vector3 origin,

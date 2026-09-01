@@ -259,7 +259,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **PushMap 配置表加载（方案 A，PM-02）：** `ConfigCsvRepository` 追加加载 `PushMap_PushMapGameplayConfig.csv` / `PushMap_PushMapSpawnConfig.csv`；`Defend_MonsterConfig` 解析 `AggroMode` / `AlertRadius`（缺省见 §9.19）。样例至少 1 个 `GameplayConfigId` + 多 Spawn 行（无陷阱/陷阱/BOSS）。StageModule / AI / 占领逻辑 **后置**（PM-03+）。禁止运行时引用 `SmallScaleInt/`。
 
-**PushMap Stage 接线（方案 A，PM-03 + D-044 Mode2）：** `LevelOperationDriver.TryBuildContext` 支持 `GameplayType=PushMap`：`GameplayConfigId` → `PushMapGameplayConfig` 主键（直查），`LevelStageContext.PushMapConfig` + `MapPrefabPaths` 允许 `PushMap_*`（同解析 `Assets/Prefabs/Maps/{MapId}.prefab`）。`PushMapStageModule`（`IStageModule`；无独立 ModeSelect）：`GameplayType=PushMap` 直进 `PushMapPhase=Prepare`；亦可由 Defend `BattleModeSelect` 模式2经 `TryHandoffModeSelectToPushMap` 进入同一模块。薄规则 `PushMapSessionService`（**独立但语义对齐 §3.12**：Prepare→Combat；开战 ≥1 上阵；`Shield=ProtagonistMaxHP`；`Shield≤0`→LevelFailure；开战锁定 Degree/Tier 并对上阵士兵按 `FinalLossChance` roll→Rebel 日志可观察）+ `PushMapStageController`（Instantiate `Maps/{MapId}`，复用共享 `FormationEditorRoot` 同一 BattleFormation）。**Combat 战斗相机：** Runtime Ensure 子物体 `PushMapCamera`（与 Defend 同俯视契约：正交、`Euler(90,0,0)`、高度/`near`/`far`/开战默认 Size ← **`CombatConstantConfig`**（样例高度 `18`、Size `2`；异于 Defend 的 `max(halfExtents)−CameraOrthoSizeMargin`）；SolidColor/`depth=5`）；Prepare 关掉（用 FormationCamera；Size ← **`PushMapPrepareOrthoSize`** 样例 `4.5`，不用地图适配），开战启用并重配；禁止开战落到 Boot 透视主相机。**PM-09 镜头跟随（方案 B / v0.81.0；Prepare 预览 v0.83.14）：** `PushMapCameraFollowController` 挂于 `PushMapCamera`；Combat `CameraFollowMode=Auto|Manual`——Auto 跟随地图 `CameraFollowPath` 折线上存活忠诚兵的最大投影进度 `s∈[0,1]`（镜头对准折线点，不粘士兵；领头失效 SmoothDamp 回退不 Snap；全灭定格；缺轨/未烘焙 warn 并回退「距 CurrentObjective 最近忠诚兵」）；`EnterAuto`/开战启用 Snap 到当时折线点；左键拖拽（非 UI）切 Manual 并按正交像素→世界 XZ 平移；StageRoot 下 Runtime Ensure 底中「恢复跟随」按钮（锚点约 `(0.5,0.1)`，仅 Manual 显示）→ `EnterAuto`；滚轮缩放 Size（`mouseScrollDelta.y>0` 拉近变小；步进 `0.5`/档；钳制 `[0.5,20]`；指针在 UI 上跳过）；缩放不切换模式、恢复跟随不重置 Size；高度/旋转不变；规则层不参与。**开战无 Intro 门闩**（部署后立刻计时+玩法）。**Prepare 路径预览：** Mode2 `FormationEditor` 驱动 FormationCamera；「快速预览」复用 `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds` 反向扫镜；`CameraPathSlider` 弧长 scrub；默认不播。样例：`Level_LevelOperationConfig` `Level_01,5,PushMap,PushMap_01`（直进）与 Defend 阶段 Mode2 选 `PushMap_01`（handoff）等价进入 Prepare。禁止运行时引用 `SmallScaleInt/`。
+**PushMap Stage 接线（方案 A，PM-03 + D-044 Mode2）：** `LevelOperationDriver.TryBuildContext` 支持 `GameplayType=PushMap`：`GameplayConfigId` → `PushMapGameplayConfig` 主键（直查），`LevelStageContext.PushMapConfig` + `MapPrefabPaths` 允许 `PushMap_*`（同解析 `Assets/Prefabs/Maps/{MapId}.prefab`）。`PushMapStageModule`（`IStageModule`；无独立 ModeSelect）：`GameplayType=PushMap` 直进 `PushMapPhase=Prepare`；亦可由 Defend `BattleModeSelect` 模式2经 `TryHandoffModeSelectToPushMap` 进入同一模块。薄规则 `PushMapSessionService`（**独立但语义对齐 §3.12**：Prepare→Combat；开战 ≥1 上阵；`Shield=ProtagonistMaxHP`；`Shield≤0`→LevelFailure；开战锁定 Degree/Tier 并对上阵士兵按 `FinalLossChance` roll→Rebel 日志可观察）+ `PushMapStageController`（Instantiate `Maps/{MapId}`，复用共享 `FormationEditorRoot` 同一 BattleFormation）。**Combat 战斗相机：** Runtime Ensure 子物体 `PushMapCamera`（与 Defend **Combat** 同契约：正交、`CameraPresentationConstants.ApplyCombatCameraPose`；倾角 ← **`CombatCameraPitchDegrees`** 样例 **`60`**（`90`=纯俯视）；高度/`near`/`far`/开战默认 Size ← **`CombatConstantConfig`**（样例高度 `18`、Size `2`；异于 Defend 的 `max(halfExtents)−CameraOrthoSizeMargin`）；SolidColor/`depth=5`）；Prepare 关掉（FormationCamera 仍 **`ApplyTopDownPose`** `Euler(90,0,0)`；Size ← **`PushMapPrepareOrthoSize`** 样例 `4.5`，不用地图适配），开战启用并重配；禁止开战落到 Boot 透视主相机。**PM-09 镜头跟随（方案 B / v0.81.0；Prepare 预览 v0.83.14）：** `PushMapCameraFollowController` 挂于 `PushMapCamera`；Combat `CameraFollowMode=Auto|Manual`——Auto 跟随地图 `CameraFollowPath` 折线上存活忠诚兵的最大投影进度 `s∈[0,1]`（镜头对准折线点，不粘士兵；领头失效 SmoothDamp 回退不 Snap；全灭定格；缺轨/未烘焙 warn 并回退「距 CurrentObjective 最近忠诚兵」）；`EnterAuto`/开战启用 Snap 到当时折线点；左键拖拽（非 UI）切 Manual 并按正交像素→世界 XZ 平移；StageRoot 下 Runtime Ensure 底中「恢复跟随」按钮（锚点约 `(0.5,0.1)`，仅 Manual 显示）→ `EnterAuto`；滚轮缩放 Size（`mouseScrollDelta.y>0` 拉近变小；步进 `0.5`/档；钳制 `[0.5,20]`；指针在 UI 上跳过）；缩放不切换模式、恢复跟随不重置 Size；倾角/高度不变；规则层不参与。**开战无 Intro 门闩**（部署后立刻计时+玩法）。**Prepare 路径预览：** Mode2 `FormationEditor` 驱动 FormationCamera；「快速预览」复用 `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds` 反向扫镜；`CameraPathSlider` 弧长 scrub；默认不播。样例：`Level_LevelOperationConfig` `Level_01,5,PushMap,PushMap_01`（直进）与 Defend 阶段 Mode2 选 `PushMap_01`（handoff）等价进入 Prepare。禁止运行时引用 `SmallScaleInt/`。
 
 **PushMap 刷怪与陷阱（方案 A，PM-05）：** `PushMapSessionService` 开战装载 `PushMapSpawnConfig` 行；表现层 **Bake NavMesh → 部署 → `FireStartBattleSpawns`**：无陷阱且关联目标未占 → `PushMapSpawnRequested` 事件（位置由 View 解析）；绑定 `TrapZoneId` 的点 → `TryNotifyTrapEnter` 首次触发；`ObjectiveCaptured` → 该关联点本场停刷（已刷保留）。`PushMapStageController` 收集 `SpawnPoint`/`TrapZone`，Instantiate 怪（含 Boss）入 `_monsters`（`PushMapMonsterAgentView`），Update 探测忠诚兵首次进圈。怪物 AI 暂用 Defend 默认追击语义；对主角扣盾经 `PushMapSessionService.ApplyShieldHit`。AggroMode 四态落地 **PM-06**；BOSS 通关结算后置（PM-07）；**不使用** `WaveSpawnConfig` 倒计时。运行时契约见 §9.23。样例 `TrapZoneId` 对齐为 `TZ_01`。禁止运行时引用 `SmallScaleInt/`。
 
@@ -341,7 +341,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **PushMap config load (Approach A, PM-02):** `ConfigCsvRepository` additionally loads `PushMap_PushMapGameplayConfig.csv` / `PushMap_PushMapSpawnConfig.csv`; `Defend_MonsterConfig` parses `AggroMode` / `AlertRadius` (defaults §9.19). Sample ≥1 `GameplayConfigId` + spawn rows (non-trap / trap / BOSS). StageModule / AI / Capture **deferred** (PM-03+). Do not runtime-reference `SmallScaleInt/`.
 
-**PushMap stage wiring (Approach A, PM-03 + D-044 Mode2):** `LevelOperationDriver.TryBuildContext` supports `GameplayType=PushMap`: `GameplayConfigId` → `PushMapGameplayConfig` PK (direct lookup), `LevelStageContext.PushMapConfig`, and `MapPrefabPaths` accepts `PushMap_*` (same `Assets/Prefabs/Maps/{MapId}.prefab` resolve). `PushMapStageModule` (`IStageModule`; no in-stage ModeSelect): `GameplayType=PushMap` enters `PushMapPhase=Prepare` directly; also reachable from Defend `BattleModeSelect` Mode2 via `TryHandoffModeSelectToPushMap`. Thin rule `PushMapSessionService` (**separate but semantically aligned with §3.12**: Prepare→Combat; StartBattle ≥1 deployed; `Shield=ProtagonistMaxHP`; `Shield≤0`→LevelFailure; locks Degree/Tier at StartBattle and rolls each deployed soldier's `FinalLossChance`→Rebel, log-observable) + `PushMapStageController` (instantiates `Maps/{MapId}`, reuses shared `FormationEditorRoot` on the same BattleFormation). **Combat camera:** runtime Ensure child `PushMapCamera` (same top-down contract as Defend: orthographic, `Euler(90,0,0)`, height/near/far/StartBattle Size ← **`CombatConstantConfig`** (sample height `18`, Size `2`; unlike Defend `max(halfExtents)−CameraOrthoSizeMargin`); SolidColor/`depth=5`); disable in Prepare (FormationCamera; Size ← **`PushMapPrepareOrthoSize`** sample `4.5`, not map-fit), enable+repose on StartBattle; must not fall back to Boot perspective Main Camera. **PM-09 camera follow (Approach B / v0.81.0; Prepare preview v0.83.14):** `PushMapCameraFollowController` on `PushMapCamera`; Combat `CameraFollowMode=Auto|Manual` — Auto follows max projection `s∈[0,1]` of living loyal soldiers onto map `CameraFollowPath` (look-at is a rail point, not a soldier; lead drop → SmoothDamp retreat, no Snap; freeze when none; missing/empty path warns and falls back to closest loyal to CurrentObjective); `EnterAuto`/combat enable Snap to the current rail point; LMB drag (not over UI) → Manual with ortho pixel→world XZ pan; StageRoot runtime Ensure bottom-center ResumeFollow button (anchor ≈`(0.5,0.1)`, Manual-only) → `EnterAuto`; scroll-wheel zooms Size (`mouseScrollDelta.y>0` zoom-in smaller; step `0.5`/notch; clamp `[0.5,20]`; skip when pointer over UI); zoom does not switch mode; ResumeFollow does not reset Size; height/rotation unchanged; rules layer not involved. **No StartBattle intro latch** (clock + gameplay start immediately after deploy). **Prepare path preview:** Mode2 `FormationEditor` drives FormationCamera; Quick Preview reuses `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds` for reverse rail sweep; `CameraPathSlider` arc-length scrub; off by default. Sample: `Level_01,5,PushMap,PushMap_01` (direct) and Defend Mode2 pick `PushMap_01` (handoff) both enter Prepare. Do not runtime-reference `SmallScaleInt/`.
+**PushMap stage wiring (Approach A, PM-03 + D-044 Mode2):** `LevelOperationDriver.TryBuildContext` supports `GameplayType=PushMap`: `GameplayConfigId` → `PushMapGameplayConfig` PK (direct lookup), `LevelStageContext.PushMapConfig`, and `MapPrefabPaths` accepts `PushMap_*` (same `Assets/Prefabs/Maps/{MapId}.prefab` resolve). `PushMapStageModule` (`IStageModule`; no in-stage ModeSelect): `GameplayType=PushMap` enters `PushMapPhase=Prepare` directly; also reachable from Defend `BattleModeSelect` Mode2 via `TryHandoffModeSelectToPushMap`. Thin rule `PushMapSessionService` (**separate but semantically aligned with §3.12**: Prepare→Combat; StartBattle ≥1 deployed; `Shield=ProtagonistMaxHP`; `Shield≤0`→LevelFailure; locks Degree/Tier at StartBattle and rolls each deployed soldier's `FinalLossChance`→Rebel, log-observable) + `PushMapStageController` (instantiates `Maps/{MapId}`, reuses shared `FormationEditorRoot` on the same BattleFormation). **Combat camera:** runtime Ensure child `PushMapCamera` (same **Combat** contract as Defend: orthographic, `CameraPresentationConstants.ApplyCombatCameraPose`; pitch ← **`CombatCameraPitchDegrees`** sample **`60`** (`90`=pure top-down); height/near/far/StartBattle Size ← **`CombatConstantConfig`** (sample height `18`, Size `2`; unlike Defend `max(halfExtents)−CameraOrthoSizeMargin`); SolidColor/`depth=5`); disable in Prepare (FormationCamera still **`ApplyTopDownPose`** `Euler(90,0,0)`; Size ← **`PushMapPrepareOrthoSize`** sample `4.5`, not map-fit), enable+repose on StartBattle; must not fall back to Boot perspective Main Camera. **PM-09 camera follow (Approach B / v0.81.0; Prepare preview v0.83.14):** `PushMapCameraFollowController` on `PushMapCamera`; Combat `CameraFollowMode=Auto|Manual` — Auto follows max projection `s∈[0,1]` of living loyal soldiers onto map `CameraFollowPath` (look-at is a rail point, not a soldier; lead drop → SmoothDamp retreat, no Snap; freeze when none; missing/empty path warns and falls back to closest loyal to CurrentObjective); `EnterAuto`/combat enable Snap to the current rail point; LMB drag (not over UI) → Manual with ortho pixel→world XZ pan; StageRoot runtime Ensure bottom-center ResumeFollow button (anchor ≈`(0.5,0.1)`, Manual-only) → `EnterAuto`; scroll-wheel zooms Size (`mouseScrollDelta.y>0` zoom-in smaller; step `0.5`/notch; clamp `[0.5,20]`; skip when pointer over UI); zoom does not switch mode; ResumeFollow does not reset Size; pitch/height unchanged; rules layer not involved. **No StartBattle intro latch** (clock + gameplay start immediately after deploy). **Prepare path preview:** Mode2 `FormationEditor` drives FormationCamera; Quick Preview reuses `PushMapCameraIntroSpeed`/`PushMapCameraIntroWaypointDwellSeconds` for reverse rail sweep; `CameraPathSlider` arc-length scrub; off by default. Sample: `Level_01,5,PushMap,PushMap_01` (direct) and Defend Mode2 pick `PushMap_01` (handoff) both enter Prepare. Do not runtime-reference `SmallScaleInt/`.
 
 **PushMap spawn & trap (Approach A, PM-05):** `PushMapSessionService` loads `PushMapSpawnConfig` rows at StartBattle; View order **Bake NavMesh → deploy → `FireStartBattleSpawns`**: non-trap rows with uncaptured linked objective → `PushMapSpawnRequested` (position resolved by View); trap-bound points → `TryNotifyTrapEnter` first-enter; `ObjectiveCaptured` → linked points stop spawning (living kept). `PushMapStageController` collects `SpawnPoint`/`TrapZone`, instantiates monsters (incl. Boss) into `_monsters` (`PushMapMonsterAgentView`), and polls loyal soldiers for first trap entry. Monster AI uses Defend default-chase semantics; protagonist shield via `PushMapSessionService.ApplyShieldHit`. AggroMode four-state lands in **PM-06**; Boss-clear settlement deferred (PM-07); **no** `WaveSpawnConfig` countdown. Runtime contract: §9.23. Sample `TrapZoneId` aligned to `TZ_01`. Do not runtime-reference `SmallScaleInt/`.
 
@@ -1468,7 +1468,8 @@ LossOfControlConfig {
 
 | ConstantKey | ConstantKeyZh | Value | CommentZh（摘要） |
 |-------------|---------------|-------|-------------------|
-| `CameraHeightY` | 镜头高度 | `18` | 俯视相机相对地图中心世界 Y |
+| `CameraHeightY` | 镜头高度 | `18` | 相机相对 mapCenter/lookAt 的垂直高度（`ApplyTopDownPose` / `ApplyCombatCameraPose` 共用） |
+| `CombatCameraPitchDegrees` | 战斗相机倾角 | `60` | Defend+PushMap **Combat** 正交相机 Euler X（`90`=纯俯视；`ApplyCombatCameraPose`）；Prepare FormationCamera / Dig 仍 `90` |
 | `CameraOrthoSizeMargin` | 地图适配Size余量 | `1.5` | Dig/Defend/UM·Defend 布阵：Size = max(半幅) − 本值（**不含** PushMap Prepare） |
 | `PushMapPrepareOrthoSize` | 推图布阵默认Size | `4.5` | PushMap Prepare `FormationCamera` 固定正交 Size（不用地图适配公式） |
 | `PushMapCameraOrthoSize` | 推图开战默认Size | `2` | PushMap 开战默认正交 Size |
@@ -1512,6 +1513,9 @@ LossOfControlConfig {
 | `DeathCorpseSmashDamageMul` | 尸体砸击伤害系数 | `1` | `CorpseSmashDamage = killerOutgoingDamage × 本值`（§15.5 / D-083） |
 | `DeathCorpseSmashHitRadius` | 尸体砸击命中半径 | `0.55` | 飞行/落地软碰撞半径；缺省对齐 `ProjectileDefaultHitRadius` |
 | `DeathKnockbackSeconds` | 死亡击飞时长 | `0.3` | 尸体投射抛物线时长（秒；与 `t∈[0,1]` 对齐） |
+| `DeathKnockbackShadowAlphaMul` | 击飞腾空地面黑影透明度 | `0.6` | 尸体抛物线腾空阶段地面黑影 alpha（0~1；§15.5） |
+| `DeathKnockbackShadowScaleMin` | 击飞腾空地面黑影最小缩放 | `0.35` | 离地时黑影直径相对满缩放的最小系数（0~1；随高度 lerp 至 1） |
+| `DeathKnockbackShadowBaseRadiusMul` | 击飞腾空地面黑影基准半径倍率 | `1` | 峰值高度时黑影直径 = `BodyRadius×2×本值×scaleMul` |
 | `DeathDefendCorpseAlphaMul` | Defend 尸体透明度系数 | `0.85` | Defend 怪/士兵尸体 sprite alpha × 本值 |
 | `DeathCorpseDarkenMul` | 尸体变暗系数 | `0.4` | 彻底死亡 / PushMap 士兵尸体 RGB × 本值 |
 | `DeathFakeDeathCorpseDarkenMul` | 假死尸体变暗系数 | `0.7` | PushMap 假死尸体 RGB × 本值 |
@@ -2053,6 +2057,7 @@ AirWall { HalfExtents }  // authoring; Y euler 0|45|90|…
 | TrapZoneId | 陷阱区域编号 | `string` 或 `int` | 可选；空=无陷阱，开战且关联目标未占领时刷；非空=忠诚士兵进入该陷阱才刷 |
 | IsBoss | 是否BOSS | `bool` / `0\|1` | 1=该刷怪为 BossPoint 通关目标（须与地图 BossPoint 一致） |
 | SpawnOrder | 同点出怪顺序 | `int` | 同 SpawnPointId 多行时升序 |
+| InitialFacing | 初始朝向 | `int` | `0`=该行每只怪各自随机 `1~8`；`1~8`=固定罗盘八向（1正上 / 2右上 / 3正右 / 4右下 / 5正下 / 6左下 / 7正左 / 8左上）；表现映射至 `DirIndex`（见 [§15.5](#155-动画映射demo-锁定)）；**加载缺省：** 列缺失或空 → `5`；非法值 → 整表加载失败 |
 
 ```
 PushMapSpawnConfig {
@@ -2064,6 +2069,7 @@ PushMapSpawnConfig {
   TrapZoneId: Id | ""            // empty = non-trap StartBattle spawn
   IsBoss: 0 | 1
   SpawnOrder: int
+  InitialFacing: 0..8            // empty → 5; 0 = per-instance random 1..8
 }
 ```
 
@@ -2071,7 +2077,7 @@ PushMapSpawnConfig {
 
 - **规则归属：** 刷怪资格与触发状态在 `PushMapSessionService`（`Core/PushMap/`）；`SpawnPoint`/`TrapZone` 仅作者标记，运行时不自管判定
 - **装载：** `TryStartBattle` 时装载本 `GameplayConfigId` 全部行；**不**立即刷怪。表现层在 Bake NavMesh + 部署完成后调用 `FireStartBattleSpawns()`：无陷阱且关联目标未占的行 → 发 `PushMapSpawnRequested`（同 `SpawnPointId` 按 `SpawnOrder` 升序）；陷阱绑定点进入 `Pending` 待触发
-- **事件：** `PushMapSpawnRequested(PushMapSpawnRequest)`；负载含 `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger`（`StartBattle` / `Trap`）；**位置由 View 按 `SpawnPointId` / `BossPoint` 解析**，再按 `MonsterConfig.BodyRadius` 与场上存活怪占地圆做散开（环形/螺旋候选 → 局部 `NavMesh.SamplePosition` + `basePos` 牵引；PM-10 / v0.73.9）
+- **事件：** `PushMapSpawnRequested(PushMapSpawnRequest)`；负载含 `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `InitialFacing` / `Trigger`（`StartBattle` / `Trap` / `PreparePreview`）；**位置由 View 按 `SpawnPointId` / `BossPoint` 解析**，再按 `MonsterConfig.BodyRadius` 与场上存活怪占地圆做散开（环形/螺旋候选 → 局部 `NavMesh.SamplePosition` + `basePos` 牵引；PM-10 / v0.73.9）；**朝向：** Bind→`ResetToIdle` 后，按 `InitialFacing` 解析（`0` 时每实例独立随机）→ 映射 `DirIndex` → `ForceSetFacing`（见 §15.5）
 - **陷阱触发：** `TryNotifyTrapEnter(trapZoneId)`（View 探测忠诚兵首次进圈）→ 未占领 + 未触发 → 该 `SpawnPointId` 全部行触发；每点本场仅一次
 - **占领停刷：** `ObjectiveCaptured(order)` → 标记 `LinkedObjectiveOrder == order` 的点本场停刷；已触发怪的生死不受影响；`IsBoss=1` 的行 **不** 受占领停刷（BOSS 见 PM-07）
 - **表现：** `PushMapStageController` 收集 `SpawnPoint`（`SpawnPointId`→`Transform.position`）与 `TrapZone`；订阅事件 Instantiate 怪 → `PushMapMonsterAgentView`（入 `_monsters`；Boss 用 `BossPoint` 位置；落点经 `PushMapSpawnSpread`）；Update 探测忠诚（`!IsRebel`）`PushMapAdvanceView` 首次进入 `TrapZone` → `TryNotifyTrapEnter`
@@ -2087,8 +2093,8 @@ PushMapSpawnConfig {
 session.TryNotifyTrapEnter(trapZoneId)        // view first loyal-enter
 event PushMapSpawnRequested(request)          // StartBattle | Trap | PreparePreview
 PushMapSpawnRequest { SpawnPointId, MonsterId, SpawnCount,
-                      LinkedObjectiveOrder, IsBoss, SpawnOrder, Trigger }
-PushMapMonsterAgentView { Bind(MonsterConfigRow, protagonist, warriors, onHitProtagonist) }
+                      LinkedObjectiveOrder, IsBoss, SpawnOrder, InitialFacing, Trigger }
+PushMapMonsterAgentView { Bind(...); ApplySpawnInitialFacing(dirIndex) }
 ```
 
 #### 9.24 魔法书配置表 `MagicBookConfig`
@@ -3266,7 +3272,8 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 
 | ConstantKey | ConstantKeyZh | Value | CommentZh (summary) |
 |-------------|---------------|-------|---------------------|
-| `CameraHeightY` | 镜头高度 | `18` | Top-down camera world Y above map center |
+| `CameraHeightY` | 镜头高度 | `18` | Vertical height above mapCenter/lookAt (`ApplyTopDownPose` / `ApplyCombatCameraPose` shared) |
+| `CombatCameraPitchDegrees` | 战斗相机倾角 | `60` | Defend+PushMap **Combat** ortho camera Euler X (`90`=pure top-down; `ApplyCombatCameraPose`); Prepare FormationCamera / Dig stay `90` |
 | `CameraOrthoSizeMargin` | 地图适配Size余量 | `1.5` | Dig/Defend/UM·Defend formation: Size = max(half) − margin (**not** PushMap Prepare) |
 | `PushMapPrepareOrthoSize` | 推图布阵默认Size | `4.5` | PushMap Prepare `FormationCamera` fixed ortho Size (not map-fit) |
 | `PushMapCameraOrthoSize` | 推图开战默认Size | `2` | PushMap combat default ortho Size |
@@ -3310,6 +3317,9 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `DeathCorpseSmashDamageMul` | 尸体砸击伤害系数 | `1` | `CorpseSmashDamage = killerOutgoingDamage × this` (§15.5 / D-083) |
 | `DeathCorpseSmashHitRadius` | 尸体砸击命中半径 | `0.55` | In-flight / landing soft-hit radius; default aligns `ProjectileDefaultHitRadius` |
 | `DeathKnockbackSeconds` | 死亡击飞时长 | `0.3` | Corpse projectile parabolic duration (seconds; aligns with `t∈[0,1]`) |
+| `DeathKnockbackShadowAlphaMul` | 击飞腾空地面黑影透明度 | `0.6` | Ground shadow alpha during corpse parabolic flight (0~1; §15.5) |
+| `DeathKnockbackShadowScaleMin` | 击飞腾空地面黑影最小缩放 | `0.35` | Min diameter scale at ground height (0~1; lerps to 1 at arc peak) |
+| `DeathKnockbackShadowBaseRadiusMul` | 击飞腾空地面黑影基准半径倍率 | `1` | At peak height: diameter = `BodyRadius×2×this×scaleMul` |
 | `DeathDefendCorpseAlphaMul` | Defend 尸体透明度系数 | `0.85` | Defend monster/soldier corpse sprite alpha × this |
 | `DeathCorpseDarkenMul` | 尸体变暗系数 | `0.4` | Permanent-death / PushMap soldier corpse RGB × this |
 | `DeathFakeDeathCorpseDarkenMul` | 假死尸体变暗系数 | `0.7` | PushMap fake-death corpse RGB × this |
@@ -3687,6 +3697,7 @@ Rules: [SPEC_03 §3.14](SPEC_03_GameRules.md). One row = one spawn definition; m
 | TrapZoneId | 陷阱区域编号 | `string` or `int` | Empty=non-trap StartBattle; else trap-triggered |
 | IsBoss | 是否BOSS | `bool` / `0\|1` | 1=Boss clear target |
 | SpawnOrder | 同点出怪顺序 | `int` | Ascending within same SpawnPointId |
+| InitialFacing | 初始朝向 | `int` | `0`=each monster on the row rolls `1~8`; `1~8`=fixed compass octant (1=up / 2=up-right / 3=right / 4=down-right / 5=down / 6=down-left / 7=left / 8=up-left); maps to `DirIndex` (see [§15.5](#155-动画映射demo-锁定)); **load default:** missing/empty → `5`; illegal → whole-table load fail |
 
 ```
 PushMapSpawnConfig {
@@ -3698,6 +3709,7 @@ PushMapSpawnConfig {
   TrapZoneId: Id | ""
   IsBoss: 0 | 1
   SpawnOrder: int
+  InitialFacing: 0..8            // empty → 5; 0 = per-instance random 1..8
 }
 ```
 
@@ -3705,7 +3717,7 @@ PushMapSpawnConfig {
 
 - **Rules ownership:** spawn eligibility + trigger state live in `PushMapSessionService` (`Core/PushMap/`); `SpawnPoint`/`TrapZone` are authoring markers only
 - **Load & fire:** `TryStartBattle` loads all rows for the current `GameplayConfigId` but does **not** spawn yet. View calls `FireStartBattleSpawns()` after Bake NavMesh + deploy: non-trap rows whose linked objective is uncaptured fire `PushMapSpawnRequested` (ascending `SpawnOrder` per `SpawnPointId`); trap-bound points go `Pending`
-- **Event:** `PushMapSpawnRequested(PushMapSpawnRequest)`; payload carries `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `Trigger` (`StartBattle` / `Trap`); **position resolved by View** via `SpawnPointId` / `BossPoint`, then staggered by `MonsterConfig.BodyRadius` vs living footprint circles (ring/spiral candidates → local `NavMesh.SamplePosition` + `basePos` leash; PM-10 / v0.73.9)
+- **Event:** `PushMapSpawnRequested(PushMapSpawnRequest)`; payload carries `SpawnPointId` / `MonsterId` / `SpawnCount` / `LinkedObjectiveOrder` / `IsBoss` / `SpawnOrder` / `InitialFacing` / `Trigger` (`StartBattle` / `Trap` / `PreparePreview`); **position resolved by View** via `SpawnPointId` / `BossPoint`, then staggered by `MonsterConfig.BodyRadius` vs living footprint circles (ring/spiral candidates → local `NavMesh.SamplePosition` + `basePos` leash; PM-10 / v0.73.9); **facing:** after Bind→`ResetToIdle`, resolve `InitialFacing` (`0` = independent roll per instance) → map to `DirIndex` → `ForceSetFacing` (see §15.5)
 - **Trap trigger:** `TryNotifyTrapEnter(trapZoneId)` (View detects first loyal-enter) → if objective uncaptured + not yet fired → all rows for that `SpawnPointId` fire; once per point per battle
 - **Capture stop:** `ObjectiveCaptured(order)` → marks points with `LinkedObjectiveOrder == order` to stop; already-spawned monsters unaffected; `IsBoss=1` rows are **not** capture-stopped (Boss in PM-07)
 - **Presentation:** `PushMapStageController` collects `SpawnPoint` (`SpawnPointId`→position) and `TrapZone`; subscribes to events to instantiate monsters → `PushMapMonsterAgentView` (into `_monsters`; Boss uses `BossPoint`; positions via `PushMapSpawnSpread`); Update polls loyal (`!IsRebel`) `PushMapAdvanceView` first entry into `TrapZone` → `TryNotifyTrapEnter`
@@ -4507,7 +4519,9 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 | 边界 | `OutgoingDamage ≤ 0` 或 `MaxHp ≤ 0` → `distance = DeathKnockbackMaxDistance` |
 | 方向 | XZ 上 `normalize(M − S)`（远离杀手）；终点 `end = M + dir × distance`；无杀手位或零向量 → **不位移**（仍 latch 死亡；**无**砸击） |
 | 轨迹 | **抛物线**（废止纯 XZ `Lerp`）：XZ 自 `M`→`end` 线性；Y 在 `t∈[0,1]` 上 `y(t)=y0 + 4×DeathKnockbackPeakHeight×t×(1−t)`（`y0` = 起点采样地面 Y；峰值 ← `CombatConstantConfig`，样例 **`1.2`**） |
+| Combat 相机可见性（CP-CAM / 方案 C） | Defend+PushMap **Combat** 经 `ApplyCombatCameraPose`（`CombatCameraPitchDegrees` 样例 **`60`**）；world Y 弧在战斗镜头内可见；Prepare/Dig/Formation 仍俯视 **`90°`**；**不改**砸击 XZ 判定 |
 | 时长 | `DeathKnockbackSeconds` ← `CombatConstantConfig`（样例 **`0.3`**；与轨迹参数化 `t` 对齐） |
+| 腾空地面黑影 | 抛物线 `_deathKnockActive` 且 `heightAboveGround=pos.y−y0>ε` 时，在 `(pos.x, y0, pos.z)` 显示纯黑圆盘（Sprite 倾角 = `CombatCameraPitchDegrees−90°`，镜头中呈椭圆）；alpha=`DeathKnockbackShadowAlphaMul`（样例 **`0.6`**）；直径 = `BodyRadius×2×DeathKnockbackShadowBaseRadiusMul×scaleMul`，`scaleMul=lerp(DeathKnockbackShadowScaleMin, 1, clamp(height/PeakHeight,0,1))`；落地或 `height≤ε` 消失；**不改**砸击 XZ 判定 |
 | 死亡 clip | 与 `distance` 同源：**默认** Animator 有 **`Die2` Trigger** → `Die2`；`distance ≥ DeathDie2KnockbackThreshold`（← `CombatConstantConfig`，样例 **`1`**）→ `Die`；无 `Die2` → 回退 `Die`。尸体 latch 认 `Die_*` 与 `Die2_*` |
 | 砸击门闩 | `distance < DeathDie2KnockbackThreshold` → **仅**抛物线 + latch；**不产生**砸击伤害 |
 | 砸击目标 | 其它 **存活**怪物（`RemainingHp>0`、可选中）；**不含**飞行尸体自身、己方士兵、主角护盾 |
@@ -4534,6 +4548,21 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 | 5 | NW |
 | 6 | SE |
 | 7 | SW |
+
+**PushMap 刷怪初始朝向（v0.83.58）：** `PushMapSpawnConfig.InitialFacing` 为策划罗盘值（非 `DirIndex`）。`0` → 该行每只怪独立均匀随机 `1~8`；`1~8` → 固定。映射到 Creator `DirIndex`（+Z=正上/N，+X=正右/E）：
+
+| InitialFacing | 罗盘 | `DirIndex` |
+|---------------|------|------------|
+| 1 | 正上 | 3 (N) |
+| 2 | 右上 | 4 (NE) |
+| 3 | 正右 | 0 (E) |
+| 4 | 右下 | 6 (SE) |
+| 5 | 正下 | 2 (S) |
+| 6 | 左下 | 7 (SW) |
+| 7 | 正左 | 1 (W) |
+| 8 | 左上 | 5 (NW) |
+
+表现：`Bind`→`ResetToIdle` 后 `ForceSetFacing(DirIndexToUnitXZ(mapped))`（走 `FacingYawFlip`）；Prepare / StartBattle / Trap 共用 `PushMapSpawnRequested`。Defend 不接线。
 
 Demo：`Digger` Prefab / Art 管线保留；**Dig 阶段运行时不 Instantiate 地图 Digger**（主角为 HUD 左上 60×60 头像框）。`BattleProtagonist` 固定 **`DirIndex = 2`（南）**；士兵由 `WarriorAnimView` 按移动/瞄准动态设 `DirIndex`。BattleProtagonist 本片仅 Idle 站桩（无受击/死亡驱动）。怪物复用 `WarriorAnimView` 驱动八向 / 攻击 / 死亡（见上「怪物死亡击飞」）。
 
@@ -4662,7 +4691,9 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 | Edge | `OutgoingDamage ≤ 0` or `MaxHp ≤ 0` → `distance = DeathKnockbackMaxDistance` |
 | Direction | XZ `normalize(M − S)` (away from killer); endpoint `end = M + dir × distance`; no killer pos or zero vector → **no move** (still latch death; **no** smash) |
 | Trajectory | **Parabolic arc** (retired pure XZ `Lerp`): XZ linear `M`→`end`; Y over `t∈[0,1]`: `y(t)=y0 + 4×DeathKnockbackPeakHeight×t×(1−t)` (`y0` = sampled ground Y at start; peak ← `CombatConstantConfig`, sample **`1.2`**) |
+| Combat camera visibility (CP-CAM / Approach C) | Defend+PushMap **Combat** via `ApplyCombatCameraPose` (`CombatCameraPitchDegrees` sample **`60`**); world Y arc visible in combat camera; Prepare/Dig/Formation stay top-down **`90°`**; smash hit test **unchanged** (XZ only) |
 | Duration | `DeathKnockbackSeconds` ← `CombatConstantConfig` (sample **`0.3`**; aligns with param `t`) |
+| Airborne ground shadow | While parabolic `_deathKnockActive` and `heightAboveGround=pos.y−y0>ε`, show black disc at `(pos.x, y0, pos.z)` (Sprite tilt = `CombatCameraPitchDegrees−90°`, ellipse on screen); alpha=`DeathKnockbackShadowAlphaMul` (sample **`0.6`**); diameter = `BodyRadius×2×DeathKnockbackShadowBaseRadiusMul×scaleMul`, `scaleMul=lerp(DeathKnockbackShadowScaleMin, 1, clamp(height/PeakHeight,0,1))`; hidden on landing or `height≤ε`; smash XZ test **unchanged** |
 | Death clip | Same `distance`: **default** Animator **`Die2` Trigger** → `Die2`; `distance ≥ DeathDie2KnockbackThreshold` (← `CombatConstantConfig`, sample **`1`**) → `Die`; no `Die2` → fall back to `Die`. Corpse latch accepts both `Die_*` and `Die2_*` |
 | Smash gate | `distance < DeathDie2KnockbackThreshold` → parabolic + latch only; **no** smash damage |
 | Smash targets | Other **living** monsters (`RemainingHp>0`, selectable); **excludes** flying corpse, loyal soldiers, protagonist shield |
@@ -4689,6 +4720,21 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 | 5 | NW |
 | 6 | SE |
 | 7 | SW |
+
+**PushMap spawn initial facing (v0.83.58):** `PushMapSpawnConfig.InitialFacing` is the design compass value (not `DirIndex`). `0` → each monster on the row independently uniform-rolls `1~8`; `1~8` → fixed. Map to Creator `DirIndex` (+Z=up/N, +X=right/E):
+
+| InitialFacing | Compass | `DirIndex` |
+|---------------|---------|------------|
+| 1 | up | 3 (N) |
+| 2 | up-right | 4 (NE) |
+| 3 | right | 0 (E) |
+| 4 | down-right | 6 (SE) |
+| 5 | down | 2 (S) |
+| 6 | down-left | 7 (SW) |
+| 7 | left | 1 (W) |
+| 8 | up-left | 5 (NW) |
+
+Presentation: after `Bind`→`ResetToIdle`, `ForceSetFacing(DirIndexToUnitXZ(mapped))` (honors `FacingYawFlip`); Prepare / StartBattle / Trap share `PushMapSpawnRequested`. Defend unwired.
 
 Demo: `Digger` Prefab/art may remain; **Dig stage does not Instantiate map Digger** (protagonist = HUD top-left 60×60 portrait). `BattleProtagonist` fixed **`DirIndex = 2` (South)**; soldiers get dynamic `DirIndex` from `WarriorAnimView` (move/aim). BattleProtagonist this slice: Idle only (no hit/death drive). Monsters reuse `WarriorAnimView` for 8-dir / attack / death (see «Monster death knockback» above).
 

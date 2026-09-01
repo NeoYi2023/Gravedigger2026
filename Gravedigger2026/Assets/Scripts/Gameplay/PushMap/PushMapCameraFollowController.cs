@@ -30,6 +30,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _orthoSizeMax = CombatConstantKeys.Safety.CameraOrthoSizeMax;
         private float _followDeadzone = CombatConstantKeys.Safety.CameraFollowDeadzone;
         private float _followSmoothTime = CombatConstantKeys.Safety.CameraFollowSmoothTime;
+        private CameraPresentationConstants _presentationConstants = CameraPresentationConstants.SafetyDefaults;
 
         private Camera _camera;
         private IReadOnlyList<PushMapAdvanceView> _advanceViews;
@@ -51,6 +52,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         public void ApplyPresentationConstants(CameraPresentationConstants cam)
         {
+            _presentationConstants = cam;
             _dragThresholdPixels = Mathf.Max(0f, cam.DragThresholdPixels);
             _zoomStepPerNotch = Mathf.Max(0.01f, cam.ZoomStepPerNotch);
             _orthoSizeMin = Mathf.Max(0.01f, cam.OrthoSizeMin);
@@ -182,8 +184,9 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var p = _camera.transform.position;
-            var dx = lookAt.x - p.x;
-            var dz = lookAt.z - p.z;
+            var desired = _presentationConstants.ResolveCombatCameraPosition(lookAt);
+            var dx = desired.x - p.x;
+            var dz = desired.z - p.z;
             var distSq = dx * dx + dz * dz;
             if (distSq <= _followDeadzone * _followDeadzone)
             {
@@ -191,14 +194,12 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var desired = new Vector3(lookAt.x, p.y, lookAt.z);
             var next = Vector3.SmoothDamp(
                 p,
                 desired,
                 ref _smoothVelocity,
                 _followSmoothTime);
-            _smoothVelocity.y = 0f;
-            _camera.transform.position = new Vector3(next.x, p.y, next.z);
+            _camera.transform.position = next;
         }
 
         private void SnapFollowToLookAt()
@@ -209,8 +210,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var p = _camera.transform.position;
-            _camera.transform.position = new Vector3(lookAt.x, p.y, lookAt.z);
+            _camera.transform.position = _presentationConstants.ResolveCombatCameraPosition(lookAt);
         }
 
         private bool TryGetLookAt(out Vector3 worldXz)

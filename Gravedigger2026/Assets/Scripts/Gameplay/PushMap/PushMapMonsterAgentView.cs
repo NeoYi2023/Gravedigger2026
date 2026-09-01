@@ -60,6 +60,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private readonly HashSet<string> _corpseSmashHit = new HashSet<string>(StringComparer.Ordinal);
         private Func<string, string, float, string, bool> _tryApplyCorpseSmash;
         private CorpseProjectileSmashSweep.LivingMonsterEnumerator _enumerateLivingMonsters;
+        private DeathKnockbackGroundShadowView _knockbackShadow;
         private bool _combatGameplayEnabled = true;
         private Action _onDeathPresentationComplete;
         private Action _onReviveAnimComplete;
@@ -221,6 +222,23 @@ namespace Gravedigger2026.Gameplay.PushMap
             _anim.ResetToIdle();
         }
 
+        /// <summary>
+        /// SPEC_04 §9.23/§15.5: after Bind→ResetToIdle, apply spawn InitialFacing DirIndex.
+        /// </summary>
+        public void ApplySpawnInitialFacing(int dirIndex)
+        {
+            EnsureAnim();
+            if (_anim == null)
+            {
+                return;
+            }
+
+            var unit = WarriorAnimView.DirIndexToUnitXZ(dirIndex);
+            _lastDesiredDirXZ = unit;
+            _lastSteerDirXZ = unit;
+            _anim.ForceSetFacing(unit);
+        }
+
         private void EnsureAnim()
         {
             _anim = GetComponent<WarriorAnimView>();
@@ -344,7 +362,22 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _deathKnockStartedAt = Time.time;
                 _deathKnockActive = true;
                 _deathKnockWasAnimating = true;
+                EnsureKnockbackShadow().Show();
             }
+        }
+
+        private DeathKnockbackGroundShadowView EnsureKnockbackShadow()
+        {
+            if (_knockbackShadow == null)
+            {
+                _knockbackShadow = GetComponent<DeathKnockbackGroundShadowView>();
+                if (_knockbackShadow == null)
+                {
+                    _knockbackShadow = gameObject.AddComponent<DeathKnockbackGroundShadowView>();
+                }
+            }
+
+            return _knockbackShadow;
         }
 
         /// <summary>Rules: revive delay elapsed — play reverse death anim.</summary>
@@ -366,6 +399,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _deathKnockWasAnimating = false;
             _corpseSmashEnabled = false;
             _corpseSmashHit.Clear();
+            EnsureKnockbackShadow().Hide();
             _stuckHold.Reset();
             _gait.Reset();
 
@@ -477,6 +511,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                 out var pos);
             transform.position = pos;
 
+            var heightAboveGround = pos.y - _deathKnockOrigin.y;
+            EnsureKnockbackShadow().UpdateGroundShadow(
+                _deathKnockOrigin.y,
+                pos,
+                BodyRadius,
+                heightAboveGround);
+
             if (_corpseSmashEnabled)
             {
                 var corpseXZ = new Vector2(pos.x, pos.z);
@@ -494,6 +535,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (!animating)
             {
                 _deathKnockActive = false;
+                EnsureKnockbackShadow().Hide();
             }
         }
 
@@ -972,6 +1014,8 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void OnDisable()
         {
+            _knockbackShadow?.Hide();
+
             ReleaseSlotClaim();
             if (_scheduler != null && _moveId != 0)
             {

@@ -170,10 +170,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     _defendCamera,
                     _mapCenter,
                     cam.ResolveMapFitOrthoSize(_mapHalfExtents));
-                // SPEC_04 §15.2: same-order character sprites draw far-to-near along
-                // world +Z — lower on screen (smaller Z) occludes higher.
-                _defendCamera.transparencySortMode = TransparencySortMode.CustomAxis;
-                _defendCamera.transparencySortAxis = Vector3.forward;
+                ApplyCombatCameraTransparencySort(_defendCamera);
             }
 
             EnsureDefendLight();
@@ -380,15 +377,7 @@ namespace Gravedigger2026.Gameplay.Defend
             if (_defendCamera != null)
             {
                 _defendCamera.gameObject.SetActive(true);
-                var cam = _configs.GetCameraPresentationConstants();
-                cam.ApplyTopDownPose(
-                    _defendCamera,
-                    _mapCenter,
-                    cam.ResolveMapFitOrthoSize(_mapHalfExtents));
-                // SPEC_04 §15.2: same-order character sprites draw far-to-near along
-                // world +Z — lower on screen (smaller Z) occludes higher.
-                _defendCamera.transparencySortMode = TransparencySortMode.CustomAxis;
-                _defendCamera.transparencySortAxis = Vector3.forward;
+                ApplyDefendCombatCameraPose();
             }
 
             EnsurePathingServices();
@@ -1433,6 +1422,35 @@ namespace Gravedigger2026.Gameplay.Defend
             var go = new GameObject("WorldRoot");
             go.transform.SetParent(transform, false);
             _worldRoot = go.transform;
+        }
+
+        private void ApplyDefendCombatCameraPose()
+        {
+            if (_defendCamera == null || _configs == null)
+            {
+                return;
+            }
+
+            var cam = _configs.GetCameraPresentationConstants();
+            DeathKnockbackGroundShadowView.ConfigureFloorTilt(cam.CombatCameraPitchDegrees);
+            cam.ApplyCombatCameraPose(
+                _defendCamera,
+                _mapCenter,
+                cam.ResolveMapFitOrthoSize(_mapHalfExtents));
+            ApplyCombatCameraTransparencySort(_defendCamera);
+        }
+
+        private static void ApplyCombatCameraTransparencySort(Camera camera)
+        {
+            if (camera == null)
+            {
+                return;
+            }
+
+            // SPEC_04 §15.2: same-order character sprites draw far-to-near along world
+            // +Z — lower on screen (smaller Z) occludes higher.
+            camera.transparencySortMode = TransparencySortMode.CustomAxis;
+            camera.transparencySortAxis = Vector3.forward;
         }
 
         private void EnsureDefendLight()

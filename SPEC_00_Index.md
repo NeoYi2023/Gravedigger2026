@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.56
+**文档版本 / Document Version:** v0.83.58
 **最后更新 / Last Updated:** 2026-09-01
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）+ 命中附带体型步进 D-082；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1）；怪物尸体投射 D-083 **完成**（issues `.scratch/corpse-projectile/`））  
 
@@ -65,6 +65,8 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-01 | v0.83.58 | PushMap 刷怪初始朝向：`PushMapSpawnConfig.InitialFacing`（0=每怪随机 1~8；1~8=罗盘八向）；表现层映射至 `DirIndex` 后 `ForceSetFacing`；Prepare/开战/陷阱共用。同步 SPEC_03 §3.14、SPEC_04 §9.23/§15.5、Excel/CSV、刷怪接线 |
+| 2026-09-01 | v0.83.57 | D-083 CP-CAM（方案 C）：Defend+PushMap **Combat** 相机斜俯视 `CombatCameraPitchDegrees=60`（`ApplyCombatCameraPose`）；Prepare FormationCamera / Dig 仍俯视 90°；尸体 world Y 弧在战斗镜头可见。同步 SPEC_04 §9.20b/§15.5、`CameraPresentationConstants`、常量表、StageController |
 | 2026-09-01 | v0.83.56 | Dig HUD `GmMenuPanel`：两层两列布局（上层 Dig+Mode2 魔法书全表 `TryEquip`；下层装备获得/划入配对）；废止单键「装备战士强化」。同步 SPEC_03 §3.10、`DigHudView`/`DigStageController`/`DigAssetBuilder` |
 | 2026-09-01 | v0.83.55 | `MonsterModel_04` 替换为 2D Zombie Pack `ZombieFemale1` 精灵表（1920×1024，128px/格）；Prefab `Visual.localScale=1`；`Monster_04` 配置改绑 `ModelId=MonsterModel_04`；离线烘焙 `Tools/bake_monster_model_04_from_zombie.py`；同步 SPEC_04 §15.3 |
 | 2026-09-01 | v0.83.54 | `Defend_MonsterConfig.ModelId` 支持加权池 `ModelId;Weight|…`；Defend/PushMap 刷怪每只怪物独立随机子 ModelId；`MonsterModelIdFieldParser` + Catalog 拆池内 ID。同步 SPEC_04 §6/§9.19 |
@@ -421,6 +423,8 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-01 | v0.83.58 | PushMap spawn initial facing: `PushMapSpawnConfig.InitialFacing` (0=per-monster random 1~8; 1~8=compass octants); presentation maps to `DirIndex` then `ForceSetFacing`; shared by Prepare/StartBattle/trap. Synced SPEC_03 §3.14, SPEC_04 §9.23/§15.5, Excel/CSV, spawn wiring |
+| 2026-09-01 | v0.83.57 | D-083 CP-CAM (Approach C): Defend+PushMap **Combat** oblique ortho `CombatCameraPitchDegrees=60` (`ApplyCombatCameraPose`); Prepare FormationCamera / Dig stay top-down 90°; corpse world-Y arc visible in combat camera. Synced SPEC_04 §9.20b/§15.5, `CameraPresentationConstants`, constant table, StageControllers |
 | 2026-09-01 | v0.83.56 | Dig HUD `GmMenuPanel`: two-layer two-column layout (top Dig + Mode2 full MagicBook `TryEquip`; bottom gear grant/spend pairs); retire single Equip Warrior Enhance button. Synced SPEC_03 §3.10, `DigHudView`/`DigStageController`/`DigAssetBuilder` |
 | 2026-09-01 | v0.83.55 | `MonsterModel_04` replaced with 2D Zombie Pack `ZombieFemale1` sheets (1920×1024, 128px/cell); Prefab `Visual.localScale=1`; `Monster_04` config rebound to `ModelId=MonsterModel_04`; offline bake `Tools/bake_monster_model_04_from_zombie.py`; synced SPEC_04 §15.3 |
 | 2026-09-01 | v0.83.54 | `Defend_MonsterConfig.ModelId` weighted pool `ModelId;Weight|…`; Defend/PushMap spawn picks one sub-ModelId per monster independently; `MonsterModelIdFieldParser` + Catalog enumerates pool IDs. Synced SPEC_04 §6/§9.19 |

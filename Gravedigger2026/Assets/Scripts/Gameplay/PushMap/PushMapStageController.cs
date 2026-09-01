@@ -40,7 +40,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// MP-04: Bake AirWall → StaticBoxWalkableMask + FlowField Rebuild; advance via MassMoveScheduler
     /// (shared field + LocalDetour; no per-soldier SetDestination(Objective)).
     /// MP-05: engage/chase → AttackSlot claim + LocalDetour; slot refresh ≤50/frame; no per-frame CalculatePath.
-    /// Combat camera: Runtime Ensure PushMapCamera (ortho top-down; Size from CombatConstantConfig).
+    /// Combat camera: Runtime Ensure PushMapCamera (ortho combat pitch; Size from CombatConstantConfig).
     /// PM-09 Approach B: PushMapCameraFollowController follows CameraFollowPath max projection.
     /// PM-10: BodyRadius spawn spread + NavMeshAgent.radius for RVO.
     /// v0.66: Bake → deploy → FireStartBattleSpawns; advance does not pause on capture probe.
@@ -191,7 +191,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _engageZone = _mapInstance.GetComponentInChildren<EngageZone>(true);
 
             EnsurePushMapCamera();
-            ApplyPushMapCameraPose();
+            ApplyPushMapCombatCameraPose();
             if (_pushMapCamera != null)
             {
                 _pushMapCamera.gameObject.SetActive(false);
@@ -344,7 +344,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_pushMapCamera != null)
             {
                 _pushMapCamera.gameObject.SetActive(true);
-                ApplyPushMapCameraPose();
+                ApplyPushMapCombatCameraPose();
             }
 
             ReleaseNavMesh();
@@ -1049,6 +1049,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     () => _session != null && _session.IsMonsterStunned(runtimeId),
                     () => _session != null ? _session.GetMonsterSlowMoveMul(runtimeId) : 1f,
                     () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f);
+                view.ApplySpawnInitialFacing(PushMapSpawnFacing.ResolveDirIndex(request.InitialFacing));
                 if (request.IsBoss)
                 {
                     view.MarkAsBoss(true);
@@ -1882,7 +1883,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                 if (_pushMapCamera != null)
                 {
                     _pushMapCamera.gameObject.SetActive(true);
-                    ApplyPushMapCameraPose();
+                    var cam = _configs != null
+                        ? _configs.GetCameraPresentationConstants()
+                        : CameraPresentationConstants.SafetyDefaults;
+                    cam.ApplyTopDownPose(_pushMapCamera, _mapCenter, cam.PushMapPrepareOrthoSize);
+                    ApplyCombatCameraTransparencySort(_pushMapCamera);
                 }
 
                 return;
@@ -2155,9 +2160,9 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>
-        /// Orthographic top-down pose; Size from CombatConstantConfig PushMapCameraOrthoSize.
+        /// Oblique combat pose; Size from CombatConstantConfig PushMapCameraOrthoSize.
         /// </summary>
-        private void ApplyPushMapCameraPose()
+        private void ApplyPushMapCombatCameraPose()
         {
             if (_pushMapCamera == null)
             {
@@ -2167,11 +2172,22 @@ namespace Gravedigger2026.Gameplay.PushMap
             var cam = _configs != null
                 ? _configs.GetCameraPresentationConstants()
                 : CameraPresentationConstants.SafetyDefaults;
-            cam.ApplyTopDownPose(_pushMapCamera, _mapCenter, cam.PushMapOrthoSize);
+            DeathKnockbackGroundShadowView.ConfigureFloorTilt(cam.CombatCameraPitchDegrees);
+            cam.ApplyCombatCameraPose(_pushMapCamera, _mapCenter, cam.PushMapOrthoSize);
+            ApplyCombatCameraTransparencySort(_pushMapCamera);
+        }
+
+        private static void ApplyCombatCameraTransparencySort(Camera camera)
+        {
+            if (camera == null)
+            {
+                return;
+            }
+
             // SPEC_04 §15.2: same-order character sprites draw far-to-near along world
             // +Z — lower on screen (smaller Z) occludes higher.
-            _pushMapCamera.transparencySortMode = TransparencySortMode.CustomAxis;
-            _pushMapCamera.transparencySortAxis = Vector3.forward;
+            camera.transparencySortMode = TransparencySortMode.CustomAxis;
+            camera.transparencySortAxis = Vector3.forward;
         }
 
     }

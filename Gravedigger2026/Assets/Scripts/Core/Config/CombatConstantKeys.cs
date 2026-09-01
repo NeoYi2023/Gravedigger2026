@@ -14,6 +14,7 @@ namespace Gravedigger2026.Core.Config
         public const string MaxHpStrengthMult = "MaxHpStrengthMult";
 
         public const string CameraHeightY = "CameraHeightY";
+        public const string CombatCameraPitchDegrees = "CombatCameraPitchDegrees";
         public const string CameraOrthoSizeMargin = "CameraOrthoSizeMargin";
         public const string PushMapPrepareOrthoSize = "PushMapPrepareOrthoSize";
         public const string PushMapCameraOrthoSize = "PushMapCameraOrthoSize";
@@ -55,6 +56,9 @@ namespace Gravedigger2026.Core.Config
         public const string DeathCorpseSmashDamageMul = "DeathCorpseSmashDamageMul";
         public const string DeathCorpseSmashHitRadius = "DeathCorpseSmashHitRadius";
         public const string DeathKnockbackSeconds = "DeathKnockbackSeconds";
+        public const string DeathKnockbackShadowAlphaMul = "DeathKnockbackShadowAlphaMul";
+        public const string DeathKnockbackShadowScaleMin = "DeathKnockbackShadowScaleMin";
+        public const string DeathKnockbackShadowBaseRadiusMul = "DeathKnockbackShadowBaseRadiusMul";
         public const string DeathDefendCorpseAlphaMul = "DeathDefendCorpseAlphaMul";
         public const string DeathCorpseDarkenMul = "DeathCorpseDarkenMul";
         public const string DeathFakeDeathCorpseDarkenMul = "DeathFakeDeathCorpseDarkenMul";
@@ -87,6 +91,7 @@ namespace Gravedigger2026.Core.Config
         public static class Safety
         {
             public const float CameraHeightY = 18f;
+            public const float CombatCameraPitchDegrees = 60f;
             public const float CameraOrthoSizeMargin = 1.5f;
             public const float PushMapPrepareOrthoSize = 4.5f;
             public const float PushMapCameraOrthoSize = 2f;
@@ -126,6 +131,9 @@ namespace Gravedigger2026.Core.Config
             public const float DeathCorpseSmashDamageMul = 1f;
             public const float DeathCorpseSmashHitRadius = 0.55f;
             public const float DeathKnockbackSeconds = 0.3f;
+            public const float DeathKnockbackShadowAlphaMul = 0.6f;
+            public const float DeathKnockbackShadowScaleMin = 0.35f;
+            public const float DeathKnockbackShadowBaseRadiusMul = 1f;
             public const float DeathDefendCorpseAlphaMul = 0.85f;
             public const float DeathCorpseDarkenMul = 0.4f;
             public const float DeathFakeDeathCorpseDarkenMul = 0.7f;

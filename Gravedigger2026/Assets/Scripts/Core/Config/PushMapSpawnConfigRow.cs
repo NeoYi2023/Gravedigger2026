@@ -11,5 +11,7 @@ namespace Gravedigger2026.Core.Config
         public string TrapZoneId;
         public bool IsBoss;
         public int SpawnOrder;
+        /// <summary>0 = per-instance random 1~8; 1~8 = compass facing. Default 5 (down).</summary>
+        public int InitialFacing;
     }
 }

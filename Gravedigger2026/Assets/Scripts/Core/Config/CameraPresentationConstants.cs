@@ -3,11 +3,12 @@ using UnityEngine;
 namespace Gravedigger2026.Core.Config
 {
     /// <summary>
-    /// Top-down stage camera + PushMap follow/zoom/intro tunables from CombatConstantConfig (SPEC_04 §9.20b).
+    /// Stage camera + PushMap follow/zoom/intro tunables from CombatConstantConfig (SPEC_04 §9.20b).
     /// </summary>
     public readonly struct CameraPresentationConstants
     {
         public float HeightY { get; }
+        public float CombatCameraPitchDegrees { get; }
         public float OrthoSizeMargin { get; }
         public float PushMapPrepareOrthoSize { get; }
         public float PushMapOrthoSize { get; }
@@ -24,6 +25,7 @@ namespace Gravedigger2026.Core.Config
 
         public CameraPresentationConstants(
             float heightY,
+            float combatCameraPitchDegrees,
             float orthoSizeMargin,
             float pushMapPrepareOrthoSize,
             float pushMapOrthoSize,
@@ -39,6 +41,7 @@ namespace Gravedigger2026.Core.Config
             float pushMapIntroWaypointDwellSeconds)
         {
             HeightY = heightY;
+            CombatCameraPitchDegrees = combatCameraPitchDegrees;
             OrthoSizeMargin = orthoSizeMargin;
             PushMapPrepareOrthoSize = pushMapPrepareOrthoSize;
             PushMapOrthoSize = pushMapOrthoSize;
@@ -65,6 +68,9 @@ namespace Gravedigger2026.Core.Config
                 configs.GetCombatConstantOrFallback(
                     CombatConstantKeys.CameraHeightY,
                     CombatConstantKeys.Safety.CameraHeightY),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.CombatCameraPitchDegrees,
+                    CombatConstantKeys.Safety.CombatCameraPitchDegrees),
                 configs.GetCombatConstantOrFallback(
                     CombatConstantKeys.CameraOrthoSizeMargin,
                     CombatConstantKeys.Safety.CameraOrthoSizeMargin),
@@ -108,6 +114,7 @@ namespace Gravedigger2026.Core.Config
 
         public static CameraPresentationConstants SafetyDefaults => new CameraPresentationConstants(
             CombatConstantKeys.Safety.CameraHeightY,
+            CombatConstantKeys.Safety.CombatCameraPitchDegrees,
             CombatConstantKeys.Safety.CameraOrthoSizeMargin,
             CombatConstantKeys.Safety.PushMapPrepareOrthoSize,
             CombatConstantKeys.Safety.PushMapCameraOrthoSize,
@@ -132,19 +139,76 @@ namespace Gravedigger2026.Core.Config
             return Mathf.Max(OrthoSizeMin, raw);
         }
 
+        /// <summary>
+        /// Pure top-down (Euler 90°). Prepare FormationCamera, Dig, and map-fit Defend formation framing.
+        /// </summary>
         public void ApplyTopDownPose(Camera camera, Vector3 mapCenter, float orthographicSize)
+        {
+            ApplyCameraPose(camera, mapCenter, orthographicSize, 90f);
+        }
+
+        /// <summary>
+        /// Defend+PushMap Combat oblique ortho (SPEC_04 §9.20b / §15.5 CP-CAM).
+        /// Viewport center ray hits <paramref name="lookAt"/>; world Y arcs project onto screen.
+        /// </summary>
+        public void ApplyCombatCameraPose(Camera camera, Vector3 lookAt, float orthographicSize)
+        {
+            ApplyCameraPose(camera, lookAt, orthographicSize, CombatCameraPitchDegrees);
+        }
+
+        /// <summary>
+        /// World position for a combat camera whose center ray hits <paramref name="lookAt"/>.
+        /// Used by PushMap follow so XZ-only offsets stay valid under oblique pitch.
+        /// </summary>
+        public Vector3 ResolveCombatCameraPosition(Vector3 lookAt, float pitchDegrees = -1f)
+        {
+            var pitch = pitchDegrees < 0f
+                ? CombatCameraPitchDegrees
+                : pitchDegrees;
+            return ResolveCameraPosition(lookAt, pitch);
+        }
+
+        /// <summary>Euler rotation for combat pitch (Y=0).</summary>
+        public Quaternion ResolveCombatCameraRotation(float pitchDegrees = -1f)
+        {
+            var pitch = pitchDegrees < 0f
+                ? CombatCameraPitchDegrees
+                : pitchDegrees;
+            pitch = Mathf.Clamp(pitch, 45f, 89.9f);
+            return Quaternion.Euler(pitch, 0f, 0f);
+        }
+
+        private void ApplyCameraPose(
+            Camera camera,
+            Vector3 lookAt,
+            float orthographicSize,
+            float pitchDegrees)
         {
             if (camera == null)
             {
                 return;
             }
 
-            camera.transform.position = mapCenter + new Vector3(0f, HeightY, 0f);
-            camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            var pitch = Mathf.Clamp(pitchDegrees, 45f, 89.9f);
+            camera.transform.rotation = ResolveCombatCameraRotation(pitch);
+            camera.transform.position = ResolveCameraPosition(lookAt, pitch);
             camera.orthographic = true;
             camera.orthographicSize = Mathf.Max(OrthoSizeMin, orthographicSize);
             camera.nearClipPlane = NearClip;
             camera.farClipPlane = FarClip;
+        }
+
+        private Vector3 ResolveCameraPosition(Vector3 lookAt, float pitchDegrees)
+        {
+            var pitch = Mathf.Clamp(pitchDegrees, 45f, 89.9f);
+            var forward = ResolveCombatCameraRotation(pitch) * Vector3.forward;
+            if (forward.y >= -0.001f)
+            {
+                return lookAt + new Vector3(0f, HeightY, 0f);
+            }
+
+            var distanceAlongForward = HeightY / -forward.y;
+            return lookAt - forward * distanceAlongForward;
         }
     }
 }

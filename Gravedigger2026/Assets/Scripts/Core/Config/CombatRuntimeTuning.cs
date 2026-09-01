@@ -71,6 +71,15 @@ namespace Gravedigger2026.Core.Config
         public static float DeathKnockbackSeconds { get; private set; } =
             CombatConstantKeys.Safety.DeathKnockbackSeconds;
 
+        public static float DeathKnockbackShadowAlphaMul { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackShadowAlphaMul;
+
+        public static float DeathKnockbackShadowScaleMin { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackShadowScaleMin;
+
+        public static float DeathKnockbackShadowBaseRadiusMul { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackShadowBaseRadiusMul;
+
         public static float DeathDefendCorpseAlphaMul { get; private set; } =
             CombatConstantKeys.Safety.DeathDefendCorpseAlphaMul;
 
@@ -216,6 +225,15 @@ namespace Gravedigger2026.Core.Config
             DeathKnockbackSeconds = Mathf.Max(0.01f, F(
                 CombatConstantKeys.DeathKnockbackSeconds,
                 CombatConstantKeys.Safety.DeathKnockbackSeconds));
+            DeathKnockbackShadowAlphaMul = Mathf.Clamp01(F(
+                CombatConstantKeys.DeathKnockbackShadowAlphaMul,
+                CombatConstantKeys.Safety.DeathKnockbackShadowAlphaMul));
+            DeathKnockbackShadowScaleMin = Mathf.Clamp01(F(
+                CombatConstantKeys.DeathKnockbackShadowScaleMin,
+                CombatConstantKeys.Safety.DeathKnockbackShadowScaleMin));
+            DeathKnockbackShadowBaseRadiusMul = Mathf.Max(0.01f, F(
+                CombatConstantKeys.DeathKnockbackShadowBaseRadiusMul,
+                CombatConstantKeys.Safety.DeathKnockbackShadowBaseRadiusMul));
             DeathDefendCorpseAlphaMul = Mathf.Clamp01(F(
                 CombatConstantKeys.DeathDefendCorpseAlphaMul,
                 CombatConstantKeys.Safety.DeathDefendCorpseAlphaMul));

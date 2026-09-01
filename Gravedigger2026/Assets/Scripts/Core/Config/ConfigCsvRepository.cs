@@ -1102,6 +1102,8 @@ namespace Gravedigger2026.Core.Config
                 var isBoss = string.Equals(bossText, "1", StringComparison.Ordinal)
                              || string.Equals(bossText, "true", StringComparison.OrdinalIgnoreCase);
 
+                var initialFacing = ParsePushMapInitialFacing(raw, table, rowIndex);
+
                 _pushMapSpawnRows.Add(new PushMapSpawnConfigRow
                 {
                     GameplayConfigId = gameplayId,
@@ -1111,9 +1113,30 @@ namespace Gravedigger2026.Core.Config
                     LinkedObjectiveOrder = linked,
                     TrapZoneId = OptionalText(raw, "TrapZoneId"),
                     IsBoss = isBoss,
-                    SpawnOrder = order
+                    SpawnOrder = order,
+                    InitialFacing = initialFacing
                 });
             }
+        }
+
+        /// <summary>SPEC_04 §9.23: missing/empty → 5; illegal → load fail.</summary>
+        private static int ParsePushMapInitialFacing(Dictionary<string, string> raw, string table, int rowIndex)
+        {
+            var text = OptionalText(raw, "InitialFacing");
+            if (text.Length == 0)
+            {
+                return 5;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var facing)
+                || facing < 0
+                || facing > 8)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal InitialFacing '{text}' (expected 0..8).");
+            }
+
+            return facing;
         }
 
         private static bool IsValidPushMapMapId(string mapId)

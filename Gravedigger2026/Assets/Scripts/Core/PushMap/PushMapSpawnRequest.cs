@@ -20,6 +20,8 @@ namespace Gravedigger2026.Core.PushMap
         public int LinkedObjectiveOrder;
         public bool IsBoss;
         public int SpawnOrder;
+        /// <summary>0 = per-instance random 1~8; 1~8 = compass facing (SPEC_04 §9.23).</summary>
+        public int InitialFacing;
         public PushMapSpawnTrigger Trigger;
     }
 }

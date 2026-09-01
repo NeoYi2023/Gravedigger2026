@@ -2406,7 +2406,7 @@ UpgradeManufacture stage
 | 连锁 | 砸击致死 **不**再启动尸体投射；在原位 `PlayDie` latch（**无**击飞位移、**无**砸击） |
 | 假死复活 | `MonsterCombatDead` 同样抛物线（砸击按门闩）；飞行 + latch **完成后**仍走原 `DelaySeconds` → 倒放复活；无敌 / `AlertRadius` 首次覆盖契约 **不变**（§3.14）；**假死 latch `RGB×0.7`**（彻底死亡 0.4 的一半变暗深度），经 Delay/倒放/无敌保持 |
 | 击杀事件 | 原致命击 `MonsterKilled` / `NotifyKilled` 契约 **不变**（假死仍 **不计**击杀）。砸击扣血走 `TryApplyCorpseSmashDamage`；砸死触发正常 `MonsterKilled`，但 **不**触发新投射 |
-| 表现边界 | View 驱动尸体抛物线位移 + 死亡 latch；规则层确认伤害；禁止 View 直接改目标 HP。详见 [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| 表现边界 | View 驱动尸体抛物线位移 + 死亡 latch；腾空有高度时在地面投影处显示同步黑影（大小随高度插值；参数 ← `CombatConstantConfig`）；规则层确认伤害；禁止 View 直接改目标 HP。详见 [SPEC_04 §15.5](SPEC_04_Technical.md) |
 
 **SkillCast（士兵技能施放；D-069 连发/格挡/舒适 + D-073 EffectKind 登记制 / 方案 B+）**
 
@@ -3214,6 +3214,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 规则 | 说明 |
 |------|------|
 | 驱动表 | `PushMapSpawnConfig`：按 `GameplayConfigId` + `SpawnPointId`；一点可多行（多种怪物） |
+| 初始朝向 | 行字段 `InitialFacing`（[SPEC_04 §9.23](SPEC_04_Technical.md)）：刷出 Idle 八向。`0`=该行每只怪各自随机 `1~8`；`1~8`=固定罗盘方向（1正上…8左上）。表现映射至 Animator `DirIndex`（§15.5）；Prepare 预览 / 开战 / 陷阱刷怪共用。缺省 `5`（正下） |
 | 无陷阱刷怪 | 开战瞬间：若该刷怪点 **未** 绑定陷阱，且其 **关联目标点尚未占领**（或未关联目标=全局，开战即符合）→ 按行生成 |
 | Prepare 开战预览刷怪 | 进入 `Prepare` 后：按与「无陷阱刷怪」**同一资格**实例化怪物外观（含 BOSS 行），播 Idle；**不**跑 AI / 攻击 / 占领 / 陷阱；**不**计入 `PendingBoss` / Session HP 登记。陷阱绑定行 **不**预览。点「开战」→ **先销毁**预览实例 → Bake NavMesh → 部署 → 正式 `FireStartBattleSpawns`（与 Combat 刷怪一致） |
 | 陷阱刷怪 | 绑定 `TrapZoneId` 的刷怪点：我方忠诚士兵 **首次**进入该陷阱区且关联目标未占领 → 生成；本场每点默认触发一次（重复进入不重复刷，除非配置另开 **TBD**） |
@@ -3373,6 +3374,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Rule | Notes |
 |------|-------|
 | Table | `PushMapSpawnConfig` by `GameplayConfigId` + `SpawnPointId`; multi-rows per point OK |
+| Initial facing | Row field `InitialFacing` ([SPEC_04 §9.23](SPEC_04_Technical.md)): Idle 8-dir on spawn. `0`=each monster on the row rolls `1~8`; `1~8`=fixed compass facing (1=up … 8=up-left). Presentation maps to Animator `DirIndex` (§15.5); shared by Prepare preview / StartBattle / trap. Default `5` (down) |
 | Non-trap | At StartBattle: if no trap bind and linked objective uncaptured → spawn rows |
 | Prepare StartBattle-spawn preview | On entering `Prepare`: instantiate the same non-trap-eligible rows (incl. Boss) as Idle visuals; **no** AI / attack / capture / trap; **no** `PendingBoss` / Session HP register. Trap-bound rows are **not** previewed. On StartBattle → **destroy** preview instances → Bake NavMesh → deploy → formal `FireStartBattleSpawns` |
 | Trap | Bound `TrapZoneId`: first loyal enter while objective uncaptured → spawn once per point this battle (re-enter no re-spawn unless config TBD) |

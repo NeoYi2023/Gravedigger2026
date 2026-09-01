@@ -598,6 +598,7 @@ namespace Gravedigger2026.Core.PushMap
                 LinkedObjectiveOrder = row.LinkedObjectiveOrder,
                 IsBoss = row.IsBoss,
                 SpawnOrder = row.SpawnOrder,
+                InitialFacing = row.InitialFacing,
                 Trigger = trigger
             };
 
