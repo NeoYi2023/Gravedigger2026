@@ -13,6 +13,7 @@ namespace Gravedigger2026.Core.Combat
         {
             public float RemainingSeconds;
             public string SkillId;
+            public bool IsHold;
             public float MoveMul = 1f;
             public float AttackMul = 1f;
         }
@@ -128,7 +129,32 @@ namespace Gravedigger2026.Core.Combat
             _warriorInvincible[warriorId] = new TimedStatus
             {
                 RemainingSeconds = seconds,
-                SkillId = skillId ?? string.Empty
+                SkillId = skillId ?? string.Empty,
+                IsHold = false
+            };
+
+            if (!wasOn)
+            {
+                WarriorInvincibleChanged?.Invoke(warriorId, skillId ?? string.Empty, true);
+            }
+        }
+
+        /// <summary>
+        /// Hold invincible until <see cref="ClearWarrior"/> (SearchExtract point success / UI-032).
+        /// </summary>
+        public void ApplyWarriorInvincibleHold(string warriorId, string skillId)
+        {
+            if (string.IsNullOrEmpty(warriorId))
+            {
+                return;
+            }
+
+            var wasOn = IsWarriorInvincible(warriorId);
+            _warriorInvincible[warriorId] = new TimedStatus
+            {
+                RemainingSeconds = float.PositiveInfinity,
+                SkillId = skillId ?? string.Empty,
+                IsHold = true
             };
 
             if (!wasOn)
@@ -390,6 +416,11 @@ namespace Gravedigger2026.Core.Combat
             var expired = new List<string>();
             foreach (var pair in bucket)
             {
+                if (pair.Value == null || pair.Value.IsHold)
+                {
+                    continue;
+                }
+
                 pair.Value.RemainingSeconds -= deltaTime;
                 if (pair.Value.RemainingSeconds <= 0f)
                 {

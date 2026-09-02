@@ -76,6 +76,25 @@ namespace Gravedigger2026.Gameplay.Defend
         public float AgentRadius => _bodyRadius;
         public Vector3 FormationHome => _formationHome;
         public bool HasFormationHome => _hasFormationHome;
+
+        public void SetFormationHome(Vector3 world)
+        {
+            _formationHome = world;
+            _hasFormationHome = true;
+        }
+
+        public void RefreshMoveSpeedFromSession()
+        {
+            if (_session != null
+                && !string.IsNullOrEmpty(_warriorId)
+                && _session.TryGetWarrior(_warriorId, out var state)
+                && state != null)
+            {
+                _baseMoveSpeed = Mathf.Max(0.1f, state.MoveSpeed);
+                ApplyEffectiveMoveSpeed();
+            }
+        }
+
         /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ≤50/frame (SPEC_04 §9.7).</summary>
         public float TargetRetargetInterval => _retargetInterval;
 

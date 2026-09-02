@@ -14,3 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _formationEditorRootPrefab: {fileID: 2380090618504658273, guid: 76b435fa299603f4cb933576560e968f, type: 3}
   _formationEditorRootPrefabMode2: {fileID: 2380090618504658273, guid: e7d5c3b1a9084762f5e4d3c2b1a09f87, type: 3}
+  _patterns:
+  - PrefabId: FormationPattern_Wedge_01
+    Prefab: {fileID: 81100001, guid: 8d5f0c2b3e9a4f7d8b6c4e2f1a0d9b35, type: 3}
+  - PrefabId: FormationPattern_Wedge_02
+    Prefab: {fileID: 81100001, guid: 7da7df4a610b3d34ba0102b4ba8e4dba, type: 3}

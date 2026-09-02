@@ -16,6 +16,9 @@ namespace Gravedigger2026.Core.Pathing
         AttackSlot = 2,
 
         /// <summary>Optional chase anchor before slot resolve; Demo treats like AttackSlot once claimed.</summary>
-        ChaseAnchor = 3
+        ChaseAnchor = 3,
+
+        /// <summary>Tactical formation member — straight seek center+rotated slot (SPEC_03 §3.18).</summary>
+        FormationSlot = 4
     }
 }

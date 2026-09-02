@@ -82,13 +82,15 @@ namespace Gravedigger2026.Editor.Defend
             };
 
         /// <summary>
-        /// Bound into Catalog.Maps only (no Dig EngageZone/SpawnPoint ensure — PushMap has its own markers).
+        /// Bound into Catalog.Maps only (no Dig EngageZone/SpawnPoint ensure —
+        /// PushMap / SearchExtract maps have their own markers).
         /// </summary>
         private static readonly string[] CatalogExtraMapIds =
         {
             "PushMap_Demo_01",
             "PushMap_Demo_02",
-            "PushMap_Demo_03"
+            "PushMap_Demo_03",
+            "SearchExtract_Demo_01"
         };
 
         private static readonly Color[] MonsterColors =

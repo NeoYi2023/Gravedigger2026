@@ -121,6 +121,18 @@ namespace Gravedigger2026.Gameplay.Formation
             }
         }
 
+        public void SetPreviewMapRel(string warriorId, float relX, float relZ)
+        {
+            if (_previews.TryGetValue(warriorId, out var go) && go != null)
+            {
+                go.SetActive(true);
+                go.transform.position = new Vector3(
+                    _mapCenter.x + relX,
+                    _mapCenter.y,
+                    _mapCenter.z + relZ);
+            }
+        }
+
         public void Clear()
         {
             foreach (var kv in _previews)

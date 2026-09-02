@@ -168,6 +168,8 @@ namespace Gravedigger2026.Gameplay.Pathing
                     return "追击";
                 case GoalKind.ChaseAnchor:
                     return "追击锚";
+                case GoalKind.FormationSlot:
+                    return "阵型";
                 default:
                     return kind.ToString();
             }

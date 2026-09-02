@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Combat.SkillEffects;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
 
@@ -16,6 +17,9 @@ namespace Gravedigger2026.Core.Combat
         private readonly ConfigCsvRepository _configs;
         private readonly Dictionary<string, ISkillEffectHandler> _handlersByKind =
             new Dictionary<string, ISkillEffectHandler>(StringComparer.Ordinal);
+        private readonly HashSet<string> _dispatchedEffectIds =
+            new HashSet<string>(StringComparer.Ordinal);
+        private ITacticalFormationOverlayLookup _formationOverlay;
 
         public SkillEffectPipeline(ConfigCsvRepository configs)
         {
@@ -29,6 +33,11 @@ namespace Gravedigger2026.Core.Combat
             Register(new RangedPierceExtraHitsHandler());
             Register(new OnAaHitApplyBurnHandler());
             Register(new RetargetFarthestTeleportBehindHandler());
+        }
+
+        public void SetFormationOverlay(ITacticalFormationOverlayLookup overlay)
+        {
+            _formationOverlay = overlay;
         }
 
         public void Register(ISkillEffectHandler handler)
@@ -49,66 +58,154 @@ namespace Gravedigger2026.Core.Combat
             }
 
             context.DispatchTriggerHook = triggerHook;
+            _dispatchedEffectIds.Clear();
 
             var skills = context.Warrior.SoldierSkills;
-            if (skills == null || skills.Count == 0)
+            if (skills != null)
+            {
+                for (var i = 0; i < skills.Count; i++)
+                {
+                    DispatchSkillEntry(context, skills[i]);
+                }
+            }
+
+            DispatchFormationOverlay(context);
+        }
+
+        private void DispatchFormationOverlay(SkillEffectContext context)
+        {
+            var overlay = _formationOverlay;
+            var warriorId = context.Warrior.WarriorId;
+            if (overlay == null || !overlay.IsOverlayActive(warriorId))
             {
                 return;
+            }
+
+            var exclusiveSkills = overlay.GetExclusiveSkillIds(warriorId);
+            if (exclusiveSkills != null)
+            {
+                for (var i = 0; i < exclusiveSkills.Count; i++)
+                {
+                    var skillId = exclusiveSkills[i];
+                    if (string.IsNullOrEmpty(skillId) || ContainsSkillId(context.Warrior.SoldierSkills, skillId))
+                    {
+                        continue;
+                    }
+
+                    if (!TryResolveExclusiveSkill(skillId, out var skillRow) || skillRow == null)
+                    {
+                        continue;
+                    }
+
+                    context.CurrentSkillRow = skillRow;
+                    DispatchEffectId(context, skillRow.SkillEffectId);
+                }
+            }
+
+            var exclusiveEffects = overlay.GetExclusiveSkillEffectIds(warriorId);
+            if (exclusiveEffects == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < exclusiveEffects.Count; i++)
+            {
+                context.CurrentSkillRow = null;
+                DispatchEffectId(context, exclusiveEffects[i]);
+            }
+        }
+
+        private void DispatchSkillEntry(SkillEffectContext context, SoldierSkillEntry entry)
+        {
+            if (entry == null)
+            {
+                return;
+            }
+
+            if (!_configs.TryGetSkill(entry.SkillId, entry.SkillLevel, out var skillRow) || skillRow == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(skillRow.SkillEffectId))
+            {
+                return;
+            }
+
+            context.CurrentSkillRow = skillRow;
+            DispatchEffectId(context, skillRow.SkillEffectId);
+        }
+
+        private bool TryResolveExclusiveSkill(string skillId, out SkillConfigRow skillRow)
+        {
+            skillRow = null;
+            if (!_configs.TryGetSkillLevelRange(skillId, out var minLevel, out _) || minLevel < 1)
+            {
+                return false;
+            }
+
+            return _configs.TryGetSkill(skillId, minLevel, out skillRow) && skillRow != null;
+        }
+
+        private static bool ContainsSkillId(IReadOnlyList<SoldierSkillEntry> skills, string skillId)
+        {
+            if (skills == null)
+            {
+                return false;
             }
 
             for (var i = 0; i < skills.Count; i++)
             {
                 var entry = skills[i];
-                if (entry == null)
+                if (entry != null && string.Equals(entry.SkillId, skillId, StringComparison.Ordinal))
                 {
-                    continue;
+                    return true;
                 }
-
-                if (!_configs.TryGetSkill(entry.SkillId, entry.SkillLevel, out var skillRow) || skillRow == null)
-                {
-                    continue;
-                }
-
-                if (string.IsNullOrWhiteSpace(skillRow.SkillEffectId))
-                {
-                    continue;
-                }
-
-                if (!_configs.TryGetSkillEffect(skillRow.SkillEffectId, out var effectRow) || effectRow == null)
-                {
-                    continue;
-                }
-
-                if (string.IsNullOrWhiteSpace(effectRow.EffectKind))
-                {
-                    continue;
-                }
-
-                if (!MatchesTriggerHook(effectRow, triggerHook))
-                {
-                    continue;
-                }
-
-                if (!_handlersByKind.TryGetValue(effectRow.EffectKind, out var handler))
-                {
-                    if (SkillEffectKind.IsRegistered(effectRow.EffectKind))
-                    {
-                        Debug.LogWarning(
-                            $"[SkillEffect] Registered kind '{effectRow.EffectKind}' has no handler.");
-                    }
-                    else
-                    {
-                        Debug.LogWarning(
-                            $"[SkillEffect] Unregistered EffectKind '{effectRow.EffectKind}' on " +
-                            $"{effectRow.SkillEffectId}.");
-                    }
-
-                    continue;
-                }
-
-                context.CurrentSkillRow = skillRow;
-                handler.Apply(context, effectRow);
             }
+
+            return false;
+        }
+
+        private void DispatchEffectId(SkillEffectContext context, string skillEffectId)
+        {
+            if (string.IsNullOrWhiteSpace(skillEffectId) || !_dispatchedEffectIds.Add(skillEffectId))
+            {
+                return;
+            }
+
+            if (!_configs.TryGetSkillEffect(skillEffectId, out var effectRow) || effectRow == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(effectRow.EffectKind))
+            {
+                return;
+            }
+
+            if (!MatchesTriggerHook(effectRow, context.DispatchTriggerHook))
+            {
+                return;
+            }
+
+            if (!_handlersByKind.TryGetValue(effectRow.EffectKind, out var handler))
+            {
+                if (SkillEffectKind.IsRegistered(effectRow.EffectKind))
+                {
+                    Debug.LogWarning(
+                        $"[SkillEffect] Registered kind '{effectRow.EffectKind}' has no handler.");
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        $"[SkillEffect] Unregistered EffectKind '{effectRow.EffectKind}' on " +
+                        $"{effectRow.SkillEffectId}.");
+                }
+
+                return;
+            }
+
+            handler.Apply(context, effectRow);
         }
 
         private static bool MatchesTriggerHook(SkillEffectConfigRow effectRow, string triggerHook)

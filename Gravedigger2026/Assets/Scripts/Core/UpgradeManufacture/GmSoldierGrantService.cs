@@ -26,15 +26,18 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         private readonly ConfigCsvRepository _configs;
         private readonly WarriorPoolService _warriorPool;
         private readonly AutoFormationDeployService _autoDeploy;
+        private readonly ISoldierManufactureMagicBookHook _manufactureHook;
 
         public GmSoldierGrantService(
             ConfigCsvRepository configs,
             WarriorPoolService warriorPool,
-            AutoFormationDeployService autoDeploy)
+            AutoFormationDeployService autoDeploy,
+            ISoldierManufactureMagicBookHook manufactureHook = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
             _autoDeploy = autoDeploy ?? throw new ArgumentNullException(nameof(autoDeploy));
+            _manufactureHook = manufactureHook;
         }
 
         public bool TryAdd(
@@ -80,6 +83,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             for (var i = 0; i < clamped; i++)
             {
                 var instance = BuildInstance(classRow, raceRow, appearanceId);
+                _manufactureHook?.ApplyEquippedGrantFormationSkillBooks(instance);
                 _warriorPool.Add(instance);
                 batchIds.Add(instance.Id);
                 added++;

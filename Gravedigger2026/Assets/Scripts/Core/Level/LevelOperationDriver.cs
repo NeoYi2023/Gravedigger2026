@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.Rewards;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.Level
 {
     /// <summary>
-    /// Drives LevelOperationConfig ascending stages (SPEC_03 §3.9 / D-010). Approach A.
+    /// Drives Level Operation + SubLevel route graph (SPEC_03 §3.9 / D-086). Approach A.
+    /// Enter → RouteSelect → pick option → module → clear → reward/unlock → RouteSelect or victory.
     /// </summary>
     public sealed class LevelOperationDriver
     {
@@ -17,12 +19,19 @@ namespace Gravedigger2026.Core.Level
         private readonly Dictionary<GameplayState, IStageModule> _modules =
             new Dictionary<GameplayState, IStageModule>();
 
+        private RewardGrantService _rewardGrant;
         private List<LevelOperationConfigRow> _stages = new List<LevelOperationConfigRow>();
-        private int _stageIndex = -1;
+        private readonly HashSet<string> _clearedOptions = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> _unlockedOptions = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _optionStageById =
+            new Dictionary<string, int>(StringComparer.Ordinal);
+        private string _activeOptionId;
         private LevelStageContext _currentContext;
+        private bool _routeSelectVisible;
 
         public event Action<LevelStageContext> StageChanged;
         public event Action<string> LevelEnded;
+        public event Action<LevelRouteSnapshot> RouteChanged;
 
         public LevelOperationDriver(ConfigCsvRepository configs, GameplayStateService gameplayState)
         {
@@ -30,8 +39,17 @@ namespace Gravedigger2026.Core.Level
             _gameplayState = gameplayState ?? throw new ArgumentNullException(nameof(gameplayState));
         }
 
-        public bool IsRunning => _stageIndex >= 0 && _stageIndex < _stages.Count;
+        public void BindRewardGrant(RewardGrantService rewardGrant)
+        {
+            _rewardGrant = rewardGrant;
+        }
+
+        /// <summary>True while a Level is open (route or running option).</summary>
+        public bool IsRunning => !string.IsNullOrEmpty(ActiveLevelId);
+        public bool IsOptionRunning => IsRunning && _currentContext != null && !string.IsNullOrEmpty(_activeOptionId);
+        public bool IsRouteSelectVisible => IsRunning && _routeSelectVisible;
         public string ActiveLevelId { get; private set; }
+        public string ActiveGameplayOptionId => _activeOptionId;
         public LevelStageContext CurrentContext => _currentContext;
 
         public void RegisterModule(IStageModule module)
@@ -44,10 +62,6 @@ namespace Gravedigger2026.Core.Level
             _modules[module.HandledState] = module;
         }
 
-        /// <summary>
-        /// Registers placeholders for stages not yet wired by MetaShell.
-        /// Dig / UM / Defend are overwritten by MetaShell when catalogs are bound (D-020 / D-030 / D-040).
-        /// </summary>
         public void RegisterDefaultPlaceholders()
         {
             RegisterModule(new UpgradeManufacturePlaceholderStageModule());
@@ -84,32 +98,149 @@ namespace Gravedigger2026.Core.Level
 
             ActiveLevelId = levelId;
             _stages = stages;
-            _stageIndex = 0;
-            if (!TryEnterCurrentStage(out error))
+            _clearedOptions.Clear();
+            _unlockedOptions.Clear();
+            _optionStageById.Clear();
+            _activeOptionId = null;
+            _currentContext = null;
+            _routeSelectVisible = true;
+
+            for (var i = 0; i < _stages.Count; i++)
             {
+                var stage = _stages[i];
+                var ids = stage.GameplayOptionIds;
+                if (ids == null)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < ids.Length; j++)
+                {
+                    var oid = ids[j];
+                    if (string.IsNullOrEmpty(oid))
+                    {
+                        continue;
+                    }
+
+                    _optionStageById[oid] = stage.StageNumber;
+                    if (i == 0)
+                    {
+                        _unlockedOptions.Add(oid);
+                    }
+                }
+            }
+
+            if (_unlockedOptions.Count == 0)
+            {
+                error = $"Level '{levelId}' Stage1 has no gameplay options.";
                 StopCurrentLevelInternal(notifyEnded: false);
                 return false;
             }
 
-            Debug.Log($"[LevelOperationDriver] EnterLevel {levelId} ({_stages.Count} stages).");
+            StageChanged?.Invoke(null);
+            PublishRoute();
+            Debug.Log(
+                $"[LevelOperationDriver] EnterLevel {levelId} ({_stages.Count} stages, {_unlockedOptions.Count} Stage1 options) → RouteSelect.");
+            return true;
+        }
+
+        public bool TrySelectGameplayOption(string optionId, out string error)
+        {
+            error = null;
+            if (!IsRunning)
+            {
+                error = "No active Level.";
+                return false;
+            }
+
+            if (IsOptionRunning)
+            {
+                error = "An option is already running.";
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(optionId))
+            {
+                error = "Empty GameplayOptionId.";
+                return false;
+            }
+
+            if (_clearedOptions.Contains(optionId))
+            {
+                error = $"Option '{optionId}' already cleared.";
+                return false;
+            }
+
+            if (!_unlockedOptions.Contains(optionId))
+            {
+                error = $"Option '{optionId}' is locked.";
+                return false;
+            }
+
+            if (!_configs.TryGetSubLevel(optionId, out var sub) || sub == null)
+            {
+                error = $"SubLevel '{optionId}' not found.";
+                return false;
+            }
+
+            if (!_optionStageById.TryGetValue(optionId, out var stageNumber))
+            {
+                error = $"Option '{optionId}' is not mounted on this Level.";
+                return false;
+            }
+
+            if (!TryBuildContext(sub, stageNumber, out var context, out error))
+            {
+                return false;
+            }
+
+            _routeSelectVisible = false;
+            _activeOptionId = optionId;
+            _currentContext = context;
+            _gameplayState.SetState(context.GameplayType);
+
+            if (_modules.TryGetValue(context.GameplayType, out var module))
+            {
+                module.Enter(context);
+            }
+            else
+            {
+                Debug.LogWarning($"[LevelOperationDriver] No IStageModule for {context.GameplayType}.");
+            }
+
+            StageChanged?.Invoke(context);
+            PublishRoute();
+            Debug.Log(
+                $"[LevelOperationDriver] Select Option={optionId} Stage={stageNumber} Type={context.GameplayType} Map={context.ResolvedMapId ?? "-"} Note={context.MapResolveNote}");
             return true;
         }
 
         /// <summary>
-        /// Demo placeholder: treat current stage as finished and advance (real end conditions in later slices).
+        /// Clear current option: grant Reward, unlock next, return to RouteSelect or victory.
         /// </summary>
         public bool TryAdvanceStage(out string message)
         {
-            if (!IsRunning || _currentContext == null)
+            if (!IsOptionRunning)
             {
-                message = "No active Level stage.";
+                message = "No active gameplay option.";
+                return false;
+            }
+
+            var optionId = _activeOptionId;
+            if (!_configs.TryGetSubLevel(optionId, out var sub) || sub == null)
+            {
+                message = $"SubLevel '{optionId}' missing on advance.";
                 return false;
             }
 
             ExitCurrentModule();
+            GrantOptionReward(sub);
+            _clearedOptions.Add(optionId);
+            _activeOptionId = null;
+            _currentContext = null;
 
-            _stageIndex++;
-            if (_stageIndex >= _stages.Count)
+            var unlockIds = ParsePipeIds(sub.UnlockNextOptionIds);
+            if (unlockIds.Count == 0)
             {
                 var levelId = ActiveLevelId;
                 StopCurrentLevelInternal(notifyEnded: false);
@@ -117,19 +248,28 @@ namespace Gravedigger2026.Core.Level
                 Debug.Log($"[LevelOperationDriver] {message}");
                 LevelEnded?.Invoke(message);
                 StageChanged?.Invoke(null);
+                PublishRoute();
                 return true;
             }
 
-            if (!TryEnterCurrentStage(out var error))
+            for (var i = 0; i < unlockIds.Count; i++)
             {
-                message = error;
-                StopCurrentLevelInternal(notifyEnded: false);
-                StageChanged?.Invoke(null);
-                return false;
+                var nextId = unlockIds[i];
+                if (!_optionStageById.ContainsKey(nextId))
+                {
+                    Debug.LogWarning(
+                        $"[LevelOperationDriver] UnlockNext '{nextId}' not mounted on Level '{ActiveLevelId}'.");
+                    continue;
+                }
+
+                _unlockedOptions.Add(nextId);
             }
 
-            message =
-                $"进入阶段 {_currentContext.StageNumber} / {_stages.Count} — {_currentContext.GameplayType}";
+            _routeSelectVisible = true;
+            StageChanged?.Invoke(null);
+            PublishRoute();
+            message = $"选项 {optionId} 通关 → 路线选择（解锁 {unlockIds.Count}）";
+            Debug.Log($"[LevelOperationDriver] {message}");
             return true;
         }
 
@@ -137,11 +277,9 @@ namespace Gravedigger2026.Core.Level
         {
             StopCurrentLevelInternal(notifyEnded: true);
             StageChanged?.Invoke(null);
+            PublishRoute();
         }
 
-        /// <summary>
-        /// PushMap Demo: end Level after settlement UI without VictorySettlement placeholder toast.
-        /// </summary>
         public void CompleteLevelAfterBattleSettlement()
         {
             if (!IsRunning && string.IsNullOrEmpty(ActiveLevelId))
@@ -150,18 +288,21 @@ namespace Gravedigger2026.Core.Level
             }
 
             var levelId = ActiveLevelId;
+            if (!string.IsNullOrEmpty(_activeOptionId)
+                && _configs.TryGetSubLevel(_activeOptionId, out var sub)
+                && sub != null)
+            {
+                GrantOptionReward(sub);
+                _clearedOptions.Add(_activeOptionId);
+            }
+
             ExitCurrentModule();
-            ActiveLevelId = null;
-            _stages = new List<LevelOperationConfigRow>();
-            _stageIndex = -1;
-            _currentContext = null;
+            ClearLevelState();
             Debug.Log($"[LevelOperationDriver] PushMap settlement complete — Level {levelId} ended (no VictorySettlement toast).");
             StageChanged?.Invoke(null);
+            PublishRoute();
         }
 
-        /// <summary>
-        /// LevelFailure abort: exit current stage, end Level without VictorySettlement (SPEC_03 §3.9 / D-043).
-        /// </summary>
         public void AbortLevelAsFailure(string reason)
         {
             if (!IsRunning && string.IsNullOrEmpty(ActiveLevelId))
@@ -171,25 +312,20 @@ namespace Gravedigger2026.Core.Level
 
             var levelId = ActiveLevelId;
             ExitCurrentModule();
-            ActiveLevelId = null;
-            _stages = new List<LevelOperationConfigRow>();
-            _stageIndex = -1;
-            _currentContext = null;
+            ClearLevelState();
             var message = string.IsNullOrEmpty(reason)
                 ? $"LevelFailure — 关卡 {levelId} 中止"
                 : $"LevelFailure — {reason}";
             Debug.LogWarning($"[LevelOperationDriver] {message}");
             LevelEnded?.Invoke(message);
             StageChanged?.Invoke(null);
+            PublishRoute();
         }
 
-        /// <summary>
-        /// ModeSelect Mode2 handoff: exit Defend module, rewrite current context to PushMap, enter PushMapStageModule (D-044).
-        /// </summary>
         public bool TryHandoffModeSelectToPushMap(string gameplayConfigId, out string error)
         {
             error = null;
-            if (!IsRunning || _currentContext == null)
+            if (!IsOptionRunning || _currentContext == null)
             {
                 error = "No active Level stage.";
                 return false;
@@ -239,50 +375,114 @@ namespace Gravedigger2026.Core.Level
             }
 
             StageChanged?.Invoke(_currentContext);
+            PublishRoute();
             Debug.Log(
                 $"[LevelOperationDriver] ModeSelect handoff → PushMap Config={pushMap.GameplayConfigId} Map={pushMap.MapId} Level={_currentContext.LevelId} Stage={_currentContext.StageNumber}");
             return true;
         }
 
-        private bool TryEnterCurrentStage(out string error)
+        public LevelRouteSnapshot BuildRouteSnapshot()
         {
-            error = null;
-            var row = _stages[_stageIndex];
-            if (!TryBuildContext(row, out var context, out error))
+            var snap = new LevelRouteSnapshot
             {
-                return false;
+                LevelId = ActiveLevelId,
+                Visible = IsRouteSelectVisible
+            };
+
+            if (string.IsNullOrEmpty(ActiveLevelId) || _stages.Count == 0)
+            {
+                return snap;
             }
 
-            _currentContext = context;
-            _gameplayState.SetState(context.GameplayType);
-
-            if (_modules.TryGetValue(context.GameplayType, out var module))
+            var stageSnaps = new List<LevelRouteStageSnapshot>(_stages.Count);
+            for (var i = 0; i < _stages.Count; i++)
             {
-                module.Enter(context);
-            }
-            else
-            {
-                Debug.LogWarning($"[LevelOperationDriver] No IStageModule for {context.GameplayType}.");
+                var stage = _stages[i];
+                var optionList = new List<LevelRouteOptionSnapshot>();
+                var ids = stage.GameplayOptionIds;
+                if (ids != null)
+                {
+                    for (var j = 0; j < ids.Length; j++)
+                    {
+                        var oid = ids[j];
+                        if (string.IsNullOrEmpty(oid) || !_configs.TryGetSubLevel(oid, out var sub) || sub == null)
+                        {
+                            continue;
+                        }
+
+                        var ui = LevelRouteOptionUiState.Locked;
+                        if (_clearedOptions.Contains(oid))
+                        {
+                            ui = LevelRouteOptionUiState.Cleared;
+                        }
+                        else if (string.Equals(_activeOptionId, oid, StringComparison.Ordinal))
+                        {
+                            ui = LevelRouteOptionUiState.Running;
+                        }
+                        else if (_unlockedOptions.Contains(oid))
+                        {
+                            ui = LevelRouteOptionUiState.Selectable;
+                        }
+
+                        optionList.Add(new LevelRouteOptionSnapshot
+                        {
+                            GameplayOptionId = oid,
+                            StageNumber = stage.StageNumber,
+                            Title = sub.Title,
+                            Description = sub.Description,
+                            IconAssetId = sub.IconAssetId,
+                            Reward = sub.Reward,
+                            UnlockNextOptionIds = sub.UnlockNextOptionIds,
+                            GameplayType = sub.GameplayType,
+                            UiState = ui
+                        });
+                    }
+                }
+
+                stageSnaps.Add(new LevelRouteStageSnapshot
+                {
+                    StageNumber = stage.StageNumber,
+                    Options = optionList.ToArray()
+                });
             }
 
-            StageChanged?.Invoke(context);
-            Debug.Log(
-                $"[LevelOperationDriver] Stage LevelId={context.LevelId} StageNumber={context.StageNumber} GameplayType={context.GameplayType} Map={context.ResolvedMapId ?? "-"} Note={context.MapResolveNote}");
-            return true;
+            snap.Stages = stageSnaps.ToArray();
+            return snap;
         }
 
-        private bool TryBuildContext(LevelOperationConfigRow row, out LevelStageContext context, out string error)
+        private void GrantOptionReward(SubLevelConfigRow sub)
+        {
+            if (_rewardGrant == null || string.IsNullOrEmpty(sub.Reward))
+            {
+                return;
+            }
+
+            var entries = LootDropParser.ParseIdSemicolonCount(
+                sub.Reward,
+                msg => Debug.LogWarning($"[LevelOperationDriver] {msg}"));
+            _rewardGrant.GrantEntries(
+                entries,
+                msg => Debug.Log($"[LevelOperationDriver] Reward: {msg}"),
+                msg => Debug.LogWarning($"[LevelOperationDriver] {msg}"));
+        }
+
+        private bool TryBuildContext(
+            SubLevelConfigRow sub,
+            int stageNumber,
+            out LevelStageContext context,
+            out string error)
         {
             context = new LevelStageContext
             {
-                LevelId = row.LevelId,
-                StageNumber = row.StageNumber,
-                GameplayType = row.GameplayType,
-                GameplayConfigId = row.GameplayConfigId
+                LevelId = ActiveLevelId,
+                StageNumber = stageNumber,
+                GameplayOptionId = sub.GameplayOptionId,
+                GameplayType = sub.GameplayType,
+                GameplayConfigId = sub.GameplayConfigId
             };
             error = null;
 
-            switch (row.GameplayType)
+            switch (sub.GameplayType)
             {
                 case GameplayState.UpgradeManufacture:
                     context.GameplayConfigIgnored = true;
@@ -302,9 +502,9 @@ namespace Gravedigger2026.Core.Level
                     return true;
 
                 case GameplayState.Dig:
-                    if (!_configs.TryGetDig(row.GameplayConfigId, out var dig))
+                    if (!_configs.TryGetDig(sub.GameplayConfigId, out var dig))
                     {
-                        error = $"DigGameplayConfig '{row.GameplayConfigId}' not found.";
+                        error = $"DigGameplayConfig '{sub.GameplayConfigId}' not found.";
                         return false;
                     }
 
@@ -321,9 +521,8 @@ namespace Gravedigger2026.Core.Level
                     return true;
 
                 case GameplayState.Defend:
-                    // GameplayConfigId = Recommended only (ModeSelect picks actual config — D-044).
-                    if (!string.IsNullOrEmpty(row.GameplayConfigId)
-                        && _configs.TryGetDefend(row.GameplayConfigId, out var recommended))
+                    if (!string.IsNullOrEmpty(sub.GameplayConfigId)
+                        && _configs.TryGetDefend(sub.GameplayConfigId, out var recommended))
                     {
                         context.DefendConfig = recommended;
                         context.ResolvedMapId = recommended.BattleMapId;
@@ -334,21 +533,20 @@ namespace Gravedigger2026.Core.Level
                         }
 
                         context.MapResolveNote =
-                            $"ModeSelect pending; Recommended={row.GameplayConfigId} Map={recommended.BattleMapId}.";
+                            $"ModeSelect pending; Recommended={sub.GameplayConfigId} Map={recommended.BattleMapId}.";
                     }
                     else
                     {
                         context.MapResolveNote =
-                            $"ModeSelect pending; Recommended '{row.GameplayConfigId}' missing or empty.";
+                            $"ModeSelect pending; Recommended '{sub.GameplayConfigId}' missing or empty.";
                     }
 
                     return true;
 
                 case GameplayState.PushMap:
-                    // GameplayConfigId → PushMapGameplayConfig PK (direct lookup; ModeSelect Mode2 uses TryHandoffModeSelectToPushMap).
-                    if (!_configs.TryGetPushMap(row.GameplayConfigId, out var pushMap))
+                    if (!_configs.TryGetPushMap(sub.GameplayConfigId, out var pushMap))
                     {
-                        error = $"PushMapGameplayConfig '{row.GameplayConfigId}' not found.";
+                        error = $"PushMapGameplayConfig '{sub.GameplayConfigId}' not found.";
                         return false;
                     }
 
@@ -365,8 +563,31 @@ namespace Gravedigger2026.Core.Level
                         $"PushMap MapId={pushMap.MapId} → {pushMapPath} (Instantiate by PushMapStageModule).";
                     return true;
 
+                case GameplayState.SearchExtract:
+                    if (!_configs.TryGetSearchExtract(sub.GameplayConfigId, out var searchExtract))
+                    {
+                        error = $"SearchExtractGameplayConfig '{sub.GameplayConfigId}' not found.";
+                        return false;
+                    }
+
+                    context.SearchExtractConfig = searchExtract;
+                    context.GatherPointCount = sub.GatherPointCount;
+                    context.GatherPointRewards = sub.GatherPointRewards ?? string.Empty;
+                    context.ResolvedMapId = searchExtract.MapId;
+                    if (!MapPrefabPaths.TryResolveAssetPath(
+                            searchExtract.MapId, out var searchExtractPath, out var searchExtractErr))
+                    {
+                        error = searchExtractErr;
+                        return false;
+                    }
+
+                    context.ResolvedMapPrefabPath = searchExtractPath;
+                    context.MapResolveNote =
+                        $"SearchExtract MapId={searchExtract.MapId} → {searchExtractPath} (Instantiate by SearchExtractStageModule).";
+                    return true;
+
                 default:
-                    error = $"Unsupported GameplayType '{row.GameplayType}'.";
+                    error = $"Unsupported GameplayType '{sub.GameplayType}'.";
                     return false;
             }
         }
@@ -386,21 +607,56 @@ namespace Gravedigger2026.Core.Level
 
         private void StopCurrentLevelInternal(bool notifyEnded)
         {
-            if (IsRunning && _currentContext != null)
+            if (IsOptionRunning)
             {
                 ExitCurrentModule();
             }
 
             var hadLevel = !string.IsNullOrEmpty(ActiveLevelId);
-            ActiveLevelId = null;
-            _stages = new List<LevelOperationConfigRow>();
-            _stageIndex = -1;
-            _currentContext = null;
+            ClearLevelState();
 
             if (notifyEnded && hadLevel)
             {
                 LevelEnded?.Invoke("关卡已停止");
             }
+        }
+
+        private void ClearLevelState()
+        {
+            ActiveLevelId = null;
+            _stages = new List<LevelOperationConfigRow>();
+            _clearedOptions.Clear();
+            _unlockedOptions.Clear();
+            _optionStageById.Clear();
+            _activeOptionId = null;
+            _currentContext = null;
+            _routeSelectVisible = false;
+        }
+
+        private void PublishRoute()
+        {
+            RouteChanged?.Invoke(BuildRouteSnapshot());
+        }
+
+        private static List<string> ParsePipeIds(string encoded)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(encoded))
+            {
+                return result;
+            }
+
+            var parts = encoded.Split('|');
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var p = parts[i] != null ? parts[i].Trim() : string.Empty;
+                if (p.Length > 0)
+                {
+                    result.Add(p);
+                }
+            }
+
+            return result;
         }
     }
 }

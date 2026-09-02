@@ -5,6 +5,7 @@ using Gravedigger2026.Core;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
@@ -42,14 +43,18 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Image _dragGhostImage;
         [SerializeField] private FormationSoldierHoverTooltipView _hoverTooltip;
         [SerializeField] private FormationBondHudView _bondHud;
+        [SerializeField] private TacticalFormationSquadBarView _tacticalSquadBar;
 
         private readonly List<string> _barIds = new List<string>();
         private readonly List<string> _barDisplayNames = new List<string>();
         private readonly List<int> _barClassLevels = new List<int>();
         private readonly List<Sprite> _barSprites = new List<Sprite>();
         private readonly List<bool> _barHighlighted = new List<bool>();
+        private readonly List<TacticalFormationSquadSnapshot> _squadScratch =
+            new List<TacticalFormationSquadSnapshot>(4);
         private readonly Dictionary<string, Sprite> _thumbnailCache =
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
+        private string _selectedTacticalFormationId;
 
         private DefendPrefabCatalog _defendCatalog;
         private ConfigCsvRepository _configs;
@@ -81,11 +86,23 @@ namespace Gravedigger2026.Gameplay.Formation
         private float _previewIntroDwell =
             CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds;
 
+        private FormationPrefabCatalog _patternCatalog;
+        private TacticalFormationLayoutService _layout;
+        private bool _squadDrag;
+        private readonly List<string> _squadDragIds = new List<string>(8);
+        private readonly List<float> _squadDragOrigX = new List<float>(8);
+        private readonly List<float> _squadDragOrigZ = new List<float>(8);
+        private float _squadDragAnchorX;
+        private float _squadDragAnchorZ;
+
         public event Action ReturnRequested;
         public event Action StartBattleRequested;
         public event Action CompleteRequested;
 
         public bool IsActive => _active;
+
+        /// <summary>Prepare layout used to lock combat snapshot before <c>End</c> (SPEC_04 §9.7 TF-04b).</summary>
+        public TacticalFormationLayoutService Layout => _layout;
 
         public bool TryCollectClassZones(List<FormationClassZoneSnapshot> into)
         {
@@ -113,7 +130,9 @@ namespace Gravedigger2026.Gameplay.Formation
             ProtagonistProgressService progress,
             ConfigCsvRepository configs,
             GameObject mapPrefabOrNull,
-            GameObject existingMapOrNull)
+            GameObject existingMapOrNull,
+            FormationPrefabCatalog patternCatalog = null,
+            TacticalFormationLayoutService layoutService = null)
         {
             End();
             _mode = mode;
@@ -122,12 +141,21 @@ namespace Gravedigger2026.Gameplay.Formation
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
             _progress = progress;
             _configs = configs;
+            _patternCatalog = patternCatalog;
+            _layout = layoutService ?? new TacticalFormationLayoutService();
             _active = true;
             _dragKind = DragKind.None;
             _dragWarriorId = null;
             _leftBar = false;
             _wasDeployedBeforeDrag = false;
             _suppressAutoDeployRefresh = false;
+            ClearSquadDrag();
+            _selectedTacticalFormationId = null;
+            if (_tacticalSquadBar != null)
+            {
+                _tacticalSquadBar.SetClickHandler(SelectTacticalSquad);
+                _tacticalSquadBar.SetSelectedFormationId(null);
+            }
 
             EnsureWorldRoot();
             if (existingMapOrNull != null)
@@ -169,8 +197,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
             if (_startBattleButton != null)
             {
-                _startBattleButton.gameObject.SetActive(
-                    mode == FormationEditorMode.DefendPrepare || mode == FormationEditorMode.PushMapPrepare);
+                _startBattleButton.gameObject.SetActive(FormationEditorModeUtil.ShowsStartBattle(mode));
                 _startBattleButton.onClick.AddListener(HandleStartBattle);
             }
 
@@ -214,6 +241,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 _bondHud.BindServices(_formation, _pool, _configs);
             }
 
+            EvaluateTacticalLayout();
             RefreshAll();
         }
 
@@ -289,8 +317,19 @@ namespace Gravedigger2026.Gameplay.Formation
             _pool = null;
             _formation = null;
             _progress = null;
+            _patternCatalog = null;
+            _layout = null;
             _active = false;
             _dragKind = DragKind.None;
+            ClearSquadDrag();
+            _selectedTacticalFormationId = null;
+            if (_tacticalSquadBar != null)
+            {
+                _tacticalSquadBar.SetClickHandler(null);
+                _tacticalSquadBar.SetSelectedFormationId(null);
+                _tacticalSquadBar.Refresh(null, null);
+            }
+
             if (_oneClickDeployButton != null)
             {
                 Destroy(_oneClickDeployButton.gameObject);
@@ -327,10 +366,17 @@ namespace Gravedigger2026.Gameplay.Formation
                 if (!_soldierBar.ContainsScreenPoint(mouse, null))
                 {
                     _leftBar = true;
-                    EnsureWorldDragPreview(_dragWarriorId);
-                    if (_battlefieldPreview != null)
+                    if (_squadDrag)
                     {
-                        _battlefieldPreview.SetPreviewVisible(_dragWarriorId, false);
+                        UpdateSquadPreviewFollow(mouse);
+                    }
+                    else
+                    {
+                        EnsureWorldDragPreview(_dragWarriorId);
+                        if (_battlefieldPreview != null)
+                        {
+                            _battlefieldPreview.SetPreviewVisible(_dragWarriorId, false);
+                        }
                     }
                 }
             }
@@ -361,8 +407,9 @@ namespace Gravedigger2026.Gameplay.Formation
             _leftBar = false;
             _wasDeployedBeforeDrag = _formation.IsDeployed(slot.WarriorId);
             slot.SetHighlighted(true);
+            TryCaptureSquadDrag(slot.WarriorId, requireDeployed: true);
 
-            if (_wasDeployedBeforeDrag && _battlefieldPreview != null)
+            if (_wasDeployedBeforeDrag && _battlefieldPreview != null && !_squadDrag)
             {
                 _battlefieldPreview.SetPreviewVisible(slot.WarriorId, false);
             }
@@ -387,6 +434,13 @@ namespace Gravedigger2026.Gameplay.Formation
             _dragWarriorId = warriorId;
             _leftBar = true;
             _wasDeployedBeforeDrag = true;
+            TryCaptureSquadDrag(warriorId, requireDeployed: true);
+            if (_squadDrag)
+            {
+                UpdateSquadPreviewFollow(screenPos);
+                return;
+            }
+
             _battlefieldPreview.SetPreviewVisible(warriorId, false);
             if (_soldierBar != null)
             {
@@ -403,6 +457,7 @@ namespace Gravedigger2026.Gameplay.Formation
             var warriorId = _dragWarriorId;
             var wasDeployed = _wasDeployedBeforeDrag;
             var leftBar = _leftBar;
+            var squadDrag = _squadDrag;
             _dragKind = DragKind.None;
             _dragWarriorId = null;
             _leftBar = false;
@@ -411,6 +466,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
             if (string.IsNullOrEmpty(warriorId) || _formation == null)
             {
+                ClearSquadDrag();
                 RefreshAll();
                 return;
             }
@@ -420,6 +476,7 @@ namespace Gravedigger2026.Gameplay.Formation
             // Released still inside bar without leaving → cancel lift (keep deploy state if already deployed).
             if (kind == DragKind.FromBar && !leftBar && overBar)
             {
+                ClearSquadDrag();
                 RefreshAll();
                 return;
             }
@@ -427,6 +484,8 @@ namespace Gravedigger2026.Gameplay.Formation
             if (overBar)
             {
                 _formation.TryUndeploy(warriorId, out _);
+                ClearSquadDrag();
+                EvaluateTacticalLayout();
                 RefreshAll();
                 return;
             }
@@ -438,6 +497,29 @@ namespace Gravedigger2026.Gameplay.Formation
                     _formation.TryUndeploy(warriorId, out _);
                 }
 
+                ClearSquadDrag();
+                EvaluateTacticalLayout();
+                RefreshAll();
+                return;
+            }
+
+            if (squadDrag && wasDeployed)
+            {
+                _suppressAutoDeployRefresh = true;
+                try
+                {
+                    _layout.TryApplySquadCenterDelta(
+                        _formation,
+                        warriorId,
+                        relX - _squadDragAnchorX,
+                        relZ - _squadDragAnchorZ);
+                }
+                finally
+                {
+                    _suppressAutoDeployRefresh = false;
+                }
+
+                ClearSquadDrag();
                 RefreshAll();
                 return;
             }
@@ -454,11 +536,19 @@ namespace Gravedigger2026.Gameplay.Formation
                 Debug.Log($"[FormationEditor] 上阵失败：{deployErr}");
             }
 
+            ClearSquadDrag();
+            EvaluateTacticalLayout();
             RefreshAll();
         }
 
         private void UpdateDragFollow(Vector2 screenPos)
         {
+            if (_squadDrag)
+            {
+                UpdateSquadPreviewFollow(screenPos);
+                return;
+            }
+
             if (_worldDragPreview == null)
             {
                 return;
@@ -572,7 +662,105 @@ namespace Gravedigger2026.Gameplay.Formation
                 return;
             }
 
+            EvaluateTacticalLayout();
             RefreshAll();
+        }
+
+        private void EvaluateTacticalLayout()
+        {
+            if (_layout == null || _formation == null || _pool == null || _configs == null)
+            {
+                return;
+            }
+
+            var wasSuppressed = _suppressAutoDeployRefresh;
+            _suppressAutoDeployRefresh = true;
+            try
+            {
+                _layout.EvaluateAndApply(
+                    _formation,
+                    _pool,
+                    _configs,
+                    _patternCatalog,
+                    BuildLayoutContext());
+            }
+            finally
+            {
+                _suppressAutoDeployRefresh = wasSuppressed;
+            }
+        }
+
+        private TacticalFormationLayoutContext BuildLayoutContext()
+        {
+            TryCollectClassZones(_zonesScratch);
+            var map = _ownedMapInstance != null ? _ownedMapInstance : _boundMap;
+            return TacticalFormationLayoutContextFactory.Create(_mode, map, _mapCenter, _zonesScratch);
+        }
+
+        private void TryCaptureSquadDrag(string warriorId, bool requireDeployed)
+        {
+            ClearSquadDrag();
+            if (_layout == null
+                || _formation == null
+                || string.IsNullOrEmpty(warriorId)
+                || (requireDeployed && !_formation.IsDeployed(warriorId))
+                || !_layout.TryGetSquadByMember(warriorId, out var squad)
+                || squad == null
+                || squad.MemberIds == null
+                || squad.MemberIds.Length == 0)
+            {
+                return;
+            }
+
+            if (!_formation.TryGetEntry(warriorId, out var anchor) || anchor == null)
+            {
+                return;
+            }
+
+            _squadDragAnchorX = anchor.PositionX;
+            _squadDragAnchorZ = anchor.PositionZ;
+            for (var i = 0; i < squad.MemberIds.Length; i++)
+            {
+                var id = squad.MemberIds[i];
+                if (!_formation.TryGetEntry(id, out var entry) || entry == null)
+                {
+                    continue;
+                }
+
+                _squadDragIds.Add(id);
+                _squadDragOrigX.Add(entry.PositionX);
+                _squadDragOrigZ.Add(entry.PositionZ);
+            }
+
+            _squadDrag = _squadDragIds.Count > 0;
+        }
+
+        private void UpdateSquadPreviewFollow(Vector2 screenPos)
+        {
+            if (!_squadDrag || _battlefieldPreview == null || !TryScreenToMapXZ(screenPos, out var relX, out var relZ))
+            {
+                return;
+            }
+
+            var dx = relX - _squadDragAnchorX;
+            var dz = relZ - _squadDragAnchorZ;
+            for (var i = 0; i < _squadDragIds.Count; i++)
+            {
+                _battlefieldPreview.SetPreviewMapRel(
+                    _squadDragIds[i],
+                    _squadDragOrigX[i] + dx,
+                    _squadDragOrigZ[i] + dz);
+            }
+        }
+
+        private void ClearSquadDrag()
+        {
+            _squadDrag = false;
+            _squadDragIds.Clear();
+            _squadDragOrigX.Clear();
+            _squadDragOrigZ.Clear();
+            _squadDragAnchorX = 0f;
+            _squadDragAnchorZ = 0f;
         }
 
         private void EnsureOneClickDeployButton()
@@ -667,6 +855,7 @@ namespace Gravedigger2026.Gameplay.Formation
                 var deployService = new OneClickFormationDeployService(_configs, _pool, _formation);
                 var deployed = deployService.DeployNotYetDeployedRandom(_zonesScratch);
                 Debug.Log($"[FormationEditor] OneClickDeploy deployed={deployed} (zones={_zonesScratch.Count})");
+                EvaluateTacticalLayout();
             }
             finally
             {
@@ -685,7 +874,7 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             if (_startBattleButton != null
-                && (_mode == FormationEditorMode.DefendPrepare || _mode == FormationEditorMode.PushMapPrepare))
+                && FormationEditorModeUtil.ShowsStartBattle(_mode))
             {
                 _startBattleButton.interactable = _formation != null && _formation.Entries.Count >= 1;
             }
@@ -694,6 +883,96 @@ namespace Gravedigger2026.Gameplay.Formation
             {
                 _bondHud.RefreshLive();
             }
+
+            RefreshTacticalSquadBar();
+        }
+
+        private void RefreshTacticalSquadBar()
+        {
+            if (_tacticalSquadBar == null)
+            {
+                return;
+            }
+
+            _squadScratch.Clear();
+            if (_layout != null)
+            {
+                _layout.CollectActiveSquads(_squadScratch);
+            }
+
+            if (!string.IsNullOrEmpty(_selectedTacticalFormationId))
+            {
+                var stillActive = false;
+                for (var i = 0; i < _squadScratch.Count; i++)
+                {
+                    var s = _squadScratch[i];
+                    if (s != null
+                        && string.Equals(s.FormationId, _selectedTacticalFormationId, StringComparison.Ordinal))
+                    {
+                        stillActive = true;
+                        break;
+                    }
+                }
+
+                if (!stillActive)
+                {
+                    _selectedTacticalFormationId = null;
+                }
+            }
+
+            _tacticalSquadBar.Refresh(_squadScratch, _configs);
+            _tacticalSquadBar.SetSelectedFormationId(_selectedTacticalFormationId);
+        }
+
+        private void SelectTacticalSquad(string formationId)
+        {
+            if (string.IsNullOrEmpty(formationId))
+            {
+                return;
+            }
+
+            _selectedTacticalFormationId = formationId;
+            if (_tacticalSquadBar != null)
+            {
+                _tacticalSquadBar.SetSelectedFormationId(formationId);
+            }
+
+            ApplySoldierBarHighlights();
+        }
+
+        private void ApplySoldierBarHighlights()
+        {
+            if (_soldierBar == null || _pool == null || _formation == null)
+            {
+                return;
+            }
+
+            TacticalFormationSquadSnapshot selectedSquad = null;
+            if (!string.IsNullOrEmpty(_selectedTacticalFormationId) && _layout != null)
+            {
+                _squadScratch.Clear();
+                _layout.CollectActiveSquads(_squadScratch);
+                for (var i = 0; i < _squadScratch.Count; i++)
+                {
+                    var s = _squadScratch[i];
+                    if (s != null
+                        && string.Equals(s.FormationId, _selectedTacticalFormationId, StringComparison.Ordinal))
+                    {
+                        selectedSquad = s;
+                        break;
+                    }
+                }
+            }
+
+            var warriors = _pool.Warriors;
+            for (var i = 0; i < warriors.Count; i++)
+            {
+                var id = warriors[i].Id;
+                var highlight = selectedSquad != null
+                    ? selectedSquad.Contains(id)
+                    : _formation.IsDeployed(id);
+                _soldierBar.SetSlotHighlighted(id, highlight);
+            }
         }
 
         private void RefreshBar()
@@ -701,6 +980,28 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_soldierBar == null || _pool == null || _formation == null)
             {
                 return;
+            }
+
+            TacticalFormationSquadSnapshot selectedSquad = null;
+            if (!string.IsNullOrEmpty(_selectedTacticalFormationId) && _layout != null)
+            {
+                _squadScratch.Clear();
+                _layout.CollectActiveSquads(_squadScratch);
+                for (var i = 0; i < _squadScratch.Count; i++)
+                {
+                    var s = _squadScratch[i];
+                    if (s != null
+                        && string.Equals(s.FormationId, _selectedTacticalFormationId, StringComparison.Ordinal))
+                    {
+                        selectedSquad = s;
+                        break;
+                    }
+                }
+
+                if (selectedSquad == null)
+                {
+                    _selectedTacticalFormationId = null;
+                }
             }
 
             _barIds.Clear();
@@ -716,7 +1017,10 @@ namespace Gravedigger2026.Gameplay.Formation
                 _barDisplayNames.Add(ResolveClassName(w));
                 _barClassLevels.Add(ResolveClassLevel(w));
                 _barSprites.Add(ResolveThumbnail(w.AppearanceId));
-                _barHighlighted.Add(_formation.IsDeployed(w.Id));
+                var highlight = selectedSquad != null
+                    ? selectedSquad.Contains(w.Id)
+                    : _formation.IsDeployed(w.Id);
+                _barHighlighted.Add(highlight);
             }
 
             _soldierBar.SetSlots(_barIds, _barDisplayNames, _barClassLevels, _barSprites, _barHighlighted);
@@ -977,7 +1281,7 @@ namespace Gravedigger2026.Gameplay.Formation
             var cam = _configs != null
                 ? _configs.GetCameraPresentationConstants()
                 : CameraPresentationConstants.SafetyDefaults;
-            var orthoSize = _mode == FormationEditorMode.PushMapPrepare
+            var orthoSize = FormationEditorModeUtil.UsesPushMapPrepareFraming(_mode)
                 ? cam.PushMapPrepareOrthoSize
                 : cam.ResolveMapFitOrthoSize(half);
             cam.ApplyTopDownPose(_editorCamera, _mapCenter, orthoSize);
@@ -1076,7 +1380,7 @@ namespace Gravedigger2026.Gameplay.Formation
         private void SetupPathPreviewControls()
         {
             TeardownPathPreviewControls();
-            var pushMapPrepare = _mode == FormationEditorMode.PushMapPrepare;
+            var pushMapPrepare = FormationEditorModeUtil.UsesPushMapPrepareFraming(_mode);
             if (!pushMapPrepare)
             {
                 SetPathPreviewUiVisible(false);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
 
@@ -15,15 +16,19 @@ namespace Gravedigger2026.Core.AutoManufacture
         private readonly ConfigCsvRepository _configs;
         private readonly WarriorPoolService _warriorPool;
         private readonly BattleFormationService _formation;
+        private readonly ITacticalFormationPatternLookup _patterns;
+        private readonly TacticalFormationLayoutService _layout = new TacticalFormationLayoutService();
 
         public AutoFormationDeployService(
             ConfigCsvRepository configs,
             WarriorPoolService warriorPool,
-            BattleFormationService formation)
+            BattleFormationService formation,
+            ITacticalFormationPatternLookup patterns = null)
         {
             _configs = configs ?? throw new ArgumentNullException(nameof(configs));
             _warriorPool = warriorPool ?? throw new ArgumentNullException(nameof(warriorPool));
             _formation = formation ?? throw new ArgumentNullException(nameof(formation));
+            _patterns = patterns;
         }
 
         /// <summary>
@@ -94,6 +99,17 @@ namespace Gravedigger2026.Core.AutoManufacture
             Debug.Log(
                 $"[AutoFormationDeploy] Done deployed={deployed}/{batchWarriorIds.Count} " +
                 $"zones={zoneByClass.Count}");
+
+            if (_formation.Entries.Count > 0)
+            {
+                _layout.EvaluateAndApply(
+                    _formation,
+                    _warriorPool,
+                    _configs,
+                    _patterns,
+                    TacticalFormationLayoutContext.DefaultPlusZ(zones));
+            }
+
             return deployed;
         }
 

@@ -9,12 +9,18 @@ namespace Gravedigger2026.Core.Level
     {
         public string LevelId;
         public int StageNumber;
+        public string GameplayOptionId;
         public GameplayState GameplayType;
         public string GameplayConfigId;
         public bool GameplayConfigIgnored;
         public DigGameplayConfigRow DigConfig;
         public DefendGameplayConfigRow DefendConfig;
         public PushMapGameplayConfigRow PushMapConfig;
+        public SearchExtractGameplayConfigRow SearchExtractConfig;
+        /// <summary>SearchExtract only; SubLevel GatherPointCount (0 if unused).</summary>
+        public int GatherPointCount;
+        /// <summary>SearchExtract only; SubLevel GatherPointRewards encoding (empty if unused).</summary>
+        public string GatherPointRewards;
         public string ResolvedMapId;
         public string ResolvedMapPrefabPath;
         public string MapResolveNote;

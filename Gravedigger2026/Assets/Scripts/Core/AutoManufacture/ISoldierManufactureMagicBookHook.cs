@@ -23,6 +23,12 @@ namespace Gravedigger2026.Core.AutoManufacture
         /// Instant left→right apply from <paramref name="fromSlotInclusive"/> through slot 5 (fail/Exit fallback).
         /// </summary>
         void ApplyRemainingSlots(WarriorInstance warrior, int fromSlotInclusive);
+
+        /// <summary>
+        /// Demo GM Add Soldier (D-064 / TF-06): apply equipped <c>GrantFormationSkill</c> books only.
+        /// Does not run other SoldierManufacture tokens.
+        /// </summary>
+        void ApplyEquippedGrantFormationSkillBooks(WarriorInstance warrior);
     }
 
     public sealed class NoOpSoldierManufactureMagicBookHook : ISoldierManufactureMagicBookHook
@@ -37,6 +43,10 @@ namespace Gravedigger2026.Core.AutoManufacture
         public void ApplyRemainingSlots(WarriorInstance warrior, int fromSlotInclusive)
         {
         }
+
+        public void ApplyEquippedGrantFormationSkillBooks(WarriorInstance warrior)
+        {
+        }
     }
 
     /// <summary>
@@ -48,6 +58,7 @@ namespace Gravedigger2026.Core.AutoManufacture
         public const string PayloadStatMul = "StatMul";
         public const string PayloadForceClass = "ForceClass";
         public const string PayloadSoldierSkillLevelAdd = "SoldierSkillLevelAdd";
+        public const string PayloadGrantFormationSkill = "GrantFormationSkill";
         public const string WarriorEnhanceBookId = "MagicBook_WarriorEnhance";
         public const string StatPrimary = "Primary";
         public const string StatAll = "All";
@@ -55,6 +66,10 @@ namespace Gravedigger2026.Core.AutoManufacture
         private static readonly string[] StatMulAllowedKeys = { "Stat", "Mul", "ClassId" };
         private static readonly string[] ForceClassAllowedKeys = { "ClassId", "RequireClassId", "Chance" };
         private static readonly string[] SkillLevelAddAllowedKeys = { "SkillId", "Delta" };
+        private static readonly string[] GrantFormationSkillAllowedKeys =
+        {
+            "FormationId", "ClassId", "RaceId", "BaseClass", "Chance"
+        };
 
         private readonly SpecialEquipSlotsService _slots;
         private readonly ConfigCsvRepository _configs;
@@ -120,6 +135,12 @@ namespace Gravedigger2026.Core.AutoManufacture
                 return;
             }
 
+            if (string.Equals(payload, PayloadGrantFormationSkill, StringComparison.Ordinal))
+            {
+                ApplyGrantFormationSkill(warrior, magicBookId, row);
+                return;
+            }
+
             Debug.Log(
                 $"[MagicBook] SoldierManufacture empty hook book={magicBookId} slot={slotIndex} " +
                 $"warrior={warrior.Id} payload='{payload}'");
@@ -136,6 +157,41 @@ namespace Gravedigger2026.Core.AutoManufacture
             for (var i = start; i < SpecialEquipSlotsService.SlotCount; i++)
             {
                 ApplyEquippedBookAtSlot(warrior, i);
+            }
+        }
+
+        public void ApplyEquippedGrantFormationSkillBooks(WarriorInstance warrior)
+        {
+            if (warrior == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < SpecialEquipSlotsService.SlotCount; i++)
+            {
+                var magicBookId = _slots.GetSlot(i);
+                if (string.IsNullOrEmpty(magicBookId))
+                {
+                    continue;
+                }
+
+                if (!_configs.TryGetMagicBook(magicBookId, out var row) || row == null)
+                {
+                    continue;
+                }
+
+                if (!EffectPhaseContains(row.EffectPhase, PhaseSoldierManufacture))
+                {
+                    continue;
+                }
+
+                var payload = (row.EffectPayload ?? string.Empty).Trim();
+                if (!string.Equals(payload, PayloadGrantFormationSkill, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                ApplyGrantFormationSkill(warrior, magicBookId, row);
             }
         }
 
@@ -246,6 +302,177 @@ namespace Gravedigger2026.Core.AutoManufacture
             Debug.Log(
                 $"[MagicBook] SoldierSkillLevelAdd skill={skillId} {before}{delta:+0;-0;+0}→{next} " +
                 $"(clamp {minLevel}..{maxLevel}) book={magicBookId} warrior={warrior.Id} class={warrior.ClassId}");
+        }
+
+        private void ApplyGrantFormationSkill(WarriorInstance warrior, string magicBookId, MagicBookConfigRow row)
+        {
+            var map = MagicBookEffectParams.Parse(row.EffectParams, GrantFormationSkillAllowedKeys);
+            if (!MagicBookEffectParams.TryGet(map, "FormationId", out var formationId))
+            {
+                Debug.LogWarning(
+                    $"[MagicBook] GrantFormationSkill invalid (need FormationId) " +
+                    $"book={magicBookId} warrior={warrior.Id}");
+                return;
+            }
+
+            if (!_configs.TryGetTacticalFormation(formationId, out var formation) || formation == null)
+            {
+                Debug.LogWarning(
+                    $"[MagicBook] GrantFormationSkill invalid FormationId='{formationId}' " +
+                    $"book={magicBookId} warrior={warrior.Id}");
+                return;
+            }
+
+            if (MagicBookEffectParams.TryGet(map, "ClassId", out var classFilter)
+                && !MatchesClassIdFilter(
+                    classFilter,
+                    warrior.ClassId,
+                    magicBookId,
+                    warrior.Id,
+                    PayloadGrantFormationSkill))
+            {
+                return;
+            }
+
+            if (MagicBookEffectParams.TryGet(map, "RaceId", out var raceId))
+            {
+                if (!_configs.TryGetRace(raceId, out _))
+                {
+                    Debug.LogWarning(
+                        $"[MagicBook] GrantFormationSkill invalid RaceId='{raceId}' " +
+                        $"book={magicBookId} warrior={warrior.Id}");
+                    return;
+                }
+
+                if (!string.Equals(warrior.RaceId, raceId, StringComparison.Ordinal))
+                {
+                    Debug.Log(
+                        $"[MagicBook] GrantFormationSkill miss race mismatch book={magicBookId} " +
+                        $"warrior={warrior.Id} race={warrior.RaceId} require={raceId}");
+                    return;
+                }
+            }
+
+            if (MagicBookEffectParams.TryGet(map, "BaseClass", out var baseClassText))
+            {
+                if (!TryParseBaseClassToken(baseClassText, out var requiredBase)
+                    || requiredBase == BaseClassKind.Unspecified)
+                {
+                    Debug.LogWarning(
+                        $"[MagicBook] GrantFormationSkill invalid BaseClass='{baseClassText}' " +
+                        $"book={magicBookId} warrior={warrior.Id}");
+                    return;
+                }
+
+                if (!_configs.TryGetClass(warrior.ClassId, out var classRow) || classRow == null)
+                {
+                    Debug.Log(
+                        $"[MagicBook] GrantFormationSkill miss class missing book={magicBookId} " +
+                        $"warrior={warrior.Id} class={warrior.ClassId} requireBase={baseClassText}");
+                    return;
+                }
+
+                if (classRow.BaseClass != requiredBase)
+                {
+                    Debug.Log(
+                        $"[MagicBook] GrantFormationSkill miss BaseClass mismatch book={magicBookId} " +
+                        $"warrior={warrior.Id} class={warrior.ClassId} base={classRow.BaseClass} " +
+                        $"require={requiredBase}");
+                    return;
+                }
+            }
+
+            var chance = 1f;
+            if (MagicBookEffectParams.TryGet(map, "Chance", out var chanceText))
+            {
+                if (!float.TryParse(chanceText, NumberStyles.Float, CultureInfo.InvariantCulture, out chance)
+                    || chance < 0f
+                    || chance > 1f)
+                {
+                    Debug.LogWarning(
+                        $"[MagicBook] GrantFormationSkill invalid Chance='{chanceText}' " +
+                        $"book={magicBookId} warrior={warrior.Id}");
+                    return;
+                }
+            }
+
+            var roll = chance >= 1f ? 0f : UnityEngine.Random.value;
+            var hit = chance >= 1f || (chance > 0f && roll < chance);
+            if (!hit)
+            {
+                Debug.Log(
+                    $"[MagicBook] GrantFormationSkill miss roll={roll:0.###} chance={chance} " +
+                    $"book={magicBookId} warrior={warrior.Id} formation={formationId}");
+                return;
+            }
+
+            var skillId = formation.FormationSkillId;
+            if (string.IsNullOrEmpty(skillId)
+                || !_configs.TryGetSkill(skillId, SoldierSkillGrant.DefaultGrantLevel, out _))
+            {
+                Debug.LogWarning(
+                    $"[MagicBook] GrantFormationSkill invalid FormationSkillId='{skillId}' " +
+                    $"formation={formationId} book={magicBookId} warrior={warrior.Id}");
+                return;
+            }
+
+            if (warrior.SoldierSkills == null)
+            {
+                Debug.LogWarning(
+                    $"[MagicBook] GrantFormationSkill skip (no SoldierSkills list) " +
+                    $"book={magicBookId} warrior={warrior.Id}");
+                return;
+            }
+
+            if (FindSkill(warrior.SoldierSkills, skillId) != null)
+            {
+                WarriorVisualStyleBake.TryApply(warrior, row, _configs);
+                Debug.Log(
+                    $"[MagicBook] GrantFormationSkill skip duplicate skill={skillId} " +
+                    $"book={magicBookId} warrior={warrior.Id} formation={formationId}");
+                return;
+            }
+
+            warrior.SoldierSkills.Add(new SoldierSkillEntry
+            {
+                SkillId = skillId,
+                SkillLevel = SoldierSkillGrant.DefaultGrantLevel
+            });
+            WarriorVisualStyleBake.TryApply(warrior, row, _configs);
+            Debug.Log(
+                $"[MagicBook] GrantFormationSkill hit skill={skillId}@1 formation={formationId} " +
+                $"book={magicBookId} warrior={warrior.Id} class={warrior.ClassId} " +
+                $"Skills={SoldierSkillGrant.FormatSummary(warrior.SoldierSkills)}");
+        }
+
+        /// <summary>CSV Chinese 战士/射手/法师/刺客 (legacy 盗贼) or English enum name.</summary>
+        private static bool TryParseBaseClassToken(string text, out BaseClassKind kind)
+        {
+            kind = BaseClassKind.Unspecified;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return false;
+            }
+
+            switch (text.Trim())
+            {
+                case "战士":
+                    kind = BaseClassKind.Warrior;
+                    return true;
+                case "射手":
+                    kind = BaseClassKind.Archer;
+                    return true;
+                case "法师":
+                    kind = BaseClassKind.Mage;
+                    return true;
+                case "刺客":
+                case "盗贼":
+                    kind = BaseClassKind.Thief;
+                    return true;
+                default:
+                    return Enum.TryParse(text.Trim(), true, out kind)
+                           && kind != BaseClassKind.Unspecified;
+            }
         }
 
         private static SoldierSkillEntry FindSkill(List<SoldierSkillEntry> skills, string skillId)
@@ -360,7 +587,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             if (MagicBookEffectParams.TryGet(map, "ClassId", out var classFilter)
-                && !MatchesClassIdFilter(classFilter, warrior.ClassId, magicBookId, warrior.Id))
+                && !MatchesClassIdFilter(classFilter, warrior.ClassId, magicBookId, warrior.Id, PayloadStatMul))
             {
                 return;
             }
@@ -431,7 +658,12 @@ namespace Gravedigger2026.Core.AutoManufacture
         /// Comma-separated ClassId OR list. Any illegal id → book invalid (false).
         /// No match → skip (false, already logged).
         /// </summary>
-        private bool MatchesClassIdFilter(string classFilter, string warriorClassId, string magicBookId, string warriorId)
+        private bool MatchesClassIdFilter(
+            string classFilter,
+            string warriorClassId,
+            string magicBookId,
+            string warriorId,
+            string tokenName)
         {
             var matched = false;
             var any = false;
@@ -447,7 +679,7 @@ namespace Gravedigger2026.Core.AutoManufacture
                 if (!_configs.TryGetClass(id, out _))
                 {
                     Debug.LogWarning(
-                        $"[MagicBook] StatMul invalid ClassId='{id}' book={magicBookId} warrior={warriorId}");
+                        $"[MagicBook] {tokenName} invalid ClassId='{id}' book={magicBookId} warrior={warriorId}");
                     return false;
                 }
 
@@ -461,14 +693,14 @@ namespace Gravedigger2026.Core.AutoManufacture
             if (!any)
             {
                 Debug.LogWarning(
-                    $"[MagicBook] StatMul invalid ClassId='{classFilter}' book={magicBookId} warrior={warriorId}");
+                    $"[MagicBook] {tokenName} invalid ClassId='{classFilter}' book={magicBookId} warrior={warriorId}");
                 return false;
             }
 
             if (!matched)
             {
                 Debug.Log(
-                    $"[MagicBook] StatMul skip class mismatch book={magicBookId} " +
+                    $"[MagicBook] {tokenName} skip class mismatch book={magicBookId} " +
                     $"warrior={warriorId} class={warriorClassId} filter={classFilter}");
                 return false;
             }

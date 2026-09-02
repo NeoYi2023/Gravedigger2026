@@ -38,6 +38,8 @@ MonoBehaviour:
     Prefab: {fileID: 2120705586636139558, guid: eb8e20f8bb12d3847af18eececd20d6f, type: 3}
   - MapId: PushMap_Demo_03
     Prefab: {fileID: 2120705586636139558, guid: 435a23c017f68c54da6fb127320eac73, type: 3}
+  - MapId: SearchExtract_Demo_01
+    Prefab: {fileID: 2120705586636139558, guid: c4e8a1b27d5f4e6a9b0c1d2e3f405162, type: 3}
   _warriorAppearances:
   - AppearanceId: App_01
     Prefab: {fileID: 3927253789114556784, guid: bba7ac13b3abf76478718a93d04db97e, type: 3}

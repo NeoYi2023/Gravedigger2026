@@ -19,6 +19,7 @@ namespace Gravedigger2026.Editor.Formation
         private const string EditorRootMode2Path = PrefabDir + "/FormationEditorRoot_Mode2.prefab";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string RegenPrefsKey = "Gravedigger2026.FormationAssets.Regen.v08247";
+        private const string SquadBarPatchPrefsKey = "Gravedigger2026.FormationAssets.SquadBar.v08369";
 
         [InitializeOnLoadMethod]
         private static void AutoGenerateIfMissing()
@@ -38,6 +39,15 @@ namespace Gravedigger2026.Editor.Formation
                 {
                     GenerateAll();
                     EditorPrefs.SetBool(RegenPrefsKey, true);
+                    EditorPrefs.SetBool(SquadBarPatchPrefsKey, true);
+                    return;
+                }
+
+                if (!EditorPrefs.GetBool(SquadBarPatchPrefsKey, false)
+                    && AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) != null)
+                {
+                    PatchTacticalFormationSquadBarMenu();
+                    EditorPrefs.SetBool(SquadBarPatchPrefsKey, true);
                 }
             };
         }
@@ -131,7 +141,10 @@ namespace Gravedigger2026.Editor.Formation
             EnsureMode2ReturnAboveComplete(contents);
             EnsureMode2PathPreviewControls(contents);
             EnsureMode2SoldierHoverTooltip(contents);
-            EnsureFormationBondHud(FindDeep(contents.transform, "FormationCanvas"), contents.GetComponent<FormationEditorController>());
+            var mode2Canvas = FindDeep(contents.transform, "FormationCanvas");
+            var mode2Controller = contents.GetComponent<FormationEditorController>();
+            EnsureFormationBondHud(mode2Canvas, mode2Controller);
+            EnsureTacticalFormationSquadBar(mode2Canvas, mode2Controller);
 
             PrefabUtility.SaveAsPrefabAsset(contents, EditorRootMode2Path);
             PrefabUtility.UnloadPrefabContents(contents);
@@ -187,13 +200,16 @@ namespace Gravedigger2026.Editor.Formation
             var mode1 = PrefabUtility.LoadPrefabContents(EditorRootPath);
             var canvas1 = FindDeep(mode1.transform, "FormationCanvas");
             EnsureFormationBondHud(canvas1, mode1.GetComponent<FormationEditorController>());
+            EnsureTacticalFormationSquadBar(canvas1, mode1.GetComponent<FormationEditorController>());
             PrefabUtility.SaveAsPrefabAsset(mode1, EditorRootPath);
             PrefabUtility.UnloadPrefabContents(mode1);
 
             if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) != null)
             {
                 var mode2 = PrefabUtility.LoadPrefabContents(EditorRootMode2Path);
-                EnsureFormationBondHud(FindDeep(mode2.transform, "FormationCanvas"), mode2.GetComponent<FormationEditorController>());
+                var canvas2 = FindDeep(mode2.transform, "FormationCanvas");
+                EnsureFormationBondHud(canvas2, mode2.GetComponent<FormationEditorController>());
+                EnsureTacticalFormationSquadBar(canvas2, mode2.GetComponent<FormationEditorController>());
                 PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
                 PrefabUtility.UnloadPrefabContents(mode2);
             }
@@ -201,6 +217,37 @@ namespace Gravedigger2026.Editor.Formation
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[FormationAssetBuilder] Patched Formation Bond HUD.");
+        }
+
+        [MenuItem("Gravedigger2026/Formation/Patch Tactical Formation Squad Bar (UI-030)")]
+        public static void PatchTacticalFormationSquadBarMenu()
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null)
+            {
+                GenerateAll();
+                return;
+            }
+
+            var mode1 = PrefabUtility.LoadPrefabContents(EditorRootPath);
+            EnsureTacticalFormationSquadBar(
+                FindDeep(mode1.transform, "FormationCanvas"),
+                mode1.GetComponent<FormationEditorController>());
+            PrefabUtility.SaveAsPrefabAsset(mode1, EditorRootPath);
+            PrefabUtility.UnloadPrefabContents(mode1);
+
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) != null)
+            {
+                var mode2 = PrefabUtility.LoadPrefabContents(EditorRootMode2Path);
+                EnsureTacticalFormationSquadBar(
+                    FindDeep(mode2.transform, "FormationCanvas"),
+                    mode2.GetComponent<FormationEditorController>());
+                PrefabUtility.SaveAsPrefabAsset(mode2, EditorRootMode2Path);
+                PrefabUtility.UnloadPrefabContents(mode2);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[FormationAssetBuilder] Patched Tactical Formation Squad Bar (UI-030).");
         }
 
         /// <summary>Top-left bond button + active icon row + detail modal (SPEC_03 §3.17).</summary>
@@ -369,6 +416,114 @@ namespace Gravedigger2026.Editor.Formation
                 cso.FindProperty("_bondHud").objectReferenceValue = hudView;
                 cso.ApplyModifiedPropertiesWithoutUndo();
             }
+        }
+
+        /// <summary>Left-edge active tactical-squad icon buttons (SPEC_03 UI-030 / D-085).</summary>
+        private static void EnsureTacticalFormationSquadBar(Transform canvas, FormationEditorController controller)
+        {
+            if (canvas == null)
+            {
+                Debug.LogWarning("[FormationAssetBuilder] FormationCanvas missing; cannot add TacticalFormationSquadBar.");
+                return;
+            }
+
+            var existing = FindDeep(canvas, "TacticalFormationSquadBarRoot");
+            GameObject rootGo;
+            if (existing != null)
+            {
+                rootGo = existing.gameObject;
+            }
+            else
+            {
+                rootGo = new GameObject(
+                    "TacticalFormationSquadBarRoot",
+                    typeof(RectTransform),
+                    typeof(TacticalFormationSquadBarView));
+                rootGo.transform.SetParent(canvas, false);
+            }
+
+            Place(
+                rootGo.GetComponent<RectTransform>(),
+                new Vector2(0f, 0.5f),
+                new Vector2(0f, 0.5f),
+                new Vector2(0f, 0.5f),
+                new Vector2(24f, 0f),
+                new Vector2(64f, 320f));
+
+            var column = FindDeep(rootGo.transform, "ButtonColumn");
+            GameObject columnGo;
+            if (column != null)
+            {
+                columnGo = column.gameObject;
+            }
+            else
+            {
+                columnGo = new GameObject(
+                    "ButtonColumn",
+                    typeof(RectTransform),
+                    typeof(VerticalLayoutGroup),
+                    typeof(ContentSizeFitter));
+                columnGo.transform.SetParent(rootGo.transform, false);
+            }
+
+            Place(
+                columnGo.GetComponent<RectTransform>(),
+                new Vector2(0f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(0.5f, 1f),
+                new Vector2(0f, 0f),
+                new Vector2(0f, 0f));
+
+            var vlg = columnGo.GetComponent<VerticalLayoutGroup>();
+            if (vlg == null)
+            {
+                vlg = columnGo.AddComponent<VerticalLayoutGroup>();
+            }
+
+            vlg.spacing = 8f;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = false;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+
+            var fitter = columnGo.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+            {
+                fitter = columnGo.AddComponent<ContentSizeFitter>();
+            }
+
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var view = rootGo.GetComponent<TacticalFormationSquadBarView>();
+            if (view == null)
+            {
+                view = rootGo.AddComponent<TacticalFormationSquadBarView>();
+            }
+
+            var vso = new SerializedObject(view);
+            vso.FindProperty("_buttonColumn").objectReferenceValue = columnGo.GetComponent<RectTransform>();
+            vso.FindProperty("_root").objectReferenceValue = rootGo;
+            vso.ApplyModifiedPropertiesWithoutUndo();
+
+            if (controller != null)
+            {
+                var cso = new SerializedObject(controller);
+                var prop = cso.FindProperty("_tacticalSquadBar");
+                if (prop != null)
+                {
+                    prop.objectReferenceValue = view;
+                    cso.ApplyModifiedPropertiesWithoutUndo();
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        "[FormationAssetBuilder] FormationEditorController missing _tacticalSquadBar; recompile then re-run Patch.");
+                }
+            }
+
+            rootGo.SetActive(false);
         }
 
         /// <summary>
@@ -791,6 +946,7 @@ namespace Gravedigger2026.Editor.Formation
                 new Vector2(24f, -24f), new Vector2(360f, 48f));
 
             EnsureFormationBondHud(canvasGo.transform, controller);
+            EnsureTacticalFormationSquadBar(canvasGo.transform, controller);
 
             var returnBtn = CreateUiButton(canvasGo.transform, "ReturnButton", "返回", new Color(0.35f, 0.4f, 0.5f, 1f));
             // Bottom-right above SoldierBar (height 112). Mode2 bumps Return/StartBattle to y=180 above Complete.

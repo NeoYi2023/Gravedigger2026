@@ -27,6 +27,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                 Mathf.Max(0.01f, halfExtents.z));
         }
 
+        public bool ContainsXZ(Vector3 worldPosition)
+        {
+            var local = Quaternion.Inverse(transform.rotation) * (worldPosition - transform.position);
+            var he = HalfExtents;
+            return Mathf.Abs(local.x) <= he.x && Mathf.Abs(local.z) <= he.z;
+        }
+
         private void OnDrawGizmosSelected()
         {
             var prev = Gizmos.matrix;

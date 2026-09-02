@@ -4,6 +4,7 @@ using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Combat.SkillEffects;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
 
@@ -27,7 +28,7 @@ namespace Gravedigger2026.Core.PushMap
     /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId, outgoingDamage); monster→soldier → CombatDead.
     /// Position resolution and instantiation are View concerns; AOE uses injected world-XZ provider.
     /// </summary>
-    public sealed class PushMapSessionService : IProjectileCombatSession, IProjectilePierceChannel
+    public sealed class PushMapSessionService : IWarriorMassCombatSession, IProjectilePierceChannel
     {
         private bool _active;
         private bool _outcomeSettled;
@@ -80,6 +81,9 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>PM-13: warrior RemainingHp≤0 → CombatDead (or gem PermanentDeath mark); View PlayDie + stop.</summary>
         public event Action<string> WarriorCombatDead;
 
+        /// <summary>TF-05: warrior became Rebel (start roll or SkillCast re-roll).</summary>
+        public event Action<string> WarriorBecameRebel;
+
         /// <summary>D-071: overhead CombatSkillIcon popup (warriorId, skillId).</summary>
         public event Action<string, string> SkillIconPopup;
 
@@ -94,6 +98,7 @@ namespace Gravedigger2026.Core.PushMap
         private readonly CombatStatusService _combatStatus = new CombatStatusService();
         private readonly MonsterDeathSkillService _monsterDeathSkills = new MonsterDeathSkillService();
         private SkillEffectPipeline _skillEffectPipeline;
+        private ITacticalFormationOverlayLookup _formationOverlay;
         private Func<string, Vector2?> _monsterWorldXZProvider;
         private readonly List<MonsterWorldXZ> _aliveMonstersXZScratch = new List<MonsterWorldXZ>(32);
 
@@ -185,6 +190,7 @@ namespace Gravedigger2026.Core.PushMap
             _lockedTierChance = 0f;
             _configs = null;
             _skillEffectPipeline = null;
+            _formationOverlay = null;
             _monsterWorldXZProvider = null;
             _aliveMonstersXZScratch.Clear();
             _objectiveOrders.Clear();
@@ -294,6 +300,7 @@ namespace Gravedigger2026.Core.PushMap
             _lockedTierChance = 0f;
             _configs = configs;
             _skillEffectPipeline = configs != null ? new SkillEffectPipeline(configs) : null;
+            _skillEffectPipeline?.SetFormationOverlay(_formationOverlay);
             _combatStatus.WarriorInvincibleChanged -= HandleWarriorInvincibleChanged;
             _combatStatus.WarriorInvincibleChanged += HandleWarriorInvincibleChanged;
             _combatStatus.MonsterInvincibleChanged -= HandleMonsterInvincibleChangedInternal;
@@ -862,6 +869,42 @@ namespace Gravedigger2026.Core.PushMap
             return true;
         }
 
+        public void SetTacticalFormationOverlay(ITacticalFormationOverlayLookup overlay)
+        {
+            _formationOverlay = overlay;
+            _skillEffectPipeline?.SetFormationOverlay(overlay);
+        }
+
+        public bool TryRefreshCombatDerivedStats(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            CombatStatMulBuff combatBuff)
+        {
+            if (warrior == null
+                || string.IsNullOrEmpty(warrior.Id)
+                || !_warriors.TryGetValue(warrior.Id, out var state)
+                || state == null)
+            {
+                return false;
+            }
+
+            WarriorCombatDerivedStats.Refresh(state, warrior, classRow, combatBuff, _configs);
+            warrior.RemainingHP = state.RemainingHp;
+            Debug.Log(
+                $"[PushMapSession] RefreshCombatStats {state.WarriorId} HP={state.RemainingHp:0}/{state.MaxHp} " +
+                $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##} Mov={state.MoveSpeed:0.##} " +
+                $"CombatBuff={combatBuff}");
+            return true;
+        }
+
+        private IReadOnlyList<SoldierSkillEntry> SkillsForCast(DefendCombatWarriorState warrior)
+        {
+            return TacticalFormationSkillOverlay.MergeForCast(
+                warrior?.SoldierSkills,
+                _formationOverlay,
+                warrior?.WarriorId);
+        }
+
         /// <summary>PM-12: spawn-time monster registry. runtimeId = View RuntimeTargetId (GameObject name).</summary>
         public bool RegisterMonster(string runtimeId, string monsterId, float maxHp)
         {
@@ -1327,7 +1370,7 @@ namespace Gravedigger2026.Core.PushMap
                 return false;
             }
 
-            if (!SoldierSkillCast.TryResolveSkill03(warrior.SoldierSkills, _configs, out var skillRow)
+            if (!SoldierSkillCast.TryResolveSkill03(SkillsForCast(warrior), _configs, out var skillRow)
                 || skillRow == null)
             {
                 return false;
@@ -1552,7 +1595,7 @@ namespace Gravedigger2026.Core.PushMap
             var dmg = Math.Max(0f, attackPower);
             var blockNote = string.Empty;
             var blocked = SoldierSkillCast.TryRollSkill01Block(
-                warrior.SoldierSkills, _configs, out var skill01Row, out var chance);
+                SkillsForCast(warrior), _configs, out var skill01Row, out var chance);
             if (skill01Row != null)
             {
                 if (blocked)
@@ -1630,7 +1673,7 @@ namespace Gravedigger2026.Core.PushMap
             var dmg = warrior.NormalAttackPower;
             var comfortNote = string.Empty;
             var comfort = SoldierSkillCast.TryGetSkill02OutgoingBonus(
-                warrior.SoldierSkills,
+                SkillsForCast(warrior),
                 _configs,
                 warrior.RemainingHp,
                 warrior.MaxHp,
@@ -1824,7 +1867,7 @@ namespace Gravedigger2026.Core.PushMap
                 return;
             }
 
-            var hasSkill02 = SoldierSkillCast.TryResolveSkill02(warrior.SoldierSkills, _configs, out _);
+            var hasSkill02 = SoldierSkillCast.TryResolveSkill02(SkillsForCast(warrior), _configs, out _);
             var fullHp = !warrior.IsCombatDead &&
                          !warrior.IsPermanentDead &&
                          warrior.MaxHp > 0f &&
@@ -1864,6 +1907,7 @@ namespace Gravedigger2026.Core.PushMap
             state.IsRebel = isRebel;
             if (isRebel)
             {
+                WarriorBecameRebel?.Invoke(warriorId);
                 TryEvaluateLoyalWipe();
             }
         }

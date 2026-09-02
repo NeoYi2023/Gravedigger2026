@@ -22,8 +22,8 @@ namespace Gravedigger2026.Core.Pathing
     /// <summary>
     /// SC-03 derivation policy (SPEC_03 §3.12): GoalKind AttackSlot/ChaseAnchor + Melee →
     /// <see cref="CombatMoveMode.Surround"/> (multi-vs-one leaves a ring gap); everything
-    /// else → <see cref="CombatMoveMode.Chase"/>. Objective / FormationHome carry no
-    /// independent move mode (FlowField / direct-home + hold separation stay as before).
+    /// else → <see cref="CombatMoveMode.Chase"/>. Objective / FormationHome / FormationSlot carry no
+    /// independent move mode (FlowField / direct-home / slot seek + hold separation stay as before).
     /// </summary>
     public static class CombatMoveModePolicy
     {

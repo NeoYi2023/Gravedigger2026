@@ -138,7 +138,7 @@ namespace Gravedigger2026.Core.Pathing
         }
 
         /// <summary>
-        /// Rules/Stage sets goal: Objective → FlowField; AttackSlot/Home/ChaseAnchor → DesiredDestination XZ.
+        /// Rules/Stage sets goal: Objective → FlowField; AttackSlot/Home/ChaseAnchor/FormationSlot → DesiredDestination XZ.
         /// </summary>
         public void SetGoal(int id, GoalKind kind, Vector2 desiredDestinationXZ = default)
         {
@@ -170,7 +170,7 @@ namespace Gravedigger2026.Core.Pathing
 
         /// <summary>
         /// SPEC_04 §15.5: planar distance for attack→run interrupt gate.
-        /// AttackSlot / FormationHome / ChaseAnchor → |DesiredDestination − positionXZ|;
+        /// AttackSlot / FormationHome / ChaseAnchor / FormationSlot → |DesiredDestination − positionXZ|;
         /// Objective (FlowField) or missing id → +∞ (treat as far enough to interrupt).
         /// </summary>
         public float GetAnimMoveTargetDistanceXZ(int id, Vector2 positionXZ)
@@ -383,7 +383,7 @@ namespace Gravedigger2026.Core.Pathing
             }
             else
             {
-                // AttackSlot / FormationHome / ChaseAnchor: straight toward DesiredDestination.
+                // AttackSlot / FormationHome / ChaseAnchor / FormationSlot: straight toward DesiredDestination.
                 var delta = agent.DesiredDestination - agent.Position;
                 if (delta.sqrMagnitude <= ArriveEpsilon * ArriveEpsilon)
                 {

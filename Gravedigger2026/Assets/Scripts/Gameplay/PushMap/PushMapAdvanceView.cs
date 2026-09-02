@@ -67,7 +67,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale;
         private bool _facingYawFlip;
 
-        private PushMapSessionService _session;
+        private IWarriorMassCombatSession _session;
         private GameObject _projectilePrefab;
         private Transform _projectileParent;
         private DefendPrefabCatalog _projectileCatalog;
@@ -91,6 +91,12 @@ namespace Gravedigger2026.Gameplay.PushMap
         public int MoveId => _moveId;
         public float AgentRadius => _bodyRadius;
         public string AttackerId => _attackerId;
+
+        public void SetBaseMoveSpeed(float moveSpeed)
+        {
+            _baseMoveSpeed = Mathf.Max(0.1f, moveSpeed);
+            ApplyEffectiveMoveSpeed();
+        }
 
         /// <summary>True while Session says this warrior can still act (not CombatDead).</summary>
         public bool IsCombatActive =>
@@ -141,7 +147,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             AttackMode attackMode = AttackMode.Melee,
             string attackerId = null,
             AttackSlotService attackSlots = null,
-            PushMapSessionService session = null,
+            IWarriorMassCombatSession session = null,
             GameObject projectilePrefab = null,
             Transform projectileParent = null,
             DefendPrefabCatalog projectileCatalog = null,

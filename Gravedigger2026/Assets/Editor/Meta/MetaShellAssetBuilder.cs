@@ -30,14 +30,13 @@ namespace Gravedigger2026.Editor.Meta
         private const string InSaveShellPrefabPath = PrefabMetaDir + "/InSaveShellPanel.prefab";
         private const string TitleBackgroundSpritePath = "Assets/Art/UI/Meta/Title/Title_Background_Static.png";
         private const string TitleGameNameSpritePath = "Assets/Art/UI/Meta/Title/Title_GameName.png";
-        private const string LevelMapSpritePath = "Assets/Art/UI/Meta/Title/Level_Map_1.jpg";
         private const string DifficultyItem1SpritePath = "Assets/Art/UI/Meta/Title/Item_Difficulty_1.png";
         private const string DifficultyItem2SpritePath = "Assets/Art/UI/Meta/Title/Item_Difficulty_2.png";
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
         private const string TitleMenuRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08321_titleGameName";
         private const string TitleSettingsRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08322_titleSettings";
-        private const string InSaveDifficultyHubRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08326_insaveDifficultyHub";
+        private const string InSaveDifficultyHubRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08371_insaveDifficultyHubScroll";
         private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
         private const string GmGrantLevelPickerRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08297_gmGrantLevelPicker";
         private const string GmAddSoldierRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08239_gmAddSoldier";
@@ -363,12 +362,17 @@ namespace Gravedigger2026.Editor.Meta
         private static void PatchDifficultySelectHost(InSaveShellView inSave)
         {
             var panel = inSave.transform;
+            var levelSelect = panel.GetComponentInChildren<LevelSelectPanelView>(true);
+            if (levelSelect != null)
+            {
+                levelSelect.transform.SetParent(panel, true);
+            }
+
             var hostTf = panel.Find("DifficultySelectHost");
-            DifficultySelectHostView hostView;
-            RectTransform mapHostRt;
+            GameObject hostGo;
             if (hostTf == null)
             {
-                var hostGo = new GameObject("DifficultySelectHost", typeof(RectTransform));
+                hostGo = new GameObject("DifficultySelectHost", typeof(RectTransform));
                 hostGo.transform.SetParent(panel, false);
                 var hostRt = hostGo.GetComponent<RectTransform>();
                 hostRt.anchorMin = new Vector2(0.08f, 0.12f);
@@ -376,69 +380,51 @@ namespace Gravedigger2026.Editor.Meta
                 hostRt.offsetMin = Vector2.zero;
                 hostRt.offsetMax = Vector2.zero;
                 hostGo.transform.SetSiblingIndex(Mathf.Min(3, panel.childCount - 1));
-
-                var columns = new GameObject("Columns", typeof(RectTransform));
-                columns.transform.SetParent(hostGo.transform, false);
-                StretchFull(columns.GetComponent<RectTransform>());
-
-                var normal = CreateDifficultyColumnEditor(columns.transform, "NormalColumn", "普通难度",
-                    new Color(0.55f, 0.78f, 0.55f, 1f), DifficultyItem1SpritePath);
-                var hard = CreateDifficultyColumnEditor(columns.transform, "HardColumn", "困难难度",
-                    new Color(0.85f, 0.75f, 0.35f, 1f), DifficultyItem2SpritePath);
-                var hell = CreateDifficultyColumnEditor(columns.transform, "HellColumn", "地狱难度",
-                    new Color(0.90f, 0.55f, 0.35f, 1f), null);
-
-                var mapHostGo = new GameObject("MapHost", typeof(RectTransform), typeof(Image));
-                mapHostGo.transform.SetParent(hostGo.transform, false);
-                mapHostRt = mapHostGo.GetComponent<RectTransform>();
-                mapHostRt.anchorMin = new Vector2(0.18f, 0f);
-                mapHostRt.anchorMax = new Vector2(0.82f, 1f);
-                mapHostRt.offsetMin = Vector2.zero;
-                mapHostRt.offsetMax = Vector2.zero;
-                var mapImg = mapHostGo.GetComponent<Image>();
-                mapImg.color = new Color(1f, 1f, 1f, 0.96f);
-                var mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>(LevelMapSpritePath);
-                if (mapSprite != null)
-                {
-                    mapImg.sprite = mapSprite;
-                }
-
-                hostView = hostGo.AddComponent<DifficultySelectHostView>();
-                var hso = new SerializedObject(hostView);
-                hso.FindProperty("_root").objectReferenceValue = hostGo;
-                hso.FindProperty("_columnsRoot").objectReferenceValue = columns.GetComponent<RectTransform>();
-                hso.FindProperty("_normalButton").objectReferenceValue = normal.GetComponent<Button>();
-                hso.FindProperty("_hardButton").objectReferenceValue = hard.GetComponent<Button>();
-                hso.FindProperty("_hellButton").objectReferenceValue = hell.GetComponent<Button>();
-                hso.FindProperty("_normalImage").objectReferenceValue = normal.GetComponent<Image>();
-                hso.FindProperty("_hardImage").objectReferenceValue = hard.GetComponent<Image>();
-                hso.FindProperty("_hellImage").objectReferenceValue = hell.GetComponent<Image>();
-                hso.FindProperty("_normalLabel").objectReferenceValue =
-                    normal.transform.Find("Label")?.GetComponent<Text>();
-                hso.FindProperty("_hardLabel").objectReferenceValue =
-                    hard.transform.Find("Label")?.GetComponent<Text>();
-                hso.FindProperty("_hellLabel").objectReferenceValue =
-                    hell.transform.Find("Label")?.GetComponent<Text>();
-                hso.FindProperty("_mapHost").objectReferenceValue = mapHostRt;
-                hso.FindProperty("_mapHostRoot").objectReferenceValue = mapHostGo;
-                hso.ApplyModifiedPropertiesWithoutUndo();
-                hostGo.SetActive(false);
             }
             else
             {
-                hostView = hostTf.GetComponent<DifficultySelectHostView>();
-                mapHostRt = hostTf.Find("MapHost") as RectTransform;
+                hostGo = hostTf.gameObject;
+                for (var i = hostGo.transform.childCount - 1; i >= 0; i--)
+                {
+                    Object.DestroyImmediate(hostGo.transform.GetChild(i).gameObject);
+                }
             }
 
-            var levelSelect = panel.GetComponentInChildren<LevelSelectPanelView>(true);
-            if (levelSelect != null && mapHostRt != null)
+            var hostView = hostGo.GetComponent<DifficultySelectHostView>();
+            if (hostView == null)
+            {
+                hostView = hostGo.AddComponent<DifficultySelectHostView>();
+            }
+
+            var built = BuildDifficultyScrollEditor(hostGo.transform);
+            var hso = new SerializedObject(hostView);
+            hso.FindProperty("_root").objectReferenceValue = hostGo;
+            hso.FindProperty("_columnsScroll").objectReferenceValue = built.Scroll;
+            hso.FindProperty("_columnsContent").objectReferenceValue = built.Content;
+            hso.FindProperty("_normalColumn").objectReferenceValue = built.NormalColumn;
+            hso.FindProperty("_hardColumn").objectReferenceValue = built.HardColumn;
+            hso.FindProperty("_hellColumn").objectReferenceValue = built.HellColumn;
+            hso.FindProperty("_normalLevelHost").objectReferenceValue = built.NormalLevelHost;
+            hso.FindProperty("_normalButton").objectReferenceValue = built.NormalColumn.GetComponent<Button>();
+            hso.FindProperty("_hardButton").objectReferenceValue = built.HardColumn.GetComponent<Button>();
+            hso.FindProperty("_hellButton").objectReferenceValue = built.HellColumn.GetComponent<Button>();
+            hso.FindProperty("_normalLabel").objectReferenceValue =
+                built.NormalColumn.Find("Label")?.GetComponent<Text>();
+            hso.FindProperty("_hardLabel").objectReferenceValue =
+                built.HardColumn.Find("Label")?.GetComponent<Text>();
+            hso.FindProperty("_hellLabel").objectReferenceValue =
+                built.HellColumn.Find("Label")?.GetComponent<Text>();
+            hso.ApplyModifiedPropertiesWithoutUndo();
+            hostGo.SetActive(false);
+
+            if (levelSelect != null && built.NormalLevelHost != null)
             {
                 var levelGo = levelSelect.gameObject;
-                levelGo.transform.SetParent(mapHostRt, false);
+                levelGo.transform.SetParent(built.NormalLevelHost, false);
                 var lrt = levelGo.GetComponent<RectTransform>();
                 StretchFull(lrt);
-                lrt.offsetMin = new Vector2(12f, 12f);
-                lrt.offsetMax = new Vector2(-12f, -12f);
+                lrt.offsetMin = new Vector2(8f, 8f);
+                lrt.offsetMax = new Vector2(-8f, -8f);
 
                 var box = levelGo.transform.Find("Box");
                 var parent = box != null ? box : levelGo.transform;
@@ -466,32 +452,114 @@ namespace Gravedigger2026.Editor.Meta
             viewSo.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private struct DifficultyScrollBuilt
+        {
+            public ScrollRect Scroll;
+            public RectTransform Content;
+            public RectTransform NormalColumn;
+            public RectTransform HardColumn;
+            public RectTransform HellColumn;
+            public RectTransform NormalLevelHost;
+        }
+
+        private static DifficultyScrollBuilt BuildDifficultyScrollEditor(Transform host)
+        {
+            var scrollGo = new GameObject("ColumnsScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            scrollGo.transform.SetParent(host, false);
+            StretchFull(scrollGo.GetComponent<RectTransform>());
+            var scrollImg = scrollGo.GetComponent<Image>();
+            scrollImg.color = new Color(0f, 0f, 0f, 0.01f);
+            scrollImg.raycastTarget = true;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewportGo.transform.SetParent(scrollGo.transform, false);
+            StretchFull(viewportGo.GetComponent<RectTransform>());
+            var vpImg = viewportGo.GetComponent<Image>();
+            vpImg.color = Color.white;
+            vpImg.raycastTarget = true;
+            viewportGo.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var contentRt = contentGo.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 0f);
+            contentRt.anchorMax = new Vector2(0f, 1f);
+            contentRt.pivot = new Vector2(0f, 0.5f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = new Vector2(0f, 0f);
+            var hlg = contentGo.GetComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = true;
+            hlg.spacing = 0f;
+            hlg.padding = new RectOffset(0, 0, 0, 0);
+
+            var scroll = scrollGo.GetComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.viewport = viewportGo.GetComponent<RectTransform>();
+            scroll.content = contentRt;
+            scroll.inertia = true;
+            scroll.scrollSensitivity = 40f;
+
+            var normal = CreateDifficultyColumnEditor(contentRt, "NormalColumn", "普通难度",
+                new Color(0.55f, 0.78f, 0.55f, 1f), DifficultyItem1SpritePath, withLevelHost: true);
+            var hard = CreateDifficultyColumnEditor(contentRt, "HardColumn", "困难难度",
+                new Color(0.85f, 0.75f, 0.35f, 1f), DifficultyItem2SpritePath, withLevelHost: false);
+            var hell = CreateDifficultyColumnEditor(contentRt, "HellColumn", "地狱难度",
+                new Color(0.90f, 0.55f, 0.35f, 1f), null, withLevelHost: false);
+
+            return new DifficultyScrollBuilt
+            {
+                Scroll = scroll,
+                Content = contentRt,
+                NormalColumn = normal.GetComponent<RectTransform>(),
+                HardColumn = hard.GetComponent<RectTransform>(),
+                HellColumn = hell.GetComponent<RectTransform>(),
+                NormalLevelHost = normal.transform.Find("LevelHost") as RectTransform
+            };
+        }
+
         private static GameObject CreateDifficultyColumnEditor(
             Transform parent,
             string name,
             string label,
             Color color,
-            string spritePath)
+            string spritePath,
+            bool withLevelHost)
         {
             var go = CreateButton(parent, name, label, color);
             var le = go.GetComponent<LayoutElement>();
-            if (le != null)
+            if (le == null)
             {
-                Object.DestroyImmediate(le);
+                le = go.AddComponent<LayoutElement>();
             }
+
+            le.minWidth = 400f;
+            le.preferredWidth = 400f;
+            le.flexibleWidth = 0f;
+            le.flexibleHeight = 1f;
 
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(8f, 8f);
-            rt.offsetMax = new Vector2(-8f, -8f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(400f, 0f);
+
             if (!string.IsNullOrEmpty(spritePath))
             {
                 var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(spritePath);
                 if (sprite != null)
                 {
-                    go.GetComponent<Image>().sprite = sprite;
-                    go.GetComponent<Image>().type = Image.Type.Simple;
+                    var img = go.GetComponent<Image>();
+                    img.sprite = sprite;
+                    img.type = Image.Type.Simple;
+                    // NormalColumn (withLevelHost): keep source art aspect; do not stretch to column.
+                    img.preserveAspect = withLevelHost;
+                    img.color = Color.white;
                 }
             }
 
@@ -499,6 +567,22 @@ namespace Gravedigger2026.Editor.Meta
             if (labelText != null)
             {
                 labelText.fontSize = 28;
+                var labelRt = labelText.rectTransform;
+                labelRt.anchorMin = new Vector2(0f, 0.88f);
+                labelRt.anchorMax = new Vector2(1f, 1f);
+                labelRt.offsetMin = Vector2.zero;
+                labelRt.offsetMax = Vector2.zero;
+            }
+
+            if (withLevelHost)
+            {
+                var levelHostGo = new GameObject("LevelHost", typeof(RectTransform));
+                levelHostGo.transform.SetParent(go.transform, false);
+                var lh = levelHostGo.GetComponent<RectTransform>();
+                lh.anchorMin = new Vector2(0f, 0f);
+                lh.anchorMax = new Vector2(1f, 0.88f);
+                lh.offsetMin = new Vector2(8f, 8f);
+                lh.offsetMax = new Vector2(-8f, -4f);
             }
 
             return go;

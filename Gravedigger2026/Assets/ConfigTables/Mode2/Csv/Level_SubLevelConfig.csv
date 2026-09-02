@@ -1,0 +1,18 @@
+GameplayOptionId,GameplayType,GameplayConfigId,GatherPointCount,GatherPointRewards,IconAssetId,Title,Description,Reward,UnlockNextOptionIds
+Opt_L01_S1_Shop,Shop,,,,Opt_L01_S1_Shop,商店,商店（—）,,Opt_L01_S2_Dig_A|Opt_L01_S2_Dig_B
+Opt_L01_S2_Dig_A,Dig,Dig_01,,,Opt_L01_S2_Dig_A,挖坟（路线A）,标准挖坟 Dig_01,Spirit;30,Opt_L01_S3_AutoManufacture
+Opt_L01_S2_Dig_B,Dig,Dig_02,,,Opt_L01_S2_Dig_B,挖坟（路线B）,进阶挖坟 Dig_02,Spirit;50,Opt_L01_S3_AutoManufacture
+Opt_L01_S3_AutoManufacture,AutoManufacture,,,,Opt_L01_S3_AutoManufacture,自动制造,自动制造（—）,,Opt_L01_S4_UpgradeManufacture
+Opt_L01_S4_UpgradeManufacture,UpgradeManufacture,PushMap_01,,,Opt_L01_S4_UpgradeManufacture,升级与制造,升级与制造（PushMap_01）,,Opt_L01_S5_PushMap|Opt_SE_Demo_01
+Opt_L01_S5_PushMap,PushMap,PushMap_01,,,Opt_L01_S5_PushMap,推图战,推图战（PushMap_01）,Spirit;20,
+Opt_L02_S1_Shop,Shop,,,,Opt_L02_S1_Shop,商店,商店（—）,,Opt_L02_S2_Dig
+Opt_L02_S2_Dig,Dig,Dig_02,,,Opt_L02_S2_Dig,挖坟,挖坟（Dig_02）,Spirit;20,Opt_L02_S3_AutoManufacture
+Opt_L02_S3_AutoManufacture,AutoManufacture,,,,Opt_L02_S3_AutoManufacture,自动制造,自动制造（—）,,Opt_L02_S4_UpgradeManufacture
+Opt_L02_S4_UpgradeManufacture,UpgradeManufacture,PushMap_02,,,Opt_L02_S4_UpgradeManufacture,升级与制造,升级与制造（PushMap_02）,,Opt_L02_S5_PushMap
+Opt_L02_S5_PushMap,PushMap,PushMap_02,,,Opt_L02_S5_PushMap,推图战,推图战（PushMap_02）,Spirit;20,
+Opt_L03_S1_Shop,Shop,,,,Opt_L03_S1_Shop,商店,商店（—）,,Opt_L03_S2_Dig
+Opt_L03_S2_Dig,Dig,Dig_03,,,Opt_L03_S2_Dig,挖坟,挖坟（Dig_03）,Spirit;20,Opt_L03_S3_AutoManufacture
+Opt_L03_S3_AutoManufacture,AutoManufacture,,,,Opt_L03_S3_AutoManufacture,自动制造,自动制造（—）,,Opt_L03_S4_UpgradeManufacture
+Opt_L03_S4_UpgradeManufacture,UpgradeManufacture,PushMap_03,,,Opt_L03_S4_UpgradeManufacture,升级与制造,升级与制造（PushMap_03）,,Opt_L03_S5_PushMap
+Opt_L03_S5_PushMap,PushMap,PushMap_03,,,Opt_L03_S5_PushMap,推图战,推图战（PushMap_03）,Spirit;20,
+Opt_SE_Demo_01,SearchExtract,SearchExtract_01,2,1:Spirit;10|2:Spirit;20,Opt_SE_Demo_01,搜打撤,搜打撤样例 SearchExtract_01,Spirit;20,

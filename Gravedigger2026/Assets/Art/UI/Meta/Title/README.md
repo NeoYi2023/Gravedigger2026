@@ -10,8 +10,8 @@
 | `Title_GameName.png` | 登录主界面顶中游戏名（`TitleMenuPanel/GameName`） |
 | `Title_Shop_1.png` | Mode2 商店全屏背景（UI-026 / `ShopStageRoot/Background`；`AspectRatioFitter` EnvelopeParent） |
 | `Title_AutoManufacture_1.png` | 自动制造演出全屏背景（UI-016） |
-| `Item_Difficulty_1.png` / `Item_Difficulty_2.png` | 进档难度栏贴图（UI-029 DifficultySelectHost） |
-| `Level_Map_1.jpg` | 关卡地图区底图（DifficultySelectHost/MapHost） |
+| `Item_Difficulty_1.png` / `Item_Difficulty_2.png` | 进档难度栏贴图（UI-029）；`NormalColumn` 使用 `preserveAspect` 保持长宽比 |
+| `Level_Map_1.jpg` | （历史）原 MapHost 地图底图；UI-029 改版后 **不再**使用 |
 
 后续动图/分层素材可同目录追加；实现层 `TitleScreenBackground` 可扩展为多 Image 或 Animation。
 

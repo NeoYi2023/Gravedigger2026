@@ -14,3 +14,5 @@ MagicBook_CombatAgilityLow,1,0,Combat,StatMul,Stat=Agility|Mul=1.15,MagicBook_Co
 MagicBook_CombatAgilityHigh,1,0,Combat,StatMul,Stat=Agility|Mul=1.30,MagicBook_CombatAgilityHigh,敏捷强化·高,装备后，战斗时上阵士兵敏捷提升 30%（开战生效，不改制造 Base）,,,
 MagicBook_CombatIntelligenceLow,1,0,Combat,StatMul,Stat=Intelligence|Mul=1.15,MagicBook_CombatIntelligenceLow,智力强化·初,装备后，战斗时上阵士兵智力提升 15%（开战生效，不改制造 Base）,,,
 MagicBook_CombatIntelligenceHigh,1,0,Combat,StatMul,Stat=Intelligence|Mul=1.30,MagicBook_CombatIntelligenceHigh,智力强化·高,装备后，战斗时上阵士兵智力提升 30%（开战生效，不改制造 Base）,,,
+MagicBook_Form_Wedge,0,0,SoldierManufacture,GrantFormationSkill,FormationId=Form_Wedge_01,MagicBook_Form_Wedge,楔阵,装备后，Mode2 制造 Step2 命中时授予楔阵技能（写入 SoldierSkills）,,,
+MagicBook_Form_Wedge_02,0,0,SoldierManufacture,GrantFormationSkill,FormationId=Form_Wedge_02,MagicBook_Form_Wedge_02,平行阵,装备后，Mode2 制造 Step2 命中时授予平行阵技能（写入 SoldierSkills）,,,

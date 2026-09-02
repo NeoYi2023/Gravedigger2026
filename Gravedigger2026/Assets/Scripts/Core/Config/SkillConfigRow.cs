@@ -9,6 +9,10 @@ namespace Gravedigger2026.Core.Config
         public string SkillId;
         /// <summary>≥ 1.</summary>
         public int SkillLevel;
+        /// <summary>
+        /// Optional; empty = normal skill. Non-empty = formation marker, FK → TacticalFormationConfig (§9.30).
+        /// </summary>
+        public string FormationId;
         /// <summary>Mode1 | Mode2; Mode2 CD starts on cast commit (D-069).</summary>
         public string CooldownMode;
         public string CastTarget;

@@ -15,6 +15,8 @@ namespace Gravedigger2026.Core.Config
     public sealed class ConfigCsvRepository
     {
         private readonly List<LevelOperationConfigRow> _levelOperations = new List<LevelOperationConfigRow>();
+        private readonly Dictionary<string, SubLevelConfigRow> _subLevelById =
+            new Dictionary<string, SubLevelConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, DigGameplayConfigRow> _digById =
             new Dictionary<string, DigGameplayConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, DefendGameplayConfigRow> _defendById =
@@ -73,6 +75,10 @@ namespace Gravedigger2026.Core.Config
         private readonly Dictionary<string, PushMapGameplayConfigRow> _pushMapById =
             new Dictionary<string, PushMapGameplayConfigRow>(StringComparer.Ordinal);
         private readonly List<PushMapSpawnConfigRow> _pushMapSpawnRows = new List<PushMapSpawnConfigRow>();
+        private readonly Dictionary<string, SearchExtractGameplayConfigRow> _searchExtractById =
+            new Dictionary<string, SearchExtractGameplayConfigRow>(StringComparer.Ordinal);
+        private readonly List<SearchExtractWaveSpawnConfigRow> _searchExtractWaveRows =
+            new List<SearchExtractWaveSpawnConfigRow>();
         private readonly Dictionary<string, FormationBondConfigRow> _formationBondByKey =
             new Dictionary<string, FormationBondConfigRow>(StringComparer.Ordinal);
         private readonly List<FormationBondConfigRow> _formationBondRows = new List<FormationBondConfigRow>();
@@ -80,6 +86,9 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, List<FormationBondConfigRow>>(StringComparer.Ordinal);
         private readonly Dictionary<string, BondActivationCondition> _bondConditionByBondKey =
             new Dictionary<string, BondActivationCondition>(StringComparer.Ordinal);
+        private readonly Dictionary<string, TacticalFormationConfigRow> _tacticalFormationById =
+            new Dictionary<string, TacticalFormationConfigRow>(StringComparer.Ordinal);
+        private readonly List<TacticalFormationConfigRow> _tacticalFormationRows = new List<TacticalFormationConfigRow>();
 
         private readonly Dictionary<string, ShopPoolConfigRow> _shopPoolById =
             new Dictionary<string, ShopPoolConfigRow>(StringComparer.Ordinal);
@@ -121,6 +130,7 @@ namespace Gravedigger2026.Core.Config
             LastError = null;
             _loadMode = mode;
             _levelOperations.Clear();
+            _subLevelById.Clear();
             _digById.Clear();
             _defendById.Clear();
             _waveSpawnRows.Clear();
@@ -152,10 +162,14 @@ namespace Gravedigger2026.Core.Config
             _techEffectById.Clear();
             _pushMapById.Clear();
             _pushMapSpawnRows.Clear();
+            _searchExtractById.Clear();
+            _searchExtractWaveRows.Clear();
             _formationBondByKey.Clear();
             _formationBondRows.Clear();
             _formationBondRowsByBondId.Clear();
             _bondConditionByBondKey.Clear();
+            _tacticalFormationById.Clear();
+            _tacticalFormationRows.Clear();
 
             _shopPoolById.Clear();
             _shopPoolRows.Clear();
@@ -166,12 +180,20 @@ namespace Gravedigger2026.Core.Config
             try
             {
                 LoadLevelOperations();
+                LoadSubLevels();
+                ValidateLevelOptionGraph();
                 LoadDigGameplay();
                 LoadDefendGameplay();
                 LoadWaveSpawn();
                 LoadMonsters();
                 LoadPushMapGameplay();
                 LoadPushMapSpawn();
+                if (mode == CampaignMode.Mode2)
+                {
+                    LoadSearchExtractGameplay();
+                    LoadSearchExtractWaveSpawn();
+                }
+
                 LoadGraveQuality();
                 LoadMaterial();
                 LoadCurrency();
@@ -183,6 +205,7 @@ namespace Gravedigger2026.Core.Config
                 LoadSkillEffects();
                 LoadMonsterSkillEffects();
                 LoadFormationBonds();
+                LoadTacticalFormations();
                 LoadMagicBooks();
                 LoadProtagonistEquipment();
 
@@ -203,10 +226,15 @@ namespace Gravedigger2026.Core.Config
                 LoadTechTree();
                 LoadTechEffects();
                 LoadBgm();
+                if (mode == CampaignMode.Mode2)
+                {
+                    ValidateSearchExtractRefs();
+                }
+
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormationById.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -216,6 +244,13 @@ namespace Gravedigger2026.Core.Config
                 return false;
             }
         }
+
+        public bool TryGetSubLevel(string gameplayOptionId, out SubLevelConfigRow row)
+        {
+            return _subLevelById.TryGetValue(gameplayOptionId ?? string.Empty, out row);
+        }
+
+        public IEnumerable<SubLevelConfigRow> SubLevels => _subLevelById.Values;
 
         public List<LevelOperationConfigRow> GetStagesForLevel(string levelId)
         {
@@ -312,6 +347,36 @@ namespace Gravedigger2026.Core.Config
         public bool TryGetPushMap(string gameplayConfigId, out PushMapGameplayConfigRow row)
         {
             return _pushMapById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
+        }
+
+        public bool TryGetSearchExtract(string gameplayConfigId, out SearchExtractGameplayConfigRow row)
+        {
+            return _searchExtractById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
+        }
+
+        public IReadOnlyList<SearchExtractWaveSpawnConfigRow> GetSearchExtractWaves(
+            string gameplayConfigId,
+            int gatherPointOrder)
+        {
+            var list = new List<SearchExtractWaveSpawnConfigRow>();
+            if (string.IsNullOrEmpty(gameplayConfigId))
+            {
+                return list;
+            }
+
+            for (var i = 0; i < _searchExtractWaveRows.Count; i++)
+            {
+                var row = _searchExtractWaveRows[i];
+                if (row != null
+                    && string.Equals(row.GameplayConfigId, gameplayConfigId, StringComparison.Ordinal)
+                    && row.GatherPointOrder == gatherPointOrder)
+                {
+                    list.Add(row);
+                }
+            }
+
+            list.Sort((a, b) => a.WaveIndex.CompareTo(b.WaveIndex));
+            return list;
         }
 
         /// <summary>All PushMapGameplayConfig rows (ModeSelect Mode2 list / PM-02).</summary>
@@ -490,6 +555,23 @@ namespace Gravedigger2026.Core.Config
 
             var key = MakeFormationBondKey(row.BondId, row.BondLevel);
             return _bondConditionByBondKey.TryGetValue(key, out condition);
+        }
+
+        /// <summary>PK lookup (SPEC_04 §9.30): FormationId.</summary>
+        public bool TryGetTacticalFormation(string formationId, out TacticalFormationConfigRow row)
+        {
+            row = null;
+            if (string.IsNullOrEmpty(formationId))
+            {
+                return false;
+            }
+
+            return _tacticalFormationById.TryGetValue(formationId, out row);
+        }
+
+        public IReadOnlyList<TacticalFormationConfigRow> GetAllTacticalFormationRows()
+        {
+            return _tacticalFormationRows;
         }
 
         public bool TryGetMagicBook(string magicBookId, out MagicBookConfigRow row)
@@ -696,13 +778,6 @@ namespace Gravedigger2026.Core.Config
             {
                 var raw = rows[i];
                 var rowIndex = i + 2;
-                var typeText = SimpleCsv.Require(raw, "GameplayType", table, rowIndex);
-                if (!TryParseGameplayType(typeText, out var gameplayType))
-                {
-                    throw new InvalidOperationException(
-                        $"{table} row {rowIndex}: illegal GameplayType '{typeText}'.");
-                }
-
                 var stageText = SimpleCsv.Require(raw, "StageNumber", table, rowIndex);
                 if (!int.TryParse(stageText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var stageNumber))
                 {
@@ -710,14 +785,174 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal StageNumber '{stageText}'.");
                 }
 
+                var optionIds = new List<string>(5);
+                for (var slot = 1; slot <= 5; slot++)
+                {
+                    var key = "GameplayOptionId" + slot;
+                    var oid = OptionalText(raw, key);
+                    if (!string.IsNullOrEmpty(oid))
+                    {
+                        optionIds.Add(oid);
+                    }
+                }
+
+                if (optionIds.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: Stage requires at least one GameplayOptionId.");
+                }
+
                 _levelOperations.Add(new LevelOperationConfigRow
                 {
                     LevelId = SimpleCsv.Require(raw, "LevelId", table, rowIndex),
                     StageNumber = stageNumber,
-                    GameplayType = gameplayType,
-                    GameplayConfigId = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex)
+                    GameplayOptionIds = optionIds.ToArray()
                 });
             }
+        }
+
+        private void LoadSubLevels()
+        {
+            const string table = "Level_SubLevelConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "GameplayOptionId", table, rowIndex);
+                var typeText = SimpleCsv.Require(raw, "GameplayType", table, rowIndex);
+                if (!TryParseGameplayType(typeText, out var gameplayType))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal GameplayType '{typeText}'.");
+                }
+
+                if (_subLevelById.ContainsKey(id))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate GameplayOptionId '{id}'.");
+                }
+
+                _subLevelById[id] = new SubLevelConfigRow
+                {
+                    GameplayOptionId = id,
+                    GameplayType = gameplayType,
+                    GameplayConfigId = OptionalText(raw, "GameplayConfigId") ?? string.Empty,
+                    IconAssetId = OptionalText(raw, "IconAssetId") ?? string.Empty,
+                    Title = OptionalText(raw, "Title") ?? string.Empty,
+                    Description = OptionalText(raw, "Description") ?? string.Empty,
+                    Reward = OptionalText(raw, "Reward") ?? string.Empty,
+                    UnlockNextOptionIds = OptionalText(raw, "UnlockNextOptionIds") ?? string.Empty,
+                    GatherPointCount = ParseOptionalNonNegativeInt(
+                        raw, "GatherPointCount", table, rowIndex),
+                    GatherPointRewards = OptionalText(raw, "GatherPointRewards") ?? string.Empty
+                };
+            }
+        }
+
+        private void ValidateLevelOptionGraph()
+        {
+            var stageByOption = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var i = 0; i < _levelOperations.Count; i++)
+            {
+                var stage = _levelOperations[i];
+                var ids = stage.GameplayOptionIds;
+                if (ids == null)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < ids.Length; j++)
+                {
+                    var oid = ids[j];
+                    if (!_subLevelById.ContainsKey(oid))
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] LevelOperation {stage.LevelId} S{stage.StageNumber}: unknown GameplayOptionId '{oid}'.");
+                        continue;
+                    }
+
+                    if (stageByOption.TryGetValue(oid, out var existing)
+                        && (existing != stage.StageNumber
+                            || !string.Equals(
+                                FindLevelIdForOption(oid, existing),
+                                stage.LevelId,
+                                StringComparison.Ordinal)))
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] GameplayOptionId '{oid}' mounted on multiple stages.");
+                    }
+
+                    stageByOption[oid] = stage.StageNumber;
+                }
+            }
+
+            foreach (var kv in _subLevelById)
+            {
+                var sub = kv.Value;
+                if (string.IsNullOrWhiteSpace(sub.UnlockNextOptionIds))
+                {
+                    continue;
+                }
+
+                if (!stageByOption.TryGetValue(sub.GameplayOptionId, out var fromStage))
+                {
+                    continue;
+                }
+
+                var parts = sub.UnlockNextOptionIds.Split('|');
+                for (var i = 0; i < parts.Length; i++)
+                {
+                    var nextId = parts[i] != null ? parts[i].Trim() : string.Empty;
+                    if (nextId.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    if (!_subLevelById.ContainsKey(nextId))
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' UnlockNext unknown '{nextId}'.");
+                        continue;
+                    }
+
+                    if (!stageByOption.TryGetValue(nextId, out var toStage))
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' UnlockNext '{nextId}' not mounted.");
+                        continue;
+                    }
+
+                    if (toStage != fromStage + 1)
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' UnlockNext '{nextId}' must be Stage {fromStage + 1} (got {toStage}).");
+                    }
+                }
+            }
+        }
+
+        private string FindLevelIdForOption(string optionId, int stageNumber)
+        {
+            for (var i = 0; i < _levelOperations.Count; i++)
+            {
+                var stage = _levelOperations[i];
+                if (stage.StageNumber != stageNumber || stage.GameplayOptionIds == null)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < stage.GameplayOptionIds.Length; j++)
+                {
+                    if (string.Equals(stage.GameplayOptionIds[j], optionId, StringComparison.Ordinal))
+                    {
+                        return stage.LevelId;
+                    }
+                }
+            }
+
+            return null;
         }
 
         private void LoadDigGameplay()
@@ -1119,6 +1354,214 @@ namespace Gravedigger2026.Core.Config
             }
         }
 
+        private void LoadSearchExtractGameplay()
+        {
+            const string table = "SearchExtract_SearchExtractGameplayConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                if (_searchExtractById.ContainsKey(id))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate GameplayConfigId '{id}'.");
+                }
+
+                var mapId = SimpleCsv.Require(raw, "MapId", table, rowIndex);
+                if (!IsValidSearchExtractMapId(mapId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal MapId '{mapId}' (expect Ground_01..05, PushMap_*, or SearchExtract_*).");
+                }
+
+                var expText = SimpleCsv.Require(raw, "StageExpReward", table, rowIndex);
+                if (!int.TryParse(expText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var stageExp)
+                    || stageExp < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal StageExpReward '{expText}'.");
+                }
+
+                var countdown = RequireFloat(raw, "GatherCountdownSeconds", table, rowIndex);
+                if (countdown <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: GatherCountdownSeconds must be > 0.");
+                }
+
+                _searchExtractById[id] = new SearchExtractGameplayConfigRow
+                {
+                    GameplayConfigId = id,
+                    MapId = mapId,
+                    StageExpReward = stageExp,
+                    GatherCountdownSeconds = countdown
+                };
+            }
+        }
+
+        private void LoadSearchExtractWaveSpawn()
+        {
+            const string table = "SearchExtract_SearchExtractWaveSpawnConfig.csv";
+            var path = RequirePath(table);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var gameplayId = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                if (!_searchExtractById.ContainsKey(gameplayId))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] {table} row {rowIndex}: unknown GameplayConfigId '{gameplayId}'.");
+                }
+
+                var order = RequirePositiveInt(raw, "GatherPointOrder", table, rowIndex);
+                var waveIndex = RequirePositiveInt(raw, "WaveIndex", table, rowIndex);
+                var composite = gameplayId + "|" + order + "|" + waveIndex;
+                if (!seen.Add(composite))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate wave key '{composite}'.");
+                }
+
+                var firstDelay = RequireFloat(raw, "FirstWaveDelaySeconds", table, rowIndex);
+                if (firstDelay < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal FirstWaveDelaySeconds '{firstDelay}'.");
+                }
+
+                var interval = RequireFloat(raw, "WaveIntervalSeconds", table, rowIndex);
+                if (interval < 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal WaveIntervalSeconds '{interval}'.");
+                }
+
+                var spawnCount = RequirePositiveInt(raw, "SpawnCount", table, rowIndex);
+                var monsterId = SimpleCsv.Require(raw, "MonsterId", table, rowIndex);
+                if (!_monsterById.ContainsKey(monsterId))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] {table} row {rowIndex}: unknown MonsterId '{monsterId}'.");
+                }
+
+                _searchExtractWaveRows.Add(new SearchExtractWaveSpawnConfigRow
+                {
+                    GameplayConfigId = gameplayId,
+                    GatherPointOrder = order,
+                    WaveIndex = waveIndex,
+                    FirstWaveDelaySeconds = firstDelay,
+                    WaveIntervalSeconds = interval,
+                    SpawnPointId = SimpleCsv.Require(raw, "SpawnPointId", table, rowIndex),
+                    MonsterId = monsterId,
+                    SpawnCount = spawnCount
+                });
+            }
+
+            WarnMismatchedSearchExtractWaveTimers();
+        }
+
+        private void WarnMismatchedSearchExtractWaveTimers()
+        {
+            for (var i = 0; i < _searchExtractWaveRows.Count; i++)
+            {
+                var row = _searchExtractWaveRows[i];
+                if (row == null || row.WaveIndex == 1)
+                {
+                    continue;
+                }
+
+                SearchExtractWaveSpawnConfigRow first = null;
+                for (var j = 0; j < _searchExtractWaveRows.Count; j++)
+                {
+                    var candidate = _searchExtractWaveRows[j];
+                    if (candidate != null
+                        && candidate.WaveIndex == 1
+                        && candidate.GatherPointOrder == row.GatherPointOrder
+                        && string.Equals(
+                            candidate.GameplayConfigId,
+                            row.GameplayConfigId,
+                            StringComparison.Ordinal))
+                    {
+                        first = candidate;
+                        break;
+                    }
+                }
+
+                if (first == null)
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] SearchExtractWave missing WaveIndex=1 for {row.GameplayConfigId} Order={row.GatherPointOrder}.");
+                    continue;
+                }
+
+                if (!Mathf.Approximately(row.FirstWaveDelaySeconds, first.FirstWaveDelaySeconds)
+                    || !Mathf.Approximately(row.WaveIntervalSeconds, first.WaveIntervalSeconds))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] SearchExtractWave Delay/Interval mismatch vs WaveIndex=1: {row.GameplayConfigId} Order={row.GatherPointOrder} Wave={row.WaveIndex}.");
+                }
+            }
+        }
+
+        private void ValidateSearchExtractRefs()
+        {
+            foreach (var kv in _subLevelById)
+            {
+                var sub = kv.Value;
+                if (sub == null || sub.GameplayType != GameplayState.SearchExtract)
+                {
+                    continue;
+                }
+
+                if (_loadMode != CampaignMode.Mode2)
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] SearchExtract option '{sub.GameplayOptionId}' is Mode2-only.");
+                }
+
+                if (sub.GatherPointCount < 1)
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' SearchExtract GatherPointCount must be ≥1.");
+                }
+
+                if (!_searchExtractById.ContainsKey(sub.GameplayConfigId ?? string.Empty))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' unknown SearchExtract GameplayConfigId '{sub.GameplayConfigId}'.");
+                }
+
+                var parsed = GatherPointRewardsParser.Parse(
+                    sub.GatherPointRewards,
+                    msg => Debug.LogWarning($"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' {msg}"));
+                foreach (var pointKv in parsed)
+                {
+                    if (sub.GatherPointCount > 0 && pointKv.Key > sub.GatherPointCount)
+                    {
+                        Debug.LogWarning(
+                            $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' GatherPointRewards Order={pointKv.Key} exceeds GatherPointCount={sub.GatherPointCount}.");
+                    }
+
+                    var entries = pointKv.Value;
+                    for (var i = 0; i < entries.Count; i++)
+                    {
+                        var itemId = entries[i].Id;
+                        if (!_itemCatalogById.ContainsKey(itemId))
+                        {
+                            Debug.LogWarning(
+                                $"[ConfigCsvRepository] SubLevel '{sub.GameplayOptionId}' GatherPointRewards unknown ItemId '{itemId}'.");
+                        }
+                    }
+                }
+            }
+        }
+
         /// <summary>SPEC_04 §9.23: missing/empty → 5; illegal → load fail.</summary>
         private static int ParsePushMapInitialFacing(Dictionary<string, string> raw, string table, int rowIndex)
         {
@@ -1155,6 +1598,17 @@ namespace Gravedigger2026.Core.Config
                    && mapId.StartsWith("Ground_0", StringComparison.Ordinal)
                    && mapId[8] >= '1'
                    && mapId[8] <= '5';
+        }
+
+        private static bool IsValidSearchExtractMapId(string mapId)
+        {
+            if (IsValidPushMapMapId(mapId))
+            {
+                return true;
+            }
+
+            return !string.IsNullOrEmpty(mapId)
+                   && mapId.StartsWith("SearchExtract_", StringComparison.Ordinal);
         }
 
         private void LoadGraveQuality()
@@ -1466,6 +1920,7 @@ namespace Gravedigger2026.Core.Config
                 {
                     SkillId = skillId,
                     SkillLevel = level,
+                    FormationId = OptionalText(raw, "FormationId"),
                     CooldownMode = OptionalText(raw, "CooldownMode"),
                     CastTarget = OptionalText(raw, "CastTarget"),
                     ExtraActivationCondition = OptionalText(raw, "ExtraActivationCondition"),
@@ -1633,6 +2088,206 @@ namespace Gravedigger2026.Core.Config
         private static string MakeFormationBondKey(string bondId, int bondLevel)
         {
             return bondId + "\u001f" + bondLevel.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private void LoadTacticalFormations()
+        {
+            const string table = "Combat_TacticalFormationConfig.csv";
+            var rows = SimpleCsv.ReadRows(RequirePath(table));
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var formationId = SimpleCsv.Require(raw, "FormationId", table, rowIndex);
+                if (_tacticalFormationById.ContainsKey(formationId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate FormationId '{formationId}'.");
+                }
+
+                var minCount = ParseRequiredPositiveInt(raw, "MinMemberCount", table, rowIndex);
+                var maxCount = ParseRequiredPositiveInt(raw, "MaxMemberCount", table, rowIndex);
+                if (maxCount < minCount)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: MaxMemberCount {maxCount} < MinMemberCount {minCount}.");
+                }
+
+                var formationSkillId = OptionalText(raw, "FormationSkillId");
+                var exclusiveSkillIds = ParseDefaultSkillIds(OptionalText(raw, "ExclusiveSkillIds"));
+                var exclusiveEffectIds = ParseDefaultSkillIds(OptionalText(raw, "ExclusiveSkillEffectIds"));
+
+                var row = new TacticalFormationConfigRow
+                {
+                    FormationId = formationId,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    IconAssetId = OptionalText(raw, "IconAssetId"),
+                    Description = OptionalText(raw, "Description"),
+                    FormationSkillId = formationSkillId,
+                    MinMemberCount = minCount,
+                    MaxMemberCount = maxCount,
+                    PrefabId = OptionalText(raw, "PrefabId"),
+                    StatModifiers = OptionalText(raw, "StatModifiers"),
+                    ExclusiveSkillIds = exclusiveSkillIds,
+                    ExclusiveSkillEffectIds = exclusiveEffectIds
+                };
+
+                _tacticalFormationById[formationId] = row;
+                _tacticalFormationRows.Add(row);
+
+                if (string.IsNullOrEmpty(formationSkillId)
+                    || !_skillLevelRangeById.ContainsKey(formationSkillId))
+                {
+                    Debug.LogWarning(
+                        $"[Config] {table} row {rowIndex}: FormationSkillId '{formationSkillId}' " +
+                        "not found in Combat_SkillConfig.");
+                }
+
+                for (var s = 0; s < exclusiveSkillIds.Length; s++)
+                {
+                    if (!_skillLevelRangeById.ContainsKey(exclusiveSkillIds[s]))
+                    {
+                        Debug.LogWarning(
+                            $"[Config] {table} row {rowIndex}: ExclusiveSkillIds '{exclusiveSkillIds[s]}' " +
+                            "not found in Combat_SkillConfig.");
+                    }
+                }
+
+                for (var e = 0; e < exclusiveEffectIds.Length; e++)
+                {
+                    if (!_skillEffectById.ContainsKey(exclusiveEffectIds[e]))
+                    {
+                        Debug.LogWarning(
+                            $"[Config] {table} row {rowIndex}: ExclusiveSkillEffectIds '{exclusiveEffectIds[e]}' " +
+                            "not found in Combat_SkillEffectConfig.");
+                    }
+                }
+            }
+
+            WarnTacticalFormationBondEffectOverlap();
+
+            foreach (var pair in _skillByKey)
+            {
+                var skillRow = pair.Value;
+                if (skillRow == null || string.IsNullOrEmpty(skillRow.FormationId))
+                {
+                    continue;
+                }
+
+                if (!_tacticalFormationById.TryGetValue(skillRow.FormationId, out var formation)
+                    || formation == null)
+                {
+                    Debug.LogWarning(
+                        $"[Config] Combat_SkillConfig: SkillId '{skillRow.SkillId}' Lv{skillRow.SkillLevel} " +
+                        $"FormationId '{skillRow.FormationId}' not found in Combat_TacticalFormationConfig.");
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(formation.FormationSkillId)
+                    && !string.Equals(skillRow.SkillId, formation.FormationSkillId, StringComparison.Ordinal))
+                {
+                    Debug.LogWarning(
+                        $"[Config] Combat_SkillConfig: SkillId '{skillRow.SkillId}' Lv{skillRow.SkillLevel} " +
+                        $"FormationId '{skillRow.FormationId}' expected FormationSkillId " +
+                        $"'{formation.FormationSkillId}'.");
+                }
+            }
+        }
+
+        private void WarnTacticalFormationBondEffectOverlap()
+        {
+            var bondEffects = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < _formationBondRows.Count; i++)
+            {
+                var buff = _formationBondRows[i]?.BondBuff;
+                if (!string.IsNullOrEmpty(buff))
+                {
+                    bondEffects.Add(buff);
+                }
+            }
+
+            for (var i = 0; i < _tacticalFormationRows.Count; i++)
+            {
+                var row = _tacticalFormationRows[i];
+                if (row == null)
+                {
+                    continue;
+                }
+
+                var seenEffects = new HashSet<string>(StringComparer.Ordinal);
+                var exclusiveEffects = row.ExclusiveSkillEffectIds ?? Array.Empty<string>();
+                for (var e = 0; e < exclusiveEffects.Length; e++)
+                {
+                    var effectId = exclusiveEffects[e];
+                    if (string.IsNullOrEmpty(effectId))
+                    {
+                        continue;
+                    }
+
+                    if (!seenEffects.Add(effectId))
+                    {
+                        Debug.LogWarning(
+                            $"[Config] Combat_TacticalFormationConfig '{row.FormationId}': " +
+                            $"duplicate ExclusiveSkillEffectId '{effectId}'.");
+                    }
+
+                    if (bondEffects.Contains(effectId))
+                    {
+                        Debug.LogWarning(
+                            $"[Config] Combat_TacticalFormationConfig '{row.FormationId}': " +
+                            $"ExclusiveSkillEffectId '{effectId}' overlaps FormationBond BondBuff — " +
+                            "do not double-count (SPEC_03 §3.18).");
+                    }
+                }
+
+                var exclusiveSkills = row.ExclusiveSkillIds ?? Array.Empty<string>();
+                for (var s = 0; s < exclusiveSkills.Length; s++)
+                {
+                    var skillId = exclusiveSkills[s];
+                    if (string.IsNullOrEmpty(skillId)
+                        || !TryGetSkillLevelRange(skillId, out var minLevel, out _)
+                        || !TryGetSkill(skillId, minLevel, out var skillRow)
+                        || skillRow == null
+                        || string.IsNullOrEmpty(skillRow.SkillEffectId))
+                    {
+                        continue;
+                    }
+
+                    var effectId = skillRow.SkillEffectId;
+                    if (!seenEffects.Add(effectId))
+                    {
+                        Debug.LogWarning(
+                            $"[Config] Combat_TacticalFormationConfig '{row.FormationId}': " +
+                            $"SkillEffectId '{effectId}' from ExclusiveSkillIds '{skillId}' duplicates " +
+                            "another exclusive overlay id.");
+                    }
+
+                    if (bondEffects.Contains(effectId))
+                    {
+                        Debug.LogWarning(
+                            $"[Config] Combat_TacticalFormationConfig '{row.FormationId}': " +
+                            $"ExclusiveSkillIds '{skillId}' SkillEffectId '{effectId}' overlaps " +
+                            "FormationBond BondBuff — do not double-count (SPEC_03 §3.18).");
+                    }
+                }
+            }
+        }
+
+        private static int ParseRequiredPositiveInt(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, column);
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                || value < 1)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal {column} '{text}' (expect ≥ 1).");
+            }
+
+            return value;
         }
 
         private static string MakeSkillKey(string skillId, int skillLevel)
@@ -2540,6 +3195,45 @@ namespace Gravedigger2026.Core.Config
             return raw.TryGetValue(column, out var value) ? (value ?? string.Empty).Trim() : string.Empty;
         }
 
+        private static int ParseOptionalNonNegativeInt(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, column);
+            if (text.Length == 0)
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                || value < 0)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return value;
+        }
+
+        private static int RequirePositiveInt(
+            Dictionary<string, string> raw,
+            string column,
+            string table,
+            int rowIndex)
+        {
+            var text = SimpleCsv.Require(raw, column, table, rowIndex).Trim();
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                || value < 1)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal {column} '{text}'.");
+            }
+
+            return value;
+        }
+
         private void ValidateItemCatalogSource(string itemId, string itemType, string sourceTable, string table, int rowIndex)
         {
             if (string.Equals(itemType, "Currency", StringComparison.Ordinal))
@@ -2817,6 +3511,12 @@ namespace Gravedigger2026.Core.Config
             if (string.Equals(text, "Shop", StringComparison.Ordinal))
             {
                 state = GameplayState.Shop;
+                return true;
+            }
+
+            if (string.Equals(text, "SearchExtract", StringComparison.Ordinal))
+            {
+                state = GameplayState.SearchExtract;
                 return true;
             }
 

@@ -1,0 +1,11 @@
+﻿GameplayOptionId,GameplayType,GameplayConfigId,IconAssetId,Title,Description,Reward,UnlockNextOptionIds
+Opt_L01_S1_Dig,Dig,Dig_01,Opt_L01_S1_Dig,挖坟,挖坟（Dig_01）,Spirit;20,Opt_L01_S2_UpgradeManufacture
+Opt_L01_S2_UpgradeManufacture,UpgradeManufacture,PushMap_01,Opt_L01_S2_UpgradeManufacture,升级与制造,升级与制造（PushMap_01）,,Opt_L01_S3_PushMap
+Opt_L01_S3_PushMap,PushMap,PushMap_01,Opt_L01_S3_PushMap,推图战,推图战（PushMap_01）,Spirit;20,
+Opt_L02_S1_Dig,Dig,Dig_03,Opt_L02_S1_Dig,挖坟,挖坟（Dig_03）,Spirit;20,Opt_L02_S2_Defend
+Opt_L02_S2_Defend,Defend,Defend_02,Opt_L02_S2_Defend,保卫战,保卫战（Defend_02）,Spirit;20,Opt_L02_S3_Dig
+Opt_L02_S3_Dig,Dig,Dig_04,Opt_L02_S3_Dig,挖坟,挖坟（Dig_04）,Spirit;20,
+Opt_L03_S1_Dig,Dig,Dig_05,Opt_L03_S1_Dig,挖坟,挖坟（Dig_05）,Spirit;20,Opt_L03_S2_UpgradeManufacture
+Opt_L03_S2_UpgradeManufacture,UpgradeManufacture,Dig_06,Opt_L03_S2_UpgradeManufacture,升级与制造,升级与制造（Dig_06）,,Opt_L03_S3_Defend
+Opt_L03_S3_Defend,Defend,Defend_03,Opt_L03_S3_Defend,保卫战,保卫战（Defend_03）,Spirit;20,Opt_L03_S4_Dig
+Opt_L03_S4_Dig,Dig,Dig_07,Opt_L03_S4_Dig,挖坟,挖坟（Dig_07）,Spirit;20,

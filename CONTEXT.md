@@ -5,7 +5,7 @@
 | 术语 (EN) | 中文 | 定义摘要 | SPEC |
 |-----------|------|----------|------|
 | Gravedigger2026 | 本项目 | Unity 工程与工作区名称 | [SPEC_02](SPEC_02_GameOverview.md) |
-| GameplayState | 玩法状态 | Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap / **Shop**（Mode2 商店阶段）；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| GameplayState | 玩法状态 | Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap / **Shop**（Mode2 商店阶段）、**SearchExtract**（搜打撤；Mode2 子关卡 §3.19）；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | SaveSlot | 存档槽 | 固定 3 槽本地存档位；占用旗共享；士兵池/布阵/副本解锁等按槽 **且按 CampaignMode** PlayerPrefs | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignMode | 玩法模式 | 存档进出门闩：`Mode1` / `Mode2`；同槽进度隔离；Mode2 读独立配置根；**勿与** BattleMode（保卫/推图）混淆；Mode1 手动制造 §3.11，Mode2 自动制造 §3.15 | [§3.1](SPEC_03_GameRules.md)、[§3.4](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
 | AutoManufacture | 自动制造 | Mode2 阶段：Dig 后自动选料造兵→临时仓库→清空布阵按职业区上阵→再进 UM | [§3.15](SPEC_03_GameRules.md) |
@@ -19,7 +19,7 @@
 | ClassLevel | 职业等级 | ClassConfig 展示用品质等级；UI-016 士兵卡 `Lv.N`；不进战斗公式 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵螺旋落入 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
 | IsoTileYaw | 等距砖轴偏航 | `Y=-atan2(cellSize.y,cellSize.x)`，使 Transform 本地 +X 对齐 Isometric Grid 在 XZ 上的砖轴（Demo ≈ -26.57°）；**职业布阵区已废止此偏航**（改无旋转 IsoDiamond，同 WalkSurface） | [SPEC_04 §13](SPEC_04_Technical.md) |
-| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`；命中时可烘进 `VisualStyle`（材质和/或放大）；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
+| MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`、「授予阵型」`GrantFormationSkill`；命中时可烘进 `VisualStyle`（材质和/或放大）；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
 | MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/VisualStyleId/Priority/IntensityAdd/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | SpecialEquipSlot | 特殊装备槽 | 主角默认 6 槽装魔法书；下标 0→5=左→右；可 TrySwap（含空槽）；IsUnique 限制叠装；无独立仓库 | [§3.15](SPEC_03_GameRules.md) |
 | EquipmentWarehousePanel | 装备仓弹窗 | InSaveShell 左下「装备」打开的只读 Modal；展示 OwnedEquip（名/等级/描述/图标）；不升级、不卸下（UI-022 / D-067） | [§3.6](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md) |
@@ -27,6 +27,13 @@
 | BookRow | 魔法书槽行 | 6×BookSlot 共享 Prefab；AM 演出与魔法书弹窗嵌套同一份 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment；Dig 事件型样例 `Equip_Explosives`（D-077）、`Equip_Elctr`（D-078） | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
 | FormationBond | 阵容羁绊 | 上阵士兵属性统计激活的战斗增益；同 BondId 多等级互斥；Buff→SkillEffectConfig | [§3.17](SPEC_03_GameRules.md)、[SPEC_04 §9.26](SPEC_04_Technical.md) |
+| TacticalFormation | 战术阵型 | 同阵型技能士兵组成可移动空间编队；虚拟中心+槽位+leash；与 BattleFormation/FormationBond 并行 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
+| TacticalFormationRuntime | 战术阵型运行时 | Combat 虚拟中心纯数据 + 成员 FormationSlot + leash；PushMap/Defend Stage 分流；激活态 Stat/ExclusiveSkill overlay；不进 SoftCollision | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| FormationSkill | 阵型技能 | 魔法书 GrantFormationSkill 授予的标记技能；SkillConfig.FormationId FK 战术阵型表 | [§3.18](SPEC_03_GameRules.md) |
+| GrantFormationSkill | 授予阵型技能 | MagicBook EffectPayload Token；Mode2 制造 Step2 写入 SoldierSkills | [SPEC_04 §9.24](SPEC_04_Technical.md) |
+| FormationSlot | 阵型槽位 | Pattern Prefab 相对中心站位；战斗 GoalKind=FormationSlot | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| FormationLeash | 阵型拴绳 | 接敌时成员距中心最大半径；AttackSlot 投影回圆周 | [§3.18](SPEC_03_GameRules.md) |
+| TacticalFormationConfig | 战术阵型配置表 | FormationId→技能/人数/Prefab/属性与专属技能 overlay | [SPEC_04 §9.30](SPEC_04_Technical.md) |
 | BondBuff | 羁绊Buff | FormationBondConfig.BondBuff FK→SkillEffectConfig；本 Demo 片仅配置与 UI | [§3.17](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentConfig | 主角装备配置表 | EquipId+EquipLevel → 名/图标/升下一级经验/转化经验/生效域/效果/描述 | [SPEC_04 §9.25](SPEC_04_Technical.md) |
@@ -43,7 +50,7 @@
 | ShopSellService | 商店出售服务 | 商店 UI 出售已拥有装备（`TryRemove`）/魔法书（`TryUnequip`），按 `ItemCatalog.SellPrice` 入账精魂 | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignModeSelect | 玩法模式选择 | UI-014 保留；本 Demo 新建/进入不弹出（直进 Mode2）；Mode1 入口后置（D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
-| DifficultySelectHost | 难度选择宿主 | 进档默认中心面（UI-029 / D-081）：三栏；仅普通展开并嵌 LevelSelectPanel | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
+| DifficultySelectHost | 难度选择宿主 | 进档默认中心面（UI-029 / D-081）：三栏等宽横滑居中；关卡列表嵌归属 Column（Demo 仅普通）；无 MapHost | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
 | TitleMenu | 登录主界面 | Boot 首屏；顶中 GameName（Title_GameName）；主按钮双态开始/继续 → SaveSelect；设置 → UI-028；共享 TitleScreenBackground（UI-027） | [§3.2](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
@@ -53,13 +60,16 @@
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
 | BgmConfig | BGM 配置表 | `Audio_BgmConfig`：BgmId / Context / ClipId / Loop / Weight / Volume | [SPEC_04 §9.29](SPEC_04_Technical.md) |
 | BgmService | BGM 服务 | 读表加权随机；经 `BgmClipCatalog` 解析 clip；同 Context 幂等；挂 Meta/Boot | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
-| Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| Level | 关卡 | 关卡运作表驱动的多阶段流程；每 Stage 可挂多套玩法选项（多选一）；UM/Shop/AM 的 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | ConfigTableDualSync | 配置表双格式同步 | Excel 为源、CSV 为 Bake 产物；Agent 禁止只改 CSV / 删第 1～2 行说明 | [SPEC_04 §14.7](SPEC_04_Technical.md) |
 | BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | CharacterArtPipeline | 角色美术管线 | Character Creator **烘焙整角**；游戏资源不得落在工具目录；导出补丁→`Art/Characters`→`Prefabs` | [SPEC_04 §15](SPEC_04_Technical.md) |
 | BakedWholeCharacter | 烘焙整角 | 用 Creator 拼装后导出整角 spritesheet/Animator/Prefab；非运行时叠装 | [SPEC_04 §15](SPEC_04_Technical.md) |
-| LevelOperation | 关卡运作 | 关卡 ID + 阶段编号 + 玩法类型 + 玩法配置 ID | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
+| LevelOperation | 关卡运作 | 关卡 ID + 阶段编号 + 最多 5 个玩法选项 ID（`GameplayOptionId1..5`） | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
+| GameplayOption | 玩法选项 | 子关卡表一行；含 GameplayType/ConfigId/图标/文案/奖励/解锁下一 Stage 选项 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.31](SPEC_04_Technical.md) |
+| SubLevelConfig | 子关卡表 | `Level_SubLevelConfig`；PK=`GameplayOptionId` | [SPEC_04 §9.31](SPEC_04_Technical.md) |
+| RouteSelect | 关卡路线选择 | 关卡内竖版自下而上 Stage + 横向选项 + 跨 Stage 连线 Prefab（UI-031） | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
 | FlowingWater | 流动水面 | 地图表现约定：Grid 下 `Water`（Chunk+Water.mat）/`Foam`（Individual+Foam.mat）两层；Built-in 资源 `Art/Maps/Shaders/Water/`；世界 UV=`xz`；不参与 NavMesh/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
@@ -181,7 +191,7 @@
 | BattleModeSelect | 战斗模式选关 | 进入 Defend 后选模式+关卡（UI-013 / D-044；模式2确认→§3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | PushMap | 推图战 | GameplayType/GameplayState；亦可作战斗模式2；目标点占领+刷怪/陷阱/BOSS；复用 Defend 布阵/护盾/失控 | [§3.14](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | PushMapPhase | 推图战子状态 | Prepare / Combat / Ended | [§3.14](SPEC_03_GameRules.md) |
-| MapId | 地图编号 | PushMap 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo：`PushMap_Demo_01`–`03`）→ `Prefabs/Maps/`；运行时经 `DefendPrefabCatalog.Maps` 绑定 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| MapId | 地图编号 | PushMap / SearchExtract 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo：`PushMap_Demo_01`–`03`）或 `SearchExtract_*`（Demo：`SearchExtract_Demo_01`）→ `Prefabs/Maps/`；运行时经 `DefendPrefabCatalog.Maps` 绑定 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md)/[§9.32](SPEC_04_Technical.md) |
 | ObjectivePoint | 目标点 | 有序推进点 1→2→3…；全队共当前目标 | [§3.14](SPEC_03_GameRules.md) |
 | CaptureZone | 判定圈 | 默认半径 2；任一忠诚兵进入当前圈 → 立即占领 | [§3.14](SPEC_03_GameRules.md) |
 | Capture | 占领 | 目标点本场已占领；关联刷怪停刷；可发奖励/副本解锁钩子 | [§3.14](SPEC_03_GameRules.md) |
@@ -245,6 +255,12 @@
 | LevelFailure | 关卡失败 | 护盾归零等（Defend/PushMap）；PushMap 另含无忠诚存活；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣；PushMap Demo 经 UI-017 → LevelSelect | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
 | PushMapBattleSettlement | 推图战斗结算 | 胜负均弹（UI-017）：胜利/失败 + 耗时 + 击杀数；Continue 路由选关或奖励弹窗 | [§3.14](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | PushMapRewardPopup | 推图奖励弹窗 | UI-018：展示本场已入账 Exp+CaptureLoot；Continue → LevelSelect | [§3.14](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| SearchExtract | 搜打撤 | Mode2 子关卡 `GameplayType`；有序搜集点+进圈倒计时守点+方向波次刷怪；**非** CampaignMode；SE-03 已接 `SearchExtractStageModule`（Prepare+开战） | [§3.19](SPEC_03_GameRules.md) |
+| GatherPoint | 搜集点 | SearchExtract 有序目标；复用 `ObjectivePoint`+`CaptureZone`；进圈激活倒计时（非 PushMap 即时占领） | [§3.19](SPEC_03_GameRules.md) |
+| GatherCountdown | 搜集倒计时 | 单点激活后规则层倒计时；归零且仍有忠诚存活 → 单点胜利 | [§3.19](SPEC_03_GameRules.md) |
+| SearchExtractPhase | 搜打撤子状态 | Prepare / Combat / Ended | [§3.19](SPEC_03_GameRules.md) |
+| SearchExtractGameplayConfig | 搜打撤玩法配置表 | PK `GameplayConfigId` → `MapId` / 全局倒计时 / `StageExpReward`（Leave 入账） | [SPEC_04 §9.32](SPEC_04_Technical.md) |
+| SearchExtractWaveSpawnConfig | 搜打撤刷怪配置表 | 一行一波：`GatherPointOrder`+`WaveIndex`+`SpawnPointId`+Delay/Interval+怪物 | [SPEC_04 §9.33](SPEC_04_Technical.md) |
 | VictorySettlement | 胜利结算 | 最后一阶段结束后的关卡级结算 | [§3.9](SPEC_03_GameRules.md) |
 | Demo acceptance (D-xxx) | Demo 验收项 | D-001～D-004 Meta 壳；D-010～D-044 Dig→UM→Defend（含 ModeSelect）流水线垂直切片 | [§3.8](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 

@@ -274,6 +274,63 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             return true;
         }
 
+        public readonly struct PositionWrite
+        {
+            public readonly string WarriorId;
+            public readonly float X;
+            public readonly float Z;
+
+            public PositionWrite(string warriorId, float x, float z)
+            {
+                WarriorId = warriorId;
+                X = x;
+                Z = z;
+            }
+        }
+
+        /// <summary>
+        /// Batch map-relative position writes; persist + notify once. Unchanged coords are skipped.
+        /// </summary>
+        public int ApplyPositionBatch(IReadOnlyList<PositionWrite> writes)
+        {
+            if (writes == null || writes.Count == 0)
+            {
+                return 0;
+            }
+
+            const float epsilon = 0.0001f;
+            var changed = 0;
+            for (var i = 0; i < writes.Count; i++)
+            {
+                var w = writes[i];
+                var index = FindIndex(w.WarriorId);
+                if (index < 0)
+                {
+                    continue;
+                }
+
+                var entry = _entries[index];
+                if (Mathf.Abs(entry.PositionX - w.X) < epsilon
+                    && Mathf.Abs(entry.PositionZ - w.Z) < epsilon)
+                {
+                    continue;
+                }
+
+                entry.PositionX = w.X;
+                entry.PositionZ = w.Z;
+                changed++;
+            }
+
+            if (changed <= 0)
+            {
+                return 0;
+            }
+
+            PersistIfBound();
+            Changed?.Invoke();
+            return changed;
+        }
+
         public bool TrySetRemainingHp(string warriorId, float remainingHp, out string error)
         {
             error = null;

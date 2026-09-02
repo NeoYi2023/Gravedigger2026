@@ -54,7 +54,7 @@ namespace Gravedigger2026.UI
                 : $"MapId={context.ResolvedMapId}";
 
             _stageInfoLabel.text =
-                $"LevelId={context.LevelId}  StageNumber={context.StageNumber}  GameplayType={context.GameplayType}  {mapPart}";
+                $"LevelId={context.LevelId}  Stage={context.StageNumber}  Option={context.GameplayOptionId ?? "-"}  Type={context.GameplayType}  {mapPart}";
         }
 
         private void ApplyModePanels()
@@ -96,6 +96,8 @@ namespace Gravedigger2026.UI
                     return "当前玩法：防守（Defend）";
                 case GameplayState.PushMap:
                     return "当前玩法：推图战（PushMap）";
+                case GameplayState.SearchExtract:
+                    return "当前玩法：搜打撤（SearchExtract）";
                 default:
                     return "当前玩法：未知";
             }

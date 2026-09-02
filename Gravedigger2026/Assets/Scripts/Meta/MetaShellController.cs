@@ -7,6 +7,7 @@ using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.PushMap;
+using Gravedigger2026.Core.Rewards;
 using Gravedigger2026.Core.Settings;
 using Gravedigger2026.Core.Shop;
 using Gravedigger2026.Core.Tech;
@@ -47,6 +48,7 @@ namespace Gravedigger2026.Meta
         [SerializeField] private AutoManufacturePrefabCatalog _autoMfgPrefabCatalog;
         [SerializeField] private Transform _autoMfgWorldParent;
         [SerializeField] private ShopPrefabCatalog _shopPrefabCatalog;
+        [SerializeField] private GameObject _levelRouteSelectPrefab;
         [SerializeField] private BgmClipCatalog _bgmClipCatalog;
         [SerializeField] private AudioSource _bgmAudioSource;
 
@@ -81,6 +83,8 @@ namespace Gravedigger2026.Meta
         private GmSoldierGrantService _gmSoldierGrant;
         private UpgradeManufactureStageModule _umModule;
         private LevelOperationDriver _levelDriver;
+        private LevelRouteSelectView _routeSelectView;
+        private RewardGrantService _rewardGrant;
         private CameraFogService _cameraFog;
         private readonly List<FormationClassZoneSnapshot> _gmZoneScratch =
             new List<FormationClassZoneSnapshot>();
@@ -98,6 +102,7 @@ namespace Gravedigger2026.Meta
 
         private void Awake()
         {
+            DestroyAllRouteSelectViews();
             EnsureCameraFogService();
             EnsureBgmAudioSource();
             _displaySettings.ApplySavedOrCurrent();
@@ -115,11 +120,15 @@ namespace Gravedigger2026.Meta
             var magicBookHook = new SoldierManufactureMagicBookHook(_specialEquipSlots, _configs);
             _autoManufacture = new AutoManufactureService(
                 _configs, _warehouse, _tempWarriorWarehouse, _warriorPool, magicBookHook);
-            var autoDeploy = new AutoFormationDeployService(_configs, _warriorPool, _formation);
+            var autoDeploy = new AutoFormationDeployService(
+                _configs, _warriorPool, _formation, _formationPrefabCatalog);
             _autoDeploy = autoDeploy;
-            _gmSoldierGrant = new GmSoldierGrantService(_configs, _warriorPool, _autoDeploy);
+            _gmSoldierGrant = new GmSoldierGrantService(_configs, _warriorPool, _autoDeploy, magicBookHook);
             _levelDriver = new LevelOperationDriver(_configs, _gameplayState);
             _levelDriver.RegisterDefaultPlaceholders();
+            _rewardGrant = new RewardGrantService(
+                _configs, _warehouse, _specialEquipSlots, _protagonistEquipment);
+            _levelDriver.BindRewardGrant(_rewardGrant);
             _shopModule = new ShopStageModule(
                 _shopPrefabCatalog,
                 transform,
@@ -250,8 +259,32 @@ namespace Gravedigger2026.Meta
                 Debug.LogWarning("[MetaShell] Defend PrefabCatalog missing — PushMap has no module.");
             }
 
+            if (_defendPrefabCatalog != null)
+            {
+                _levelDriver.RegisterModule(
+                    new SearchExtractStageModule(
+                        _configs,
+                        _defendPrefabCatalog,
+                        _formationPrefabCatalog,
+                        _defendWorldParent != null ? _defendWorldParent : transform,
+                        _progress,
+                        _warriorPool,
+                        _formation,
+                        _warehouse,
+                        _specialEquipSlots,
+                        _protagonistEquipment,
+                        HandleSearchExtractVictory,
+                        HandleSearchExtractFailure,
+                        SetStagePresentationActive));
+            }
+            else
+            {
+                Debug.LogWarning("[MetaShell] Defend PrefabCatalog missing — SearchExtract has no module.");
+            }
+
             _levelDriver.StageChanged += HandleStageChanged;
             _levelDriver.LevelEnded += HandleLevelEnded;
+            _levelDriver.RouteChanged += HandleRouteChanged;
 
             if (_saveSelectView != null)
             {
@@ -339,7 +372,164 @@ namespace Gravedigger2026.Meta
             {
                 _levelDriver.StageChanged -= HandleStageChanged;
                 _levelDriver.LevelEnded -= HandleLevelEnded;
+                _levelDriver.RouteChanged -= HandleRouteChanged;
             }
+
+            if (_routeSelectView != null)
+            {
+                _routeSelectView.OptionSelected -= HandleRouteOptionSelected;
+                _routeSelectView.Closed -= HandleRouteClosed;
+            }
+        }
+
+        private void DestroyAllRouteSelectViews()
+        {
+            var views = FindObjectsOfType<LevelRouteSelectView>(true);
+            for (var i = 0; i < views.Length; i++)
+            {
+                var view = views[i];
+                if (view == null)
+                {
+                    continue;
+                }
+
+                if (_routeSelectView == view)
+                {
+                    _routeSelectView.OptionSelected -= HandleRouteOptionSelected;
+                    _routeSelectView.Closed -= HandleRouteClosed;
+                    _routeSelectView = null;
+                }
+
+                Destroy(view.gameObject);
+            }
+        }
+
+        private Transform FindMetaCanvas()
+        {
+            if (_titleMenuView != null && _titleMenuView.transform.parent != null)
+            {
+                return _titleMenuView.transform.parent;
+            }
+
+            return transform.Find("MetaCanvas");
+        }
+
+        private void EnsureRouteSelectView()
+        {
+            if (_routeSelectView != null)
+            {
+                return;
+            }
+
+            var parent = FindMetaCanvas();
+            if (parent == null)
+            {
+                parent = transform;
+            }
+
+            DestroyOrphanRouteSelect();
+
+            if (_levelRouteSelectPrefab != null)
+            {
+                var go = Instantiate(_levelRouteSelectPrefab, parent);
+                go.name = "LevelRouteSelectRoot";
+                go.SetActive(false);
+                _routeSelectView = go.GetComponent<LevelRouteSelectView>();
+            }
+
+            if (_routeSelectView == null)
+            {
+                _routeSelectView = LevelRouteSelectRuntimeFactory.Create(parent);
+            }
+
+            if (_routeSelectView == null)
+            {
+                return;
+            }
+
+            _routeSelectView.OptionSelected += HandleRouteOptionSelected;
+            _routeSelectView.Closed += HandleRouteClosed;
+            _routeSelectView.Hide();
+        }
+
+        private void DestroyOrphanRouteSelect()
+        {
+            // Previous builds parented a ScreenSpaceOverlay canvas under MetaShellRoot (sibling of MetaCanvas).
+            for (var i = transform.childCount - 1; i >= 0; i--)
+            {
+                var child = transform.GetChild(i);
+                if (child == null || child.name != "LevelRouteSelectRoot")
+                {
+                    continue;
+                }
+
+                if (_routeSelectView != null && _routeSelectView.transform == child)
+                {
+                    _routeSelectView.OptionSelected -= HandleRouteOptionSelected;
+                    _routeSelectView.Closed -= HandleRouteClosed;
+                    _routeSelectView = null;
+                }
+
+                Object.Destroy(child.gameObject);
+            }
+        }
+
+        private void HandleRouteChanged(LevelRouteSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.Visible)
+            {
+                _routeSelectView?.Hide();
+                RefreshCameraFogMetaBlocking();
+                return;
+            }
+
+            EnsureRouteSelectView();
+            if (_routeSelectView != null)
+            {
+                _routeSelectView.ApplySnapshot(snapshot);
+            }
+
+            RefreshCameraFogMetaBlocking();
+        }
+
+        private void HandleRouteOptionSelected(string optionId)
+        {
+            if (_levelDriver == null)
+            {
+                return;
+            }
+
+            if (!_levelDriver.TrySelectGameplayOption(optionId, out var error))
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show(error ?? "无法进入该玩法选项");
+                }
+            }
+        }
+
+        private void HandleRouteClosed()
+        {
+            if (_routeSelectView != null)
+            {
+                _routeSelectView.Hide();
+            }
+
+            if (_levelDriver != null && _levelDriver.IsRunning && !_levelDriver.IsOptionRunning)
+            {
+                _levelDriver.StopCurrentLevel();
+                if (_toastView != null)
+                {
+                    _toastView.Show("已退出关卡路线选择");
+                }
+
+                if (_inSaveShellView != null)
+                {
+                    _inSaveShellView.ShowDifficultySelectHost();
+                }
+            }
+
+            RefreshCameraFogMetaBlocking();
         }
 
         private void ShowTitleMenu()
@@ -400,6 +590,14 @@ namespace Gravedigger2026.Meta
             _autoManufactureBatchRecord.ClearBound();
             _campaignMode.Clear();
             SetStagePresentationActive(false);
+
+            if (_routeSelectView != null)
+            {
+                _routeSelectView.Hide();
+            }
+
+            DestroyOrphanRouteSelect();
+            DestroyAllRouteSelectViews();
 
             if (_campaignModeSelect != null)
             {
@@ -905,6 +1103,21 @@ namespace Gravedigger2026.Meta
             AdvanceStageFromGameplay();
         }
 
+        private void HandleSearchExtractVictory()
+        {
+            AdvanceStageFromGameplay();
+        }
+
+        private void HandleSearchExtractFailure(string reason)
+        {
+            if (_levelDriver != null)
+            {
+                _levelDriver.AbortLevelAsFailure(reason);
+            }
+
+            OpenLevelSelectPanel();
+        }
+
         private void HandlePushMapVictoryContinue()
         {
             var levelId = _levelDriver != null ? _levelDriver.ActiveLevelId : null;
@@ -1140,6 +1353,11 @@ namespace Gravedigger2026.Meta
             }
 
             if (_titleSettingsPanelView != null && _titleSettingsPanelView.IsOpen)
+            {
+                blocking = true;
+            }
+
+            if (_routeSelectView != null && _routeSelectView.IsOpen)
             {
                 blocking = true;
             }
@@ -1608,6 +1826,11 @@ namespace Gravedigger2026.Meta
             _bgm.Stop();
             SetStagePresentationActive(false);
 
+            if (_routeSelectView != null)
+            {
+                _routeSelectView.Hide();
+            }
+
             if (_toastView != null && !string.IsNullOrEmpty(message))
             {
                 _toastView.Show(message);
@@ -1616,7 +1839,10 @@ namespace Gravedigger2026.Meta
             if (_inSaveShellView != null)
             {
                 _inSaveShellView.ShowStageInfo(null);
+                _inSaveShellView.ShowDifficultySelectHost();
             }
+
+            RefreshCameraFogMetaBlocking();
         }
 
         private void PlayTitleBgm()

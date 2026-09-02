@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.60
+**文档版本 / Document Version:** v0.83.81
 **最后更新 / Last Updated:** 2026-09-02
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（Dig D-020 + UM D-030～D-032 + Defend D-040～D-044 + PushMap PM-01～PM-13 + ModeSelect 模式2 入口 + Mode2 AutoManufacture AM-03～08 闭环（D-050～D-053）+ Mode2 制造记录 D-054 + 可选 TechTree UI-012；大规模寻路方案 B：MP-01～MP-07；方案 B+ 草案：SoftCollision + CombatMoveMode（无 Follow）；士兵 GoalKind 脚下 Debug 标签；友军脚下绿圈 AllyFootCircle；追击/仇恨移速系数；魔法书「战士强化」D-058；主角装备规则 §3.16 + D-059 垂直 **完成**（PE-01～PE-04）+ 矿灯 D-060 **完成**（PE-05～PE-08）；魔法书 Step2 单槽节拍生效；Tools GM「添加士兵」D-064；Mode2 士兵栏悬浮框 UI-021 / D-065 **完成**；Mode2 士兵 AllIn1 `VisualStyle` 方案 A + 放大模型 `Style_ScaleModel` D-066 **完成**（VS-00～03）+ 命中附带体型步进 D-082；InSaveShell 装备仓只读 UI-022 / D-067 **完成**（EM-01～02）+ 魔法书槽排序 UI-023 / D-068 **完成**（EM-03）+ 弹窗删除 D-072；士兵战斗 SkillCast `Skill_03` 连发 + `Skill_01` 格挡 + `Skill_02` 舒适 D-069 **完成**（SC-00/01/02/03）；技能 Icon 实现状态指示器 D-070 **完成**；战斗技能图标 CombatSkillIcon UI-025 / D-071 **完成**（SI-00～02）；士兵技能效果 Skill_04～12 EffectKind 登记制 D-073 **完成**（SE-00～09；issues `.scratch/soldier-skill-effects/`）；Mode2 商店全屏玩法类型 D-075（`GameplayType=Shop`，Stage1）；怪物尸体投射 D-083 **完成**（issues `.scratch/corpse-projectile/`））  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -30,7 +30,7 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | 总索引、变更日志（本文件） |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | 三阶段开发流程与协作约定 |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | 游戏概述、平台与定位 |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战 / 自动制造 / 主角装备） |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | 游戏规则主体（Demo 外壳 + 关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战 / 自动制造 / 主角装备 / 战术阵型 §3.18 / **搜打撤 §3.19**） |
 | 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | 技术规范、Demo 边界、配置表字段与工程约定（§14） |
 
 **建议阅读顺序：** 01 → 02 → 03 → 04。
@@ -42,7 +42,7 @@
 | 00 | [SPEC_00_Index.md](SPEC_00_Index.md) | Master index, changelog |
 | 01 | [SPEC_01_Workflow.md](SPEC_01_Workflow.md) | Three-phase workflow |
 | 02 | [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) | Game overview |
-| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree / PushMap / AutoManufacture / ProtagonistEquipment) |
+| 03 | [SPEC_03_GameRules.md](SPEC_03_GameRules.md) | Game rules (Demo shell + Level stages / Dig / UpgradeManufacture / Defend / TechTree / PushMap / AutoManufacture / ProtagonistEquipment / TacticalFormation §3.18 / **SearchExtract §3.19**) |
 | 04 | [SPEC_04_Technical.md](SPEC_04_Technical.md) | Technical standards, Demo boundary, config tables + engineering rules (§14) |
 
 ---
@@ -65,6 +65,27 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-02 | v0.83.81 | 搜打撤 SE-09（方案 A）：搜集进行中忠诚全灭 → `RequestLevelFailure` → `AbortLevel` + LevelSelect；不扣仓库、不清档、不入账本阶段经验；无 UI-017；Mode2 手验清单更新；**不**标 D-087 Demo 完成（须负责人 Play Mode） |
+| 2026-09-02 | v0.83.80 | 搜打撤 SE-08（方案 A）：点胜即时 `RewardGrantService` 入账 `GatherPointRewards`；Continue 推进 `CurrentGatherOrder`+复位激活（须再进圈）+ 朝下一 Objective 重定位；Leave → `StageExpReward` + `TryAdvanceStage`（驱动发 SubLevel `Reward`，不补点奖）；`LevelStageContext.GatherPointRewards` |
+| 2026-09-02 | v0.83.79 | 搜打撤 SE-07（方案 A）：倒计时归零+≥1 忠诚 → `TryCompleteGatherPoint`（`CombatStatusService` Hold 无敌 + 停刷 + 规则清怪 `PointClear` + UI-032）；Prefab/Resources `SearchExtractDecisionPanel`；最后一点隐藏「继续搜集」；Continue 仅解无敌（推进/Leave 通关后置 SE-08） |
+| 2026-09-02 | v0.83.78 | SE-03（方案 A 平行克隆）：`SearchExtractStageModule`+Controller+Session 空壳；Prepare 复用 `FormationEditorRoot_Mode2`；开战≥1 + NavMesh/AirWall Bake；**不**抄 PushMap 占领/刷怪、**不**放 BattleProtagonist。Mode2 `Level_01` 末战分叉 `Opt_L01_S5_PushMap`\|`Opt_SE_Demo_01` |
+| 2026-09-02 | v0.83.77 | SE-02（方案 B）：独立样例图 `SearchExtract_Demo_01`（自 `PushMap_Demo_01` 复制，**不**改写 PushMap 原图）；≥2 `ObjectivePoint`+`CaptureZone`（新点半径 2）+ `SP_01`/`SP_02`；MapId 合法池增 `SearchExtract_*`；Editor `Ensure Sample Map Prefab` + AirWall OBB 校验；玩法表样例 MapId 改挂该图 |
+| 2026-09-02 | v0.83.76 | SE-01（方案 A）：Mode2 落地 `SearchExtractGameplayConfig` / `WaveSpawnConfig` Excel+CSV；子关卡增 `GatherPointCount`/`GatherPointRewards` + 样例 `SearchExtract_01`/`Opt_SE_Demo_01`；`ConfigCsvRepository` Mode2 加载（Mode1 缺列容忍）；**无** StageModule |
+| 2026-09-02 | v0.83.75 | 搜打撤字段工作坊签字：锁定 §9.31 `GatherPointCount`/`GatherPointRewards` 编码、§9.32～§9.33 列（一行一波、仅 `SpawnPointId`、全局倒计时、Leave 入账 `StageExpReward`）；UI-031 双摘要；Combat 顶栏剩余秒；杀怪无掉落；样例 `SearchExtract_01` / `PushMap_Demo_01` N=2。issues 工作坊 done；**SE-01 未编码** |
+| 2026-09-02 | v0.83.74 | 搜打撤 SearchExtract（D-087 / 方案 A）：新增 SPEC_03 §3.19 + UI-032；SPEC_04 §9.31 增 `SearchExtract`/`GatherPointCount`/`GatherPointRewards`（TBD）+ §9.32～§9.33 表骨架 + §6 Stage 接线意图；CONTEXT/spec-map；issues `.scratch/mode3-search-extract/` SE-00～09；**未编码** |
+| 2026-09-02 | v0.83.73 | UI-029：`NormalColumn` 难度贴图 `preserveAspect`（保持原图长宽比、不拉伸）。同步 SPEC_04、`DifficultySelectHostView` / `MetaShellAssetBuilder` |
+| 2026-09-02 | v0.83.72 | 关卡 Stage 多选一 + 路线选择（UI-031 / D-086）：`Level_LevelOperationConfig` 仅挂 `GameplayOptionId1..5`；新建子关卡表 `Level_SubLevelConfig`；进关/通关回路线图 Prefab；空 `UnlockNextOptionIds` → 关卡胜利。issues `.scratch/level-route-select/`。同步 SPEC_03 §3.9、SPEC_04 §9.1/§9.31、CONTEXT |
+| 2026-09-02 | v0.83.71 | UI-029 / D-081 布局改版：`DifficultySelectHost` 去掉 `MapHost`；关卡列表嵌 `NormalColumn`；三栏等宽横滑居中；展开普通**不**缩放/变暗 Hard/Hell；Demo 全 LevelId 归普通。同步 SPEC_03/04、CONTEXT、`DifficultySelectHostView` / `InSaveShellView` / `MetaShellAssetBuilder` |
+| 2026-09-02 | v0.83.70 | 第二条战术阵型样例「平行阵」：`Form_Wedge_02` / `Skill_Form_Wedge_02` / `MagicBook_Form_Wedge_02` + Pattern `FormationPattern_Wedge_02`（10 槽两排；Min=3 Max=10；Strength×1.15）；Catalog upsert；Mode1+Mode2 Excel→CSV |
+| 2026-09-02 | v0.83.69 | UI-030 / D-085：布阵编辑器左侧战术阵型小队条；已 snap 小队各一图标按钮；点选高亮整队士兵栏成员（不改相机/整阵拖拽）。`Resources/UI/Formations/{IconAssetId}` |
+| 2026-09-02 | v0.83.68 | TF-06（D-084 方案 B）：样例 `Form_Wedge_01` 填 `StatModifiers=Stat=Strength\|Mul=1.15`（ExclusiveSkill 留空）；GM「添加士兵」若已装备楔阵书则 **仅**走 `GrantFormationSkill`（不跑其它制造 Token）；手验清单 Mode2 AM→PushMap + Mode1 UM→Defend。D-084 **完成**（Play Mode 由负责人勾选） |
+| 2026-09-02 | v0.83.67 | TF-05（D-084 方案 A）：开战激活 `StatModifiers`/`ExclusiveSkillIds` runtime overlay（对齐 Combat StatMul，不改 BaseStats）；SkillCast/EffectKind 只读层 + 可选 `ExclusiveSkillEffectIds`；阵亡/Rebel 再评估，存活 &lt;Min 解散撤 overlay，GoalKind 回退（Defend Home=当前世界坐标）；与 FormationBond 重复 SkillEffectId 加载期 Warning |
+| 2026-09-02 | v0.83.66 | TF-04b（D-084 方案 A）：PushMap/Defend StartBattle 锁 Layout 快照进 Runtime；共享 `TacticalFormationCombatGoalPolicy` 入阵分流 + AttackSlot leash / 超 leash 不追；中心每帧 Tick；成员 `FormationSlot` 每帧刷新目的地。TF-05 overlay/解散仍 pending |
+| 2026-09-02 | v0.83.65 | TF-04a（D-084 方案 A）：虚拟中心由 `TacticalFormationRuntimeService` 纯数据持有（不进 SoftCollision）；`GoalKind.FormationSlot` + `MassMoveScheduler` 直趋解析；leash 投影纯函数；scene-free Correctness 菜单。Stage 接线拆 TF-04b |
+| 2026-09-02 | v0.83.64 | TF-03（D-084 方案 A）：`TacticalFormationLayoutService.EvaluateAndApply` 布阵 ≥Min snap Pattern 槽位（质心+朝向，覆盖职业区）；不足 Min 退回职业区螺旋；组阵成员整阵拖拽中心；接线 `FormationEditorController` / `AutoFormationDeployService.DeployBatch` / 一键上阵 |
+| 2026-09-02 | v0.83.63 | TF-02（D-084 方案 A）：`TacticalFormationPattern` 作者组件 + 样例 `FormationPattern_Wedge_01`（5 槽楔阵）；`FormationPrefabCatalog.TryGetPattern`；移动参数缺省常量（Leash 3 / Epsilon 0.15 / SpeedMul 1 / TurnRate 180 / KeepEngage 1）；Editor 菜单生成 Pattern Prefab |
+| 2026-09-02 | v0.83.62 | TF-01（D-084 方案 A）：落地 `Combat_TacticalFormationConfig` Mode1+Mode2 Excel/CSV；`SkillConfig.FormationId` 列+FK Warning；`GrantFormationSkill` 写入 `SoldierManufactureMagicBookHook` Step2；样例 `Form_Wedge_01` / `Skill_Form_Wedge` / `MagicBook_Form_Wedge` |
+| 2026-09-02 | v0.83.61 | 战术阵型 TacticalFormation（D-084 / 方案 A）：新增 SPEC_03 §3.18；修订 §3.12 B+「不做 Follow」口径（虚拟中心+FormationSlot 例外）；SPEC_04 §9.30 表 + §9.24 `GrantFormationSkill` + §9.7 运行时契约 + §9.21 `FormationId` 列 + §13 Pattern Prefab；CONTEXT/spec-map；issues `.scratch/tactical-formation/` TF-00～06；**未编码** |
 | 2026-09-02 | v0.83.60 | 新增 SPEC_04 §14.7 Agent 配置表变更守则；AGENTS.md / unity-spec-dev-workflow 强制交叉引用；防范只改 CSV、误删 Excel 三行表头前两行 |
 | 2026-09-02 | v0.83.59 | 死亡击飞方向扇区随机：`DeathKnockbackDirectionSpreadHalfDegrees`（样例 30）+ `DeathKnockbackDirectionRandomStepDegrees`（样例 5）；基准 `normalize(M−S)` 为 0°，在 ±SpreadHalf 内按 Step 整数倍均匀偏角；Defend+PushMap 共用 `MonsterDeathPresentation`。同步 SPEC_03 §3.12、SPEC_04 §9.20b/§15.5、CONTEXT、主表/Mode2 CSV+Excel |
 | 2026-09-01 | v0.83.58 | PushMap 刷怪初始朝向：`PushMapSpawnConfig.InitialFacing`（0=每怪随机 1~8；1~8=罗盘八向）；表现层映射至 `DirIndex` 后 `ForceSetFacing`；Prepare/开战/陷阱共用。同步 SPEC_03 §3.14、SPEC_04 §9.23/§15.5、Excel/CSV、刷怪接线 |
@@ -425,6 +446,27 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-02 | v0.83.81 | SearchExtract SE-09 (Approach A): active-gather loyal wipe → `RequestLevelFailure` → `AbortLevel` + LevelSelect; no warehouse clawback, no save wipe, no stage Exp; no UI-017; Mode2 handcheck list updated; **do not** mark D-087 Demo complete (needs owner Play Mode) |
+| 2026-09-02 | v0.83.80 | SearchExtract SE-08 (Approach A): point success credits `GatherPointRewards` via `RewardGrantService`; Continue advances `CurrentGatherOrder` + resets activation (re-enter required) + relocates to next Objective; Leave → `StageExpReward` + `TryAdvanceStage` (driver grants SubLevel `Reward`, no point-loot re-grant); `LevelStageContext.GatherPointRewards` |
+| 2026-09-02 | v0.83.79 | SearchExtract SE-07 (Approach A): countdown zero + ≥1 loyal → `TryCompleteGatherPoint` (`CombatStatusService` Hold invuln + stop spawn + rules clear `PointClear` + UI-032); Prefab/Resources `SearchExtractDecisionPanel`; last point hides Continue; Continue drops invuln only (advance/Leave clear deferred SE-08) |
+| 2026-09-02 | v0.83.78 | SE-03 (Approach A parallel clone): `SearchExtractStageModule`+Controller+Session shell; Prepare reuses `FormationEditorRoot_Mode2`; StartBattle ≥1 + NavMesh/AirWall bake; **no** PushMap Capture/spawn copy, **no** BattleProtagonist. Mode2 `Level_01` last-combat fork `Opt_L01_S5_PushMap`\|`Opt_SE_Demo_01` |
+| 2026-09-02 | v0.83.77 | SE-02 (Approach B): standalone sample map `SearchExtract_Demo_01` (copy of `PushMap_Demo_01`, **do not** rewrite PushMap source); ≥2 `ObjectivePoint`+`CaptureZone` (new-point radius 2) + `SP_01`/`SP_02`; MapId pool adds `SearchExtract_*`; Editor Ensure + AirWall OBB check; gameplay-table sample MapId retargeted |
+| 2026-09-02 | v0.83.76 | SE-01 (Approach A): Mode2 `SearchExtractGameplayConfig` / `WaveSpawnConfig` Excel+CSV; SubLevel `GatherPointCount`/`GatherPointRewards` + sample `SearchExtract_01`/`Opt_SE_Demo_01`; `ConfigCsvRepository` Mode2 load (Mode1 missing columns tolerated); **no** StageModule |
+| 2026-09-02 | v0.83.75 | SearchExtract field workshop signed: lock §9.31 `GatherPointCount`/`GatherPointRewards` encoding, §9.32–§9.33 columns (one row per wave, `SpawnPointId` only, global countdown, Leave credits `StageExpReward`); UI-031 dual summaries; Combat top-bar remaining seconds; no kill loot; sample `SearchExtract_01` / `PushMap_Demo_01` N=2. Workshop issue done; **SE-01 not encoded** |
+| 2026-09-02 | v0.83.74 | SearchExtract (D-087 / Approach A): SPEC_03 §3.19 + UI-032; SPEC_04 §9.31 `SearchExtract`/`GatherPointCount`/`GatherPointRewards` (then TBD) + §9.32–§9.33 skeletons + §6 Stage intent; CONTEXT/spec-map; issues `.scratch/mode3-search-extract/` SE-00–09; **not encoded** |
+| 2026-09-02 | v0.83.73 | UI-029: `NormalColumn` difficulty art `preserveAspect` (keep source aspect, no stretch). Synced SPEC_04, `DifficultySelectHostView` / `MetaShellAssetBuilder` |
+| 2026-09-02 | v0.83.72 | Level Stage multi-pick + route select (UI-031 / D-086): `Level_LevelOperationConfig` mounts `GameplayOptionId1..5` only; new `Level_SubLevelConfig`; enter/clear returns to route Prefab; empty `UnlockNextOptionIds` → level victory. Issues `.scratch/level-route-select/`. Synced SPEC_03 §3.9, SPEC_04 §9.1/§9.31, CONTEXT |
+| 2026-09-02 | v0.83.71 | UI-029 / D-081 layout refresh: remove `MapHost`; embed level list in `NormalColumn`; equal-width horizontal scroll center; selecting Normal does **not** shrink/dim Hard/Hell; Demo all LevelIds → Normal. Synced SPEC_03/04, CONTEXT, `DifficultySelectHostView` / `InSaveShellView` / `MetaShellAssetBuilder` |
+| 2026-09-02 | v0.83.70 | Second tactical-formation sample「平行阵」: `Form_Wedge_02` / `Skill_Form_Wedge_02` / `MagicBook_Form_Wedge_02` + Pattern `FormationPattern_Wedge_02` (10-slot two ranks; Min=3 Max=10; Strength×1.15); Catalog upsert; Mode1+Mode2 Excel→CSV |
+| 2026-09-02 | v0.83.69 | UI-030 / D-085: formation-editor left tactical-squad strip; one icon button per snapped squad; click highlights squad members on the soldier bar (no camera focus / no drag-semantics change). `Resources/UI/Formations/{IconAssetId}` |
+| 2026-09-02 | v0.83.68 | TF-06 (D-084 Approach B): sample `Form_Wedge_01` fills `StatModifiers=Stat=Strength\|Mul=1.15` (ExclusiveSkill empty); GM Add Soldier applies **only** `GrantFormationSkill` if the wedge book is equipped (no other manufacture tokens); handcheck Mode2 AM→PushMap + Mode1 UM→Defend. D-084 **Done** (Play Mode checkboxes for owner) |
+| 2026-09-02 | v0.83.67 | TF-05 (D-084 Approach A): StartBattle applies `StatModifiers`/`ExclusiveSkillIds` runtime overlay (Combat StatMul-style, no BaseStats mutation); SkillCast/EffectKind read-only layer + optional `ExclusiveSkillEffectIds`; re-eval on death/Rebel; living &lt;Min dissolves overlays and falls back GoalKind (Defend Home = current world pos); duplicate SkillEffectId vs FormationBond → load-time Warning |
+| 2026-09-02 | v0.83.66 | TF-04b (D-084 Approach A): PushMap/Defend StartBattle locks Layout snapshot into Runtime; shared `TacticalFormationCombatGoalPolicy` member branch + AttackSlot leash / no chase beyond leash; center Tick every frame; member `FormationSlot` dest refreshed every frame. TF-05 overlay/dissolve still pending |
+| 2026-09-02 | v0.83.65 | TF-04a (D-084 Approach A): virtual center owned as pure data by `TacticalFormationRuntimeService` (not a SoftCollision body); `GoalKind.FormationSlot` + straight-seek in `MassMoveScheduler`; leash clamp as a pure function; scene-free Correctness menu. Stage wiring deferred to TF-04b |
+| 2026-09-02 | v0.83.64 | TF-03 (D-084 Approach A): `TacticalFormationLayoutService.EvaluateAndApply` Prepare ≥Min snap to Pattern slots (centroid+facing, over class zones); <Min revert class-zone spiral; whole-squad drag moves center; wired from `FormationEditorController` / `AutoFormationDeployService.DeployBatch` / one-click deploy |
+| 2026-09-02 | v0.83.63 | TF-02 (D-084 Approach A): `TacticalFormationPattern` authoring + sample `FormationPattern_Wedge_01` (5-slot wedge); `FormationPrefabCatalog.TryGetPattern`; move-param defaults (Leash 3 / Epsilon 0.15 / SpeedMul 1 / TurnRate 180 / KeepEngage 1); Editor menu generates Pattern Prefabs |
+| 2026-09-02 | v0.83.62 | TF-01 (D-084 Approach A): landed `Combat_TacticalFormationConfig` Mode1+Mode2 Excel/CSV; `SkillConfig.FormationId` column + FK Warning; `GrantFormationSkill` in `SoldierManufactureMagicBookHook` Step2; samples `Form_Wedge_01` / `Skill_Form_Wedge` / `MagicBook_Form_Wedge` |
+| 2026-09-02 | v0.83.61 | TacticalFormation (D-084 / Approach A): new SPEC_03 §3.18; revised §3.12 B+ no-Follow wording (virtual-center + FormationSlot exception); SPEC_04 §9.30 table + §9.24 `GrantFormationSkill` + §9.7 runtime contract + §9.21 `FormationId` column + §13 Pattern Prefab; CONTEXT/spec-map; issues `.scratch/tactical-formation/` TF-00–06; **no code** |
 | 2026-09-02 | v0.83.60 | Added SPEC_04 §14.7 Agent config-table change rules; mandatory cross-refs in AGENTS.md / unity-spec-dev-workflow; guard against CSV-only edits and deleting Excel three-row header doc rows 1–2 |
 | 2026-09-02 | v0.83.59 | Death knockback direction fan random: `DeathKnockbackDirectionSpreadHalfDegrees` (sample 30) + `DeathKnockbackDirectionRandomStepDegrees` (sample 5); base `normalize(M−S)` is 0°, uniform yaw offset in ±SpreadHalf at Step granularity; Defend+PushMap share `MonsterDeathPresentation`. Synced SPEC_03 §3.12, SPEC_04 §9.20b/§15.5, CONTEXT, main+Mode2 CSV+Excel |
 | 2026-09-01 | v0.83.58 | PushMap spawn initial facing: `PushMapSpawnConfig.InitialFacing` (0=per-monster random 1~8; 1~8=compass octants); presentation maps to `DirIndex` then `ForceSetFacing`; shared by Prepare/StartBattle/trap. Synced SPEC_03 §3.14, SPEC_04 §9.23/§15.5, Excel/CSV, spawn wiring |

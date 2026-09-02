@@ -260,7 +260,8 @@ namespace Gravedigger2026.Gameplay.UpgradeManufacture
                 _progress,
                 _configs,
                 mapPrefab,
-                null);
+                null,
+                _formationCatalog);
 
             Debug.Log($"[UM Formation] Opened editor map={mapId}");
         }

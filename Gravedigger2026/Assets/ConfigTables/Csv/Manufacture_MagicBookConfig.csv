@@ -6,3 +6,5 @@ MagicBook_WarriorAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Warrior
 MagicBook_ArcherAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Archer|RequireClassId=Class_Archer_0|Chance=0.25,,射手进阶,装备后，Mode2 制造职业为 Class_Archer_0 的士兵时，25% 概率变为 Class_Archer,Style_AdvanceOutline,30,1
 MagicBook_MageAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Mage|RequireClassId=Class_Mage_0|Chance=0.25,,法师进阶,装备后，Mode2 制造职业为 Class_Mage_0 的士兵时，25% 概率变为 Class_Mage,Style_AdvanceOutline,30,1
 MagicBook_RogueAdvance,1,1,SoldierManufacture,ForceClass,ClassId=Class_Rogue|RequireClassId=Class_Rogue_0|Chance=0.25,,刺客进阶,装备后，Mode2 制造职业为 Class_Rogue_0 的士兵时，25% 概率变为 Class_Rogue,Style_AdvanceOutline,30,1
+MagicBook_Form_Wedge,0,0,SoldierManufacture,GrantFormationSkill,FormationId=Form_Wedge_01,MagicBook_Form_Wedge,楔阵,装备后，Mode2 制造 Step2 命中时授予楔阵技能（写入 SoldierSkills）,,,
+MagicBook_Form_Wedge_02,0,0,SoldierManufacture,GrantFormationSkill,FormationId=Form_Wedge_02,MagicBook_Form_Wedge_02,平行阵,装备后，Mode2 制造 Step2 命中时授予平行阵技能（写入 SoldierSkills）,,,

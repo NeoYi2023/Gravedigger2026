@@ -9,6 +9,7 @@ using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.Pathing;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Formation;
@@ -20,7 +21,7 @@ namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
     /// Defend stage presentation bridge (Approach A / D-040–D-043 + MassCombatPathing MP-06).
-    /// Rules live in DefendSessionService. Move: AttackSlot / FormationHome via MassMoveScheduler.
+    /// Rules live in DefendSessionService. Move: AttackSlot / FormationHome / FormationSlot via MassMoveScheduler.
     /// </summary>
     public sealed class DefendStageController : MonoBehaviour
     {
@@ -68,6 +69,8 @@ namespace Gravedigger2026.Gameplay.Defend
         private AttackSlotService _attackSlots;
         private int _nextMoveId;
         private int _slotGoalCursor;
+        private TacticalFormationRuntimeService _tacticalRuntime;
+        private List<TacticalFormationCombatLock> _tacticalCombatLocks;
 
         public void ConfigureCatalog(DefendPrefabCatalog catalog, FormationPrefabCatalog formationCatalog = null)
         {
@@ -186,6 +189,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _session.MonsterCombatStateChanged += HandleMonsterCombatStateChanged;
             _session.MonsterKilled += HandleMonsterKilled;
             _session.WarriorCombatStateChanged += HandleWarriorCombatStateChanged;
+            _session.WarriorCombatDead += HandleWarriorCombatDead;
             _clearVictoryHintShown = false;
             _session.BeginPrepare(context.DefendConfig);
 
@@ -270,6 +274,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 _session.MonsterCombatStateChanged -= HandleMonsterCombatStateChanged;
                 _session.MonsterKilled -= HandleMonsterKilled;
                 _session.WarriorCombatStateChanged -= HandleWarriorCombatStateChanged;
+                _session.WarriorCombatDead -= HandleWarriorCombatDead;
                 _session.Stop();
                 _session = null;
             }
@@ -373,6 +378,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            var tacticalLocks = SnapshotTacticalFormationLocks();
+            _tacticalCombatLocks = tacticalLocks;
             CloseFormationEditor();
             if (_defendCamera != null)
             {
@@ -385,8 +392,10 @@ namespace Gravedigger2026.Gameplay.Defend
                 ? CombatMagicBookStatMul.Aggregate(_specialEquipSlots, _configs)
                 : CombatStatMulBuff.Identity;
             DeployCombatUnits();
+            CommitTacticalFormationRuntime(tacticalLocks, TacticalFormationCenterMode.Hold);
             RefreshCombatBondHud();
             _session.ResolveStartBattleRebelRolls(_configs);
+            NotifyTacticalFormationRebels();
             if (_hudView != null)
             {
                 _hudView.SetPrepareVisible(false);
@@ -439,7 +448,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 _progress,
                 _configs,
                 null,
-                _mapInstance);
+                _mapInstance,
+                _formationCatalog);
         }
 
         private void CloseFormationEditor()
@@ -843,7 +853,12 @@ namespace Gravedigger2026.Gameplay.Defend
                 }
 
                 _configs.TryGetClass(warrior.ClassId, out var classRow);
-                if (!_session.TryRegisterWarrior(warrior, classRow, _combatMagicBookBuff, out _, out var regError))
+                if (!_session.TryRegisterWarrior(
+                        warrior,
+                        classRow,
+                        ResolveCombatRegisterBuff(warrior.Id),
+                        out _,
+                        out var regError))
                 {
                     Debug.LogWarning($"[DefendStage] RegisterWarrior failed: {regError}");
                     continue;
@@ -937,6 +952,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _deployedViews.Clear();
             _warriorAgents.Clear();
             _battleProtagonistInstance = null;
+            _tacticalRuntime?.Clear();
         }
 
         private void EnsurePathingServices()
@@ -965,7 +981,9 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            TickTacticalFormationCenter();
             TickAttackSlotGoals();
+            RefreshFormationSlotDestinations();
 
             _moveSamples.Clear();
             for (var i = 0; i < _warriorAgents.Count; i++)
@@ -1050,6 +1068,20 @@ namespace Gravedigger2026.Gameplay.Defend
             var monster = warrior.FindNearestEngageMonster();
             if (monster == null)
             {
+                var homeXZ = warrior.HasFormationHome
+                    ? new Vector2(warrior.FormationHome.x, warrior.FormationHome.z)
+                    : default;
+                if (TryApplyFormationMemberGoal(
+                        warrior.WarriorId,
+                        warrior.MoveId,
+                        warrior.AttackerId,
+                        TacticalFormationIdleFallback.FormationHome,
+                        homeXZ,
+                        idle: true))
+                {
+                    return;
+                }
+
                 // SPEC_03 §3.12: no EngageZone target → FormationHome; keep searching (abort on new target).
                 _attackSlots.Release(warrior.AttackerId);
                 _moveScheduler.SetPaused(warrior.MoveId, false);
@@ -1065,6 +1097,44 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            var distXZ = CombatReach.DistanceXZ(warrior.transform.position, monster.transform.position);
+            var inRange = CombatReach.IsInAttackRange(
+                    distXZ,
+                    warrior.AttackRange,
+                    warrior.AgentRadius,
+                    monster.BodyRadius);
+            var enemyXZ = new Vector2(monster.transform.position.x, monster.transform.position.z);
+
+            if (_tacticalRuntime != null
+                && _tacticalRuntime.IsMember(warrior.WarriorId)
+                && !TacticalFormationCombatGoalPolicy.IsEnemyInsideLeash(
+                    _tacticalRuntime,
+                    warrior.WarriorId,
+                    enemyXZ))
+            {
+                if (inRange)
+                {
+                    _attackSlots.Release(warrior.AttackerId);
+                    var holdHere = new Vector2(warrior.transform.position.x, warrior.transform.position.z);
+                    _moveScheduler.SetGoal(warrior.MoveId, GoalKind.AttackSlot, holdHere);
+                    _moveScheduler.SetPaused(warrior.MoveId, true);
+                    return;
+                }
+
+                if (TryApplyFormationMemberGoal(
+                        warrior.WarriorId,
+                        warrior.MoveId,
+                        warrior.AttackerId,
+                        TacticalFormationIdleFallback.FormationHome,
+                        warrior.HasFormationHome
+                            ? new Vector2(warrior.FormationHome.x, warrior.FormationHome.z)
+                            : default,
+                        beyondLeash: true))
+                {
+                    return;
+                }
+            }
+
             var claimed = _attackSlots.TryClaim(
                     warrior.AttackerId,
                     monster.RuntimeId,
@@ -1077,12 +1147,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     warrior.AgentRadius,
                     CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, warrior.AttackMode));
 
-            var distXZ = CombatReach.DistanceXZ(warrior.transform.position, monster.transform.position);
-            if (CombatReach.IsInAttackRange(
-                    distXZ,
-                    warrior.AttackRange,
-                    warrior.AgentRadius,
-                    monster.BodyRadius))
+            if (inRange)
             {
                 var hold = claimed
                     ? CombatReach.ChaseDestinationXZ(
@@ -1094,6 +1159,10 @@ namespace Gravedigger2026.Gameplay.Defend
                         monster.BodyRadius,
                         MassMoveScheduler.ArriveEpsilon)
                     : new Vector2(warrior.transform.position.x, warrior.transform.position.z);
+                hold = TacticalFormationCombatGoalPolicy.ClampAttackSlot(
+                    _tacticalRuntime,
+                    warrior.WarriorId,
+                    hold);
                 _moveScheduler.SetGoal(warrior.MoveId, GoalKind.AttackSlot, hold);
                 _moveScheduler.SetPaused(warrior.MoveId, true);
                 return;
@@ -1101,6 +1170,19 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (!claimed)
             {
+                if (TryApplyFormationMemberGoal(
+                        warrior.WarriorId,
+                        warrior.MoveId,
+                        warrior.AttackerId,
+                        TacticalFormationIdleFallback.FormationHome,
+                        warrior.HasFormationHome
+                            ? new Vector2(warrior.FormationHome.x, warrior.FormationHome.z)
+                            : default,
+                        overflow: true))
+                {
+                    return;
+                }
+
                 _moveScheduler.SetPaused(warrior.MoveId, true);
                 return;
             }
@@ -1113,8 +1195,285 @@ namespace Gravedigger2026.Gameplay.Defend
                 warrior.AgentRadius,
                 monster.BodyRadius,
                 MassMoveScheduler.ArriveEpsilon);
+            dest = TacticalFormationCombatGoalPolicy.ClampAttackSlot(
+                _tacticalRuntime,
+                warrior.WarriorId,
+                dest);
             _moveScheduler.SetPaused(warrior.MoveId, false);
             _moveScheduler.SetGoal(warrior.MoveId, GoalKind.AttackSlot, dest);
+        }
+
+        private List<TacticalFormationCombatLock> SnapshotTacticalFormationLocks()
+        {
+            if (_formationEditor == null)
+            {
+                return new List<TacticalFormationCombatLock>(0);
+            }
+
+            return TacticalFormationRuntimeService.BuildLocks(
+                _formationEditor.Layout,
+                _configs,
+                _formationCatalog);
+        }
+
+        private void CommitTacticalFormationRuntime(
+            List<TacticalFormationCombatLock> locks,
+            TacticalFormationCenterMode centerMode)
+        {
+            _tacticalRuntime ??= new TacticalFormationRuntimeService();
+            var speed = ResolveRepresentativeMoveSpeed(locks);
+            _tacticalRuntime.OnStartBattle(locks, centerMode, speed);
+        }
+
+        private CombatStatMulBuff ResolveCombatRegisterBuff(string warriorId)
+        {
+            return TacticalFormationStatOverlay.CombineWithMemberLocks(
+                _combatMagicBookBuff,
+                _tacticalCombatLocks,
+                warriorId);
+        }
+
+        private void NotifyTacticalFormationRebels()
+        {
+            if (_session == null || _tacticalRuntime == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _warriorAgents.Count; i++)
+            {
+                var warrior = _warriorAgents[i];
+                if (warrior == null || !warrior.IsRebel)
+                {
+                    continue;
+                }
+
+                HandleTacticalFormationMemberLost(warrior.WarriorId, TacticalFormationMemberLostReason.Rebel);
+            }
+        }
+
+        private void HandleWarriorCombatDead(string warriorId)
+        {
+            HandleTacticalFormationMemberLost(warriorId, TacticalFormationMemberLostReason.CombatDead);
+        }
+
+        private void HandleTacticalFormationMemberLost(
+            string warriorId,
+            TacticalFormationMemberLostReason reason)
+        {
+            if (_tacticalRuntime == null
+                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change))
+            {
+                return;
+            }
+
+            var removed = change.OverlayRemovedWarriorIds;
+            for (var i = 0; i < removed.Length; i++)
+            {
+                UnapplyTacticalFormationOverlay(removed[i]);
+                if (change.SquadDissolved)
+                {
+                    ApplyDefendDissolveFallback(removed[i]);
+                }
+            }
+        }
+
+        private void UnapplyTacticalFormationOverlay(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _warriorPool == null
+                || !_warriorPool.TryGet(warriorId, out var warrior)
+                || warrior == null
+                || _session == null)
+            {
+                return;
+            }
+
+            if (!_session.IsWarriorCombatActive(warriorId))
+            {
+                return;
+            }
+
+            _configs.TryGetClass(warrior.ClassId, out var classRow);
+            _session.TryRefreshCombatDerivedStats(warrior, classRow, _combatMagicBookBuff);
+            for (var i = 0; i < _warriorAgents.Count; i++)
+            {
+                var view = _warriorAgents[i];
+                if (view != null && string.Equals(view.WarriorId, warriorId, StringComparison.Ordinal))
+                {
+                    view.RefreshMoveSpeedFromSession();
+                    break;
+                }
+            }
+        }
+
+        private void ApplyDefendDissolveFallback(string warriorId)
+        {
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _warriorAgents.Count; i++)
+            {
+                var view = _warriorAgents[i];
+                if (view == null
+                    || view.MoveId == 0
+                    || !string.Equals(view.WarriorId, warriorId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var world = view.transform.position;
+                view.SetFormationHome(world);
+                _attackSlots?.Release(view.AttackerId);
+                _moveScheduler.SetPaused(view.MoveId, false);
+                _moveScheduler.SetGoal(
+                    view.MoveId,
+                    GoalKind.FormationHome,
+                    new Vector2(world.x, world.z));
+                return;
+            }
+        }
+
+        private float ResolveRepresentativeMoveSpeed(List<TacticalFormationCombatLock> locks)
+        {
+            if (locks == null || _session == null)
+            {
+                return 0f;
+            }
+
+            for (var i = 0; i < locks.Count; i++)
+            {
+                var members = locks[i].MemberIds;
+                if (members == null)
+                {
+                    continue;
+                }
+
+                for (var m = 0; m < members.Length; m++)
+                {
+                    var id = members[m];
+                    if (string.IsNullOrEmpty(id)
+                        || !_session.TryGetWarrior(id, out var state)
+                        || state == null
+                        || state.MoveSpeed <= 0.01f)
+                    {
+                        continue;
+                    }
+
+                    return state.MoveSpeed;
+                }
+            }
+
+            return 0f;
+        }
+
+        private void TickTacticalFormationCenter()
+        {
+            if (_tacticalRuntime == null || _tacticalRuntime.SquadCount == 0)
+            {
+                return;
+            }
+
+            _tacticalRuntime.Tick(Time.deltaTime, Vector2.zero);
+        }
+
+        private void RefreshFormationSlotDestinations()
+        {
+            if (_tacticalRuntime == null
+                || _tacticalRuntime.MemberCount == 0
+                || _moveScheduler == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _warriorAgents.Count; i++)
+            {
+                var warrior = _warriorAgents[i];
+                if (warrior == null
+                    || warrior.MoveId == 0
+                    || warrior.IsRebel
+                    || (_session != null && !_session.IsWarriorCombatActive(warrior.WarriorId)))
+                {
+                    continue;
+                }
+
+                if (!_moveScheduler.TryGetGoal(warrior.MoveId, out var kind, out _)
+                    || kind != GoalKind.FormationSlot)
+                {
+                    continue;
+                }
+
+                if (!_tacticalRuntime.TryGetSlotWorldXZ(warrior.WarriorId, out var slot))
+                {
+                    continue;
+                }
+
+                _moveScheduler.SetGoal(warrior.MoveId, GoalKind.FormationSlot, slot);
+            }
+        }
+
+        private bool TryApplyFormationMemberGoal(
+            string warriorId,
+            int moveId,
+            string attackerId,
+            TacticalFormationIdleFallback fallback,
+            Vector2 fallbackHomeXZ,
+            bool idle = false,
+            bool beyondLeash = false,
+            bool overflow = false)
+        {
+            if (_tacticalRuntime == null || _moveScheduler == null || string.IsNullOrEmpty(warriorId))
+            {
+                return false;
+            }
+
+            GoalKind kind;
+            Vector2 dest;
+            var handled = false;
+            if (idle)
+            {
+                handled = TacticalFormationCombatGoalPolicy.TryResolveIdleGoal(
+                    _tacticalRuntime,
+                    warriorId,
+                    fallback,
+                    fallbackHomeXZ,
+                    out kind,
+                    out dest);
+            }
+            else if (beyondLeash)
+            {
+                handled = TacticalFormationCombatGoalPolicy.TryResolveBeyondLeashHold(
+                    _tacticalRuntime,
+                    warriorId,
+                    out kind,
+                    out dest);
+            }
+            else if (overflow)
+            {
+                handled = TacticalFormationCombatGoalPolicy.TryResolveOverflow(
+                    _tacticalRuntime,
+                    warriorId,
+                    fallback,
+                    fallbackHomeXZ,
+                    out kind,
+                    out dest);
+            }
+            else
+            {
+                return false;
+            }
+
+            if (!handled)
+            {
+                return false;
+            }
+
+            _attackSlots?.Release(attackerId);
+            _moveScheduler.SetPaused(moveId, false);
+            _moveScheduler.SetGoal(moveId, kind, dest);
+            return true;
         }
 
         private void RefreshRebelSlotGoal(WarriorAgentView warrior)

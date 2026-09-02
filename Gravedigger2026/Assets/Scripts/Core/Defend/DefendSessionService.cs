@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using UnityEngine;
 
@@ -49,6 +50,8 @@ namespace Gravedigger2026.Core.Defend
         public event Action<string> MonsterCombatStateChanged;
         /// <summary>Monster RemainingHp≤0 (runtimeId, killerWarriorId, outgoingDamage, deathTag). View NotifyKilled + death knockback.</summary>
         public event Action<string, string, float, string> MonsterKilled;
+        /// <summary>TF-05: warrior RemainingHp≤0 → CombatDead (or gem PermanentDeath).</summary>
+        public event Action<string> WarriorCombatDead;
 
         public bool IsActive => _active;
         public DefendPhase Phase => _phase;
@@ -369,6 +372,29 @@ namespace Gravedigger2026.Core.Defend
                 $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##} Range={state.AttackRange:0.##} " +
                 $"ProjSpeed={state.RangedProjectileSpeed:0.##} ProjTimeout={state.RangedTimeoutSeconds:0.##}{buffLog}");
             WarriorCombatStateChanged?.Invoke(state.WarriorId);
+            return true;
+        }
+
+        public bool TryRefreshCombatDerivedStats(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            CombatStatMulBuff combatBuff)
+        {
+            if (warrior == null
+                || string.IsNullOrEmpty(warrior.Id)
+                || !_warriors.TryGetValue(warrior.Id, out var state)
+                || state == null)
+            {
+                return false;
+            }
+
+            WarriorCombatDerivedStats.Refresh(state, warrior, classRow, combatBuff, _configs);
+            warrior.RemainingHP = state.RemainingHp;
+            WarriorCombatStateChanged?.Invoke(state.WarriorId);
+            Debug.Log(
+                $"[DefendSession] RefreshCombatStats {state.WarriorId} HP={state.RemainingHp:0}/{state.MaxHp} " +
+                $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##} Mov={state.MoveSpeed:0.##} " +
+                $"CombatBuff={combatBuff}");
             return true;
         }
 
@@ -700,6 +726,8 @@ namespace Gravedigger2026.Core.Defend
                 warrior.IsCombatDead = true;
                 Debug.Log($"[DefendSession] CombatDead {warrior.WarriorId} (stop acting)");
             }
+
+            WarriorCombatDead?.Invoke(warrior.WarriorId);
         }
 
         private bool EvaluateClearVictoryCondition()

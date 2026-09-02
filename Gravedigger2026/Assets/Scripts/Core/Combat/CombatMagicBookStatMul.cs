@@ -12,30 +12,44 @@ namespace Gravedigger2026.Core.Combat
     /// </summary>
     public readonly struct CombatStatMulBuff
     {
-        public static readonly CombatStatMulBuff Identity = new CombatStatMulBuff(1f, 1f, 1f, 1f);
+        public static readonly CombatStatMulBuff Identity = new CombatStatMulBuff(1f, 1f, 1f, 1f, 1f);
 
         public CombatStatMulBuff(
             float maxHpBodyLifeMul,
             float strengthMul,
             float agilityMul,
-            float intelligenceMul)
+            float intelligenceMul,
+            float moveSpeedMul = 1f)
         {
             MaxHpBodyLifeMul = maxHpBodyLifeMul;
             StrengthMul = strengthMul;
             AgilityMul = agilityMul;
             IntelligenceMul = intelligenceMul;
+            MoveSpeedMul = moveSpeedMul;
         }
 
         public float MaxHpBodyLifeMul { get; }
         public float StrengthMul { get; }
         public float AgilityMul { get; }
         public float IntelligenceMul { get; }
+        public float MoveSpeedMul { get; }
 
         public bool IsIdentity =>
             MaxHpBodyLifeMul == 1f
             && StrengthMul == 1f
             && AgilityMul == 1f
-            && IntelligenceMul == 1f;
+            && IntelligenceMul == 1f
+            && MoveSpeedMul == 1f;
+
+        public CombatStatMulBuff Multiply(in CombatStatMulBuff other)
+        {
+            return new CombatStatMulBuff(
+                MaxHpBodyLifeMul * other.MaxHpBodyLifeMul,
+                StrengthMul * other.StrengthMul,
+                AgilityMul * other.AgilityMul,
+                IntelligenceMul * other.IntelligenceMul,
+                MoveSpeedMul * other.MoveSpeedMul);
+        }
 
         public void ApplyToBattleStats(ref StatBlock battleStats)
         {
@@ -53,6 +67,11 @@ namespace Gravedigger2026.Core.Combat
             {
                 battleStats.Intelligence *= IntelligenceMul;
             }
+
+            if (MoveSpeedMul != 1f)
+            {
+                battleStats.MoveSpeed *= MoveSpeedMul;
+            }
         }
 
         public float ApplyToBodyLife(float bodyLife)
@@ -62,7 +81,7 @@ namespace Gravedigger2026.Core.Combat
 
         public override string ToString()
         {
-            return $"HP×{MaxHpBodyLifeMul:0.###} Str×{StrengthMul:0.###} Agi×{AgilityMul:0.###} Int×{IntelligenceMul:0.###}";
+            return $"HP×{MaxHpBodyLifeMul:0.###} Str×{StrengthMul:0.###} Agi×{AgilityMul:0.###} Int×{IntelligenceMul:0.###} Mov×{MoveSpeedMul:0.###}";
         }
     }
 
