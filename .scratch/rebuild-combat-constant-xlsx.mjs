@@ -185,13 +185,17 @@ function loadCsv(csvPath) {
   const iVal = header.indexOf("Value");
   const iC = header.indexOf("Comment");
   const iCzh = header.indexOf("CommentZh");
-  return rows.slice(1).map((r) => ({
-    key: r[iKey],
-    zh: r[iZh] || "",
-    value: r[iVal],
-    comment: r[iC] || "",
-    commentZh: r[iCzh] || "",
-  }));
+  return rows.slice(1).map((r) => {
+    const commentZh =
+      r.length > 5 ? [...r.slice(iCzh, r.length)].join(",") : r[iCzh] || "";
+    return {
+      key: r[iKey],
+      zh: r[iZh] || "",
+      value: r[iVal],
+      comment: r[iC] || "",
+      commentZh,
+    };
+  });
 }
 
 const JSZip = ensureJszip();

@@ -5,7 +5,8 @@ namespace Gravedigger2026.Gameplay.Defend
 {
     /// <summary>
     /// Monster-only death knockback (SPEC_04 §15.5): distance from OutgoingDamage/MaxHp
-    /// × CombatConstantConfig coeffs; parabolic arc on Y; direction away from killer on XZ.
+    /// × CombatConstantConfig coeffs; parabolic arc on Y; direction away from killer on XZ
+    /// with optional symmetric random yaw offset.
     /// </summary>
     public static class MonsterDeathPresentation
     {
@@ -44,14 +45,73 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         /// <summary>
-        /// End = M + normalize(M − S)_xz × distance; Y kept from M.
+        /// N = floor(SpreadHalf / Step) when both &gt; 0; else 0.
+        /// </summary>
+        public static int GetKnockbackDirectionStepIndexMax()
+        {
+            var spreadHalf = CombatRuntimeTuning.DeathKnockbackDirectionSpreadHalfDegrees;
+            var step = CombatRuntimeTuning.DeathKnockbackDirectionRandomStepDegrees;
+            if (spreadHalf <= 0f || step <= 0f)
+            {
+                return 0;
+            }
+
+            return Mathf.FloorToInt(spreadHalf / step);
+        }
+
+        /// <summary>offsetDeg = stepIndex × DeathKnockbackDirectionRandomStepDegrees.</summary>
+        public static float ComputeKnockbackDirectionOffsetDegrees(int stepIndex)
+        {
+            var step = CombatRuntimeTuning.DeathKnockbackDirectionRandomStepDegrees;
+            if (step <= 0f)
+            {
+                return 0f;
+            }
+
+            return stepIndex * step;
+        }
+
+        /// <summary>
+        /// k ~ UniformInteger[-N, +N]; offset = k × Step. Returns 0 when randomization disabled.
+        /// </summary>
+        public static float RollKnockbackDirectionOffsetDegrees()
+        {
+            var maxIndex = GetKnockbackDirectionStepIndexMax();
+            if (maxIndex <= 0)
+            {
+                return 0f;
+            }
+
+            var k = Random.Range(-maxIndex, maxIndex + 1);
+            return ComputeKnockbackDirectionOffsetDegrees(k);
+        }
+
+        /// <summary>Rotate a normalized XZ direction around world Y (degrees, CCW from above).</summary>
+        public static Vector2 RotatePlanarDirection(Vector2 dir, float yawDegrees)
+        {
+            if (Mathf.Abs(yawDegrees) <= 1e-6f)
+            {
+                return dir;
+            }
+
+            var rad = yawDegrees * Mathf.Deg2Rad;
+            var cos = Mathf.Cos(rad);
+            var sin = Mathf.Sin(rad);
+            return new Vector2(
+                dir.x * cos - dir.y * sin,
+                dir.x * sin + dir.y * cos);
+        }
+
+        /// <summary>
+        /// End = M + normalize(M − S)_xz rotated by offset × distance; Y kept from M.
         /// Returns false when killer coincides with M (zero planar dir) or distance ≤ 0.
         /// </summary>
         public static bool TryDirectionalKnockbackTarget(
             Vector3 monsterDeathPos,
             Vector3 killerWorldPos,
             float distance,
-            out Vector3 target)
+            out Vector3 target,
+            float? directionOffsetDegrees = null)
         {
             target = monsterDeathPos;
             if (distance <= 0f)
@@ -68,10 +128,17 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var inv = 1f / Mathf.Sqrt(lenSq);
+            var dir = new Vector2(dx * inv, dz * inv);
+            var offset = directionOffsetDegrees ?? RollKnockbackDirectionOffsetDegrees();
+            if (Mathf.Abs(offset) > 1e-6f)
+            {
+                dir = RotatePlanarDirection(dir, offset);
+            }
+
             target = new Vector3(
-                monsterDeathPos.x + dx * inv * distance,
+                monsterDeathPos.x + dir.x * distance,
                 monsterDeathPos.y,
-                monsterDeathPos.z + dz * inv * distance);
+                monsterDeathPos.z + dir.y * distance);
             return true;
         }
 

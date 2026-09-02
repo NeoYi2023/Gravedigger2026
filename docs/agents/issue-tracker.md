@@ -20,6 +20,14 @@ spec_refs:
 - `demo_scope: in-scope` must match SPEC_03 §3.8
 - One issue = one end-to-end verifiable vertical slice
 
+## Acceptance (config tables)
+
+When an issue touches `ConfigTables/**`:
+
+- [ ] Excel updated (rows 1–2 doc header preserved); see [SPEC_04 §14.7](../../SPEC_04_Technical.md)
+- [ ] CSV baked from Excel (Mode1 and/or Mode2 as scoped)
+- [ ] No CSV-only delivery without Excel sync
+
 ## Workflow
 
 1. Prefer `/to-issues` after workload split or multi-task planning

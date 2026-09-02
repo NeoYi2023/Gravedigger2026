@@ -22,6 +22,8 @@ namespace Gravedigger2026.Gameplay.Defend
             CheckKnockbackDistanceUnchanged(sb);
             CheckShouldPreferDie2Unchanged(sb);
             CheckShadowScaleMul(sb);
+            CheckKnockbackDirectionOffset(sb);
+            CheckKnockbackDirectionStepIndexMax(sb);
             return sb.Length == 0 ? null : sb.ToString();
         }
 
@@ -201,6 +203,109 @@ namespace Gravedigger2026.Gameplay.Defend
                 {
                     sb.AppendLine($"ShadowScaleMul: at peak {atPeak:F4} expect 1");
                 }
+            }
+        }
+
+        private static void CheckKnockbackDirectionOffset(StringBuilder sb)
+        {
+            var monster = new Vector3(0f, 0f, 0f);
+            var killer = new Vector3(-1f, 0f, 0f);
+            const float distance = 2f;
+
+            if (!MonsterDeathPresentation.TryDirectionalKnockbackTarget(
+                    monster,
+                    killer,
+                    distance,
+                    out var zeroOffsetTarget,
+                    0f))
+            {
+                sb.AppendLine("KnockbackDirection: expected success at offset 0");
+                return;
+            }
+
+            if (Mathf.Abs(zeroOffsetTarget.x - distance) > Epsilon || Mathf.Abs(zeroOffsetTarget.z) > Epsilon)
+            {
+                sb.AppendLine(
+                    $"KnockbackDirection: offset 0 target={zeroOffsetTarget} expect ({distance},0,0)");
+            }
+
+            var spreadHalf = CombatRuntimeTuning.DeathKnockbackDirectionSpreadHalfDegrees;
+            if (spreadHalf <= 0f)
+            {
+                return;
+            }
+
+            if (!MonsterDeathPresentation.TryDirectionalKnockbackTarget(
+                    monster,
+                    killer,
+                    distance,
+                    out var positiveTarget,
+                    spreadHalf))
+            {
+                sb.AppendLine("KnockbackDirection: expected success at +SpreadHalf");
+                return;
+            }
+
+            var expectedPositive = MonsterDeathPresentation.RotatePlanarDirection(Vector2.right, spreadHalf);
+            var expectX = expectedPositive.x * distance;
+            var expectZ = expectedPositive.y * distance;
+            if (Mathf.Abs(positiveTarget.x - expectX) > 0.01f ||
+                Mathf.Abs(positiveTarget.z - expectZ) > 0.01f)
+            {
+                sb.AppendLine(
+                    $"KnockbackDirection: +SpreadHalf target=({positiveTarget.x:F4},{positiveTarget.z:F4}) " +
+                    $"expect ({expectX:F4},{expectZ:F4})");
+            }
+
+            if (!MonsterDeathPresentation.TryDirectionalKnockbackTarget(
+                    monster,
+                    killer,
+                    distance,
+                    out var negativeTarget,
+                    -spreadHalf))
+            {
+                sb.AppendLine("KnockbackDirection: expected success at -SpreadHalf");
+                return;
+            }
+
+            var expectedNegative = MonsterDeathPresentation.RotatePlanarDirection(Vector2.right, -spreadHalf);
+            expectX = expectedNegative.x * distance;
+            expectZ = expectedNegative.y * distance;
+            if (Mathf.Abs(negativeTarget.x - expectX) > 0.01f ||
+                Mathf.Abs(negativeTarget.z - expectZ) > 0.01f)
+            {
+                sb.AppendLine(
+                    $"KnockbackDirection: -SpreadHalf target=({negativeTarget.x:F4},{negativeTarget.z:F4}) " +
+                    $"expect ({expectX:F4},{expectZ:F4})");
+            }
+        }
+
+        private static void CheckKnockbackDirectionStepIndexMax(StringBuilder sb)
+        {
+            var spreadHalf = CombatRuntimeTuning.DeathKnockbackDirectionSpreadHalfDegrees;
+            var step = CombatRuntimeTuning.DeathKnockbackDirectionRandomStepDegrees;
+            var maxIndex = MonsterDeathPresentation.GetKnockbackDirectionStepIndexMax();
+
+            if (spreadHalf <= 0f || step <= 0f)
+            {
+                if (maxIndex != 0)
+                {
+                    sb.AppendLine($"KnockbackDirectionStepIndexMax: disabled random expected 0 got {maxIndex}");
+                }
+
+                return;
+            }
+
+            var expect = Mathf.FloorToInt(spreadHalf / step);
+            if (maxIndex != expect)
+            {
+                sb.AppendLine($"KnockbackDirectionStepIndexMax: {maxIndex} expect {expect}");
+            }
+
+            var maxOffset = MonsterDeathPresentation.ComputeKnockbackDirectionOffsetDegrees(maxIndex);
+            if (Mathf.Abs(maxOffset - maxIndex * step) > Epsilon)
+            {
+                sb.AppendLine($"KnockbackDirectionOffset: max index offset {maxOffset:F4} expect {maxIndex * step:F4}");
             }
         }
     }

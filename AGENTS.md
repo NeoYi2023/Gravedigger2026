@@ -37,6 +37,7 @@ Demo 任务：`.scratch/<feature-slug>/issues/`。见 [`docs/agents/issue-tracke
 3. 编码前 → §8 工作量 + 难度；须拆步 → `/to-issues`；2/3 → 方案比选
 4. Handoff → `.scratch/handoffs/`
 5. 选项确认 → `AskQuestion`
+6. 配置表变更 → Excel 为源、CSV 为产物；禁止只改 CSV / 删 Excel 第 1～2 行；详见 [SPEC_04 §14.7](SPEC_04_Technical.md)
 
 ## 项目 Skills
 

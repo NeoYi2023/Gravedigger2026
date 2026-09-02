@@ -2399,6 +2399,7 @@ UpgradeManufacture stage
 | 合一语义 | 抛物线击飞与尸体砸人 **同一通道**：尸体 Transform 沿轨迹运动；规则层在飞行/落地检测命中并扣 HP |
 | 触发 | 怪物 `RemainingHp≤0` 进入死亡表现时均启动（彻底击杀 + PushMap **`MonsterCombatDead` 假死**） |
 | 击飞距离 | 与历史击飞同源：`raw=(OutgoingDamage/MaxHp)×DeathKnockbackRatioCoeff`；`distance=clamp(Min,Max,raw)`；`OutgoingDamage` = 致命击扣血前打出值（含 Comfort / D-073；**不是** `min(伤害, RemainingHp)`） |
+| 击飞方向 | 基准 `normalize(M−S)_xz` 为 0°；在 `±DeathKnockbackDirectionSpreadHalfDegrees` 扇区内按 `DeathKnockbackDirectionRandomStepDegrees` 整数倍均匀随机偏角后 `RotateY`；两键 `≤0` 时固定基准方向。详见 [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | 砸击门闩 | **`distance < DeathDie2KnockbackThreshold`**（← `CombatConstantConfig`，样例 `1`）→ **仅**抛物线位移 + 死亡 latch；**不产生**砸击伤害。`distance ≥ 阈值` → 启用飞行扫掠 + 落地砸击 |
 | 可砸目标 | **仅**其它 **存活**怪物（`RemainingHp>0`、可选中、非飞行尸体自身）。**不含**己方士兵、主角护盾 |
 | 伤害时机 | **飞行途中**软碰撞扫掠 + **落地瞬间**落点检测；同一尸体飞行对同一 `targetRuntimeId` **只结算一次**（`alreadyHit` 集合；途中已命中者落地 **不**重复） |
@@ -2805,6 +2806,7 @@ Optional `CombatMoveMode` beside `GoalKind` (default derived from GoalKind). **E
 | Unified semantics | Parabolic knockback and corpse smash share **one channel**: corpse `Transform` follows the arc; rules layer detects hits during flight / landing and subtracts HP |
 | Trigger | Starts on any monster death presentation entry (`RemainingHp≤0`): true kill + PushMap **`MonsterCombatDead` fake death** |
 | Knockback distance | Same as legacy knockback: `raw=(OutgoingDamage/MaxHp)×DeathKnockbackRatioCoeff`; `distance=clamp(Min,Max,raw)`; `OutgoingDamage` = pre-HP-clamp dealt on the fatal hit (incl. Comfort / D-073; **not** `min(damage, RemainingHp)`) |
+| Knockback direction | Base `normalize(M−S)_xz` is 0°; uniform random yaw in `±DeathKnockbackDirectionSpreadHalfDegrees` at `DeathKnockbackDirectionRandomStepDegrees` granularity, then `RotateY`; both keys `≤0` → fixed base direction. See [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | Smash gate | **`distance < DeathDie2KnockbackThreshold`** (← `CombatConstantConfig`, sample `1`) → parabolic move + death latch only; **no** smash damage. `distance ≥ threshold` → flight sweep + landing smash enabled |
 | Smash targets | **Only** other **living** monsters (`RemainingHp>0`, selectable, not the flying corpse). **Excludes** loyal soldiers and protagonist shield |
 | Damage timing | **In-flight** soft sweep + **landing** impact at endpoint; each corpse flight settles **once per** `targetRuntimeId` (`alreadyHit` set; mid-flight hits are **not** repeated on landing) |

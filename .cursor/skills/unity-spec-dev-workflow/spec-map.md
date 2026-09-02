@@ -27,7 +27,7 @@
 |------|-----------|------|
 | 工程与环境 | [SPEC_04 §1](../../SPEC_04_Technical.md) | Unity 版本、路径 |
 | 目录结构 | [SPEC_04 §2](../../SPEC_04_Technical.md) | Assets 约定 |
-| 配置表工程约定 / 打表 | [SPEC_04 §14](../../SPEC_04_Technical.md) | Excel 四段中英名 + CSV 两段英文名、Bake Tables 菜单 |
+| 配置表工程约定 / 打表 | [SPEC_04 §14](../../SPEC_04_Technical.md) | Excel 四段中英名 + CSV 两段英文名、Bake Tables 菜单；Agent 双格式同步见 §14.7 |
 | 角色美术管线 / 烘焙整角 | [SPEC_04 §15](../../SPEC_04_Technical.md) | Character Creator；工具目录禁入；导出补丁→Art/Characters→Prefabs；[§15.2](../../SPEC_04_Technical.md) AllIn1 VisualStyle 新增预设流程 |
 | 代码规范 | [SPEC_04 §3](../../SPEC_04_Technical.md) | 命名、命名空间 |
 | 跨平台输入 | [SPEC_04 §4](../../SPEC_04_Technical.md) | 输入抽象占位；UI-024 PlayerPointer 硬件光标 |

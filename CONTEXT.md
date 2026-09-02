@@ -55,6 +55,7 @@
 | BgmService | BGM 服务 | 读表加权随机；经 `BgmClipCatalog` 解析 clip；同 Context 幂等；挂 Meta/Boot | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Level | 关卡 | 关卡运作表驱动的多阶段流程；UM 阶段 `GameplayConfigId` 忽略 | [§3.1](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | ConfigTables | 配置表根目录 | Mode1：`Assets/ConfigTables/{Excel,Csv}`；Mode2：`Assets/ConfigTables/Mode2/{Excel,Csv}` | [SPEC_04 §14](SPEC_04_Technical.md) |
+| ConfigTableDualSync | 配置表双格式同步 | Excel 为源、CSV 为 Bake 产物；Agent 禁止只改 CSV / 删第 1～2 行说明 | [SPEC_04 §14.7](SPEC_04_Technical.md) |
 | BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | CharacterArtPipeline | 角色美术管线 | Character Creator **烘焙整角**；游戏资源不得落在工具目录；导出补丁→`Art/Characters`→`Prefabs` | [SPEC_04 §15](SPEC_04_Technical.md) |
 | BakedWholeCharacter | 烘焙整角 | 用 Creator 拼装后导出整角 spritesheet/Animator/Prefab；非运行时叠装 | [SPEC_04 §15](SPEC_04_Technical.md) |
@@ -118,6 +119,8 @@
 | NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（职业覆盖，否则 CombatConstantConfig；样例 15） | [§3.12](SPEC_03_GameRules.md) |
 | CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞/尸体投射键（含 Die2 阈值、抛物线峰值、砸击系数/半径） | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
 | DeathKnockbackRatioCoeff | 死亡击飞比例系数 | 常量表键；击飞 raw=`(OutgoingDamage/MaxHp)×本值` 再 clamp | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| DeathKnockbackDirectionSpreadHalfDegrees | 死亡击飞方向半角扩散 | 常量表键；基准方向左右各允许的最大偏角（度）；`≤0` 关闭随机 | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
+| DeathKnockbackDirectionRandomStepDegrees | 死亡击飞方向随机步进 | 常量表键；偏角随机粒度（度）；`offset=k×本值` | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
 | DeathDie2KnockbackThreshold | 死亡 Die2 击退阈值 | 常量表键；默认 Die2；击飞 distance≥本值时播 Die；**尸体砸击门闩**同键 | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
 | DeathCorpseProjectile | 尸体投射 | 怪物致命击后抛物线击飞；达阈值可飞行/落地砸其它存活怪；砸死不连锁；D-083 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |
 | CorpseSmashDamage | 尸体砸击伤害 | `killerOutgoingDamage×DeathCorpseSmashDamageMul`；独立通道；不叠 Comfort/D-073 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §15.5](SPEC_04_Technical.md) |

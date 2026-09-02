@@ -1509,6 +1509,8 @@ LossOfControlConfig {
 | `DeathKnockbackMinDistance` | 死亡击飞最小距离 | `0.2` | 击飞距离下限（世界单位） |
 | `DeathKnockbackMaxDistance` | 死亡击飞最大距离 | `5` | 击飞距离上限；`OutgoingDamage≤0` 或 `MaxHp≤0` 时用本值 |
 | `DeathDie2KnockbackThreshold` | 死亡 Die2 击退阈值 | `1` | 默认 Die2；击飞 `distance ≥ 本值` → Die；**尸体砸击门闩**同键（§15.5 / D-083） |
+| `DeathKnockbackDirectionSpreadHalfDegrees` | 死亡击飞方向半角扩散 | `30` | 基准方向（远离杀手）为中轴，左右各允许的最大偏角（度）；`≤0` 关闭随机（§15.5） |
+| `DeathKnockbackDirectionRandomStepDegrees` | 死亡击飞方向随机步进 | `5` | 偏角随机粒度（度）；`offset=k×本值`，`k∈[-N,+N]` 均匀整数，`N=floor(SpreadHalf/本值)`；`≤0` 关闭随机（§15.5） |
 | `DeathKnockbackPeakHeight` | 死亡击飞抛物线峰值高度 | `1.2` | 尸体投射 Y 弧峰值（世界单位；§15.5） |
 | `DeathCorpseSmashDamageMul` | 尸体砸击伤害系数 | `1` | `CorpseSmashDamage = killerOutgoingDamage × 本值`（§15.5 / D-083） |
 | `DeathCorpseSmashHitRadius` | 尸体砸击命中半径 | `0.55` | 飞行/落地软碰撞半径；缺省对齐 `ProjectileDefaultHitRadius` |
@@ -3313,6 +3315,8 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `DeathKnockbackMinDistance` | 死亡击飞最小距离 | `0.2` | Knockback distance floor (world units) |
 | `DeathKnockbackMaxDistance` | 死亡击飞最大距离 | `5` | Knockback distance ceiling; used when `OutgoingDamage≤0` or `MaxHp≤0` |
 | `DeathDie2KnockbackThreshold` | 死亡 Die2 击退阈值 | `1` | Default Die2; knockback `distance ≥ this` → Die; **corpse smash gate** same key (§15.5 / D-083) |
+| `DeathKnockbackDirectionSpreadHalfDegrees` | 死亡击飞方向半角扩散 | `30` | Max yaw offset each side from base direction (away from killer); `≤0` disables random (§15.5) |
+| `DeathKnockbackDirectionRandomStepDegrees` | 死亡击飞方向随机步进 | `5` | Random yaw granularity (degrees); `offset=k×this`, `k∈[-N,+N]` uniform int, `N=floor(SpreadHalf/this)`; `≤0` disables random (§15.5) |
 | `DeathKnockbackPeakHeight` | 死亡击飞抛物线峰值高度 | `1.2` | Corpse projectile Y arc peak (world units; §15.5) |
 | `DeathCorpseSmashDamageMul` | 尸体砸击伤害系数 | `1` | `CorpseSmashDamage = killerOutgoingDamage × this` (§15.5 / D-083) |
 | `DeathCorpseSmashHitRadius` | 尸体砸击命中半径 | `0.55` | In-flight / landing soft-hit radius; default aligns `ProjectileDefaultHitRadius` |
@@ -4146,7 +4150,7 @@ When implementing §9 tables, follow [§14](#14-配置表工程约定与打表�
 
 ### 简体中文
 
-**状态：打表工具已实现（方案 A）；Excel 三行表头（方案 B）已约定；数值单元格 CSV 序列化（禁止浮点噪声）已约定。**
+**状态：打表工具已实现（方案 A）；Excel 三行表头（方案 B）已约定；数值单元格 CSV 序列化（禁止浮点噪声）已约定；Agent 配置表变更守则（§14.7）已约定。**
 
 凡 **§9** 及后续新增的**配置表**，统一遵守本节。
 
@@ -4256,9 +4260,48 @@ Excel (ConfigTables/Excel/{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx)
 
 **规范化示例：** `0.009999999999999995` → `0.01`；`0.06999999999999999` → `0.07`；`-0.010000000000000002` → `-0.01`；`MoveSpeed_0.30000000000000004` → `MoveSpeed_0.3`。
 
+#### 14.7 Agent 配置表变更守则
+
+**适用范围：** 凡 Agent / 自动化脚本触及 `Assets/ConfigTables/**` 下任意 `.xlsx` 或 `.csv`（增列、改值、增行、样例数据、Mode1/Mode2 分叉），**无论难度 1 还是拆步切片**，均须遵守本节。表头结构见 [§14.4 Excel 三行表头](#144-打表工具bake-tables)；本节规定 **Agent 不得破坏该结构**。
+
+**权威源与禁止项：**
+
+| 规则 | 说明 |
+|------|------|
+| Excel 为源 | 长期数据源是各根下 `Excel/`；`Csv/` 仅由 Bake 生成（[§14.3](#143-双格式强制)） |
+| **禁止只改 CSV** | 不得仅以手改 CSV 交付配置变更；不得将「先改 CSV 再补 Excel」作为默认路径 |
+| **禁止删改第 1～2 行** | 三行表头下，第 1 行（字段中文名）、第 2 行（字段中文说明）**必须保留**；增列时三行同步扩展 |
+| **禁止降级表头** | 不得用 CSV 单行表头覆盖 Excel，导致说明行永久丢失 |
+| **禁止跳过 Bake** | Excel 变更后须 Bake（Unity 菜单或等价脚本），并确认 CSV 与 Excel 一致 |
+| Mode1 + Mode2 | 任务若影响两模式（Changelog 惯例「主表/Mode2」），须同步 `ConfigTables/Excel` 与 `ConfigTables/Mode2/Excel`，分别 Bake |
+
+**推荐变更顺序（与 SPEC-first 对齐）：**
+
+```
+更新 SPEC_04 §9 字段表（若有新列/新表）
+  → 改 Excel（保留第 1～2 行，第 3 行英文列名与 §9 一致）
+  → Bake Mode1 / Bake Mode2 Tables
+  → 核对 CSV 表头与数据
+  → 再改 C# 加载器 / 样例引用
+```
+
+**Agent 无法安全编辑 `.xlsx` 时：**
+
+- **必须**在交付摘要中列出待补 Excel 变更（表名、行/列、值），并标注「CSV 已临时对齐，Excel 待人工确认」
+- **不得**静默只提交 CSV 并声称完成
+- 可参考：Unity 菜单 `Gravedigger2026/Config/Bake Tables` / `Bake Mode2 Tables`；或 `.scratch/tools/` 下 `openpyxl` 脚本（如 `bake_config_tables_py.py`）
+
+**完成检查清单（Agent 自检）：**
+
+- [ ] 涉及的 `.xlsx` 已修改，且第 1～2 行说明行仍在
+- [ ] 新列在三行表头（中名 / 中说明 / 英文列名）均已对齐 [§9](#9-配置表关卡运作--挖坟--坟墓品质--材料--货币--挖坟能力--防守--刷怪波次--怪物--主角升级--灵魂--宝石--种族--制造部件--躯体外观--科技树--失控--士兵技能--推图战) 字段表
+- [ ] 已 Bake 对应 Mode1/Mode2 CSV
+- [ ] 未出现「仅 CSV diff、Excel 无变更」的交付
+- [ ] 变更摘要中列出 Excel 路径与 Bake 结果
+
 ### English
 
-**Status: Bake tool implemented (Approach A); Excel three-row header (Approach B) specified; numeric CSV serialization (no float noise) specified.**
+**Status: Bake tool implemented (Approach A); Excel three-row header (Approach B) specified; numeric CSV serialization (no float noise) specified; Agent config-table change rules (§14.7) specified.**
 
 All **§9** and future **config tables** must follow this section.
 
@@ -4368,6 +4411,45 @@ Excel (ConfigTables/Excel/{SystemZH}_{TableZH}_{SystemEN}_{TableEN}.xlsx)
 4. Clean short decimals inside shared strings / explicit text stay as-is; if text embeds binary float-noise literals (e.g. encoded field `MoveSpeed_0.30000000000000004`), bake must rewrite them with the same algorithm.
 
 **Normalization examples:** `0.009999999999999995` → `0.01`; `0.06999999999999999` → `0.07`; `-0.010000000000000002` → `-0.01`; `MoveSpeed_0.30000000000000004` → `MoveSpeed_0.3`.
+
+#### 14.7 Agent config-table change rules
+
+**Scope:** Any Agent / automation touching `Assets/ConfigTables/**` `.xlsx` or `.csv` (add column, edit values, add rows, sample data, Mode1/Mode2 fork) — **whether difficulty 1 or a split slice** — must follow this subsection. Header layout: [§14.4 Excel three-row header](#144-bake-tool); this subsection forbids **Agents from breaking that layout**.
+
+**Source of truth and prohibitions:**
+
+| Rule | Detail |
+|------|--------|
+| Excel is source | Long-term source is each root's `Excel/`; `Csv/` is bake output only ([§14.3](#143-dual-format-required)) |
+| **No CSV-only edits** | Do not deliver config changes by hand-editing CSV only; do not default to "CSV first, Excel later" |
+| **Do not delete rows 1–2** | Under the three-row header, row 1 (ZH field name) and row 2 (ZH field notes) **must remain**; new columns extend all three header rows |
+| **No header downgrade** | Do not overwrite Excel with CSV single-row header and permanently lose doc rows |
+| **No skipping bake** | After Excel changes, bake (Unity menu or equivalent script) and confirm CSV matches Excel |
+| Mode1 + Mode2 | When both modes are in scope (Changelog pattern "main + Mode2"), sync `ConfigTables/Excel` and `ConfigTables/Mode2/Excel`, bake each root |
+
+**Recommended order (SPEC-first):**
+
+```
+Update SPEC_04 §9 field table (if new column/table)
+  → Edit Excel (keep rows 1–2; row 3 English ids match §9)
+  → Bake Mode1 / Bake Mode2 Tables
+  → Verify CSV header + data
+  → Then C# loader / sample references
+```
+
+**When Agent cannot safely edit `.xlsx`:**
+
+- **Must** list pending Excel edits in the delivery summary (table, row/column, values) and mark "CSV temporarily aligned; Excel pending human confirmation"
+- **Must NOT** silently ship CSV-only and claim done
+- References: Unity `Gravedigger2026/Config/Bake Tables` / `Bake Mode2 Tables`; or `.scratch/tools/` `openpyxl` scripts (e.g. `bake_config_tables_py.py`)
+
+**Completion checklist (Agent self-check):**
+
+- [ ] Touched `.xlsx` files updated; rows 1–2 doc rows still present
+- [ ] New columns aligned in three-row header (ZH name / ZH notes / EN id) with [§9](#9-配置表关卡运作--挖坟--坟墓品质--材料--货币--挖坟能力--防守--刷怪波次--怪物--主角升级--灵魂--宝石--种族--制造部件--躯体外观--科技树--失控--士兵技能--推图战) field tables
+- [ ] Baked Mode1/Mode2 CSV for affected roots
+- [ ] Delivery is not "CSV diff only, Excel unchanged"
+- [ ] Summary lists Excel paths and bake outcome
 
 ---
 
@@ -4517,7 +4599,7 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 |----|------|
 | 距离 | `raw = (OutgoingDamage / monster.MaxHp) × DeathKnockbackRatioCoeff`；`distance = clamp(DeathKnockbackMinDistance, DeathKnockbackMaxDistance, raw)`；三键 ← `CombatConstantConfig`（样例 `0.5` / `0.2` / `5`） |
 | 边界 | `OutgoingDamage ≤ 0` 或 `MaxHp ≤ 0` → `distance = DeathKnockbackMaxDistance` |
-| 方向 | XZ 上 `normalize(M − S)`（远离杀手）；终点 `end = M + dir × distance`；无杀手位或零向量 → **不位移**（仍 latch 死亡；**无**砸击） |
+| 方向 | 基准 `baseDir = normalize(M − S)_xz`（远离杀手，记为 0°）；`N=floor(DeathKnockbackDirectionSpreadHalfDegrees / DeathKnockbackDirectionRandomStepDegrees)`（两键 `>0` 时）；`k ~ UniformInteger[-N,+N]`；`offsetDeg = k × DeathKnockbackDirectionRandomStepDegrees`；`dir = RotateY(baseDir, offsetDeg)`；终点 `end = M + dir × distance`；`SpreadHalf≤0` 或 `Step≤0` → `offsetDeg=0`（等同固定基准方向）；无杀手位或零向量 → **不位移**（仍 latch 死亡；**无**砸击） |
 | 轨迹 | **抛物线**（废止纯 XZ `Lerp`）：XZ 自 `M`→`end` 线性；Y 在 `t∈[0,1]` 上 `y(t)=y0 + 4×DeathKnockbackPeakHeight×t×(1−t)`（`y0` = 起点采样地面 Y；峰值 ← `CombatConstantConfig`，样例 **`1.2`**） |
 | Combat 相机可见性（CP-CAM / 方案 C） | Defend+PushMap **Combat** 经 `ApplyCombatCameraPose`（`CombatCameraPitchDegrees` 样例 **`60`**）；world Y 弧在战斗镜头内可见；Prepare/Dig/Formation 仍俯视 **`90°`**；**不改**砸击 XZ 判定 |
 | 时长 | `DeathKnockbackSeconds` ← `CombatConstantConfig`（样例 **`0.3`**；与轨迹参数化 `t` 对齐） |
@@ -4689,7 +4771,7 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 |------|------|
 | Distance | `raw = (OutgoingDamage / monster.MaxHp) × DeathKnockbackRatioCoeff`; `distance = clamp(DeathKnockbackMinDistance, DeathKnockbackMaxDistance, raw)`; three keys ← `CombatConstantConfig` (sample `0.5` / `0.2` / `5`) |
 | Edge | `OutgoingDamage ≤ 0` or `MaxHp ≤ 0` → `distance = DeathKnockbackMaxDistance` |
-| Direction | XZ `normalize(M − S)` (away from killer); endpoint `end = M + dir × distance`; no killer pos or zero vector → **no move** (still latch death; **no** smash) |
+| Direction | Base `baseDir = normalize(M − S)_xz` (away from killer, 0°); `N=floor(DeathKnockbackDirectionSpreadHalfDegrees / DeathKnockbackDirectionRandomStepDegrees)` when both keys `>0`; `k ~ UniformInteger[-N,+N]`; `offsetDeg = k × DeathKnockbackDirectionRandomStepDegrees`; `dir = RotateY(baseDir, offsetDeg)`; endpoint `end = M + dir × distance`; `SpreadHalf≤0` or `Step≤0` → `offsetDeg=0` (fixed base direction); no killer pos or zero vector → **no move** (still latch death; **no** smash) |
 | Trajectory | **Parabolic arc** (retired pure XZ `Lerp`): XZ linear `M`→`end`; Y over `t∈[0,1]`: `y(t)=y0 + 4×DeathKnockbackPeakHeight×t×(1−t)` (`y0` = sampled ground Y at start; peak ← `CombatConstantConfig`, sample **`1.2`**) |
 | Combat camera visibility (CP-CAM / Approach C) | Defend+PushMap **Combat** via `ApplyCombatCameraPose` (`CombatCameraPitchDegrees` sample **`60`**); world Y arc visible in combat camera; Prepare/Dig/Formation stay top-down **`90°`**; smash hit test **unchanged** (XZ only) |
 | Duration | `DeathKnockbackSeconds` ← `CombatConstantConfig` (sample **`0.3`**; aligns with param `t`) |

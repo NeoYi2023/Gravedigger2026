@@ -59,6 +59,12 @@ namespace Gravedigger2026.Core.Config
         public static float DeathDie2KnockbackThreshold { get; private set; } =
             CombatConstantKeys.Safety.DeathDie2KnockbackThreshold;
 
+        public static float DeathKnockbackDirectionSpreadHalfDegrees { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackDirectionSpreadHalfDegrees;
+
+        public static float DeathKnockbackDirectionRandomStepDegrees { get; private set; } =
+            CombatConstantKeys.Safety.DeathKnockbackDirectionRandomStepDegrees;
+
         public static float DeathKnockbackPeakHeight { get; private set; } =
             CombatConstantKeys.Safety.DeathKnockbackPeakHeight;
 
@@ -213,6 +219,12 @@ namespace Gravedigger2026.Core.Config
             DeathDie2KnockbackThreshold = Mathf.Max(0f, F(
                 CombatConstantKeys.DeathDie2KnockbackThreshold,
                 CombatConstantKeys.Safety.DeathDie2KnockbackThreshold));
+            DeathKnockbackDirectionSpreadHalfDegrees = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathKnockbackDirectionSpreadHalfDegrees,
+                CombatConstantKeys.Safety.DeathKnockbackDirectionSpreadHalfDegrees));
+            DeathKnockbackDirectionRandomStepDegrees = Mathf.Max(0f, F(
+                CombatConstantKeys.DeathKnockbackDirectionRandomStepDegrees,
+                CombatConstantKeys.Safety.DeathKnockbackDirectionRandomStepDegrees));
             DeathKnockbackPeakHeight = Mathf.Max(0f, F(
                 CombatConstantKeys.DeathKnockbackPeakHeight,
                 CombatConstantKeys.Safety.DeathKnockbackPeakHeight));

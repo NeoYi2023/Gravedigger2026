@@ -52,6 +52,8 @@ namespace Gravedigger2026.Core.Config
         public const string DeathKnockbackMinDistance = "DeathKnockbackMinDistance";
         public const string DeathKnockbackMaxDistance = "DeathKnockbackMaxDistance";
         public const string DeathDie2KnockbackThreshold = "DeathDie2KnockbackThreshold";
+        public const string DeathKnockbackDirectionSpreadHalfDegrees = "DeathKnockbackDirectionSpreadHalfDegrees";
+        public const string DeathKnockbackDirectionRandomStepDegrees = "DeathKnockbackDirectionRandomStepDegrees";
         public const string DeathKnockbackPeakHeight = "DeathKnockbackPeakHeight";
         public const string DeathCorpseSmashDamageMul = "DeathCorpseSmashDamageMul";
         public const string DeathCorpseSmashHitRadius = "DeathCorpseSmashHitRadius";
@@ -127,6 +129,8 @@ namespace Gravedigger2026.Core.Config
             public const float DeathKnockbackMinDistance = 0.2f;
             public const float DeathKnockbackMaxDistance = 5f;
             public const float DeathDie2KnockbackThreshold = 1f;
+            public const float DeathKnockbackDirectionSpreadHalfDegrees = 30f;
+            public const float DeathKnockbackDirectionRandomStepDegrees = 5f;
             public const float DeathKnockbackPeakHeight = 1.2f;
             public const float DeathCorpseSmashDamageMul = 1f;
             public const float DeathCorpseSmashHitRadius = 0.55f;

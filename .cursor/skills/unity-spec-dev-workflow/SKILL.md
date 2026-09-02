@@ -55,6 +55,8 @@ SPEC 文档是**唯一权威**；本 Skill 将其操作化为 Agent 执行步骤
 读 SPEC → 更新 SPEC（含 Changelog）→ 规划资源路径 → 实现代码/资源 → 验证 Demo 边界 → 回复变更摘要
 ```
 
+涉及配置表时，在「实现代码/资源」前插入：**Excel（保留三行表头）→ Bake → CSV**（详见 [SPEC_04 §14.7](../../SPEC_04_Technical.md)）。
+
 设计问题在实现中发现时：**先更新 SPEC，再改代码**。
 
 ## 3. 资源编排决策树
@@ -158,6 +160,7 @@ public class ExampleController : MonoBehaviour
 - [ ] `OnEnable`/`OnDisable` 成对
 - [ ] `Update` 无多余分配
 - [ ] 最小 diff
+- [ ] 配置表变更已同步 Excel+CSV，未删三行表头（[SPEC_04 §14.7](../../SPEC_04_Technical.md)）
 
 ## 6. 完成后检查
 
@@ -166,6 +169,7 @@ public class ExampleController : MonoBehaviour
 - [ ] 通过 §5.6 审查清单
 - [ ] 工作量已评估；须拆步已发 `.scratch` issues
 - [ ] 难度 2/3 已在方案选定后编码
+- [ ] 配置表变更：Excel 已改、已 Bake、摘要列出路径（[SPEC_04 §14.7](../../SPEC_04_Technical.md)）
 - [ ] 回复摘要：SPEC 章节、新建 Prefab/SO/脚本路径
 
 ## 7. 延伸阅读
