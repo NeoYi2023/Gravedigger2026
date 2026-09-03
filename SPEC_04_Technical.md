@@ -40,6 +40,24 @@ CLI example: `"<UnityEditor>" -batchmode -quit -projectPath "<workspaceRoot>\Gra
 
 ---
 
+## 1a. Git 与 Unity 资源协作
+
+### 简体中文
+
+- 仓库根 `.gitattributes` 为 Unity YAML 资源协作基线：`*.prefab` / `*.unity` / `*.asset` / `*.mat` / `*.anim` / `*.meta` 一律按**文本**纳入 Git，并统一 `LF`，降低主副电脑之间因 `CRLF` 重写导致的整文件噪音 diff。
+- 当前仓库默认仍是普通文本合并；若后续接入 UnityYAMLMerge，应优先覆盖上述 Unity YAML 资源类型，并保留 `.gitattributes` 作为文件类型白名单。
+- 拉代码前自检脚本：`Tools/check_unity_sync_risk.ps1`。用途：汇总近期高频改动的 `Assets/Scenes/`、`Assets/Prefabs/`、`Assets/Settings/` 下 `*.unity` / `*.prefab` / `*.asset`，并标记当前工作区已 dirty 的高风险文件。默认运行：`powershell -ExecutionPolicy Bypass -File .\Tools\check_unity_sync_risk.ps1`。
+- 多机协作时，若同一高风险 prefab / scene 已在另一台电脑修改但尚未提交，禁止继续在本机并行编辑该文件。
+
+### English
+
+- Repository-root `.gitattributes` is the baseline for Unity YAML collaboration: `*.prefab` / `*.unity` / `*.asset` / `*.mat` / `*.anim` / `*.meta` are tracked as **text** and normalized to `LF`, reducing noisy whole-file diffs from cross-machine `CRLF` rewrites.
+- The repository currently still uses plain text merge by default; if UnityYAMLMerge is introduced later, it should first target those Unity YAML asset types while keeping `.gitattributes` as the file-type allowlist.
+- Pre-pull self-check script: `Tools/check_unity_sync_risk.ps1`. Purpose: summarize frequently changed `*.unity` / `*.prefab` / `*.asset` files under `Assets/Scenes/`, `Assets/Prefabs/`, and `Assets/Settings/`, then mark which high-risk files are currently dirty in the working tree. Default usage: `powershell -ExecutionPolicy Bypass -File .\Tools\check_unity_sync_risk.ps1`.
+- In multi-machine workflows, do not continue parallel edits on the same high-risk prefab / scene if another machine has local changes not yet committed.
+
+---
+
 ## 2. 目录结构（建议）
 
 ### 简体中文

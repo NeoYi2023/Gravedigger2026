@@ -1,0 +1,13 @@
+* text=auto
+
+# Unity YAML assets: keep them as text and normalize to LF so cross-machine
+# diffs/merges are more stable than Windows-local CRLF rewrites.
+*.prefab text eol=lf
+*.unity text eol=lf
+*.asset text eol=lf
+*.mat text eol=lf
+*.anim text eol=lf
+*.meta text eol=lf
+
+# If the team later configures UnityYAMLMerge, these file types are the first
+# candidates to switch from plain text merge to a Unity-aware merge driver.
