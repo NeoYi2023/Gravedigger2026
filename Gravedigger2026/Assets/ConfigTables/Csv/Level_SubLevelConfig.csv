@@ -1,4 +1,4 @@
-﻿GameplayOptionId,GameplayType,GameplayConfigId,IconAssetId,Title,Description,Reward,UnlockNextOptionIds
+GameplayOptionId,GameplayType,GameplayConfigId,IconAssetId,Title,Description,Reward,UnlockNextOptionIds
 Opt_L01_S1_Dig,Dig,Dig_01,Opt_L01_S1_Dig,挖坟,挖坟（Dig_01）,Spirit;20,Opt_L01_S2_UpgradeManufacture
 Opt_L01_S2_UpgradeManufacture,UpgradeManufacture,PushMap_01,Opt_L01_S2_UpgradeManufacture,升级与制造,升级与制造（PushMap_01）,,Opt_L01_S3_PushMap
 Opt_L01_S3_PushMap,PushMap,PushMap_01,Opt_L01_S3_PushMap,推图战,推图战（PushMap_01）,Spirit;20,

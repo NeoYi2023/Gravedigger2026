@@ -16,7 +16,7 @@ depends_on:
 
 ## 目标
 
-按 §9.33 在点激活后：FirstWaveDelay → 波间 Interval → WaveCount；方向解析 SpawnPoint 或 ClockDirection。
+按 §9.33（v0.84.00）：点激活后各行独立 `FirstWaveDelaySeconds` 首刷，再按 `WaveIntervalSeconds`×`RepeatSpawnCount` 行内重复；方向解析 `SpawnPointId`。
 
 ## 范围
 

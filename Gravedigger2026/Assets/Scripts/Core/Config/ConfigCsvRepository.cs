@@ -17,6 +17,9 @@ namespace Gravedigger2026.Core.Config
         private readonly List<LevelOperationConfigRow> _levelOperations = new List<LevelOperationConfigRow>();
         private readonly Dictionary<string, SubLevelConfigRow> _subLevelById =
             new Dictionary<string, SubLevelConfigRow>(StringComparer.Ordinal);
+        /// <summary>Per LevelId Stage1 unlock resolve (SPEC_03 §3.9).</summary>
+        private readonly Dictionary<string, LevelUnlockResolve> _levelUnlockById =
+            new Dictionary<string, LevelUnlockResolve>(StringComparer.Ordinal);
         private readonly Dictionary<string, DigGameplayConfigRow> _digById =
             new Dictionary<string, DigGameplayConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, DefendGameplayConfigRow> _defendById =
@@ -131,6 +134,7 @@ namespace Gravedigger2026.Core.Config
             _loadMode = mode;
             _levelOperations.Clear();
             _subLevelById.Clear();
+            _levelUnlockById.Clear();
             _digById.Clear();
             _defendById.Clear();
             _waveSpawnRows.Clear();
@@ -182,6 +186,7 @@ namespace Gravedigger2026.Core.Config
                 LoadLevelOperations();
                 LoadSubLevels();
                 ValidateLevelOptionGraph();
+                ResolveLevelUnlockRequirements();
                 LoadDigGameplay();
                 LoadDefendGameplay();
                 LoadWaveSpawn();
@@ -292,6 +297,74 @@ namespace Gravedigger2026.Core.Config
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// UI display name for a LevelId (first non-empty <c>LevelName</c>; empty → LevelId).
+        /// </summary>
+        public string GetLevelDisplayName(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId))
+            {
+                return string.Empty;
+            }
+
+            string first = null;
+            for (var i = 0; i < _levelOperations.Count; i++)
+            {
+                var row = _levelOperations[i];
+                if (row == null || !string.Equals(row.LevelId, levelId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var name = row.LevelName;
+                if (string.IsNullOrEmpty(name))
+                {
+                    continue;
+                }
+
+                if (first == null)
+                {
+                    first = name;
+                    continue;
+                }
+
+                if (!string.Equals(first, name, StringComparison.Ordinal))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[ConfigCsvRepository] Level '{levelId}' has conflicting LevelName '{first}' vs '{name}'; using first.");
+                    break;
+                }
+            }
+
+            return first ?? levelId;
+        }
+
+        /// <summary>
+        /// Stage1 <c>UnlockLevelId</c> kind for a LevelId (missing LevelId → NeverUnlockable).
+        /// </summary>
+        public LevelUnlockKind GetLevelUnlockKind(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId) || !_levelUnlockById.TryGetValue(levelId, out var resolve))
+            {
+                return LevelUnlockKind.NeverUnlockable;
+            }
+
+            return resolve.Kind;
+        }
+
+        /// <summary>
+        /// Prerequisite GameplayOptionId when kind is PrerequisiteOption; otherwise empty.
+        /// </summary>
+        public string GetUnlockPrerequisiteOptionId(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId) || !_levelUnlockById.TryGetValue(levelId, out var resolve))
+            {
+                return string.Empty;
+            }
+
+            return resolve.PrerequisiteOptionId ?? string.Empty;
         }
 
         public bool TryGetDig(string gameplayConfigId, out DigGameplayConfigRow row)
@@ -805,8 +878,11 @@ namespace Gravedigger2026.Core.Config
                 _levelOperations.Add(new LevelOperationConfigRow
                 {
                     LevelId = SimpleCsv.Require(raw, "LevelId", table, rowIndex),
+                    LevelName = OptionalText(raw, "LevelName") ?? string.Empty,
                     StageNumber = stageNumber,
-                    GameplayOptionIds = optionIds.ToArray()
+                    GameplayOptionIds = optionIds.ToArray(),
+                    RouteMapAssetId = OptionalText(raw, "RouteMapAssetId") ?? string.Empty,
+                    UnlockLevelId = OptionalText(raw, "UnlockLevelId") ?? string.Empty
                 });
             }
         }
@@ -931,6 +1007,79 @@ namespace Gravedigger2026.Core.Config
                     }
                 }
             }
+        }
+
+        private void ResolveLevelUnlockRequirements()
+        {
+            _levelUnlockById.Clear();
+            for (var i = 0; i < _levelOperations.Count; i++)
+            {
+                var row = _levelOperations[i];
+                if (string.IsNullOrEmpty(row.LevelId) || row.StageNumber != 1)
+                {
+                    continue;
+                }
+
+                if (_levelUnlockById.ContainsKey(row.LevelId))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] LevelId '{row.LevelId}' has multiple StageNumber=1 rows; UnlockLevelId uses first.");
+                    continue;
+                }
+
+                var raw = row.UnlockLevelId != null ? row.UnlockLevelId.Trim() : string.Empty;
+                if (raw.Length == 0)
+                {
+                    _levelUnlockById[row.LevelId] = new LevelUnlockResolve
+                    {
+                        Kind = LevelUnlockKind.AlwaysUnlocked,
+                        PrerequisiteOptionId = string.Empty
+                    };
+                    continue;
+                }
+
+                if (_subLevelById.ContainsKey(raw))
+                {
+                    _levelUnlockById[row.LevelId] = new LevelUnlockResolve
+                    {
+                        Kind = LevelUnlockKind.PrerequisiteOption,
+                        PrerequisiteOptionId = raw
+                    };
+                    continue;
+                }
+
+                Debug.LogWarning(
+                    $"[ConfigCsvRepository] LevelId '{row.LevelId}' UnlockLevelId '{raw}' not in SubLevelConfig → never unlockable.");
+                _levelUnlockById[row.LevelId] = new LevelUnlockResolve
+                {
+                    Kind = LevelUnlockKind.NeverUnlockable,
+                    PrerequisiteOptionId = string.Empty
+                };
+            }
+
+            // Distinct LevelIds missing Stage1 row → never (defensive)
+            for (var i = 0; i < _levelOperations.Count; i++)
+            {
+                var id = _levelOperations[i].LevelId;
+                if (string.IsNullOrEmpty(id) || _levelUnlockById.ContainsKey(id))
+                {
+                    continue;
+                }
+
+                Debug.LogWarning(
+                    $"[ConfigCsvRepository] LevelId '{id}' has no StageNumber=1 row → UnlockLevelId never unlockable.");
+                _levelUnlockById[id] = new LevelUnlockResolve
+                {
+                    Kind = LevelUnlockKind.NeverUnlockable,
+                    PrerequisiteOptionId = string.Empty
+                };
+            }
+        }
+
+        private sealed class LevelUnlockResolve
+        {
+            public LevelUnlockKind Kind;
+            public string PrerequisiteOptionId;
         }
 
         private string FindLevelIdForOption(string optionId, int stageNumber)
@@ -1442,6 +1591,24 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: illegal WaveIntervalSeconds '{interval}'.");
                 }
 
+                var repeatText = SimpleCsv.Require(raw, "RepeatSpawnCount", table, rowIndex).Trim();
+                if (!int.TryParse(
+                        repeatText,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out var repeatCount)
+                    || repeatCount < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RepeatSpawnCount '{repeatText}'.");
+                }
+
+                if (repeatCount > 0 && interval <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: RepeatSpawnCount={repeatCount} requires WaveIntervalSeconds>0.");
+                }
+
                 var spawnCount = RequirePositiveInt(raw, "SpawnCount", table, rowIndex);
                 var monsterId = SimpleCsv.Require(raw, "MonsterId", table, rowIndex);
                 if (!_monsterById.ContainsKey(monsterId))
@@ -1457,55 +1624,11 @@ namespace Gravedigger2026.Core.Config
                     WaveIndex = waveIndex,
                     FirstWaveDelaySeconds = firstDelay,
                     WaveIntervalSeconds = interval,
+                    RepeatSpawnCount = repeatCount,
                     SpawnPointId = SimpleCsv.Require(raw, "SpawnPointId", table, rowIndex),
                     MonsterId = monsterId,
                     SpawnCount = spawnCount
                 });
-            }
-
-            WarnMismatchedSearchExtractWaveTimers();
-        }
-
-        private void WarnMismatchedSearchExtractWaveTimers()
-        {
-            for (var i = 0; i < _searchExtractWaveRows.Count; i++)
-            {
-                var row = _searchExtractWaveRows[i];
-                if (row == null || row.WaveIndex == 1)
-                {
-                    continue;
-                }
-
-                SearchExtractWaveSpawnConfigRow first = null;
-                for (var j = 0; j < _searchExtractWaveRows.Count; j++)
-                {
-                    var candidate = _searchExtractWaveRows[j];
-                    if (candidate != null
-                        && candidate.WaveIndex == 1
-                        && candidate.GatherPointOrder == row.GatherPointOrder
-                        && string.Equals(
-                            candidate.GameplayConfigId,
-                            row.GameplayConfigId,
-                            StringComparison.Ordinal))
-                    {
-                        first = candidate;
-                        break;
-                    }
-                }
-
-                if (first == null)
-                {
-                    Debug.LogWarning(
-                        $"[ConfigCsvRepository] SearchExtractWave missing WaveIndex=1 for {row.GameplayConfigId} Order={row.GatherPointOrder}.");
-                    continue;
-                }
-
-                if (!Mathf.Approximately(row.FirstWaveDelaySeconds, first.FirstWaveDelaySeconds)
-                    || !Mathf.Approximately(row.WaveIntervalSeconds, first.WaveIntervalSeconds))
-                {
-                    Debug.LogWarning(
-                        $"[ConfigCsvRepository] SearchExtractWave Delay/Interval mismatch vs WaveIndex=1: {row.GameplayConfigId} Order={row.GatherPointOrder} Wave={row.WaveIndex}.");
-                }
             }
         }
 

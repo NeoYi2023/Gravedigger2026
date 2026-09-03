@@ -1,5 +1,7 @@
 #if UNITY_EDITOR
+using Gravedigger2026.Editor.Defend;
 using Gravedigger2026.Gameplay.Defend;
+using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.PushMap;
 using UnityEditor;
 using UnityEngine;
@@ -8,7 +10,8 @@ namespace Gravedigger2026.Editor.SearchExtract
 {
     /// <summary>
     /// SE-02 Approach B: copy PushMap_Demo_01 → SearchExtract_Demo_01 without rewriting
-    /// the PushMap source. Ensures ≥2 ObjectivePoints and AirWall OBB authoring checks.
+    /// the PushMap source. Ensures ≥2 ObjectivePoints, AirWall OBB checks, and
+    /// FormationClassZone for Prepare one-click (SPEC_03 §3.19 / D-074).
     /// </summary>
     public static class SearchExtractSampleMapBuilder
     {
@@ -87,6 +90,10 @@ namespace Gravedigger2026.Editor.SearchExtract
 
                 EnsureObjective(markersRoot, "Objective_02", 2, Objective02LocalPos, 2f);
                 NudgeAuthoringMarkersOutOfAirWalls(contents);
+
+                var bounds = contents.GetComponent<DigMapBounds>();
+                var center = bounds != null ? bounds.Center : contents.transform.position;
+                DefendAssetBuilder.EnsureFormationClassZonesOnMapRoot(contents.transform, center);
 
                 if (!ValidateAirWallsOnMap(contents, logPass: false))
                 {

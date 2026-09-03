@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Gravedigger2026.Editor.Defend;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.Maps;
@@ -96,6 +97,9 @@ namespace Gravedigger2026.Editor.PushMap
                 // Cover authored markers (objectives / spawns / Boss) on hand-tuned sample layout.
                 EnsureFootprint(contents, new Vector2(40f, 20f), engageScale: 0.85f);
                 EnsureCameraFollowPath(markersRoot);
+
+                var zoneAnchor = DefendAssetBuilder.ResolvePushMapClassZoneAnchor(contents);
+                DefendAssetBuilder.EnsureFormationClassZonesOnMapRoot(contents.transform, zoneAnchor);
 
                 PrefabUtility.SaveAsPrefabAsset(contents, SamplePrefabPath);
             }

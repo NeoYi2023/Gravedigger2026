@@ -20,7 +20,6 @@ MonoBehaviour:
   _mageProjectileSprite: {fileID: 21300000, guid: b590158c14f8f934e8f908f55b2d9861, type: 3}
   _damagePopupPrefab: {fileID: 5195272429028053599, guid: c8f5b2d0e3a6597f0b1c2d3e4f5a6b7c, type: 3}
   _skillIconHudPrefab: {fileID: 6195272429028053711, guid: f1a9c2e4b6d84f73a0c5e8d1b2f39457, type: 3}
-  _visualStyleCatalog: {fileID: 11400000, guid: 9a3c1e6d4f0b42c3d8e5f2a1b0c30401, type: 2}
   _maps:
   - MapId: Ground_01
     Prefab: {fileID: 2120705586636139558, guid: 2b55ec59d080c0c4a95b02b760b12e4b, type: 3}
@@ -180,3 +179,4 @@ MonoBehaviour:
     Prefab: {fileID: 4104538918496031396, guid: e79d54b1f1f44eccaa604692e741c74b, type: 3}
   - ModelId: MonsterModel_08
     Prefab: {fileID: 4104538918496031396, guid: 62333f02a00841b999102cf24045080b, type: 3}
+  _visualStyleCatalog: {fileID: 11400000, guid: 9a3c1e6d4f0b42c3d8e5f2a1b0c30401, type: 2}

@@ -1,0 +1,4 @@
+DifficultyId,DisplayName,UnlockRequireDifficultyId,Description,ClearReward
+Diff_Normal,普通,,普通难度：适合熟悉关卡流程与基础玩法。,
+Diff_Hard,困难,Diff_Normal,困难：通关普通难度全部关卡后解锁（Demo 接线后置）。,Spirit;50
+Diff_Hell,地狱,Diff_Hard,地狱：通关困难难度全部关卡后解锁（Demo 接线后置）。,Spirit;100

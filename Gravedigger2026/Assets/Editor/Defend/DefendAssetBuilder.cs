@@ -93,6 +93,14 @@ namespace Gravedigger2026.Editor.Defend
             "SearchExtract_Demo_01"
         };
 
+        /// <summary>PushMap sample maps that need FormationClassZone for Prepare one-click (D-057/D-074).</summary>
+        private static readonly string[] PushMapSampleMapIds =
+        {
+            "PushMap_Demo_01",
+            "PushMap_Demo_02",
+            "PushMap_Demo_03"
+        };
+
         private static readonly Color[] MonsterColors =
         {
             new Color(0.75f, 0.25f, 0.25f),
@@ -234,6 +242,7 @@ namespace Gravedigger2026.Editor.Defend
         /// <summary>
         /// Writes FormationClassZone markers onto Ground_01…05 only (SPEC_03 §3.8 D-057).
         /// Does not call GenerateAll; does not rewrite EngageZone / spawn points.
+        /// SearchExtract sample map zones: <see cref="EnsureFormationClassZonesOnSearchExtractSample"/>.
         /// </summary>
         [MenuItem("Gravedigger2026/Defend/Ensure Formation Class Zones on Maps")]
         public static void EnsureFormationClassZonesOnMaps()
@@ -256,6 +265,149 @@ namespace Gravedigger2026.Editor.Defend
 
             AssetDatabase.SaveAssets();
             Debug.Log("[DefendAssetBuilder] EnsureFormationClassZonesOnMaps done (no GenerateAll).");
+        }
+
+        /// <summary>
+        /// SearchExtract_Demo_01 FormationClassZone sync (SPEC_03 §3.19 / D-074 Prepare one-click).
+        /// Does not rewrite PushMap_Demo_01.
+        /// </summary>
+        [MenuItem("Gravedigger2026/SearchExtract/Ensure Formation Class Zones on Sample Map")]
+        public static void EnsureFormationClassZonesOnSearchExtractSample()
+        {
+            var path = $"{PrefabMapsDir}/SearchExtract_Demo_01.prefab";
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+            {
+                Debug.LogError($"[DefendAssetBuilder] Missing sample map: {path}");
+                return;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                var bounds = contents.GetComponent<DigMapBounds>();
+                var center = bounds != null ? bounds.Center : contents.transform.position;
+                EnsureFormationClassZones(contents.transform, center);
+                PrefabUtility.SaveAsPrefabAsset(contents, path);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("[DefendAssetBuilder] EnsureFormationClassZonesOnSearchExtractSample done.");
+        }
+
+        /// <summary>
+        /// PushMap_Demo_01/02/03 FormationClassZone sync (SPEC_03 D-057/D-074 Approach B).
+        /// Anchor = CameraFollowPath/WP_Start world XZ (else DigMapBounds.Center).
+        /// </summary>
+        [MenuItem("Gravedigger2026/PushMap/Ensure Formation Class Zones on Sample Maps")]
+        public static void EnsureFormationClassZonesOnPushMapSamples()
+        {
+            var ensured = 0;
+            for (var i = 0; i < PushMapSampleMapIds.Length; i++)
+            {
+                var mapId = PushMapSampleMapIds[i];
+                var path = $"{PrefabMapsDir}/{mapId}.prefab";
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+                {
+                    Debug.LogWarning($"[DefendAssetBuilder] Missing PushMap sample map: {path}");
+                    continue;
+                }
+
+                var contents = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    var anchor = ResolvePushMapClassZoneAnchor(contents);
+                    EnsureFormationClassZones(contents.transform, anchor);
+                    PrefabUtility.SaveAsPrefabAsset(contents, path);
+                    ensured++;
+                    Debug.Log(
+                        $"[DefendAssetBuilder] FormationClassZones ensured on {mapId} " +
+                        $"anchor=({anchor.x:F2},{anchor.y:F2},{anchor.z:F2})");
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(contents);
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                $"[DefendAssetBuilder] EnsureFormationClassZonesOnPushMapSamples done " +
+                $"ensured={ensured}/{PushMapSampleMapIds.Length}");
+        }
+
+        /// <summary>
+        /// Batchmode: -executeMethod Gravedigger2026.Editor.Defend.DefendAssetBuilder.EnsureFormationClassZonesOnPushMapSamplesBatch
+        /// </summary>
+        public static void EnsureFormationClassZonesOnPushMapSamplesBatch()
+        {
+            EnsureFormationClassZonesOnPushMapSamples();
+            EditorApplication.Exit(0);
+        }
+
+        /// <summary>Public entry for SearchExtractSampleMapBuilder / PushMapSampleMapBuilder.</summary>
+        public static void EnsureFormationClassZonesOnMapRoot(Transform mapRoot, Vector3 mapCenter)
+        {
+            EnsureFormationClassZones(mapRoot, mapCenter);
+        }
+
+        /// <summary>
+        /// PushMap Prepare one-click zone anchor: WP_Start world position, else DigMapBounds.Center.
+        /// </summary>
+        public static Vector3 ResolvePushMapClassZoneAnchor(GameObject mapRoot)
+        {
+            if (mapRoot == null)
+            {
+                return Vector3.zero;
+            }
+
+            var wpStart = FindDeepChildByName(mapRoot.transform, "WP_Start");
+            if (wpStart != null)
+            {
+                return wpStart.position;
+            }
+
+            var bounds = mapRoot.GetComponentInChildren<DigMapBounds>(true);
+            if (bounds != null)
+            {
+                Debug.LogWarning(
+                    $"[DefendAssetBuilder] {mapRoot.name}: WP_Start missing — " +
+                    "FormationClassZone anchor falls back to DigMapBounds.Center.");
+                return bounds.Center;
+            }
+
+            Debug.LogWarning(
+                $"[DefendAssetBuilder] {mapRoot.name}: WP_Start and DigMapBounds missing — " +
+                "FormationClassZone anchor falls back to map root position.");
+            return mapRoot.transform.position;
+        }
+
+        private static Transform FindDeepChildByName(Transform root, string name)
+        {
+            if (root == null || string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+
+            if (root.name == name)
+            {
+                return root;
+            }
+
+            var all = root.GetComponentsInChildren<Transform>(true);
+            for (var i = 0; i < all.Length; i++)
+            {
+                var t = all[i];
+                if (t != null && t.name == name)
+                {
+                    return t;
+                }
+            }
+
+            return null;
         }
 
         public static void EnsureEngageZonesAndSpawnPointsOnMaps()

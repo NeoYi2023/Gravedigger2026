@@ -7,8 +7,8 @@ using UnityEngine;
 namespace Gravedigger2026.Core.Level
 {
     /// <summary>
-    /// Drives Level Operation + SubLevel route graph (SPEC_03 §3.9 / D-086). Approach A.
-    /// Enter → RouteSelect → pick option → module → clear → reward/unlock → RouteSelect or victory.
+    /// Drives Level Operation + SubLevel route graph (SPEC_03 §3.9 / D-086 / D-088). Approach A.
+    /// Enter → hydrate Cleared → RouteSelect → pick option → module → clear → persist/unlock → RouteSelect or victory.
     /// </summary>
     public sealed class LevelOperationDriver
     {
@@ -20,6 +20,7 @@ namespace Gravedigger2026.Core.Level
             new Dictionary<GameplayState, IStageModule>();
 
         private RewardGrantService _rewardGrant;
+        private LevelRouteProgressService _routeProgress;
         private List<LevelOperationConfigRow> _stages = new List<LevelOperationConfigRow>();
         private readonly HashSet<string> _clearedOptions = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> _unlockedOptions = new HashSet<string>(StringComparer.Ordinal);
@@ -28,6 +29,7 @@ namespace Gravedigger2026.Core.Level
         private string _activeOptionId;
         private LevelStageContext _currentContext;
         private bool _routeSelectVisible;
+        private string _justClearedOptionId;
 
         public event Action<LevelStageContext> StageChanged;
         public event Action<string> LevelEnded;
@@ -42,6 +44,11 @@ namespace Gravedigger2026.Core.Level
         public void BindRewardGrant(RewardGrantService rewardGrant)
         {
             _rewardGrant = rewardGrant;
+        }
+
+        public void BindRouteProgress(LevelRouteProgressService routeProgress)
+        {
+            _routeProgress = routeProgress;
         }
 
         /// <summary>True while a Level is open (route or running option).</summary>
@@ -80,10 +87,24 @@ namespace Gravedigger2026.Core.Level
 
         public bool TryEnterLevel(string levelId, out string error)
         {
+            return TryEnterLevel(levelId, out error, bypassUnlockGate: false);
+        }
+
+        /// <param name="bypassUnlockGate">
+        /// When true (Tools GM), skip Stage1 <c>UnlockLevelId</c> gate (SPEC_03 §3.9).
+        /// </param>
+        public bool TryEnterLevel(string levelId, out string error, bool bypassUnlockGate)
+        {
             error = null;
             if (!EnsureConfigsLoaded())
             {
                 error = _configs.LastError ?? "Config load failed.";
+                return false;
+            }
+
+            if (!bypassUnlockGate && !IsLevelUnlocked(levelId))
+            {
+                error = $"Level '{levelId}' is locked.";
                 return false;
             }
 
@@ -130,7 +151,9 @@ namespace Gravedigger2026.Core.Level
                 }
             }
 
-            if (_unlockedOptions.Count == 0)
+            HydrateClearedAndDeriveUnlocked();
+
+            if (_unlockedOptions.Count == 0 && _clearedOptions.Count == 0)
             {
                 error = $"Level '{levelId}' Stage1 has no gameplay options.";
                 StopCurrentLevelInternal(notifyEnded: false);
@@ -140,8 +163,45 @@ namespace Gravedigger2026.Core.Level
             StageChanged?.Invoke(null);
             PublishRoute();
             Debug.Log(
-                $"[LevelOperationDriver] EnterLevel {levelId} ({_stages.Count} stages, {_unlockedOptions.Count} Stage1 options) → RouteSelect.");
+                $"[LevelOperationDriver] EnterLevel {levelId} ({_stages.Count} stages, {_unlockedOptions.Count} unlocked, {_clearedOptions.Count} cleared) → RouteSelect.");
             return true;
+        }
+
+        /// <summary>
+        /// LevelId unlock from Stage1 <c>UnlockLevelId</c> + route Cleared (SPEC_03 §3.9).
+        /// </summary>
+        public bool IsLevelUnlocked(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId) || _configs == null || !_configs.IsLoaded)
+            {
+                return false;
+            }
+
+            var kind = _configs.GetLevelUnlockKind(levelId);
+            if (kind == LevelUnlockKind.AlwaysUnlocked)
+            {
+                return true;
+            }
+
+            if (kind == LevelUnlockKind.NeverUnlockable)
+            {
+                return false;
+            }
+
+            var prereq = _configs.GetUnlockPrerequisiteOptionId(levelId);
+            if (string.IsNullOrEmpty(prereq))
+            {
+                return false;
+            }
+
+            if (_routeProgress != null && _routeProgress.IsCleared(prereq))
+            {
+                return true;
+            }
+
+            // Same-session cleared set when already inside a level (prereq may be on another LevelId
+            // and only live in progress service — prefer progress; also allow in-memory if same session).
+            return _clearedOptions.Contains(prereq);
         }
 
         public bool TrySelectGameplayOption(string optionId, out string error)
@@ -236,6 +296,7 @@ namespace Gravedigger2026.Core.Level
             ExitCurrentModule();
             GrantOptionReward(sub);
             _clearedOptions.Add(optionId);
+            PersistClearedOption(optionId);
             _activeOptionId = null;
             _currentContext = null;
 
@@ -267,7 +328,9 @@ namespace Gravedigger2026.Core.Level
 
             _routeSelectVisible = true;
             StageChanged?.Invoke(null);
+            _justClearedOptionId = optionId;
             PublishRoute();
+            _justClearedOptionId = null;
             message = $"选项 {optionId} 通关 → 路线选择（解锁 {unlockIds.Count}）";
             Debug.Log($"[LevelOperationDriver] {message}");
             return true;
@@ -294,6 +357,7 @@ namespace Gravedigger2026.Core.Level
             {
                 GrantOptionReward(sub);
                 _clearedOptions.Add(_activeOptionId);
+                PersistClearedOption(_activeOptionId);
             }
 
             ExitCurrentModule();
@@ -386,7 +450,10 @@ namespace Gravedigger2026.Core.Level
             var snap = new LevelRouteSnapshot
             {
                 LevelId = ActiveLevelId,
-                Visible = IsRouteSelectVisible
+                LevelName = ResolveLevelName(ActiveLevelId),
+                Visible = IsRouteSelectVisible,
+                RouteMapAssetId = ResolveRouteMapAssetId(ActiveLevelId),
+                JustClearedOptionId = _justClearedOptionId
             };
 
             if (string.IsNullOrEmpty(ActiveLevelId) || _stages.Count == 0)
@@ -448,6 +515,72 @@ namespace Gravedigger2026.Core.Level
 
             snap.Stages = stageSnaps.ToArray();
             return snap;
+        }
+
+        private string ResolveLevelName(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId) || _stages == null || _stages.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string first = null;
+            for (var i = 0; i < _stages.Count; i++)
+            {
+                var name = _stages[i] != null ? _stages[i].LevelName : null;
+                if (string.IsNullOrEmpty(name))
+                {
+                    continue;
+                }
+
+                if (first == null)
+                {
+                    first = name;
+                    continue;
+                }
+
+                if (!string.Equals(first, name, StringComparison.Ordinal))
+                {
+                    Debug.LogWarning(
+                        $"[LevelOperationDriver] Level '{levelId}' has conflicting LevelName '{first}' vs '{name}'; using first.");
+                    break;
+                }
+            }
+
+            return first ?? string.Empty;
+        }
+
+        private string ResolveRouteMapAssetId(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId) || _stages == null || _stages.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string first = null;
+            for (var i = 0; i < _stages.Count; i++)
+            {
+                var id = _stages[i] != null ? _stages[i].RouteMapAssetId : null;
+                if (string.IsNullOrEmpty(id))
+                {
+                    continue;
+                }
+
+                if (first == null)
+                {
+                    first = id;
+                    continue;
+                }
+
+                if (!string.Equals(first, id, StringComparison.Ordinal))
+                {
+                    Debug.LogWarning(
+                        $"[LevelOperationDriver] Level '{levelId}' has conflicting RouteMapAssetId '{first}' vs '{id}'; using first.");
+                    break;
+                }
+            }
+
+            return first ?? string.Empty;
         }
 
         private void GrantOptionReward(SubLevelConfigRow sub)
@@ -631,11 +764,63 @@ namespace Gravedigger2026.Core.Level
             _activeOptionId = null;
             _currentContext = null;
             _routeSelectVisible = false;
+            _justClearedOptionId = null;
         }
 
         private void PublishRoute()
         {
             RouteChanged?.Invoke(BuildRouteSnapshot());
+        }
+
+        private void PersistClearedOption(string optionId)
+        {
+            if (_routeProgress == null || string.IsNullOrEmpty(optionId))
+            {
+                return;
+            }
+
+            _routeProgress.MarkCleared(optionId);
+        }
+
+        /// <summary>
+        /// After Stage1 unlock seed: hydrate Cleared from save and derive further Unlocked.
+        /// </summary>
+        private void HydrateClearedAndDeriveUnlocked()
+        {
+            if (_routeProgress == null)
+            {
+                return;
+            }
+
+            foreach (var clearedId in _routeProgress.ClearedOptionIds)
+            {
+                if (string.IsNullOrEmpty(clearedId) || !_optionStageById.ContainsKey(clearedId))
+                {
+                    continue;
+                }
+
+                _clearedOptions.Add(clearedId);
+            }
+
+            foreach (var clearedId in _clearedOptions)
+            {
+                if (!_configs.TryGetSubLevel(clearedId, out var sub) || sub == null)
+                {
+                    continue;
+                }
+
+                var unlockIds = ParsePipeIds(sub.UnlockNextOptionIds);
+                for (var i = 0; i < unlockIds.Count; i++)
+                {
+                    var nextId = unlockIds[i];
+                    if (!_optionStageById.ContainsKey(nextId))
+                    {
+                        continue;
+                    }
+
+                    _unlockedOptions.Add(nextId);
+                }
+            }
         }
 
         private static List<string> ParsePipeIds(string encoded)

@@ -17,7 +17,7 @@
 | ApproxBodyLevel | 近似品质 | `|ΔBodyLevel|≤1`；更高→相同→低1 | [§3.15](SPEC_03_GameRules.md) |
 | PlacementOrder | 放置排序 | ClassConfig；自动上阵职业先后 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassLevel | 职业等级 | ClassConfig 展示用品质等级；UI-016 士兵卡 `Lv.N`；不进战斗公式 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
-| FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵螺旋落入 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
+| FormationClassZone | 职业布阵区 | 地图 Prefab 按 ClassId 标定 **IsoDiamond**（HalfExtents = 顶点到中心；与 WalkSurface 同形；无 Y 旋转）；作者 MeshCollider；自动上阵/一键上阵螺旋落入；PushMap 样例 Ensure 锚 `WP_Start` | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §13](SPEC_04_Technical.md) |
 | IsoTileYaw | 等距砖轴偏航 | `Y=-atan2(cellSize.y,cellSize.x)`，使 Transform 本地 +X 对齐 Isometric Grid 在 XZ 上的砖轴（Demo ≈ -26.57°）；**职业布阵区已废止此偏航**（改无旋转 IsoDiamond，同 WalkSurface） | [SPEC_04 §13](SPEC_04_Technical.md) |
 | MagicBook | 魔法书 | 主角特殊装备效果库；Mode2 在 UI-016 Step2 **单槽脉冲峰值**触发（一槽一书）；含「还原」`RaceWeightPick`、「战士强化」`StatMul`、「士兵技能升级」`SoldierSkillLevelAdd`、「职业进阶」`ForceClass`、「授予阵型」`GrantFormationSkill`；命中时可烘进 `VisualStyle`（材质和/或放大）；**勿与** ProtagonistEquipment 混淆 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.24](SPEC_04_Technical.md) |
 | MagicBookConfig | 魔法书配置表 | MagicBookId→唯一/概率型/环节/EffectPayload/EffectParams/VisualStyleId/Priority/IntensityAdd/Icon/名/介绍 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
@@ -49,13 +49,18 @@
 | ShopSystem | 商店系统 | Mode2 全屏商店：关卡 `GameplayType=Shop`（Stage1）与局外 InSaveShell 左下入口共用 Prefab `ShopStageRoot`；左侧可展示已拥有装备/魔法书 ICON 并出售换精魂（D-076） | [§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopSellService | 商店出售服务 | 商店 UI 出售已拥有装备（`TryRemove`）/魔法书（`TryUnequip`），按 `ItemCatalog.SellPrice` 入账精魂 | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| LevelRouteProgress | 关卡路线进度 | 存档已通关 `GameplayOptionId` 集合；进关派生解锁；按槽+CampaignMode | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignModeSelect | 玩法模式选择 | UI-014 保留；本 Demo 新建/进入不弹出（直进 Mode2）；Mode1 入口后置（D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
-| DifficultySelectHost | 难度选择宿主 | 进档默认中心面（UI-029 / D-081）：三栏等宽横滑居中；关卡列表嵌归属 Column（Demo 仅普通）；无 MapHost | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
+| DifficultySelectHost | 难度选择宿主 | 进档默认中心面（UI-029 / D-081）：三栏等宽同屏（各约 1/3）；悬停显示难度描述；仅普通点击进 UI-031；Hard/Hell Toast；无栏内 LevelSelect / 无 MapHost；表驱动描述/解锁/通关奖见 `DifficultyConfig`（接线后置） | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| DifficultyConfig | 关卡难度表 | `Level_DifficultyConfig`：DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
+| DifficultyId | 难度ID | 难度表主键；运作表归属字段 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
+| UnlockRequireDifficultyId | 解锁所需难度ID | 空=初始解锁；填 DifficultyId=等通关；找不到=不可解锁 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
+| ClearReward | 难度通关奖励 | `ItemId;Count\|…`；首次难度通关一次性发放 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
 | TitleMenu | 登录主界面 | Boot 首屏；顶中 GameName（Title_GameName）；主按钮双态开始/继续 → SaveSelect；设置 → UI-028；共享 TitleScreenBackground（UI-027） | [§3.2](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
-| InSaveShell | 进档壳层 | 进档后常驻壳（默认难度 Hub + 玩法占位 + 工具 + 左下商店/装备/魔法书）；独立 Prefab `InSaveShellPanel` | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→LevelSelectPanel）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
+| InSaveShell | 进档壳层 | 进档后常驻壳（默认难度 Hub + 玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → UI-031）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
 | BgmConfig | BGM 配置表 | `Audio_BgmConfig`：BgmId / Context / ClipId / Loop / Weight / Volume | [SPEC_04 §9.29](SPEC_04_Technical.md) |
@@ -66,10 +71,11 @@
 | BakeTables | 打表 | Editor Excel→CSV；`Bake Tables`（Mode1）+ `Bake Mode2 Tables` | [SPEC_04 §14](SPEC_04_Technical.md) |
 | CharacterArtPipeline | 角色美术管线 | Character Creator **烘焙整角**；游戏资源不得落在工具目录；导出补丁→`Art/Characters`→`Prefabs` | [SPEC_04 §15](SPEC_04_Technical.md) |
 | BakedWholeCharacter | 烘焙整角 | 用 Creator 拼装后导出整角 spritesheet/Animator/Prefab；非运行时叠装 | [SPEC_04 §15](SPEC_04_Technical.md) |
-| LevelOperation | 关卡运作 | 关卡 ID + 阶段编号 + 最多 5 个玩法选项 ID（`GameplayOptionId1..5`） | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
+| LevelOperation | 关卡运作 | 关卡 ID + `DifficultyId` + 阶段编号 + 最多 5 个玩法选项 ID（`GameplayOptionId1..5`）+ 可选 `RouteMapAssetId` + Stage1 `UnlockLevelId`（LevelId 门闩） | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
 | GameplayOption | 玩法选项 | 子关卡表一行；含 GameplayType/ConfigId/图标/文案/奖励/解锁下一 Stage 选项 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.31](SPEC_04_Technical.md) |
 | SubLevelConfig | 子关卡表 | `Level_SubLevelConfig`；PK=`GameplayOptionId` | [SPEC_04 §9.31](SPEC_04_Technical.md) |
-| RouteSelect | 关卡路线选择 | 关卡内竖版自下而上 Stage + 横向选项 + 跨 Stage 连线 Prefab（UI-031） | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
+| RouteSelect | 关卡路线选择 | Prefab（UI-031）：壳 `LevelRouteSelectRoot` + 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，悬停 Tips 展示 Type/Title/Description/Reward）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
+| LevelRouteMap | 关卡路线地图 | 每关独立 Prefab `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`；底图 + 选项钉点（子节点名=`GameplayOptionId`）；Editor `Ensure LevelRouteMap Prefabs` / `Sync LevelRouteMap Pins` | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §2](SPEC_04_Technical.md) / §9.31 |
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
 | FlowingWater | 流动水面 | 地图表现约定：Grid 下 `Water`（Chunk+Water.mat）/`Foam`（Individual+Foam.mat）两层；Built-in 资源 `Art/Maps/Shaders/Water/`；世界 UV=`xz`；不参与 NavMesh/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
@@ -241,9 +247,9 @@
 | BattleProtagonist | 战斗主角 | 地图中央；异于 Digger；Defend 用护盾承受普通攻击；烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | Shield | 护盾 | 普通攻击承受次数（敌人或叛变士兵）；开战 = ProtagonistMaxHP；归零 LevelFailure | [§3.12](SPEC_03_GameRules.md) |
 | Monster | 怪物 | 防守敌方；InsideMap/OutsideMap；ModelId 烘焙整角 Prefab | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md)、[§15](SPEC_04_Technical.md) |
-| MonsterConfig | 怪物配置表 | MonsterId → ModelId/target select/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/`PushCoefficient`/`RepulsionScale`/FacingYawFlip/HP/`MoveSpeed`(walk)/`RunSpeed`(run)/`WalkToRunSeconds`/Aggro move mults/attack power/speed/AttackRange etc./skills/`NormalAttackAnims`/`WalkAnims`/`RunAnims`/loot; PushMap D-074: `Skills` may drive `MonsterSelfReviveOnDeath` | [SPEC_04 §9.19](SPEC_04_Technical.md), [§3.14](SPEC_03_GameRules.md) |
+| MonsterConfig | 怪物配置表 | MonsterId → ModelId/target select/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/`PushCoefficient`/`RepulsionScale`/FacingYawFlip/HP/`MoveSpeed`(walk)/`RunSpeed`(run)/`WalkToRunSeconds`/Aggro move mults/attack power/speed/AttackRange etc./skills/`NormalAttackAnims`/`WalkAnims`/`RunAnims`/loot; PushMap/SearchExtract D-074: `Skills` may drive `MonsterSelfReviveOnDeath` | [SPEC_04 §9.19](SPEC_04_Technical.md), [§3.14](SPEC_03_GameRules.md), [§3.19](SPEC_03_GameRules.md) |
 | MonsterSkillEffectConfig | 怪物技能效果配置表 | MonsterSkillId → EffectKind/EffectParams；与士兵 SkillConfig 解耦 | [SPEC_04 §9.21c](SPEC_04_Technical.md) |
-| MonsterCombatDead | 怪物战斗假死 | PushMap：HP≤0 且仍有复活次数；不计击杀；彻底死亡才 MonsterKilled | [§3.14](SPEC_03_GameRules.md) |
+| MonsterCombatDead | 怪物战斗假死 | PushMap / SearchExtract：HP≤0 且仍有复活次数；不计击杀；彻底死亡才 MonsterKilled；搜打撤点清场不假死 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md) |
 | MonsterType | 怪物类型 | `1`=普通 / `2`=精英 / `3`=BOSS；MonsterConfig 原型标签；异于 PushMapSpawnConfig.IsBoss；本批不驱动技能 | [SPEC_04 §9.19](SPEC_04_Technical.md)、[SPEC_03](SPEC_03_GameRules.md) |
 | Wave | 波次 | WaveConfigId 下刷怪行集合；全触发且全灭为胜利条件之一 | [§3.12](SPEC_03_GameRules.md) |
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 顺序/剩余秒/怪物/数量/位置/方式 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.18](SPEC_04_Technical.md) |
@@ -260,7 +266,7 @@
 | GatherCountdown | 搜集倒计时 | 单点激活后规则层倒计时；归零且仍有忠诚存活 → 单点胜利 | [§3.19](SPEC_03_GameRules.md) |
 | SearchExtractPhase | 搜打撤子状态 | Prepare / Combat / Ended | [§3.19](SPEC_03_GameRules.md) |
 | SearchExtractGameplayConfig | 搜打撤玩法配置表 | PK `GameplayConfigId` → `MapId` / 全局倒计时 / `StageExpReward`（Leave 入账） | [SPEC_04 §9.32](SPEC_04_Technical.md) |
-| SearchExtractWaveSpawnConfig | 搜打撤刷怪配置表 | 一行一波：`GatherPointOrder`+`WaveIndex`+`SpawnPointId`+Delay/Interval+怪物 | [SPEC_04 §9.33](SPEC_04_Technical.md) |
+| SearchExtractWaveSpawnConfig | 搜打撤刷怪配置表 | 一行一独立配方：`GatherPointOrder`+`WaveIndex`+`SpawnPointId`+首刷 Delay+行内 Interval×`RepeatSpawnCount`+怪物 | [SPEC_04 §9.33](SPEC_04_Technical.md) |
 | VictorySettlement | 胜利结算 | 最后一阶段结束后的关卡级结算 | [§3.9](SPEC_03_GameRules.md) |
 | Demo acceptance (D-xxx) | Demo 验收项 | D-001～D-004 Meta 壳；D-010～D-044 Dig→UM→Defend（含 ModeSelect）流水线垂直切片 | [§3.8](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 

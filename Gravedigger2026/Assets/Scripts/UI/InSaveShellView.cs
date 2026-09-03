@@ -53,6 +53,7 @@ namespace Gravedigger2026.UI
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
         public event Action LockedDifficultyClicked;
+        public event Action DifficultySelected;
         public event Action<string> GmGrantItemPicked;
         public event Action<int> GmGrantLevelPicked;
         public event Action GmGrantListClosed;
@@ -111,6 +112,7 @@ namespace Gravedigger2026.UI
             if (_difficultySelectHost != null)
             {
                 _difficultySelectHost.LockedDifficultyClicked += () => LockedDifficultyClicked?.Invoke();
+                _difficultySelectHost.DifficultySelected += () => DifficultySelected?.Invoke();
             }
 
             if (_debugWarriorTaskLabelButton != null)
@@ -221,18 +223,14 @@ namespace Gravedigger2026.UI
 
         public void ShowLevelSelectPanel(IReadOnlyList<string> levelIds)
         {
+            // Hub primary path is DifficultySelectHost → UI-031 tabs; LevelSelectPanel stays hidden.
+            _ = levelIds;
             EnsureDifficultySelectHost();
-            // Hide Dig/UM/Defend placeholders, but keep shell backdrop Image visible (hub chrome).
             SuppressModePanelsKeepBackdrop();
+            HideLevelSelectPanel();
             if (_difficultySelectHost != null)
             {
-                _difficultySelectHost.ShowExpandedNormal();
-            }
-
-            if (_levelSelectPanel != null)
-            {
-                _levelSelectPanel.ConfigureHubEmbedded(true);
-                _levelSelectPanel.Show(levelIds);
+                _difficultySelectHost.ShowAllColumns();
             }
         }
 
@@ -248,9 +246,10 @@ namespace Gravedigger2026.UI
         {
             EnsureDifficultySelectHost();
             SuppressModePanelsKeepBackdrop();
+            HideLevelSelectPanel();
             if (_difficultySelectHost != null)
             {
-                _difficultySelectHost.ShowExpandedNormal();
+                _difficultySelectHost.ShowAllColumns();
             }
         }
 
@@ -633,7 +632,8 @@ namespace Gravedigger2026.UI
                     _difficultySelectHost = hostGo.AddComponent<DifficultySelectHostView>();
                 }
 
-                if (_difficultySelectHost.NormalLevelHost == null)
+                if (hostGo.transform.Find("ColumnsScroll") == null ||
+                    hostGo.transform.Find("DescriptionText") == null)
                 {
                     BuildDifficultyScrollRuntime(hostGo);
                 }
@@ -652,7 +652,7 @@ namespace Gravedigger2026.UI
                 BuildDifficultyScrollRuntime(hostGo);
             }
 
-            EmbedLevelSelectInNormalColumn();
+            DetachAndHideLevelSelect();
             hostGo.SetActive(false);
         }
 
@@ -673,6 +673,7 @@ namespace Gravedigger2026.UI
             if (_levelSelectPanel != null && panel != null)
             {
                 _levelSelectPanel.transform.SetParent(panel, false);
+                _levelSelectPanel.Hide();
             }
 
             for (var i = hostGo.transform.childCount - 1; i >= 0; i--)
@@ -682,7 +683,11 @@ namespace Gravedigger2026.UI
 
             var scrollGo = new GameObject("ColumnsScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
             scrollGo.transform.SetParent(hostGo.transform, false);
-            Stretch(scrollGo.GetComponent<RectTransform>());
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            scrollRt.anchorMin = new Vector2(0f, 0.14f);
+            scrollRt.anchorMax = new Vector2(1f, 1f);
+            scrollRt.offsetMin = Vector2.zero;
+            scrollRt.offsetMax = Vector2.zero;
             var scrollImg = scrollGo.GetComponent<Image>();
             scrollImg.color = new Color(0f, 0f, 0f, 0.01f);
             scrollImg.raycastTarget = true;
@@ -722,13 +727,21 @@ namespace Gravedigger2026.UI
             scroll.scrollSensitivity = 40f;
 
             var normal = CreateDifficultyColumn(contentRt, "NormalColumn", "普通难度",
-                new Color(0.55f, 0.78f, 0.55f, 1f), withLevelHost: true);
+                new Color(0.55f, 0.78f, 0.55f, 1f), withLevelHost: false);
             var hard = CreateDifficultyColumn(contentRt, "HardColumn", "困难难度",
                 new Color(0.85f, 0.75f, 0.35f, 1f), withLevelHost: false);
             var hell = CreateDifficultyColumn(contentRt, "HellColumn", "地狱难度",
                 new Color(0.90f, 0.55f, 0.35f, 1f), withLevelHost: false);
 
-            var levelHost = normal.transform.Find("LevelHost") as RectTransform;
+            var descText = CreateUiText(hostGo.transform, "DescriptionText",
+                "将鼠标移到难度栏上查看说明", 20, TextAnchor.MiddleCenter);
+            var descRt = descText.rectTransform;
+            descRt.anchorMin = new Vector2(0f, 0f);
+            descRt.anchorMax = new Vector2(1f, 0.14f);
+            descRt.offsetMin = new Vector2(12f, 4f);
+            descRt.offsetMax = new Vector2(-12f, -4f);
+            descText.color = new Color(0.92f, 0.93f, 0.95f, 1f);
+
             _difficultySelectHost.BindRuntime(
                 hostGo,
                 scroll,
@@ -736,51 +749,30 @@ namespace Gravedigger2026.UI
                 normal.GetComponent<RectTransform>(),
                 hard.GetComponent<RectTransform>(),
                 hell.GetComponent<RectTransform>(),
-                levelHost,
+                null,
                 normal.GetComponent<Button>(),
                 hard.GetComponent<Button>(),
                 hell.GetComponent<Button>(),
                 normal.transform.Find("Label")?.GetComponent<Text>(),
                 hard.transform.Find("Label")?.GetComponent<Text>(),
-                hell.transform.Find("Label")?.GetComponent<Text>());
+                hell.transform.Find("Label")?.GetComponent<Text>(),
+                descText);
         }
 
-        private void EmbedLevelSelectInNormalColumn()
+        private void DetachAndHideLevelSelect()
         {
-            if (_difficultySelectHost == null || _levelSelectPanel == null)
+            if (_levelSelectPanel == null)
             {
                 return;
             }
 
-            var levelHost = _difficultySelectHost.NormalLevelHost;
-            if (levelHost == null)
+            var panel = _root != null ? _root.transform : transform;
+            if (_levelSelectPanel.transform.parent != panel)
             {
-                return;
+                _levelSelectPanel.transform.SetParent(panel, false);
             }
 
-            var levelGo = _levelSelectPanel.gameObject;
-            if (levelGo.transform.parent != levelHost)
-            {
-                levelGo.transform.SetParent(levelHost, false);
-            }
-
-            var rt = levelGo.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.offsetMin = new Vector2(8f, 8f);
-                rt.offsetMax = new Vector2(-8f, -8f);
-            }
-
-            var backdrop = levelGo.GetComponent<Image>();
-            if (backdrop != null)
-            {
-                backdrop.color = new Color(0.12f, 0.14f, 0.18f, 0.92f);
-            }
-
-            EnsureLevelEnterButton(levelGo.transform);
-            _levelSelectPanel.ConfigureHubEmbedded(true);
+            _levelSelectPanel.Hide();
         }
 
         private void EnsureLevelEnterButton(Transform levelRoot)
@@ -850,8 +842,17 @@ namespace Gravedigger2026.UI
 
             var text = CreateUiText(go.transform, "Label", label, 28, TextAnchor.MiddleCenter);
             var labelRt = text.rectTransform;
-            labelRt.anchorMin = new Vector2(0f, 0.88f);
-            labelRt.anchorMax = new Vector2(1f, 1f);
+            if (withLevelHost)
+            {
+                labelRt.anchorMin = new Vector2(0f, 0.88f);
+                labelRt.anchorMax = new Vector2(1f, 1f);
+            }
+            else
+            {
+                labelRt.anchorMin = new Vector2(0.05f, 0.35f);
+                labelRt.anchorMax = new Vector2(0.95f, 0.65f);
+            }
+
             labelRt.offsetMin = Vector2.zero;
             labelRt.offsetMax = Vector2.zero;
             text.color = new Color(0.15f, 0.15f, 0.18f, 1f);

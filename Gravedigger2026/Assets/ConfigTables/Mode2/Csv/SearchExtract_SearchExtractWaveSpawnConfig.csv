@@ -1,5 +1,5 @@
-GameplayConfigId,GatherPointOrder,WaveIndex,FirstWaveDelaySeconds,WaveIntervalSeconds,SpawnPointId,MonsterId,SpawnCount
-SearchExtract_01,1,1,2,8,SP_01,Monster_01,3
-SearchExtract_01,1,2,2,8,SP_01,Monster_01,3
-SearchExtract_01,2,1,2,8,SP_02,Monster_01,3
-SearchExtract_01,2,2,2,8,SP_02,Monster_01,3
+GameplayConfigId,GatherPointOrder,WaveIndex,FirstWaveDelaySeconds,WaveIntervalSeconds,RepeatSpawnCount,SpawnPointId,MonsterId,SpawnCount
+SearchExtract_01,1,1,5,25,3,SP_01,Monster_04,8
+SearchExtract_01,1,2,10,25,3,SP_02,Monster_04,8
+SearchExtract_01,1,3,15,25,3,SP_03,Monster_04,8
+SearchExtract_01,1,4,20,25,3,SP_04,Monster_04,8

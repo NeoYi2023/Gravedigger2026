@@ -36,7 +36,7 @@ namespace Gravedigger2026.Editor.Meta
         private const string RegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v0792_levelSelect";
         private const string TitleMenuRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08321_titleGameName";
         private const string TitleSettingsRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08322_titleSettings";
-        private const string InSaveDifficultyHubRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08371_insaveDifficultyHubScroll";
+        private const string InSaveDifficultyHubRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08382_insaveDifficultySameScreenTabs";
         private const string GmGrantRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08217_gmGrant";
         private const string GmGrantLevelPickerRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08297_gmGrantLevelPicker";
         private const string GmAddSoldierRegenPrefsKey = "Gravedigger2026.MetaShell.Regen.v08239_gmAddSoldier";
@@ -304,7 +304,8 @@ namespace Gravedigger2026.Editor.Meta
         }
 
         /// <summary>
-        /// Surgical patch: DifficultySelectHost (UI-029) + standalone InSaveShellPanel.prefab.
+        /// UI-029: keep authoritative <c>InSaveShellPanel.prefab</c>, soft-patch DifficultySelectHost,
+        /// nest Prefab Instance under MetaShellRoot (never reverse-overwrite the standalone Prefab).
         /// </summary>
         public static void EnsureInSaveShellPanelOnExistingPrefab()
         {
@@ -320,45 +321,180 @@ namespace Gravedigger2026.Editor.Meta
                 Directory.CreateDirectory(PrefabMetaDir);
             }
 
-            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            EnsureAuthoritativeInSaveShellPanelAsset();
+            NestInSaveShellPanelUnderMetaShellRoot();
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                "[MetaShellAssetBuilder] InSaveShellPanel (UI-029) authoritative Prefab soft-patched; " +
+                "MetaShellRoot nests Prefab Instance (no reverse overwrite).");
+        }
+
+        /// <summary>
+        /// Soft-patch DifficultySelectHost on the authoritative standalone Prefab only.
+        /// Bootstraps from MetaShellRoot baked nest when standalone is missing.
+        /// </summary>
+        private static void EnsureAuthoritativeInSaveShellPanelAsset()
+        {
+            var standalone = AssetDatabase.LoadAssetAtPath<GameObject>(InSaveShellPrefabPath);
+            if (standalone == null)
+            {
+                BootstrapInSaveShellPanelFromMetaShellRoot();
+                standalone = AssetDatabase.LoadAssetAtPath<GameObject>(InSaveShellPrefabPath);
+                if (standalone == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] Failed to bootstrap InSaveShellPanel.prefab.");
+                    return;
+                }
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(InSaveShellPrefabPath);
             try
             {
-                var controller = root.GetComponent<MetaShellController>();
-                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
-                if (inSave == null)
+                var view = contents.GetComponent<InSaveShellView>();
+                if (view == null)
                 {
-                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot.");
+                    view = contents.GetComponentInChildren<InSaveShellView>(true);
+                }
+
+                if (view == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView missing on InSaveShellPanel.prefab.");
                     return;
                 }
 
-                PatchDifficultySelectHost(inSave);
-                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                PatchDifficultySelectHost(view);
+                contents.name = "InSaveShellPanel";
+                PrefabUtility.SaveAsPrefabAsset(contents, InSaveShellPrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
 
-                var panelGo = inSave.gameObject;
-                var standalone = Object.Instantiate(panelGo);
-                standalone.name = "InSaveShellPanel";
-                PrefabUtility.SaveAsPrefabAsset(standalone, InSaveShellPrefabPath);
-                Object.DestroyImmediate(standalone);
-
-                Debug.Log("[MetaShellAssetBuilder] InSaveShellPanel (UI-029) ensured + standalone Prefab saved.");
-
-                if (controller != null)
+        private static void BootstrapInSaveShellPanelFromMetaShellRoot()
+        {
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var inSave = root.GetComponentInChildren<InSaveShellView>(true);
+                if (inSave == null)
                 {
-                    var so = new SerializedObject(controller);
-                    so.FindProperty("_inSaveShellView").objectReferenceValue = inSave;
-                    so.ApplyModifiedPropertiesWithoutUndo();
-                    PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                    Debug.LogError("[MetaShellAssetBuilder] InSaveShellView not found on MetaShellRoot for bootstrap.");
+                    return;
                 }
+
+                var clone = Object.Instantiate(inSave.gameObject);
+                clone.name = "InSaveShellPanel";
+                PrefabUtility.SaveAsPrefabAsset(clone, InSaveShellPrefabPath);
+                Object.DestroyImmediate(clone);
+                Debug.Log("[MetaShellAssetBuilder] Bootstrapped InSaveShellPanel.prefab from MetaShellRoot nest.");
             }
             finally
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
-
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
         }
 
+        private static void NestInSaveShellPanelUnderMetaShellRoot()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(InSaveShellPrefabPath);
+            if (asset == null)
+            {
+                Debug.LogError("[MetaShellAssetBuilder] InSaveShellPanel.prefab missing; cannot nest.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(RootPrefabPath);
+            try
+            {
+                var controller = root.GetComponent<MetaShellController>();
+                var canvas = root.transform.Find("MetaCanvas");
+                if (canvas == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] MetaCanvas not found on MetaShellRoot.");
+                    return;
+                }
+
+                var existing = root.GetComponentInChildren<InSaveShellView>(true);
+                Transform parent = canvas;
+                var siblingIndex = -1;
+                if (existing != null)
+                {
+                    parent = existing.transform.parent != null ? existing.transform.parent : canvas;
+                    siblingIndex = existing.transform.GetSiblingIndex();
+                    if (IsPrefabInstanceOfInSaveShellPanel(existing.gameObject))
+                    {
+                        // Already linked — refresh wiring only.
+                        WireInSaveShellController(controller, existing);
+                        PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+                        return;
+                    }
+
+                    Object.DestroyImmediate(existing.gameObject);
+                }
+
+                var instanceGo = (GameObject)PrefabUtility.InstantiatePrefab(asset, parent);
+                instanceGo.name = "InSaveShellPanel";
+                if (siblingIndex >= 0)
+                {
+                    instanceGo.transform.SetSiblingIndex(siblingIndex);
+                }
+
+                StretchFull(instanceGo.GetComponent<RectTransform>());
+                instanceGo.SetActive(false);
+
+                var instanceView = instanceGo.GetComponent<InSaveShellView>();
+                if (instanceView == null)
+                {
+                    Debug.LogError("[MetaShellAssetBuilder] Nested InSaveShellPanel missing InSaveShellView.");
+                    return;
+                }
+
+                WireInSaveShellController(controller, instanceView);
+                PrefabUtility.SaveAsPrefabAsset(root, RootPrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static bool IsPrefabInstanceOfInSaveShellPanel(GameObject go)
+        {
+            if (go == null || !PrefabUtility.IsPartOfPrefabInstance(go))
+            {
+                return false;
+            }
+
+            var source = PrefabUtility.GetCorrespondingObjectFromSource(go);
+            if (source == null)
+            {
+                return false;
+            }
+
+            var path = AssetDatabase.GetAssetPath(source);
+            return string.Equals(path, InSaveShellPrefabPath, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void WireInSaveShellController(MetaShellController controller, InSaveShellView inSave)
+        {
+            if (controller == null || inSave == null)
+            {
+                return;
+            }
+
+            var so = new SerializedObject(controller);
+            so.FindProperty("_inSaveShellView").objectReferenceValue = inSave;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>
+        /// Soft patch: rebuild DifficultySelectHost children only when ColumnsScroll or DescriptionText missing.
+        /// Never wipe authored layout when both already exist.
+        /// </summary>
         private static void PatchDifficultySelectHost(InSaveShellView inSave)
         {
             var panel = inSave.transform;
@@ -370,6 +506,7 @@ namespace Gravedigger2026.Editor.Meta
 
             var hostTf = panel.Find("DifficultySelectHost");
             GameObject hostGo;
+            var needsRebuild = true;
             if (hostTf == null)
             {
                 hostGo = new GameObject("DifficultySelectHost", typeof(RectTransform));
@@ -384,9 +521,14 @@ namespace Gravedigger2026.Editor.Meta
             else
             {
                 hostGo = hostTf.gameObject;
-                for (var i = hostGo.transform.childCount - 1; i >= 0; i--)
+                needsRebuild = hostGo.transform.Find("ColumnsScroll") == null
+                    || hostGo.transform.Find("DescriptionText") == null;
+                if (needsRebuild)
                 {
-                    Object.DestroyImmediate(hostGo.transform.GetChild(i).gameObject);
+                    for (var i = hostGo.transform.childCount - 1; i >= 0; i--)
+                    {
+                        Object.DestroyImmediate(hostGo.transform.GetChild(i).gameObject);
+                    }
                 }
             }
 
@@ -396,50 +538,23 @@ namespace Gravedigger2026.Editor.Meta
                 hostView = hostGo.AddComponent<DifficultySelectHostView>();
             }
 
-            var built = BuildDifficultyScrollEditor(hostGo.transform);
-            var hso = new SerializedObject(hostView);
-            hso.FindProperty("_root").objectReferenceValue = hostGo;
-            hso.FindProperty("_columnsScroll").objectReferenceValue = built.Scroll;
-            hso.FindProperty("_columnsContent").objectReferenceValue = built.Content;
-            hso.FindProperty("_normalColumn").objectReferenceValue = built.NormalColumn;
-            hso.FindProperty("_hardColumn").objectReferenceValue = built.HardColumn;
-            hso.FindProperty("_hellColumn").objectReferenceValue = built.HellColumn;
-            hso.FindProperty("_normalLevelHost").objectReferenceValue = built.NormalLevelHost;
-            hso.FindProperty("_normalButton").objectReferenceValue = built.NormalColumn.GetComponent<Button>();
-            hso.FindProperty("_hardButton").objectReferenceValue = built.HardColumn.GetComponent<Button>();
-            hso.FindProperty("_hellButton").objectReferenceValue = built.HellColumn.GetComponent<Button>();
-            hso.FindProperty("_normalLabel").objectReferenceValue =
-                built.NormalColumn.Find("Label")?.GetComponent<Text>();
-            hso.FindProperty("_hardLabel").objectReferenceValue =
-                built.HardColumn.Find("Label")?.GetComponent<Text>();
-            hso.FindProperty("_hellLabel").objectReferenceValue =
-                built.HellColumn.Find("Label")?.GetComponent<Text>();
-            hso.ApplyModifiedPropertiesWithoutUndo();
+            if (needsRebuild)
+            {
+                var built = BuildDifficultyScrollEditor(hostGo.transform);
+                BindDifficultySelectHostView(hostView, hostGo, built);
+            }
+            else
+            {
+                RebindDifficultySelectHostFromHierarchy(hostView, hostGo);
+            }
+
             hostGo.SetActive(false);
 
-            if (levelSelect != null && built.NormalLevelHost != null)
+            if (levelSelect != null)
             {
                 var levelGo = levelSelect.gameObject;
-                levelGo.transform.SetParent(built.NormalLevelHost, false);
-                var lrt = levelGo.GetComponent<RectTransform>();
-                StretchFull(lrt);
-                lrt.offsetMin = new Vector2(8f, 8f);
-                lrt.offsetMax = new Vector2(-8f, -8f);
-
-                var box = levelGo.transform.Find("Box");
-                var parent = box != null ? box : levelGo.transform;
-                EnsureEnterButtonOnLevelSelect(parent);
-
-                var so = new SerializedObject(levelSelect);
-                so.FindProperty("_hubEmbedded").boolValue = true;
-                so.FindProperty("_backdropImage").objectReferenceValue = levelGo.GetComponent<Image>();
-                var enter = parent.Find("EnterButton")?.GetComponent<Button>();
-                if (enter != null)
-                {
-                    so.FindProperty("_enterButton").objectReferenceValue = enter;
-                }
-
-                so.ApplyModifiedPropertiesWithoutUndo();
+                levelGo.transform.SetParent(panel, false);
+                levelGo.SetActive(false);
             }
 
             var viewSo = new SerializedObject(inSave);
@@ -452,6 +567,84 @@ namespace Gravedigger2026.Editor.Meta
             viewSo.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        private static void BindDifficultySelectHostView(
+            DifficultySelectHostView hostView,
+            GameObject hostGo,
+            DifficultyScrollBuilt built)
+        {
+            var hso = new SerializedObject(hostView);
+            hso.FindProperty("_root").objectReferenceValue = hostGo;
+            hso.FindProperty("_columnsScroll").objectReferenceValue = built.Scroll;
+            hso.FindProperty("_columnsContent").objectReferenceValue = built.Content;
+            hso.FindProperty("_normalColumn").objectReferenceValue = built.NormalColumn;
+            hso.FindProperty("_hardColumn").objectReferenceValue = built.HardColumn;
+            hso.FindProperty("_hellColumn").objectReferenceValue = built.HellColumn;
+            hso.FindProperty("_normalLevelHost").objectReferenceValue = built.NormalLevelHost;
+            hso.FindProperty("_normalButton").objectReferenceValue =
+                built.NormalColumn != null ? built.NormalColumn.GetComponent<Button>() : null;
+            hso.FindProperty("_hardButton").objectReferenceValue =
+                built.HardColumn != null ? built.HardColumn.GetComponent<Button>() : null;
+            hso.FindProperty("_hellButton").objectReferenceValue =
+                built.HellColumn != null ? built.HellColumn.GetComponent<Button>() : null;
+            hso.FindProperty("_normalLabel").objectReferenceValue =
+                built.NormalColumn != null ? built.NormalColumn.Find("Label")?.GetComponent<Text>() : null;
+            hso.FindProperty("_hardLabel").objectReferenceValue =
+                built.HardColumn != null ? built.HardColumn.Find("Label")?.GetComponent<Text>() : null;
+            hso.FindProperty("_hellLabel").objectReferenceValue =
+                built.HellColumn != null ? built.HellColumn.Find("Label")?.GetComponent<Text>() : null;
+            hso.FindProperty("_descriptionText").objectReferenceValue = built.DescriptionText;
+            if (string.IsNullOrWhiteSpace(hso.FindProperty("_normalDescription").stringValue))
+            {
+                hso.FindProperty("_normalDescription").stringValue = "普通：适合熟悉流程与主线关卡。";
+            }
+
+            if (string.IsNullOrWhiteSpace(hso.FindProperty("_hardDescription").stringValue))
+            {
+                hso.FindProperty("_hardDescription").stringValue = "困难：尚未开放。";
+            }
+
+            if (string.IsNullOrWhiteSpace(hso.FindProperty("_hellDescription").stringValue))
+            {
+                hso.FindProperty("_hellDescription").stringValue = "地狱：尚未开放。";
+            }
+
+            hso.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void RebindDifficultySelectHostFromHierarchy(
+            DifficultySelectHostView hostView,
+            GameObject hostGo)
+        {
+            var scroll = hostGo.transform.Find("ColumnsScroll")?.GetComponent<ScrollRect>();
+            var content = hostGo.transform.Find("ColumnsScroll/Viewport/Content") as RectTransform;
+            if (content == null && scroll != null)
+            {
+                content = scroll.content;
+            }
+
+            var normal = hostGo.transform.Find("ColumnsScroll/Viewport/Content/NormalColumn") as RectTransform;
+            var hard = hostGo.transform.Find("ColumnsScroll/Viewport/Content/HardColumn") as RectTransform;
+            var hell = hostGo.transform.Find("ColumnsScroll/Viewport/Content/HellColumn") as RectTransform;
+            var levelHost = normal != null
+                ? normal.Find("LevelHost") as RectTransform
+                : null;
+            var desc = hostGo.transform.Find("DescriptionText")?.GetComponent<Text>();
+
+            BindDifficultySelectHostView(
+                hostView,
+                hostGo,
+                new DifficultyScrollBuilt
+                {
+                    Scroll = scroll,
+                    Content = content,
+                    NormalColumn = normal,
+                    HardColumn = hard,
+                    HellColumn = hell,
+                    NormalLevelHost = levelHost,
+                    DescriptionText = desc
+                });
+        }
+
         private struct DifficultyScrollBuilt
         {
             public ScrollRect Scroll;
@@ -460,13 +653,18 @@ namespace Gravedigger2026.Editor.Meta
             public RectTransform HardColumn;
             public RectTransform HellColumn;
             public RectTransform NormalLevelHost;
+            public Text DescriptionText;
         }
 
         private static DifficultyScrollBuilt BuildDifficultyScrollEditor(Transform host)
         {
             var scrollGo = new GameObject("ColumnsScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
             scrollGo.transform.SetParent(host, false);
-            StretchFull(scrollGo.GetComponent<RectTransform>());
+            var scrollRt = scrollGo.GetComponent<RectTransform>();
+            scrollRt.anchorMin = new Vector2(0f, 0.14f);
+            scrollRt.anchorMax = new Vector2(1f, 1f);
+            scrollRt.offsetMin = Vector2.zero;
+            scrollRt.offsetMax = Vector2.zero;
             var scrollImg = scrollGo.GetComponent<Image>();
             scrollImg.color = new Color(0f, 0f, 0f, 0.01f);
             scrollImg.raycastTarget = true;
@@ -506,11 +704,33 @@ namespace Gravedigger2026.Editor.Meta
             scroll.scrollSensitivity = 40f;
 
             var normal = CreateDifficultyColumnEditor(contentRt, "NormalColumn", "普通难度",
-                new Color(0.55f, 0.78f, 0.55f, 1f), DifficultyItem1SpritePath, withLevelHost: true);
+                new Color(0.55f, 0.78f, 0.55f, 1f), DifficultyItem1SpritePath, withLevelHost: false);
             var hard = CreateDifficultyColumnEditor(contentRt, "HardColumn", "困难难度",
                 new Color(0.85f, 0.75f, 0.35f, 1f), DifficultyItem2SpritePath, withLevelHost: false);
             var hell = CreateDifficultyColumnEditor(contentRt, "HellColumn", "地狱难度",
                 new Color(0.90f, 0.55f, 0.35f, 1f), null, withLevelHost: false);
+
+            // Normal art still uses preserveAspect even without LevelHost.
+            var normalImg = normal.GetComponent<Image>();
+            if (normalImg != null && normalImg.sprite != null)
+            {
+                normalImg.preserveAspect = true;
+            }
+
+            var descGo = new GameObject("DescriptionText", typeof(RectTransform), typeof(Text));
+            descGo.transform.SetParent(host, false);
+            var descRt = descGo.GetComponent<RectTransform>();
+            descRt.anchorMin = new Vector2(0f, 0f);
+            descRt.anchorMax = new Vector2(1f, 0.14f);
+            descRt.offsetMin = new Vector2(12f, 4f);
+            descRt.offsetMax = new Vector2(-12f, -4f);
+            var descText = descGo.GetComponent<Text>();
+            descText.text = "将鼠标移到难度栏上查看说明";
+            descText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            descText.fontSize = 20;
+            descText.alignment = TextAnchor.MiddleCenter;
+            descText.color = new Color(0.92f, 0.93f, 0.95f, 1f);
+            descText.raycastTarget = false;
 
             return new DifficultyScrollBuilt
             {
@@ -519,7 +739,8 @@ namespace Gravedigger2026.Editor.Meta
                 NormalColumn = normal.GetComponent<RectTransform>(),
                 HardColumn = hard.GetComponent<RectTransform>(),
                 HellColumn = hell.GetComponent<RectTransform>(),
-                NormalLevelHost = normal.transform.Find("LevelHost") as RectTransform
+                NormalLevelHost = null,
+                DescriptionText = descText
             };
         }
 
@@ -557,8 +778,8 @@ namespace Gravedigger2026.Editor.Meta
                     var img = go.GetComponent<Image>();
                     img.sprite = sprite;
                     img.type = Image.Type.Simple;
-                    // NormalColumn (withLevelHost): keep source art aspect; do not stretch to column.
-                    img.preserveAspect = withLevelHost;
+                    // Keep source art aspect for NormalColumn sprite (name == NormalColumn).
+                    img.preserveAspect = string.Equals(name, "NormalColumn", System.StringComparison.Ordinal);
                     img.color = Color.white;
                 }
             }
@@ -568,8 +789,17 @@ namespace Gravedigger2026.Editor.Meta
             {
                 labelText.fontSize = 28;
                 var labelRt = labelText.rectTransform;
-                labelRt.anchorMin = new Vector2(0f, 0.88f);
-                labelRt.anchorMax = new Vector2(1f, 1f);
+                if (withLevelHost)
+                {
+                    labelRt.anchorMin = new Vector2(0f, 0.88f);
+                    labelRt.anchorMax = new Vector2(1f, 1f);
+                }
+                else
+                {
+                    labelRt.anchorMin = new Vector2(0.05f, 0.35f);
+                    labelRt.anchorMax = new Vector2(0.95f, 0.65f);
+                }
+
                 labelRt.offsetMin = Vector2.zero;
                 labelRt.offsetMax = Vector2.zero;
             }
@@ -1716,12 +1946,25 @@ namespace Gravedigger2026.Editor.Meta
 
             root.SetActive(false);
 
-            var standalone = Object.Instantiate(root);
-            standalone.name = "InSaveShellPanel";
-            PrefabUtility.SaveAsPrefabAsset(standalone, InSaveShellPrefabPath);
-            Object.DestroyImmediate(standalone);
+            // Authoritative standalone Prefab, then nest Prefab Instance under MetaShellRoot.
+            var nestParent = root.transform.parent;
+            var siblingIndex = root.transform.GetSiblingIndex();
+            PrefabUtility.SaveAsPrefabAsset(root, InSaveShellPrefabPath);
+            Object.DestroyImmediate(root);
 
-            return view;
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(InSaveShellPrefabPath);
+            if (asset == null || nestParent == null)
+            {
+                Debug.LogError("[MetaShellAssetBuilder] Failed to nest InSaveShellPanel Prefab Instance.");
+                return null;
+            }
+
+            var instanceGo = (GameObject)PrefabUtility.InstantiatePrefab(asset, nestParent);
+            instanceGo.name = "InSaveShellPanel";
+            instanceGo.transform.SetSiblingIndex(siblingIndex);
+            StretchFull(instanceGo.GetComponent<RectTransform>());
+            instanceGo.SetActive(false);
+            return instanceGo.GetComponent<InSaveShellView>();
         }
 
         private static LevelSelectPanelView BuildLevelSelectPanel(Transform parent)

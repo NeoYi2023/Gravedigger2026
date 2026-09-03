@@ -14,8 +14,9 @@ namespace Gravedigger2026.Core.SearchExtract
     /// directional wave spawn (SE-06), point success + UI-032 (SE-07),
     /// multi-point advance + Leave→Ended (SE-08), loyal wipe → LevelFailure (SE-09).
     /// Does not touch PushMapSessionService Capture.
+    /// D-074 Approach B: implements IMonsterDeathSkillHost (shared MonsterDeathSkillService).
     /// </summary>
-    public sealed class SearchExtractSessionService : IWarriorMassCombatSession
+    public sealed class SearchExtractSessionService : IWarriorMassCombatSession, IMonsterDeathSkillHost
     {
         public const string PointSuccessInvincibleSkillId = "SearchExtractPointSuccess";
 
@@ -27,9 +28,11 @@ namespace Gravedigger2026.Core.SearchExtract
         private bool _formationRelocateActive;
         private float _gatherCountdownRemaining;
         private float _waveElapsedSinceActivation;
-        private int _wavesFiredCount;
+        private readonly List<WaveRecipeRuntimeState> _waveRecipeStates =
+            new List<WaveRecipeRuntimeState>();
         private ConfigCsvRepository _configs;
         private readonly CombatStatusService _combatStatus = new CombatStatusService();
+        private readonly MonsterDeathSkillService _monsterDeathSkills = new MonsterDeathSkillService();
         private readonly List<int> _gatherOrders = new List<int>();
         private readonly HashSet<int> _completedGatherOrders = new HashSet<int>();
         private readonly List<SearchExtractWaveSpawnConfigRow> _allWaveRows =
@@ -48,6 +51,10 @@ namespace Gravedigger2026.Core.SearchExtract
         public event Action<SearchExtractSpawnRequest> SpawnRequested;
         public event Action<string, float> MonsterDamageSettled;
         public event Action<string, string, float, string> MonsterKilled;
+        public event Action<string, string, float, string> MonsterEnteredCombatDead;
+        public event Action<string, float> MonsterReviveStarted;
+        public event Action<string> MonsterRevived;
+        public event Action<string, string, bool> MonsterInvincibleChanged;
         public event Action<string, float> WarriorDamageSettled;
         public event Action<string> WarriorCombatDead;
         public event Action<SearchExtractPointDecisionInfo> PointSucceeded;
@@ -112,7 +119,11 @@ namespace Gravedigger2026.Core.SearchExtract
             string levelId,
             string gameplayOptionId)
         {
+            // Stop() clears runtime state and would null _configs; BindCombatConfigs must
+            // survive Prepare so RegisterMonster can parse MonsterConfig.Skills (D-074).
+            var retainedConfigs = _configs;
             Stop();
+            _configs = retainedConfigs;
             Config = config ?? throw new ArgumentNullException(nameof(config));
             LevelId = levelId ?? string.Empty;
             GameplayOptionId = gameplayOptionId ?? string.Empty;
@@ -124,7 +135,8 @@ namespace Gravedigger2026.Core.SearchExtract
             Debug.Log(
                 $"[SearchExtractSession] Prepare Level={LevelId} Option={GameplayOptionId} " +
                 $"Config={config.GameplayConfigId} Map={config.MapId} N={GatherPointCount} " +
-                $"Countdown={config.GatherCountdownSeconds} Waves={_allWaveRows.Count}");
+                $"Countdown={config.GatherCountdownSeconds} Waves={_allWaveRows.Count} " +
+                $"ConfigsBound={_configs != null}");
         }
 
         /// <summary>
@@ -187,6 +199,7 @@ namespace Gravedigger2026.Core.SearchExtract
             LockedLossOfControlTierId = LossOfControlMath.MapTierId(lossOfControlDegree);
             ResetGatherCountdownState();
             ResetWaveSpawnState();
+            BindDeathSkillHost();
             Phase = SearchExtractPhase.Combat;
             PhaseChanged?.Invoke(Phase);
             Debug.Log(
@@ -221,8 +234,7 @@ namespace Gravedigger2026.Core.SearchExtract
             GatherCountdownSecondsChanged?.Invoke(seconds);
             Debug.Log(
                 $"[SearchExtractSession] GatherPointActivated Order={CurrentGatherOrder} " +
-                $"Countdown={_gatherCountdownRemaining:0.###}s Waves={_currentPointWaveRows.Count} " +
-                $"FirstDelay={ResolveFirstWaveDelay():0.###}s Interval={ResolveWaveInterval():0.###}s");
+                $"Countdown={_gatherCountdownRemaining:0.###}s Recipes={_waveRecipeStates.Count}");
             GatherPointActivated?.Invoke();
             return true;
         }
@@ -271,6 +283,7 @@ namespace Gravedigger2026.Core.SearchExtract
             }
 
             _combatStatus.Tick(deltaTime);
+            TickMonsterRevive(deltaTime);
         }
 
         /// <summary>
@@ -453,7 +466,7 @@ namespace Gravedigger2026.Core.SearchExtract
         }
 
         /// <summary>
-        /// Wave scheduler: FirstWaveDelay → WaveInterval per WaveIndex (SPEC_04 §9.33).
+        /// Per-row spawn recipes: FirstWaveDelay → optional Interval × RepeatSpawnCount (SPEC_04 §9.33).
         /// Only runs while the current point is activated and spawn-eligible.
         /// </summary>
         public void TickWaveSpawn(float deltaTime)
@@ -467,23 +480,58 @@ namespace Gravedigger2026.Core.SearchExtract
                 return;
             }
 
-            if (_currentPointWaveRows.Count == 0 || _wavesFiredCount >= _currentPointWaveRows.Count)
+            if (_waveRecipeStates.Count == 0)
             {
                 return;
             }
 
             _waveElapsedSinceActivation += deltaTime;
-            while (_wavesFiredCount < _currentPointWaveRows.Count)
+            var firedAny = false;
+            do
             {
-                var scheduled = ResolveScheduledSpawnTime(_wavesFiredCount);
-                if (_waveElapsedSinceActivation + 1e-4f < scheduled)
+                firedAny = false;
+                for (var i = 0; i < _waveRecipeStates.Count; i++)
                 {
-                    break;
-                }
+                    var state = _waveRecipeStates[i];
+                    if (state == null || state.IsComplete)
+                    {
+                        continue;
+                    }
 
-                FireWaveSpawn(_currentPointWaveRows[_wavesFiredCount]);
-                _wavesFiredCount++;
+                    if (_waveElapsedSinceActivation + 1e-4f < state.NextDueElapsed)
+                    {
+                        continue;
+                    }
+
+                    FireWaveSpawn(state.Row);
+                    firedAny = true;
+
+                    if (!state.FirstFired)
+                    {
+                        state.FirstFired = true;
+                        if (state.RepeatsLeft <= 0)
+                        {
+                            state.IsComplete = true;
+                            continue;
+                        }
+
+                        state.NextDueElapsed =
+                            state.NextDueElapsed + Mathf.Max(0f, state.Row.WaveIntervalSeconds);
+                        continue;
+                    }
+
+                    state.RepeatsLeft--;
+                    if (state.RepeatsLeft <= 0)
+                    {
+                        state.IsComplete = true;
+                        continue;
+                    }
+
+                    state.NextDueElapsed =
+                        state.NextDueElapsed + Mathf.Max(0f, state.Row.WaveIntervalSeconds);
+                }
             }
+            while (firedAny && !_currentPointSpawnStopped);
         }
 
         /// <summary>Stop new spawns for the current gather point (point success or countdown elapsed).</summary>
@@ -505,13 +553,14 @@ namespace Gravedigger2026.Core.SearchExtract
             Config = null;
             Phase = SearchExtractPhase.Prepare;
             ResetGatherCountdownState();
-            ResetWaveSpawnState();
             _allWaveRows.Clear();
             _currentPointWaveRows.Clear();
+            ResetWaveSpawnState();
             _completedGatherOrders.Clear();
             _gatherOrders.Clear();
             _warriors.Clear();
             _monsters.Clear();
+            UnbindDeathSkillHost();
             _combatStatus.ClearAll();
             GatherPointCount = 0;
             CurrentGatherOrder = 0;
@@ -635,6 +684,14 @@ namespace Gravedigger2026.Core.SearchExtract
                 IsAlive = true,
                 IsCombatDead = false
             };
+            if (_configs == null)
+            {
+                Debug.LogWarning(
+                    $"[SearchExtractSession] RegisterMonster '{runtimeId}' — configs unbound; " +
+                    "MonsterConfig.Skills will not initialize (call BindCombatConfigs before Prepare).");
+            }
+
+            _monsterDeathSkills.InitializeMonsterState(_monsters[runtimeId], _configs);
             return true;
         }
 
@@ -668,7 +725,10 @@ namespace Gravedigger2026.Core.SearchExtract
                 return false;
             }
 
-            return !state.IsCombatDead && state.IsAlive && state.RemainingHp > 0f;
+            return !state.IsCombatDead
+                   && state.IsAlive
+                   && state.RemainingHp > 0f
+                   && !_combatStatus.IsMonsterInvincible(runtimeId);
         }
 
         public bool IsProjectileCombatActive(string warriorId)
@@ -693,7 +753,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 return false;
             }
 
-            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            if (!IsMonsterTargetable(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
             {
                 return false;
             }
@@ -706,7 +766,7 @@ namespace Gravedigger2026.Core.SearchExtract
 
             if (monster.RemainingHp <= 0f)
             {
-                FinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
+                TryFinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
             return true;
@@ -729,7 +789,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 return false;
             }
 
-            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            if (!IsMonsterTargetable(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
             {
                 return false;
             }
@@ -742,7 +802,7 @@ namespace Gravedigger2026.Core.SearchExtract
 
             if (monster.RemainingHp <= 0f)
             {
-                FinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
+                TryFinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
             return true;
@@ -783,6 +843,93 @@ namespace Gravedigger2026.Core.SearchExtract
                 EnterWarriorCombatDead(warrior);
             }
 
+            return true;
+        }
+
+        public bool TryNotifyMonsterDeathPresentationComplete(string runtimeId)
+        {
+            if (!TryGetMonster(runtimeId, out var monster))
+            {
+                return false;
+            }
+
+            return _monsterDeathSkills.TryNotifyDeathPresentationComplete(monster);
+        }
+
+        public bool TryNotifyMonsterReviveAnimComplete(string runtimeId)
+        {
+            if (!TryGetMonster(runtimeId, out var monster))
+            {
+                return false;
+            }
+
+            if (!_monsterDeathSkills.TryCompleteReviveAnim(monster, _combatStatus))
+            {
+                return false;
+            }
+
+            Debug.Log(
+                $"[SearchExtractSession] MonsterRevived {runtimeId} ({monster.MonsterId}) " +
+                $"HP={monster.RemainingHp:0}/{monster.MaxHp} revivesLeft={monster.RevivesRemaining}");
+            MonsterRevived?.Invoke(runtimeId);
+            return true;
+        }
+
+        public bool IsMonsterInvincible(string monsterRuntimeId)
+        {
+            return _combatStatus.IsMonsterInvincible(monsterRuntimeId);
+        }
+
+        public bool IsMonsterStunned(string monsterRuntimeId)
+        {
+            return _combatStatus.IsMonsterStunned(monsterRuntimeId);
+        }
+
+        public float GetMonsterSlowMoveMul(string monsterRuntimeId)
+        {
+            return _combatStatus.GetMonsterSlowMoveMul(monsterRuntimeId);
+        }
+
+        public float GetMonsterSlowAttackMul(string monsterRuntimeId)
+        {
+            return _combatStatus.GetMonsterSlowAttackMul(monsterRuntimeId);
+        }
+
+        public bool TryApplyCorpseSmashDamage(
+            string corpseRuntimeId,
+            string killerWarriorId,
+            float killerOutgoingDamage,
+            string targetRuntimeId)
+        {
+            if (!IsCombatGameplayActive || killerOutgoingDamage <= 0f)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(targetRuntimeId)
+                || string.Equals(targetRuntimeId, corpseRuntimeId, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!IsMonsterTargetable(targetRuntimeId) || !TryGetMonster(targetRuntimeId, out var monster))
+            {
+                return false;
+            }
+
+            var dmg = CorpseSmashCombatMath.ComputeSmashDamage(killerOutgoingDamage);
+            if (dmg <= 0f)
+            {
+                return false;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - dmg);
+            Debug.Log(
+                $"[SearchExtractSession] CorpseSmash {killerWarriorId} corpse={corpseRuntimeId} -> {targetRuntimeId} " +
+                $"dmg={dmg:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+
+            MonsterDamageSettled?.Invoke(targetRuntimeId, dmg);
+            TryFinalizeMonsterDeath(monster, targetRuntimeId, killerWarriorId ?? string.Empty, dmg, "CorpseSmash");
             return true;
         }
 
@@ -832,31 +979,6 @@ namespace Gravedigger2026.Core.SearchExtract
             _currentPointWaveRows.Sort((a, b) => a.WaveIndex.CompareTo(b.WaveIndex));
         }
 
-        private float ResolveFirstWaveDelay()
-        {
-            return _currentPointWaveRows.Count > 0
-                ? Mathf.Max(0f, _currentPointWaveRows[0].FirstWaveDelaySeconds)
-                : 0f;
-        }
-
-        private float ResolveWaveInterval()
-        {
-            return _currentPointWaveRows.Count > 0
-                ? Mathf.Max(0f, _currentPointWaveRows[0].WaveIntervalSeconds)
-                : 0f;
-        }
-
-        private float ResolveScheduledSpawnTime(int waveIndexZeroBased)
-        {
-            var firstDelay = ResolveFirstWaveDelay();
-            if (waveIndexZeroBased <= 0)
-            {
-                return firstDelay;
-            }
-
-            return firstDelay + waveIndexZeroBased * ResolveWaveInterval();
-        }
-
         private void FireWaveSpawn(SearchExtractWaveSpawnConfigRow row)
         {
             if (row == null)
@@ -880,18 +1002,79 @@ namespace Gravedigger2026.Core.SearchExtract
             SpawnRequested?.Invoke(request);
         }
 
-        private void FinalizeMonsterDeath(
+        private void TryFinalizeMonsterDeath(
             DefendCombatMonsterState monster,
             string runtimeId,
             string killerWarriorId,
             float outgoingDamage,
             string deathTag)
         {
-            monster.IsAlive = false;
-            monster.IsCombatDead = true;
-            monster.RemainingHp = 0f;
-            Debug.Log($"[SearchExtractSession] MonsterDead {runtimeId} ({monster.MonsterId})");
+            if (monster == null || monster.RemainingHp > 0f)
+            {
+                return;
+            }
+
+            var allowRevive = !string.Equals(deathTag, "PointClear", StringComparison.Ordinal);
+            if (allowRevive && _monsterDeathSkills.TryInterceptDeath(monster))
+            {
+                Debug.Log(
+                    $"[SearchExtractSession] MonsterCombatDead {runtimeId} ({monster.MonsterId}) " +
+                    $"revivesLeft={monster.RevivesRemaining} ({deathTag})");
+                MonsterEnteredCombatDead?.Invoke(
+                    runtimeId,
+                    killerWarriorId ?? string.Empty,
+                    outgoingDamage,
+                    deathTag ?? string.Empty);
+                return;
+            }
+
+            _monsterDeathSkills.ForceTrueDeath(monster);
+            _combatStatus.ClearMonster(runtimeId);
+            Debug.Log($"[SearchExtractSession] MonsterDead {runtimeId} ({monster.MonsterId}) ({deathTag})");
             MonsterKilled?.Invoke(runtimeId, killerWarriorId ?? string.Empty, outgoingDamage, deathTag ?? string.Empty);
+        }
+
+        private void TickMonsterRevive(float deltaTime)
+        {
+            if (!IsCombatGameplayActive || deltaTime <= 0f)
+            {
+                return;
+            }
+
+            foreach (var pair in _monsters)
+            {
+                var monster = pair.Value;
+                if (monster == null || !monster.IsCombatDead)
+                {
+                    continue;
+                }
+
+                _monsterDeathSkills.Tick(monster, deltaTime);
+            }
+        }
+
+        private void BindDeathSkillHost()
+        {
+            _monsterDeathSkills.MonsterReviveStarted -= HandleMonsterReviveStartedInternal;
+            _monsterDeathSkills.MonsterReviveStarted += HandleMonsterReviveStartedInternal;
+            _combatStatus.MonsterInvincibleChanged -= HandleMonsterInvincibleChangedInternal;
+            _combatStatus.MonsterInvincibleChanged += HandleMonsterInvincibleChangedInternal;
+        }
+
+        private void UnbindDeathSkillHost()
+        {
+            _monsterDeathSkills.MonsterReviveStarted -= HandleMonsterReviveStartedInternal;
+            _combatStatus.MonsterInvincibleChanged -= HandleMonsterInvincibleChangedInternal;
+        }
+
+        private void HandleMonsterReviveStartedInternal(string runtimeId, float animSeconds)
+        {
+            MonsterReviveStarted?.Invoke(runtimeId, animSeconds);
+        }
+
+        private void HandleMonsterInvincibleChangedInternal(string runtimeId, string skillId, bool on)
+        {
+            MonsterInvincibleChanged?.Invoke(runtimeId, skillId, on);
         }
 
         private void EnterWarriorCombatDead(DefendCombatWarriorState warrior)
@@ -961,14 +1144,20 @@ namespace Gravedigger2026.Core.SearchExtract
             }
         }
 
-        /// <summary>Rules-layer clear: immediate CombatDead; no loot / kill credit extras.</summary>
+        /// <summary>Rules-layer wipe: true death; skip SelfRevive; cancel in-flight fake death.</summary>
         private void ClearLivingMonstersRules()
         {
             _clearScratch.Clear();
             foreach (var pair in _monsters)
             {
                 var monster = pair.Value;
-                if (monster == null || !monster.IsAlive || monster.IsCombatDead || monster.RemainingHp <= 0f)
+                if (monster == null)
+                {
+                    continue;
+                }
+
+                var living = monster.IsAlive && !monster.IsCombatDead && monster.RemainingHp > 0f;
+                if (!living && !monster.IsCombatDead)
                 {
                     continue;
                 }
@@ -984,7 +1173,16 @@ namespace Gravedigger2026.Core.SearchExtract
                     continue;
                 }
 
-                FinalizeMonsterDeath(monster, runtimeId, string.Empty, 0f, "PointClear");
+                var alreadyPresentedFakeDeath = monster.IsCombatDead;
+                _monsterDeathSkills.ForceTrueDeath(monster);
+                _combatStatus.ClearMonster(runtimeId);
+                if (alreadyPresentedFakeDeath)
+                {
+                    continue;
+                }
+
+                Debug.Log($"[SearchExtractSession] MonsterDead {runtimeId} ({monster.MonsterId}) (PointClear)");
+                MonsterKilled?.Invoke(runtimeId, string.Empty, 0f, "PointClear");
             }
 
             Debug.Log(
@@ -1003,7 +1201,33 @@ namespace Gravedigger2026.Core.SearchExtract
         private void ResetWaveSpawnState()
         {
             _waveElapsedSinceActivation = 0f;
-            _wavesFiredCount = 0;
+            _waveRecipeStates.Clear();
+            for (var i = 0; i < _currentPointWaveRows.Count; i++)
+            {
+                var row = _currentPointWaveRows[i];
+                if (row == null)
+                {
+                    continue;
+                }
+
+                _waveRecipeStates.Add(new WaveRecipeRuntimeState
+                {
+                    Row = row,
+                    FirstFired = false,
+                    RepeatsLeft = Mathf.Max(0, row.RepeatSpawnCount),
+                    NextDueElapsed = Mathf.Max(0f, row.FirstWaveDelaySeconds),
+                    IsComplete = false
+                });
+            }
+        }
+
+        private sealed class WaveRecipeRuntimeState
+        {
+            public SearchExtractWaveSpawnConfigRow Row;
+            public bool FirstFired;
+            public int RepeatsLeft;
+            public float NextDueElapsed;
+            public bool IsComplete;
         }
     }
 }

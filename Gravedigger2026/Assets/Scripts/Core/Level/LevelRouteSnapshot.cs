@@ -35,7 +35,16 @@ namespace Gravedigger2026.Core.Level
     public sealed class LevelRouteSnapshot
     {
         public string LevelId;
+        /// <summary>UI display name from Operation LevelName; empty → View falls back to LevelId.</summary>
+        public string LevelName;
         public bool Visible;
+        /// <summary>Optional route-map asset id; empty → legacy Stage-row layout.</summary>
+        public string RouteMapAssetId;
+        /// <summary>
+        /// One-shot: option just cleared when returning to RouteSelect (map clear-return camera ceremony).
+        /// Empty on open / tab switch / other publishes.
+        /// </summary>
+        public string JustClearedOptionId;
         public LevelRouteStageSnapshot[] Stages = Array.Empty<LevelRouteStageSnapshot>();
     }
 }

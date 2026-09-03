@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.83.81
-**最后更新 / Last Updated:** 2026-09-02
+**文档版本 / Document Version:** v0.84.05
+**最后更新 / Last Updated:** 2026-09-03
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,30 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-03 | v0.84.05 | PushMap 一键上阵修复（方案 B）：`PushMap_Demo_01/02/03` 补 Mode2 全量 `FormationClassZone`；Ensure 锚点=`CameraFollowPath/WP_Start`（缺则 DigMapBounds.Center）；菜单 `PushMap/Ensure Formation Class Zones on Sample Maps`。同步 SPEC_03 D-057/D-074、SPEC_04 §6/§9.22/§13、DefendAssetBuilder / PushMapSampleMapBuilder |
+| 2026-09-03 | v0.84.02 | 新增关卡难度表 `Level_DifficultyConfig`（DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward）；运作表增 `DifficultyId`；难度通关=归属全部 LevelId 关卡胜利；解锁空=初始、找不到=不可解锁；通关一次性奖励经 §9.5a。Demo Hub/发奖接线后置。同步 SPEC_03 §3.9、SPEC_04 §9.1/§9.1a、CONTEXT、Mode1+Mode2 Excel+CSV |
+| 2026-09-03 | v0.84.01 | LevelId 解锁门闩：运作表 Stage1 `UnlockLevelId`（空=默认解锁；合法 `GameplayOptionId` 已通关→解锁；非法值=永不可解锁）；正式入口/UI-031 页签全显灰禁+Toast；默认进关=已解锁末项；Tools 关卡可 bypass。同步 SPEC_03 §3.9、SPEC_04 §9.1、CONTEXT、Mode1+Mode2 Excel+CSV、Driver/Meta/View |
+| 2026-09-03 | v0.84.04 | SearchExtract 修复：`BeginPrepare`→`Stop` 不再丢掉 `BindCombatConfigs`，否则 `MonsterConfig.Skills`（D-074 复生）静默不初始化。同步 SPEC_04 §9.33、Session/Stage |
+| 2026-09-03 | v0.84.03 | UI-031：运作表增 `LevelName`（关卡名称）；页签 Label 与 `Box/Title` 显示该名（空回退 `LevelId`）；Demo 样例第1/2/3关。同步 SPEC_03/04、CONTEXT、Mode1+Mode2 Excel+CSV、Loader/View |
+| 2026-09-03 | v0.84.00 | SearchExtract 刷怪改独立 Delay+行内重复：`FirstWaveDelaySeconds` 自点激活计时首刷；`WaveIntervalSeconds` 为本行刷出后再倒计时；新增 `RepeatSpawnCount`；同点各行并行、不链式。同步 SPEC_03 §3.19、SPEC_04 §9.33、CONTEXT、Mode2 Excel+CSV、Session |
+| 2026-09-03 | v0.83.99 | SearchExtract 怪物死亡技能（方案 B）：抽出 `IMonsterDeathSkillHost`，PushMap/搜打撤共用 `MonsterDeathSkillService`（`Monster_01` 自复生）；点清场跳过假死。同步 SPEC_03 §3.14/§3.19、SPEC_04、CONTEXT |
+| 2026-09-03 | v0.83.98 | SearchExtract 刷怪表修复重复波次键：点 1 的 WaveIndex=1..4，FirstDelay=5/Interval=5，`SP_01`～`SP_04`，`Monster_01`×10；Excel→Bake CSV。同步 SPEC_04、Mode2 |
+| 2026-09-03 | v0.83.97 | 2D Zombie Pack 八向 clip 按视觉行重绑（方案 A）：表自上而下 E/SE/S/SW/W/NW/N/NE，禁止按 DirIndex 行号直绑；修复 `Attack*_SE` 播北向帧。同步 SPEC_03/04、`Tools/rebind_zombie_pack_dir_clips.py` |
+| 2026-09-03 | v0.83.96 | UI-031 地图模式：选项根 Image 白色全透明；`EdgeLayer` 挂入 `LevelRouteMap` 并置于 Background 后、Icon 前（连线在 Icon 下）。同步 SPEC_04、`LevelRouteSelectView` |
+| 2026-09-03 | v0.83.95 | UI-031 通关返回镜头仪式：地图模式回路线时先瞬时对准刚通关钉点，停顿 0.5s，再约 0.5s 平滑滚向最新解锁前沿；`LevelRouteSnapshot.JustClearedOptionId` 一次性携带。同步 SPEC_03/04、`LevelRouteSelectView` / Driver。issues LRM-08 |
+| 2026-09-03 | v0.83.94 | SearchExtract 刷怪移动：Combat MassMove Tick 纳入怪物样本 + `TryRefreshChaseGoal`（同 PushMap）；修复刷出后乱飘与待机朝向。同步 SPEC_03 §3.19、SPEC_04 |
+| 2026-09-03 | v0.83.93 | SearchExtract 修复（方案 A）：开战接线 `PushMapCameraFollowController`+`CameraFollowPath`；刷怪表恢复 SPEC 样例（点 1～2 各 2 波，FirstDelay=2/Interval=8/`Monster_01`×3）。同步 SPEC_04、Mode2 Excel+CSV |
+| 2026-09-03 | v0.83.92 | SearchExtract 修复（方案 A）：① `SearchExtract_Demo_01` 补 `FormationClassZone`（一键上阵）；② 开战未进圈前向当前 Objective 接近，进圈后再阵型偏移 relocate。同步 SPEC_03 §3.19、SPEC_04 |
+| 2026-09-03 | v0.83.91 | D-088 关卡路线进度存档（方案 A）：`LevelRouteProgressService` 按槽+CampaignMode 持久化已通关 `GameplayOptionId`；Driver 进关水合并派生 Unlocked；通关立即写回；整关胜利保留 Cleared。同步 SPEC_03/04、CONTEXT |
+| 2026-09-03 | v0.83.90 | UI-029：`InSaveShellPanel.prefab` 为进档壳权威源；`MetaShellRoot` 仅嵌套 Prefab Instance；Ensure 禁止反向覆盖与拆毁已有难度栏。同步 SPEC_04、CONTEXT、`MetaShellAssetBuilder` |
+| 2026-09-03 | v0.83.89 | UI-031 地图模式：打开/切 LevelId 页签后，竖滑初始 Y 滚到「最新已解锁」选项钉点居中（优先 Selectable/Running 最大 Stage，否则 Cleared；同 Stage 取最大钉点 Y）；X 不变。同步 SPEC_03/04、`LevelRouteSelectView` |
+| 2026-09-03 | v0.83.88 | UI-031 地图模式：选项场景仅显示 Icon；悬停 Tips（`OptionHoverTips`）展示 Type/Title/Description/Reward；旧 Stage 行仍完整选项卡。同步 SPEC_03/04、CONTEXT、`LevelRouteSelectView` / Ensure。issues LRM-07 |
+| 2026-09-03 | v0.83.87 | UI-031：`EdgeLayer` 挂到 `MapContent` 下；地图模式在 `LevelRouteMap_{LevelId}` 层级下方（末子）绘制解锁连线，随竖滑滚动。同步 SPEC_04、`LevelRouteSelectRoot` / View / Ensure |
+| 2026-09-03 | v0.83.86 | LRM-06：运行时按 `LevelId` 加载 `LevelRouteMap_{LevelId}`，选项卡钉 Prefab 同名子节点；缺钉 Warning+`(0,0)`；无 Prefab/无 `RouteMapAssetId` 回退 Stage 行。子关卡表 Mode1+Mode2 删除 `MapPosX`/`MapPosY` 并 Bake。同步 SPEC_04 |
+| 2026-09-03 | v0.83.85 | LRM-05：Editor `Ensure LevelRouteMap Prefabs` / `Sync LevelRouteMap Pins` 落地每关 `LevelRouteMap_{LevelId}`（Demo `Level_01`～`03`）；`RouteMapAssetId` 贴 Background；缺钉从表补、表外钉 Warning；首次迁移用 CSV `MapPos*` 填坐标。同步 SPEC_03/04 |
+| 2026-09-03 | v0.83.84 | UI-031 路线图坐标改方案 C：每关 Prefab `LevelRouteMap_{LevelId}` 承载底图+`GameplayOptionId` 钉点（Prefab 内直接编辑）；子关卡表不再权威承载 `MapPosX`/`MapPosY`（LRM-06 落表删除）；`RouteMapAssetId` 仍表驱动底图文件名。issues `.scratch/level-route-map/` LRM-04～06。同步 SPEC_03/04、CONTEXT |
+| 2026-09-03 | v0.83.83 | UI-031 关卡路线底图（方案 B）：运作表 `RouteMapAssetId`；子关卡 `MapPosX`/`MapPosY`（底图左下原点、Y 向上、展示宽 1450）；源 `Art/UI/SubLevelMaps/`、运行时 `Resources/UI/SubLevelMaps/`；有底图钉点、无底图回退 Stage 行。issues `.scratch/level-route-map/`。同步 SPEC_03/04、CONTEXT |
+| 2026-09-03 | v0.83.82 | UI-029/UI-031 交互改版：难度三栏同屏（各约 1/3）+ 悬停显示描述；仅普通点击进 `LevelRouteSelectRoot`；困难/地狱点栏仍 Toast；RouteSelect Box 顶 LevelId 页签（默认末项，切换=`TryEnterLevel`）；去掉栏内嵌 LevelSelect。同步 SPEC_03/04、CONTEXT |
 | 2026-09-02 | v0.83.81 | 搜打撤 SE-09（方案 A）：搜集进行中忠诚全灭 → `RequestLevelFailure` → `AbortLevel` + LevelSelect；不扣仓库、不清档、不入账本阶段经验；无 UI-017；Mode2 手验清单更新；**不**标 D-087 Demo 完成（须负责人 Play Mode） |
 | 2026-09-02 | v0.83.80 | 搜打撤 SE-08（方案 A）：点胜即时 `RewardGrantService` 入账 `GatherPointRewards`；Continue 推进 `CurrentGatherOrder`+复位激活（须再进圈）+ 朝下一 Objective 重定位；Leave → `StageExpReward` + `TryAdvanceStage`（驱动发 SubLevel `Reward`，不补点奖）；`LevelStageContext.GatherPointRewards` |
 | 2026-09-02 | v0.83.79 | 搜打撤 SE-07（方案 A）：倒计时归零+≥1 忠诚 → `TryCompleteGatherPoint`（`CombatStatusService` Hold 无敌 + 停刷 + 规则清怪 `PointClear` + UI-032）；Prefab/Resources `SearchExtractDecisionPanel`；最后一点隐藏「继续搜集」；Continue 仅解无敌（推进/Leave 通关后置 SE-08） |
@@ -446,6 +470,30 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-03 | v0.84.05 | PushMap one-click deploy fix (Approach B): add Mode2-full `FormationClassZone` on `PushMap_Demo_01/02/03`; Ensure anchor=`CameraFollowPath/WP_Start` (else DigMapBounds.Center); menu `PushMap/Ensure Formation Class Zones on Sample Maps`. Synced SPEC_03 D-057/D-074, SPEC_04 §6/§9.22/§13, DefendAssetBuilder / PushMapSampleMapBuilder |
+| 2026-09-03 | v0.84.04 | SearchExtract fix: `BeginPrepare`→`Stop` no longer drops `BindCombatConfigs`, else `MonsterConfig.Skills` (D-074 revive) silently never initialize. Synced SPEC_04 §9.33, Session/Stage |
+| 2026-09-03 | v0.84.03 | UI-031: Operation gains `LevelName`; tab Label and `Box/Title` show it (empty→`LevelId`); Demo samples 第1/2/3关. Synced SPEC_03/04, CONTEXT, Mode1+Mode2 Excel+CSV, Loader/View |
+| 2026-09-03 | v0.84.02 | New Level Difficulty table `Level_DifficultyConfig` (DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward); Operation gains `DifficultyId`; difficulty clear = all owned LevelIds victorious; empty unlock=initial, missing Id=never; one-shot ClearReward via §9.5a. Demo Hub/grant wiring deferred. Synced SPEC_03 §3.9, SPEC_04 §9.1/§9.1a, CONTEXT, Mode1+Mode2 Excel+CSV |
+| 2026-09-03 | v0.84.01 | LevelId unlock gate: Operation Stage1 `UnlockLevelId` (empty=default unlocked; known cleared `GameplayOptionId`→unlock; unknown=never); formal entry/UI-031 tabs show all, locked gray+Toast; default enter=last unlocked; Tools Level may bypass. Synced SPEC_03 §3.9, SPEC_04 §9.1, CONTEXT, Mode1+Mode2 Excel+CSV, Driver/Meta/View |
+| 2026-09-03 | v0.84.00 | SearchExtract spawn: independent per-row FirstDelay from point activation; WaveInterval restarts after each spawn of that row; add `RepeatSpawnCount`; rows run in parallel (not chained). Synced SPEC_03 §3.19, SPEC_04 §9.33, CONTEXT, Mode2 Excel+CSV, Session |
+| 2026-09-03 | v0.83.99 | SearchExtract monster death skills (Approach B): extract `IMonsterDeathSkillHost`; PushMap/SearchExtract share `MonsterDeathSkillService` (`Monster_01` self-revive); point-clear skips fake death. Synced SPEC_03 §3.14/§3.19, SPEC_04, CONTEXT |
+| 2026-09-03 | v0.83.98 | SearchExtract wave table: fix duplicate wave key — order 1 WaveIndex 1..4, FirstDelay=5/Interval=5, `SP_01`–`SP_04`, `Monster_01`×10; Excel→Bake CSV. Synced SPEC_04, Mode2 |
+| 2026-09-03 | v0.83.97 | 2D Zombie Pack 8-dir clips rebound to visual rows (Approach A): sheets top-to-bottom E/SE/S/SW/W/NW/N/NE, not DirIndex row numbers; fixes `Attack*_SE` playing north frames. Synced SPEC_03/04, `Tools/rebind_zombie_pack_dir_clips.py` |
+| 2026-09-03 | v0.83.96 | UI-031 map mode: option root Image white fully transparent; `EdgeLayer` reparented under `LevelRouteMap` after Background / before Icons (edges below Icons). Synced SPEC_04, `LevelRouteSelectView` |
+| 2026-09-03 | v0.83.95 | UI-031 clear-return camera ceremony: on map-mode return after option clear, snap to just-cleared pin, hold 0.5s, then ~0.5s smooth scroll to latest unlocked frontier; one-shot `LevelRouteSnapshot.JustClearedOptionId`. Synced SPEC_03/04, `LevelRouteSelectView` / Driver. Issue LRM-08 |
+| 2026-09-03 | v0.83.94 | SearchExtract spawn move: Combat MassMove Tick includes monster samples + `TryRefreshChaseGoal` (same as PushMap); fixes spawn drift and idle facing. Synced SPEC_03 §3.19, SPEC_04 |
+| 2026-09-03 | v0.83.93 | SearchExtract fix (Approach A): wire `PushMapCameraFollowController`+`CameraFollowPath` on StartBattle; restore wave sample (orders 1–2 ×2 waves, FirstDelay=2/Interval=8/`Monster_01`×3). Synced SPEC_04, Mode2 Excel+CSV |
+| 2026-09-03 | v0.83.92 | SearchExtract fix (Approach A): (1) `SearchExtract_Demo_01` gains `FormationClassZone` (one-click deploy); (2) pre-activation approach to current Objective, then formation-offset relocate on zone enter. Synced SPEC_03 §3.19, SPEC_04 |
+| 2026-09-03 | v0.83.91 | D-088 level route progress save (Approach A): `LevelRouteProgressService` persists cleared `GameplayOptionId`s per slot+CampaignMode; Driver hydrates on enter and derives Unlocked; write on clear; keep Cleared after level victory. Synced SPEC_03/04, CONTEXT |
+| 2026-09-03 | v0.83.90 | UI-029: `InSaveShellPanel.prefab` is authoritative InSave shell; `MetaShellRoot` nests Prefab Instance only; Ensure must not reverse-overwrite or destroy authored difficulty columns. Synced SPEC_04, CONTEXT, `MetaShellAssetBuilder` |
+| 2026-09-03 | v0.83.89 | UI-031 map mode: on open / LevelId tab switch, vertical scroll Y centers the latest unlocked option pin (prefer max Stage among Selectable/Running, else Cleared; same Stage → max pin Y); X unchanged. Synced SPEC_03/04, `LevelRouteSelectView` |
+| 2026-09-03 | v0.83.88 | UI-031 map mode: options show Icon only; hover Tips (`OptionHoverTips`) show Type/Title/Description/Reward; legacy Stage rows keep full cards. Synced SPEC_03/04, CONTEXT, `LevelRouteSelectView` / Ensure. Issue LRM-07 |
+| 2026-09-03 | v0.83.87 | UI-031: `EdgeLayer` under `MapContent`; map mode draws unlock edges as last sibling under `LevelRouteMap_{LevelId}`, scrolling with the map. Synced SPEC_04, `LevelRouteSelectRoot` / View / Ensure |
+| 2026-09-03 | v0.83.86 | LRM-06: runtime loads `LevelRouteMap_{LevelId}` and pins option cards to same-named children; missing pin → Warning + `(0,0)`; no Prefab / no `RouteMapAssetId` → Stage rows. SubLevel Mode1+Mode2 drop `MapPosX`/`MapPosY` and Bake. Synced SPEC_04 |
+| 2026-09-03 | v0.83.85 | LRM-05: Editor `Ensure LevelRouteMap Prefabs` / `Sync LevelRouteMap Pins` land per-level `LevelRouteMap_{LevelId}` (Demo `Level_01`–`03`); `RouteMapAssetId` paints Background; missing pins filled from tables, extras Warning; first migration seeds from CSV `MapPos*`. Synced SPEC_03/04 |
+| 2026-09-03 | v0.83.84 | UI-031 route coords → Approach C: per-level Prefab `LevelRouteMap_{LevelId}` holds bg + `GameplayOptionId` pins (edit in Prefab); SubLevel table no longer authoritative for `MapPosX`/`MapPosY` (drop in LRM-06); `RouteMapAssetId` still names map art. Issues `.scratch/level-route-map/` LRM-04–06. Synced SPEC_03/04, CONTEXT |
+| 2026-09-03 | v0.83.83 | UI-031 route map (Approach B): Operation `RouteMapAssetId`; SubLevel `MapPosX`/`MapPosY` (map bottom-left origin, Y up, display width 1450); source `Art/UI/SubLevelMaps/`, runtime `Resources/UI/SubLevelMaps/`; pin options when map present, else Stage-row fallback. Issues `.scratch/level-route-map/`. Synced SPEC_03/04, CONTEXT |
+| 2026-09-03 | v0.83.82 | UI-029/UI-031 UX: three difficulty columns same-screen (~1/3 each) + hover description; Normal click opens `LevelRouteSelectRoot`; Hard/Hell click still Toast; RouteSelect Box top LevelId tabs (default last; switch=`TryEnterLevel`); remove in-column LevelSelect. Synced SPEC_03/04, CONTEXT |
 | 2026-09-02 | v0.83.81 | SearchExtract SE-09 (Approach A): active-gather loyal wipe → `RequestLevelFailure` → `AbortLevel` + LevelSelect; no warehouse clawback, no save wipe, no stage Exp; no UI-017; Mode2 handcheck list updated; **do not** mark D-087 Demo complete (needs owner Play Mode) |
 | 2026-09-02 | v0.83.80 | SearchExtract SE-08 (Approach A): point success credits `GatherPointRewards` via `RewardGrantService`; Continue advances `CurrentGatherOrder` + resets activation (re-enter required) + relocates to next Objective; Leave → `StageExpReward` + `TryAdvanceStage` (driver grants SubLevel `Reward`, no point-loot re-grant); `LevelStageContext.GatherPointRewards` |
 | 2026-09-02 | v0.83.79 | SearchExtract SE-07 (Approach A): countdown zero + ≥1 loyal → `TryCompleteGatherPoint` (`CombatStatusService` Hold invuln + stop spawn + rules clear `PointClear` + UI-032); Prefab/Resources `SearchExtractDecisionPanel`; last point hides Continue; Continue drops invuln only (advance/Leave clear deferred SE-08) |

@@ -1,12 +1,13 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Gravedigger2026.UI
 {
     /// <summary>
-    /// UI-029: InSaveShell difficulty host — equal-width columns in a horizontal scroll;
-    /// Normal centers with in-column LevelSelect (D-081). No MapHost; no sibling shrink/dim.
+    /// UI-029: InSaveShell difficulty host — three equal-width columns same-screen;
+    /// hover shows description; Normal click enters RouteSelect; Hard/Hell Toast (D-081).
     /// </summary>
     public sealed class DifficultySelectHostView : MonoBehaviour
     {
@@ -16,6 +17,11 @@ namespace Gravedigger2026.UI
             Hard = 1,
             Hell = 2
         }
+
+        private const string DefaultHint = "将鼠标移到难度栏上查看说明";
+        private const string DefaultNormalDesc = "普通：适合熟悉流程与主线关卡。";
+        private const string DefaultHardDesc = "困难：尚未开放。";
+        private const string DefaultHellDesc = "地狱：尚未开放。";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private ScrollRect _columnsScroll;
@@ -30,10 +36,15 @@ namespace Gravedigger2026.UI
         [SerializeField] private Text _normalLabel;
         [SerializeField] private Text _hardLabel;
         [SerializeField] private Text _hellLabel;
+        [SerializeField] private Text _descriptionText;
+        [SerializeField] private string _normalDescription = DefaultNormalDesc;
+        [SerializeField] private string _hardDescription = DefaultHardDesc;
+        [SerializeField] private string _hellDescription = DefaultHellDesc;
 
-        private bool _expandedNormal;
         private float _lastViewportWidth = -1f;
+        private DifficultyKind? _hoveredKind;
 
+        public event Action DifficultySelected;
         public event Action LockedDifficultyClicked;
 
         public bool IsOpen => _root != null && _root.activeSelf;
@@ -53,7 +64,8 @@ namespace Gravedigger2026.UI
             Button hellButton,
             Text normalLabel,
             Text hardLabel,
-            Text hellLabel)
+            Text hellLabel,
+            Text descriptionText = null)
         {
             _root = root;
             _columnsScroll = columnsScroll;
@@ -68,14 +80,45 @@ namespace Gravedigger2026.UI
             _normalLabel = normalLabel;
             _hardLabel = hardLabel;
             _hellLabel = hellLabel;
+            if (descriptionText != null)
+            {
+                _descriptionText = descriptionText;
+            }
+
+            EnsureDescriptionDefaults();
             WireButtons();
+            WireHover();
             ApplyNormalColumnImageAspect();
+            HideLevelHost();
+            ResetDescription();
         }
 
         private void Awake()
         {
+            EnsureDescriptionDefaults();
             WireButtons();
+            WireHover();
             ApplyNormalColumnImageAspect();
+            HideLevelHost();
+            ResetDescription();
+        }
+
+        private void EnsureDescriptionDefaults()
+        {
+            if (string.IsNullOrWhiteSpace(_normalDescription))
+            {
+                _normalDescription = DefaultNormalDesc;
+            }
+
+            if (string.IsNullOrWhiteSpace(_hardDescription))
+            {
+                _hardDescription = DefaultHardDesc;
+            }
+
+            if (string.IsNullOrWhiteSpace(_hellDescription))
+            {
+                _hellDescription = DefaultHellDesc;
+            }
         }
 
         private void WireButtons()
@@ -99,6 +142,29 @@ namespace Gravedigger2026.UI
             }
         }
 
+        private void WireHover()
+        {
+            AttachHover(_normalColumn, DifficultyKind.Normal);
+            AttachHover(_hardColumn, DifficultyKind.Hard);
+            AttachHover(_hellColumn, DifficultyKind.Hell);
+        }
+
+        private void AttachHover(RectTransform column, DifficultyKind kind)
+        {
+            if (column == null)
+            {
+                return;
+            }
+
+            var hover = column.GetComponent<DifficultyColumnHover>();
+            if (hover == null)
+            {
+                hover = column.gameObject.AddComponent<DifficultyColumnHover>();
+            }
+
+            hover.Bind(this, kind);
+        }
+
         private void ApplyNormalColumnImageAspect()
         {
             if (_normalColumn == null)
@@ -116,26 +182,36 @@ namespace Gravedigger2026.UI
             image.preserveAspect = true;
         }
 
-        public void ShowExpandedNormal()
+        private void HideLevelHost()
+        {
+            if (_normalLevelHost != null)
+            {
+                _normalLevelHost.gameObject.SetActive(false);
+            }
+        }
+
+        public void ShowAllColumns()
         {
             if (_root != null)
             {
                 _root.SetActive(true);
             }
 
-            _expandedNormal = true;
+            HideLevelHost();
+            ResetDescription();
             ApplyLayout();
         }
 
+        /// <summary>Backward-compatible alias — always shows three columns same-screen. </summary>
+        public void ShowExpandedNormal()
+        {
+            ShowAllColumns();
+        }
+
+        /// <summary> Backward-compatible alias — always shows three columns same-screen. </summary>
         public void ShowCollapsed()
         {
-            if (_root != null)
-            {
-                _root.SetActive(true);
-            }
-
-            _expandedNormal = false;
-            ApplyLayout();
+            ShowAllColumns();
         }
 
         public void Hide()
@@ -146,10 +222,26 @@ namespace Gravedigger2026.UI
             }
         }
 
+        internal void NotifyPointerEnter(DifficultyKind kind)
+        {
+            _hoveredKind = kind;
+            SetDescription(DescriptionFor(kind));
+        }
+
+        internal void NotifyPointerExit(DifficultyKind kind)
+        {
+            if (_hoveredKind != kind)
+            {
+                return;
+            }
+
+            _hoveredKind = null;
+            ResetDescription();
+        }
+
         private void HandleNormalClicked()
         {
-            _expandedNormal = true;
-            ApplyLayout();
+            DifficultySelected?.Invoke();
         }
 
         private void HandleLockedClicked()
@@ -160,15 +252,6 @@ namespace Gravedigger2026.UI
         private void ApplyLayout()
         {
             RefreshColumnWidths();
-            if (_normalLevelHost != null)
-            {
-                _normalLevelHost.gameObject.SetActive(_expandedNormal);
-            }
-
-            if (_expandedNormal)
-            {
-                ScrollToColumn(_normalColumn);
-            }
         }
 
         private void LateUpdate()
@@ -193,10 +276,6 @@ namespace Gravedigger2026.UI
             }
 
             RefreshColumnWidths();
-            if (_expandedNormal)
-            {
-                ScrollToColumn(_normalColumn);
-            }
         }
 
         private void RefreshColumnWidths()
@@ -214,15 +293,20 @@ namespace Gravedigger2026.UI
                 return;
             }
 
-            var columnWidth = Mathf.Max(1f, viewport.rect.width);
-            _lastViewportWidth = columnWidth;
+            var viewportWidth = Mathf.Max(1f, viewport.rect.width);
+            _lastViewportWidth = viewportWidth;
+            var columnWidth = viewportWidth / 3f;
             SetColumnWidth(_normalColumn, columnWidth);
             SetColumnWidth(_hardColumn, columnWidth);
             SetColumnWidth(_hellColumn, columnWidth);
 
-            var totalWidth = columnWidth * 3f;
-            _columnsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, totalWidth);
+            _columnsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, viewportWidth);
             _columnsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, viewport.rect.height);
+
+            if (_columnsScroll != null)
+            {
+                _columnsScroll.horizontalNormalizedPosition = 0f;
+            }
         }
 
         private static void SetColumnWidth(RectTransform column, float width)
@@ -244,26 +328,53 @@ namespace Gravedigger2026.UI
             column.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
         }
 
-        private void ScrollToColumn(RectTransform column)
+        private void ResetDescription()
         {
-            if (_columnsScroll == null || _columnsContent == null || column == null)
+            SetDescription(DefaultHint);
+        }
+
+        private void SetDescription(string text)
+        {
+            if (_descriptionText != null)
             {
-                return;
+                _descriptionText.text = text ?? string.Empty;
             }
+        }
 
-            Canvas.ForceUpdateCanvases();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_columnsContent);
-
-            var childCount = _columnsContent.childCount;
-            if (childCount <= 1)
+        private string DescriptionFor(DifficultyKind kind)
+        {
+            switch (kind)
             {
-                _columnsScroll.horizontalNormalizedPosition = 0f;
-                return;
+                case DifficultyKind.Hard:
+                    return _hardDescription;
+                case DifficultyKind.Hell:
+                    return _hellDescription;
+                default:
+                    return _normalDescription;
             }
+        }
+    }
 
-            var index = column.GetSiblingIndex();
-            _columnsScroll.horizontalNormalizedPosition =
-                Mathf.Clamp01(index / (float)(childCount - 1));
+    /// <summary> Pointer hover bridge for a difficulty column. </summary>
+    public sealed class DifficultyColumnHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        private DifficultySelectHostView _host;
+        private DifficultySelectHostView.DifficultyKind _kind;
+
+        public void Bind(DifficultySelectHostView host, DifficultySelectHostView.DifficultyKind kind)
+        {
+            _host = host;
+            _kind = kind;
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            _host?.NotifyPointerEnter(_kind);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            _host?.NotifyPointerExit(_kind);
         }
     }
 }

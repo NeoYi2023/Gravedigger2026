@@ -6,8 +6,8 @@ using UnityEngine;
 namespace Gravedigger2026.Core.Combat
 {
     /// <summary>
-    /// PushMap monster death-triggered skills (SPEC_03 §3.14 / §9.21c).
-    /// First slice: MonsterSelfReviveOnDeath.
+    /// Shared monster death-triggered skills (SPEC_03 §3.14 / §3.19 / §9.21c).
+    /// Hosted via IMonsterDeathSkillHost (PushMap + SearchExtract). First slice: MonsterSelfReviveOnDeath.
     /// </summary>
     public sealed class MonsterDeathSkillService
     {
@@ -165,6 +165,24 @@ namespace Gravedigger2026.Core.Combat
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Rules wipe / true death: cancel fake-death revive without intercept.
+        /// SearchExtract PointClear uses this so SelfRevive does not fire.
+        /// </summary>
+        public void ForceTrueDeath(DefendCombatMonsterState monster)
+        {
+            if (monster == null)
+            {
+                return;
+            }
+
+            monster.IsAlive = false;
+            monster.IsCombatDead = false;
+            monster.RemainingHp = 0f;
+            monster.RevivePhase = MonsterRevivePhase.None;
+            monster.PhaseTimer = 0f;
         }
     }
 }

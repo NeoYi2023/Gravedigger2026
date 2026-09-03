@@ -69,6 +69,7 @@ namespace Gravedigger2026.Meta
         private SpecialEquipSlotsService _specialEquipSlots;
         private ProtagonistEquipmentService _protagonistEquipment;
         private readonly ShopProgressService _shopProgress = new ShopProgressService();
+        private readonly LevelRouteProgressService _levelRouteProgress = new LevelRouteProgressService();
         private readonly ShopOfferRefreshService _shopOfferRefresh = new ShopOfferRefreshService();
         private ShopPurchaseService _shopPurchase;
         private ShopSellService _shopSell;
@@ -84,6 +85,7 @@ namespace Gravedigger2026.Meta
         private UpgradeManufactureStageModule _umModule;
         private LevelOperationDriver _levelDriver;
         private LevelRouteSelectView _routeSelectView;
+        private readonly List<string> _routeLevelIds = new List<string>();
         private RewardGrantService _rewardGrant;
         private CameraFogService _cameraFog;
         private readonly List<FormationClassZoneSnapshot> _gmZoneScratch =
@@ -129,6 +131,7 @@ namespace Gravedigger2026.Meta
             _rewardGrant = new RewardGrantService(
                 _configs, _warehouse, _specialEquipSlots, _protagonistEquipment);
             _levelDriver.BindRewardGrant(_rewardGrant);
+            _levelDriver.BindRouteProgress(_levelRouteProgress);
             _shopModule = new ShopStageModule(
                 _shopPrefabCatalog,
                 transform,
@@ -325,8 +328,9 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.GrantProtagonistEquipmentRequested += HandleGrantProtagonistEquipment;
                 _inSaveShellView.GrantMagicBookRequested += HandleGrantMagicBook;
                 _inSaveShellView.GrantAddSoldierRequested += HandleGrantAddSoldier;
-                _inSaveShellView.LevelSelectPicked += HandleLevelSelectPicked;
+                _inSaveShellView.LevelSelectPicked += HandleToolsLevelSelectPicked;
                 _inSaveShellView.LockedDifficultyClicked += HandleLockedDifficultyClicked;
+                _inSaveShellView.DifficultySelected += HandleNormalDifficultySelected;
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
                 _inSaveShellView.GmGrantLevelPicked += HandleGmGrantLevelPicked;
                 _inSaveShellView.GmAddSoldierAddClicked += HandleGmAddSoldierAdd;
@@ -378,6 +382,8 @@ namespace Gravedigger2026.Meta
             if (_routeSelectView != null)
             {
                 _routeSelectView.OptionSelected -= HandleRouteOptionSelected;
+                _routeSelectView.LevelTabSelected -= HandleLevelTabSelected;
+                _routeSelectView.LockedLevelTabClicked -= HandleLockedLevelTabClicked;
                 _routeSelectView.Closed -= HandleRouteClosed;
             }
         }
@@ -396,6 +402,8 @@ namespace Gravedigger2026.Meta
                 if (_routeSelectView == view)
                 {
                     _routeSelectView.OptionSelected -= HandleRouteOptionSelected;
+                    _routeSelectView.LevelTabSelected -= HandleLevelTabSelected;
+                    _routeSelectView.LockedLevelTabClicked -= HandleLockedLevelTabClicked;
                     _routeSelectView.Closed -= HandleRouteClosed;
                     _routeSelectView = null;
                 }
@@ -448,6 +456,8 @@ namespace Gravedigger2026.Meta
             }
 
             _routeSelectView.OptionSelected += HandleRouteOptionSelected;
+            _routeSelectView.LevelTabSelected += HandleLevelTabSelected;
+            _routeSelectView.LockedLevelTabClicked += HandleLockedLevelTabClicked;
             _routeSelectView.Closed += HandleRouteClosed;
             _routeSelectView.Hide();
         }
@@ -466,6 +476,8 @@ namespace Gravedigger2026.Meta
                 if (_routeSelectView != null && _routeSelectView.transform == child)
                 {
                     _routeSelectView.OptionSelected -= HandleRouteOptionSelected;
+                    _routeSelectView.LevelTabSelected -= HandleLevelTabSelected;
+                    _routeSelectView.LockedLevelTabClicked -= HandleLockedLevelTabClicked;
                     _routeSelectView.Closed -= HandleRouteClosed;
                     _routeSelectView = null;
                 }
@@ -486,6 +498,15 @@ namespace Gravedigger2026.Meta
             EnsureRouteSelectView();
             if (_routeSelectView != null)
             {
+                if (_routeLevelIds.Count > 0)
+                {
+                    _routeSelectView.ConfigureLevelTabs(
+                        _routeLevelIds,
+                        snapshot.LevelId,
+                        CollectUnlockedLevelIds(_routeLevelIds),
+                        BuildLevelDisplayNames(_routeLevelIds));
+                }
+
                 _routeSelectView.ApplySnapshot(snapshot);
             }
 
@@ -587,6 +608,7 @@ namespace Gravedigger2026.Meta
             _specialEquipSlots?.ClearBound();
             _protagonistEquipment?.ClearBound();
             _shopProgress.ClearBound();
+            _levelRouteProgress.ClearBound();
             _autoManufactureBatchRecord.ClearBound();
             _campaignMode.Clear();
             SetStagePresentationActive(false);
@@ -724,6 +746,7 @@ namespace Gravedigger2026.Meta
             _specialEquipSlots?.BindSlot(slotIndex, mode);
             _protagonistEquipment?.BindSlot(slotIndex, mode);
             _shopProgress.BindSlot(slotIndex, mode);
+            _levelRouteProgress.BindSlot(slotIndex, mode);
             _autoManufactureBatchRecord.BindSlot(slotIndex, mode);
             if (!_configs.TryLoadAll(mode))
             {
@@ -859,6 +882,8 @@ namespace Gravedigger2026.Meta
             SpecialEquipSlotsService.DeleteSlotData(slotIndex);
             ProtagonistEquipmentService.DeleteSlotData(slotIndex);
             AutoManufactureBatchRecordService.DeleteSlotData(slotIndex);
+            ShopProgressService.DeleteSlotData(slotIndex);
+            LevelRouteProgressService.DeleteSlotData(slotIndex);
             if (_saveSelectView != null)
             {
                 _saveSelectView.RefreshAll();
@@ -1197,6 +1222,8 @@ namespace Gravedigger2026.Meta
             {
                 _toastView.Show("当前模式无可用关卡");
             }
+
+            CacheRouteLevelIds(levelIds);
 
             if (_inSaveShellView != null)
             {
@@ -1750,7 +1777,146 @@ namespace Gravedigger2026.Meta
             }
         }
 
-        private void HandleLevelSelectPicked(string levelId)
+        private void HandleNormalDifficultySelected()
+        {
+            if (!_configs.IsLoaded)
+            {
+                _configs.TryLoadAll();
+            }
+
+            var levelIds = _configs.GetDistinctLevelIds();
+            if (levelIds == null || levelIds.Count == 0)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("当前模式无可用关卡");
+                }
+
+                return;
+            }
+
+            CacheRouteLevelIds(levelIds);
+            var unlocked = CollectUnlockedLevelIds(levelIds);
+            if (unlocked.Count == 0)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("当前无已解锁关卡");
+                }
+
+                return;
+            }
+
+            var defaultId = unlocked[unlocked.Count - 1];
+            HandleLevelSelectPicked(defaultId, bypassUnlockGate: false);
+        }
+
+        private void HandleLockedLevelTabClicked(string levelId)
+        {
+            if (_toastView != null)
+            {
+                _toastView.Show("关卡未解锁");
+            }
+        }
+
+        private void HandleLevelTabSelected(string levelId)
+        {
+            if (string.IsNullOrEmpty(levelId))
+            {
+                return;
+            }
+
+            if (_levelDriver != null &&
+                string.Equals(_levelDriver.ActiveLevelId, levelId, System.StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (_levelDriver != null && _levelDriver.IsOptionRunning)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("玩法进行中，无法切换关卡");
+                }
+
+                return;
+            }
+
+            if (_levelDriver != null && !_levelDriver.IsLevelUnlocked(levelId))
+            {
+                HandleLockedLevelTabClicked(levelId);
+                return;
+            }
+
+            HandleLevelSelectPicked(levelId, bypassUnlockGate: false);
+        }
+
+        private void CacheRouteLevelIds(IReadOnlyList<string> levelIds)
+        {
+            _routeLevelIds.Clear();
+            if (levelIds == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < levelIds.Count; i++)
+            {
+                var id = levelIds[i];
+                if (!string.IsNullOrEmpty(id))
+                {
+                    _routeLevelIds.Add(id);
+                }
+            }
+        }
+
+        private Dictionary<string, string> BuildLevelDisplayNames(IReadOnlyList<string> levelIds)
+        {
+            var map = new Dictionary<string, string>(System.StringComparer.Ordinal);
+            if (levelIds == null || _configs == null)
+            {
+                return map;
+            }
+
+            for (var i = 0; i < levelIds.Count; i++)
+            {
+                var id = levelIds[i];
+                if (string.IsNullOrEmpty(id) || map.ContainsKey(id))
+                {
+                    continue;
+                }
+
+                map[id] = _configs.GetLevelDisplayName(id);
+            }
+
+            return map;
+        }
+
+        private List<string> CollectUnlockedLevelIds(IReadOnlyList<string> levelIds)
+        {
+            var unlocked = new List<string>();
+            if (levelIds == null || _levelDriver == null)
+            {
+                return unlocked;
+            }
+
+            for (var i = 0; i < levelIds.Count; i++)
+            {
+                var id = levelIds[i];
+                if (!string.IsNullOrEmpty(id) && _levelDriver.IsLevelUnlocked(id))
+                {
+                    unlocked.Add(id);
+                }
+            }
+
+            return unlocked;
+        }
+
+        private void HandleToolsLevelSelectPicked(string levelId)
+        {
+            HandleLevelSelectPicked(levelId, bypassUnlockGate: true);
+        }
+
+        private void HandleLevelSelectPicked(string levelId, bool bypassUnlockGate = false)
         {
             if (_levelDriver == null)
             {
@@ -1767,12 +1933,17 @@ namespace Gravedigger2026.Meta
                 _configs.TryLoadAll();
             }
 
+            if (_routeLevelIds.Count == 0)
+            {
+                CacheRouteLevelIds(_configs.GetDistinctLevelIds());
+            }
+
             _progress.EnsureLoaded(_configs);
             _progress.ResetToLevelOne(_configs);
 
             DestroyShopOverlay();
 
-            if (!_levelDriver.TryEnterLevel(levelId, out var error))
+            if (!_levelDriver.TryEnterLevel(levelId, out var error, bypassUnlockGate))
             {
                 if (_toastView != null)
                 {
@@ -1780,6 +1951,16 @@ namespace Gravedigger2026.Meta
                 }
 
                 return;
+            }
+
+            EnsureRouteSelectView();
+            if (_routeSelectView != null && _routeLevelIds.Count > 0)
+            {
+                _routeSelectView.ConfigureLevelTabs(
+                    _routeLevelIds,
+                    levelId,
+                    CollectUnlockedLevelIds(_routeLevelIds),
+                    BuildLevelDisplayNames(_routeLevelIds));
             }
 
             if (_inSaveShellView != null)

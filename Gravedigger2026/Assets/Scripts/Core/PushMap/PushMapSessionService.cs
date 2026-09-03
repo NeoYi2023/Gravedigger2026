@@ -28,7 +28,7 @@ namespace Gravedigger2026.Core.PushMap
     /// Soldier→monster RemainingHp≤0 → MonsterKilled(runtimeId, killerWarriorId, outgoingDamage); monster→soldier → CombatDead.
     /// Position resolution and instantiation are View concerns; AOE uses injected world-XZ provider.
     /// </summary>
-    public sealed class PushMapSessionService : IWarriorMassCombatSession, IProjectilePierceChannel
+    public sealed class PushMapSessionService : IWarriorMassCombatSession, IProjectilePierceChannel, IMonsterDeathSkillHost
     {
         private bool _active;
         private bool _outcomeSettled;

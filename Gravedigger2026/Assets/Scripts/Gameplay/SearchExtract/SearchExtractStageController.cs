@@ -27,11 +27,15 @@ namespace Gravedigger2026.Gameplay.SearchExtract
     /// <summary>
     /// SearchExtract stage presentation (SE-03 Approach A). Prepare reuses FormationEditorRoot;
     /// StartBattle ≥1 deploys soldiers, bakes NavMesh+AirWall. SE-04: zone activation + gather countdown HUD.
+    /// Pre-activation: FormationHome approach to current Objective (v0.83.92).
+    /// D-074: monster death skills via IMonsterDeathSkillHost (shared with PushMap).
     /// SE-05: MassMove FormationHome relocate around Objective + tactical virtual center snap.
     /// SE-06: directional wave spawn after gather activation; PushMapMonsterAgentView + BodyRadius spread.
     /// SE-07: point success → invincible + clear monsters + UI-032 decision panel.
     /// SE-08: point loot via RewardGrantService; Continue advances order + relocate; Leave → StageExp + TryAdvanceStage.
     /// SE-09: active-gather loyal wipe → LevelFailure → AbortLevel + LevelSelect (no UI-017).
+    /// v0.83.93: Combat camera follows CameraFollowPath + soldiers (PushMapCameraFollowController).
+    /// v0.83.94: Combat MassMove Tick includes monsters + AttackSlot chase refresh (same as PushMap).
     /// No BattleProtagonist.
     /// </summary>
     public sealed class SearchExtractStageController : MonoBehaviour
@@ -57,6 +61,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private GameObject _mapInstance;
         private Transform _worldRoot;
         private Camera _combatCamera;
+        private PushMapCameraFollowController _cameraFollow;
+        private GameObject _resumeFollowButtonRoot;
         private FormationEditorController _formationEditor;
         private Vector2 _mapHalfExtents = new Vector2(5f, 2.5f);
         private Vector3 _mapCenter;
@@ -161,24 +167,29 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             _session = new SearchExtractSessionService();
-            _session.BindCombatConfigs(_configs);
             _session.PhaseChanged += HandlePhaseChanged;
             _session.GatherCountdownSecondsChanged += HandleGatherCountdownSecondsChanged;
             _session.GatherPointActivated += HandleGatherPointActivated;
             _session.SpawnRequested += HandleSpawnRequested;
             _session.MonsterDamageSettled += HandleMonsterDamageSettled;
             _session.MonsterKilled += HandleMonsterKilled;
+            _session.MonsterEnteredCombatDead += HandleMonsterEnteredCombatDead;
+            _session.MonsterReviveStarted += HandleMonsterReviveStarted;
+            _session.MonsterRevived += HandleMonsterRevived;
+            _session.MonsterInvincibleChanged += HandleMonsterInvincibleChanged;
             _session.WarriorDamageSettled += HandleWarriorDamageSettled;
             _session.WarriorCombatDead += HandleWarriorCombatDead;
             _session.PointSucceeded += HandlePointSucceeded;
             _session.PointContinueRequested += HandlePointContinueRequested;
             _session.PointLeaveRequested += HandlePointLeaveRequested;
             _session.LevelFailureRequested += HandleLevelFailureRequested;
+            // Bind after BeginPrepare: BeginPrepare→Stop must not leave configs null (D-074 Skills).
             _session.BeginPrepare(
                 context.SearchExtractConfig,
                 context.GatherPointCount,
                 context.LevelId,
                 context.GameplayOptionId);
+            _session.BindCombatConfigs(_configs);
             _session.BindGatherOrders(CollectObjectiveOrdersAscending());
 
             EnsureDecisionPanel();
@@ -207,6 +218,10 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 _session.SpawnRequested -= HandleSpawnRequested;
                 _session.MonsterDamageSettled -= HandleMonsterDamageSettled;
                 _session.MonsterKilled -= HandleMonsterKilled;
+                _session.MonsterEnteredCombatDead -= HandleMonsterEnteredCombatDead;
+                _session.MonsterReviveStarted -= HandleMonsterReviveStarted;
+                _session.MonsterRevived -= HandleMonsterRevived;
+                _session.MonsterInvincibleChanged -= HandleMonsterInvincibleChanged;
                 _session.WarriorDamageSettled -= HandleWarriorDamageSettled;
                 _session.WarriorCombatDead -= HandleWarriorCombatDead;
                 _session.PointSucceeded -= HandlePointSucceeded;
@@ -232,6 +247,22 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _onLevelFailure = null;
             _driverOutcomeDispatched = false;
             ReleaseNavMesh();
+            DisableCameraFollow();
+
+            if (destroyWorld && _resumeFollowButtonRoot != null)
+            {
+                var canvas = _resumeFollowButtonRoot.GetComponentInParent<Canvas>();
+                if (canvas != null)
+                {
+                    Destroy(canvas.gameObject);
+                }
+                else
+                {
+                    Destroy(_resumeFollowButtonRoot);
+                }
+
+                _resumeFollowButtonRoot = null;
+            }
 
             if (destroyWorld && _mapInstance != null)
             {
@@ -279,7 +310,9 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
             DeployCombatUnits();
             SnapshotFormationRelocate();
+            BeginApproachToCurrentObjective();
             CommitTacticalFormationRuntime(tacticalLocks);
+            EnableCameraFollowForCombat();
             EnsureCountdownHud();
             RefreshCountdownHud();
             Debug.Log(
@@ -720,10 +753,24 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     ++_nextMoveId,
                     (monsterRuntimeId, warriorId, attackPower) =>
                         _session.TryApplyMonsterDamageToWarrior(monsterRuntimeId, warriorId, attackPower),
-                    () => false,
-                    () => 1f,
-                    () => 1f);
+                    () => _session != null && _session.IsMonsterStunned(runtimeId),
+                    () => _session != null ? _session.GetMonsterSlowMoveMul(runtimeId) : 1f,
+                    () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f);
                 view.ApplySpawnInitialFacing(PushMapSpawnFacing.ResolveDirIndex(0));
+
+                view.SetCorpseSmashBridge(
+                    (corpseRuntimeId, killerId, killerOutgoing, targetRuntimeId) =>
+                        _session != null &&
+                        _session.TryApplyCorpseSmashDamage(
+                            corpseRuntimeId,
+                            killerId,
+                            killerOutgoing,
+                            targetRuntimeId),
+                    EnumerateLivingMonstersForCorpseSmash);
+
+                view.SetReviveCallbacks(
+                    () => _session?.TryNotifyMonsterDeathPresentationComplete(runtimeId),
+                    () => _session?.TryNotifyMonsterReviveAnimComplete(runtimeId));
 
                 _session.RegisterMonster(runtimeId, monsterRow.MonsterId, monsterRow.MaxHP);
                 if (go.GetComponent<HitFlashView>() == null)
@@ -829,6 +876,64 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage, string deathTag)
         {
+            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, deathTag, fakeDeathCorpse: false);
+        }
+
+        private void HandleMonsterEnteredCombatDead(
+            string runtimeId,
+            string killerWarriorId,
+            float outgoingDamage,
+            string deathTag)
+        {
+            ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, deathTag, fakeDeathCorpse: true);
+        }
+
+        private void HandleMonsterReviveStarted(string runtimeId, float reviveAnimSeconds)
+        {
+            FindMonsterView(runtimeId)?.NotifyReviveStarted(reviveAnimSeconds);
+        }
+
+        private void HandleMonsterRevived(string runtimeId)
+        {
+            var monster = FindMonsterView(runtimeId);
+            if (monster == null)
+            {
+                return;
+            }
+
+            float? postReviveAlertRadius = null;
+            if (_session != null
+                && _session.TryGetMonster(runtimeId, out var state)
+                && state != null
+                && state.PostReviveAlertRadiusApplied)
+            {
+                postReviveAlertRadius = state.RuntimeAlertRadius;
+            }
+
+            monster.NotifyRevived(postReviveAlertRadius);
+            if (_session == null || !_session.IsMonsterInvincible(runtimeId))
+            {
+                monster.NotifyPostReviveInvincibleEnded();
+            }
+        }
+
+        private void HandleMonsterInvincibleChanged(string runtimeId, string skillId, bool on)
+        {
+            if (on)
+            {
+                return;
+            }
+
+            FindMonsterView(runtimeId)?.NotifyPostReviveInvincibleEnded();
+        }
+
+        private void ApplyMonsterDeathPresentation(
+            string runtimeId,
+            string killerWarriorId,
+            float outgoingDamage,
+            string deathTag,
+            bool fakeDeathCorpse)
+        {
             var monster = FindMonsterView(runtimeId);
             if (monster == null)
             {
@@ -836,8 +941,54 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             _attackSlots?.ReleaseAllForTarget(runtimeId);
-            var killerPos = FindAdvanceView(killerWarriorId)?.transform.position;
-            monster.NotifyKilled(killerPos, killerOutgoingDamage: outgoingDamage, killerWarriorId: killerWarriorId);
+            Vector3? killerPos = null;
+            if (!string.IsNullOrEmpty(killerWarriorId))
+            {
+                var killer = FindAdvanceView(killerWarriorId);
+                if (killer != null)
+                {
+                    killerPos = killer.transform.position;
+                }
+            }
+
+            var maxHp = 0f;
+            if (_session != null && _session.TryGetMonster(runtimeId, out var state) && state != null)
+            {
+                maxHp = state.MaxHp;
+            }
+
+            var isCorpseSmashKill = string.Equals(deathTag, "CorpseSmash", StringComparison.Ordinal);
+            var isPointClear = string.Equals(deathTag, "PointClear", StringComparison.Ordinal);
+            var distance = isCorpseSmashKill || isPointClear
+                ? 0f
+                : MonsterDeathPresentation.ComputeKnockbackDistance(maxHp, outgoingDamage);
+            monster.NotifyKilled(killerPos, distance, killerWarriorId, outgoingDamage, fakeDeathCorpse);
+        }
+
+        private void EnumerateLivingMonstersForCorpseSmash(Action<string, Vector2, float> visit)
+        {
+            if (visit == null || _session == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null)
+                {
+                    continue;
+                }
+
+                var runtimeId = monster.RuntimeTargetId;
+                if (string.IsNullOrEmpty(runtimeId) || !_session.IsMonsterTargetable(runtimeId))
+                {
+                    continue;
+                }
+
+                var p = monster.transform.position;
+                visit(runtimeId, new Vector2(p.x, p.z), monster.BodyRadius);
+            }
         }
 
         private void HandleWarriorDamageSettled(string warriorId, float damage)
@@ -1052,11 +1203,13 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
                 var hold = new Vector2(worldPos.x, worldPos.z);
                 _moveScheduler.SetGoal(advance.MoveId, GoalKind.FormationHome, hold);
-                _moveScheduler.SetPaused(advance.MoveId, true);
+                _moveScheduler.SetPaused(advance.MoveId, false);
                 _advanceViews.Add(advance);
             }
 
-            Debug.Log($"[SearchExtractStage] Deployed {_advanceViews.Count} soldiers (MassMove relocate pending activation).");
+            Debug.Log(
+                $"[SearchExtractStage] Deployed {_advanceViews.Count} soldiers " +
+                "(approach Objective until gather activation).");
         }
 
         private IReadOnlyList<PushMapMonsterAgentView> ProvideMonsters()
@@ -1096,6 +1249,41 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             _formationRelocate.SnapshotFromDeployPositions(_deployScratch);
+        }
+
+        /// <summary>
+        /// Pre-activation approach: all loyal soldiers seek current Objective center
+        /// (SPEC_03 §3.19 Approach A / v0.83.92). Countdown/spawn/offset relocate still wait for zone enter.
+        /// </summary>
+        private void BeginApproachToCurrentObjective()
+        {
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            if (!TryGetCurrentObjectiveCenter(out var center))
+            {
+                Debug.LogWarning("[SearchExtractStage] Approach skipped — no current Objective.");
+                return;
+            }
+
+            var moved = 0;
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var soldier = _advanceViews[i];
+                if (soldier == null || soldier.IsRebel || soldier.MoveId == 0)
+                {
+                    continue;
+                }
+
+                _moveScheduler.SetPaused(soldier.MoveId, false);
+                _moveScheduler.SetGoal(soldier.MoveId, GoalKind.FormationHome, center);
+                moved++;
+            }
+
+            Debug.Log(
+                $"[SearchExtractStage] Approach Objective center={center} soldiers={moved}");
         }
 
         private void EnsurePathingServices()
@@ -1149,6 +1337,15 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 }
             }
 
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster != null && monster.IsAlive && !monster.IsStationary && monster.MoveId != 0)
+                {
+                    _moveSamples.Add(monster.BuildSample());
+                }
+            }
+
             _moveScheduler.Tick(_moveSamples, Time.deltaTime);
         }
 
@@ -1169,12 +1366,17 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void TickAttackSlotGoals()
         {
-            if (_attackSlots == null || _moveScheduler == null || _advanceViews.Count == 0)
+            if (_attackSlots == null || _moveScheduler == null)
             {
                 return;
             }
 
-            var rosterCount = _advanceViews.Count;
+            var rosterCount = _advanceViews.Count + _monsters.Count;
+            if (rosterCount <= 0)
+            {
+                return;
+            }
+
             var budget = Mathf.Min(MassMoveScheduler.MaxRecalcPerFrame, rosterCount);
             for (var n = 0; n < budget; n++)
             {
@@ -1183,7 +1385,19 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     _slotGoalCursor = 0;
                 }
 
-                RefreshSoldierSlotGoal(_advanceViews[_slotGoalCursor]);
+                if (_slotGoalCursor < _advanceViews.Count)
+                {
+                    RefreshSoldierSlotGoal(_advanceViews[_slotGoalCursor]);
+                }
+                else
+                {
+                    var mi = _slotGoalCursor - _advanceViews.Count;
+                    if (mi >= 0 && mi < _monsters.Count)
+                    {
+                        _monsters[mi]?.TryRefreshChaseGoal(_attackSlots, _moveScheduler);
+                    }
+                }
+
                 _slotGoalCursor++;
             }
         }
@@ -1201,10 +1415,19 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
             if (!TryGetRelocateFallbackGoal(soldier.AttackerId, out var relocateGoal))
             {
-                var hold = new Vector2(soldier.transform.position.x, soldier.transform.position.z);
                 _attackSlots.Release(soldier.AttackerId);
-                _moveScheduler.SetGoal(soldier.MoveId, GoalKind.FormationHome, hold);
-                _moveScheduler.SetPaused(soldier.MoveId, true);
+                if (TryGetCurrentObjectiveCenter(out var approachGoal))
+                {
+                    _moveScheduler.SetPaused(soldier.MoveId, false);
+                    _moveScheduler.SetGoal(soldier.MoveId, GoalKind.FormationHome, approachGoal);
+                }
+                else
+                {
+                    var hold = new Vector2(soldier.transform.position.x, soldier.transform.position.z);
+                    _moveScheduler.SetGoal(soldier.MoveId, GoalKind.FormationHome, hold);
+                    _moveScheduler.SetPaused(soldier.MoveId, true);
+                }
+
                 return;
             }
 
@@ -1808,6 +2031,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         {
             if (_combatCamera != null)
             {
+                EnsureCameraFollowComponent();
                 return;
             }
 
@@ -1824,6 +2048,126 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 : CameraPresentationConstants.SafetyDefaults;
             _combatCamera.nearClipPlane = cam.NearClip;
             _combatCamera.farClipPlane = cam.FarClip;
+            EnsureCameraFollowComponent();
+        }
+
+        private void EnsureCameraFollowComponent()
+        {
+            if (_combatCamera == null)
+            {
+                return;
+            }
+
+            _cameraFollow = _combatCamera.GetComponent<PushMapCameraFollowController>();
+            if (_cameraFollow == null)
+            {
+                _cameraFollow = _combatCamera.gameObject.AddComponent<PushMapCameraFollowController>();
+            }
+        }
+
+        private void EnableCameraFollowForCombat()
+        {
+            EnsureCombatCamera();
+            EnsureResumeFollowButton();
+            if (_cameraFollow == null || _combatCamera == null)
+            {
+                return;
+            }
+
+            var cameraPath = _mapInstance != null
+                ? _mapInstance.GetComponentInChildren<PushMapCameraPath>(true)
+                : null;
+            if (cameraPath != null && !cameraPath.HasBakedPath)
+            {
+                if (!cameraPath.TryBake(out var bakeError))
+                {
+                    Debug.LogWarning($"[SearchExtractStage] CameraFollowPath bake failed: {bakeError}");
+                }
+            }
+
+            _cameraFollow.Bind(_combatCamera, _advanceViews, ResolveCurrentObjective, cameraPath);
+            _cameraFollow.ApplyPresentationConstants(
+                _configs != null
+                    ? _configs.GetCameraPresentationConstants()
+                    : CameraPresentationConstants.SafetyDefaults);
+            _cameraFollow.EnableForCombat();
+            Debug.Log(
+                $"[SearchExtractStage] CameraFollow enabled path={(cameraPath != null && cameraPath.HasBakedPath)} " +
+                $"soldiers={_advanceViews.Count}");
+        }
+
+        private void DisableCameraFollow()
+        {
+            if (_cameraFollow != null)
+            {
+                _cameraFollow.Disable();
+            }
+
+            if (_resumeFollowButtonRoot != null)
+            {
+                _resumeFollowButtonRoot.SetActive(false);
+            }
+        }
+
+        private void EnsureResumeFollowButton()
+        {
+            if (_resumeFollowButtonRoot != null)
+            {
+                if (_cameraFollow != null)
+                {
+                    var existing = _resumeFollowButtonRoot.GetComponentInChildren<Button>(true);
+                    _cameraFollow.BindResumeButton(_resumeFollowButtonRoot, existing);
+                }
+
+                return;
+            }
+
+            var canvasGo = new GameObject(
+                "SearchExtractResumeFollowCanvas",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster));
+            canvasGo.transform.SetParent(transform, false);
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 80;
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            var buttonGo = new GameObject("ResumeFollowButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonGo.transform.SetParent(canvasGo.transform, false);
+            var rt = buttonGo.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.1f);
+            rt.anchorMax = new Vector2(0.5f, 0.1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(220f, 56f);
+            buttonGo.GetComponent<Image>().color = new Color(0.28f, 0.42f, 0.55f, 0.95f);
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            labelGo.transform.SetParent(buttonGo.transform, false);
+            var labelRt = labelGo.GetComponent<RectTransform>();
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+            var label = labelGo.GetComponent<Text>();
+            label.text = "恢复跟随";
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            label.fontSize = 22;
+            label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+            _resumeFollowButtonRoot = buttonGo;
+            buttonGo.SetActive(false);
+
+            var button = buttonGo.GetComponent<Button>();
+            if (_cameraFollow != null)
+            {
+                _cameraFollow.BindResumeButton(_resumeFollowButtonRoot, button);
+            }
         }
 
         private void ApplyCombatCameraPose()
