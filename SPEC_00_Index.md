@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.05
+**文档版本 / Document Version:** v0.84.06
 **最后更新 / Last Updated:** 2026-09-03
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；Demo 须另授权）  
 
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-03 | v0.84.06 | UI-029 prefab 回归修正：`InSaveShellPanel.prefab` 恢复难度三栏同屏布局，并锁定 `NormalColumn` / `HardColumn` / `HellColumn` 均保留作者指定贴图与 `preserveAspect=true`，禁止回退为纯色无图背景。同步 SPEC_04 §6、`InSaveShellPanel.prefab` |
 | 2026-09-03 | v0.84.05 | PushMap 一键上阵修复（方案 B）：`PushMap_Demo_01/02/03` 补 Mode2 全量 `FormationClassZone`；Ensure 锚点=`CameraFollowPath/WP_Start`（缺则 DigMapBounds.Center）；菜单 `PushMap/Ensure Formation Class Zones on Sample Maps`。同步 SPEC_03 D-057/D-074、SPEC_04 §6/§9.22/§13、DefendAssetBuilder / PushMapSampleMapBuilder |
 | 2026-09-03 | v0.84.02 | 新增关卡难度表 `Level_DifficultyConfig`（DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward）；运作表增 `DifficultyId`；难度通关=归属全部 LevelId 关卡胜利；解锁空=初始、找不到=不可解锁；通关一次性奖励经 §9.5a。Demo Hub/发奖接线后置。同步 SPEC_03 §3.9、SPEC_04 §9.1/§9.1a、CONTEXT、Mode1+Mode2 Excel+CSV |
 | 2026-09-03 | v0.84.01 | LevelId 解锁门闩：运作表 Stage1 `UnlockLevelId`（空=默认解锁；合法 `GameplayOptionId` 已通关→解锁；非法值=永不可解锁）；正式入口/UI-031 页签全显灰禁+Toast；默认进关=已解锁末项；Tools 关卡可 bypass。同步 SPEC_03 §3.9、SPEC_04 §9.1、CONTEXT、Mode1+Mode2 Excel+CSV、Driver/Meta/View |
