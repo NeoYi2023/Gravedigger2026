@@ -1935,6 +1935,12 @@ namespace Gravedigger2026.Core.PushMap
             RequestLevelFailure("我方士兵全灭");
         }
 
+        /// <summary>Loyal casualty snapshot for UI-017.</summary>
+        public BattleCasualtyStats BuildCasualtyStats()
+        {
+            return BattleCasualtyStatsBuilder.Build(_warriors.Values);
+        }
+
         /// <summary>Accumulate CaptureLoot entries already credited to Warehouse (display only).</summary>
         public void RecordCaptureLoot(IReadOnlyList<LootDropEntry> entries)
         {

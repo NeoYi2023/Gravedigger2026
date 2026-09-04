@@ -1,0 +1,12 @@
+TextKey,TextZh,TextEn,Comment
+DigWarehouseHoverTips,此处统计可大致制造的士兵种族与职业数量,,Dig HUD Warehouse hover tips
+TipMsg_Spirit,精魂,,SubLevel Dig Tips MsgType=Spirit
+TipMsg_Wreck,尸骸,,SubLevel Dig Tips MsgType=Wreck
+TipMsg_Warrior,战士,,SubLevel Dig Tips MsgType=Warrior
+TipMsg_Archer,射手,,SubLevel Dig Tips MsgType=Archer
+TipMsg_Assassin,刺客,,SubLevel Dig Tips MsgType=Assassin
+TipMsg_Mage,法师,,SubLevel Dig Tips MsgType=Mage
+TipMsg_Humans,人类,,SubLevel Dig Tips MsgType=Humans
+TipMsg_Elves,精灵,,SubLevel Dig Tips MsgType=Elves
+TipMsg_Orcs,兽人,,SubLevel Dig Tips MsgType=Orcs
+TipMsg_AllRaces,全种族,,SubLevel Dig Tips MsgType=AllRaces

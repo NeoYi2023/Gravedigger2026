@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.07
-**最后更新 / Last Updated:** 2026-09-03
+**文档版本 / Document Version:** v0.84.12
+**最后更新 / Last Updated:** 2026-09-04
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,11 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-04 | v0.84.12 | UI-031 子关卡悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`（枚举+尺度箭头）；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标行；Prefab `OptionHoverTips`；Localized `TipMsg_*`。同步 SPEC_03/04、CONTEXT、子关卡表 |
+| 2026-09-04 | v0.84.11 | 战斗结算 UI-017 完善：阵亡统计（总数+四职业图标）；战败「返回主界面」(TitleMenu)/「重新开始」(重进同选项)；SE Leave 后弹胜利结算、全灭弹战败；PushMap/SE 共用 Factory。同步 SPEC_03 §3.6/§3.14/§3.19、SPEC_04 §6/§9.22、CONTEXT；issues `.scratch/battle-settlement-polish/` |
+| 2026-09-04 | v0.84.10 | SearchExtract 地图绑定：玩法表 `SearchExtract_01.MapId=SearchExtract_Lv1_01`；`DefendPrefabCatalog.Maps` + `CatalogExtraMapIds` 补绑该 Prefab（防 GenerateAll 冲掉）。同步 SPEC_03 §3.19、SPEC_04 §9.32、CONTEXT |
+| 2026-09-04 | v0.84.09 | UI-031 地图模式 Icon 三态：Cleared 下方内侧 Checkmark；Selectable/Running 慢闪+±10% 缩放（≈1.6s）；Locked RGB×0.4；源 `Art/UI/Icons/Checkmark`→运行时 `Resources/UI/Icons/Checkmark`。同步 SPEC_03/04、CONTEXT、`LevelRouteSelectView` |
+| 2026-09-04 | v0.84.08 | Dig HUD Warehouse 改为三行图标统计（精魂/残骸/种族·职业主要手）+ Hover Tips；新增 `Common_LocalizedDescriptionConfig`（§9.34）；`BodyPartConfig.BaseClass`；issues `.scratch/dig-warehouse-hud-stats/`。同步 SPEC_03 §3.10、SPEC_04 §9.12/§9.34/§14、CONTEXT |
 | 2026-09-03 | v0.84.07 | Git/Unity 资源协作基线：新增仓库根 `.gitattributes`，将 `*.prefab` / `*.unity` / `*.asset` / `*.mat` / `*.anim` / `*.meta` 统一为文本 `LF`；新增 `Tools/check_unity_sync_risk.ps1` 作为拉代码前高风险资源自检脚本。同步 SPEC_04 §1a |
 | 2026-09-03 | v0.84.06 | UI-029 prefab 回归修正：`InSaveShellPanel.prefab` 恢复难度三栏同屏布局，并锁定 `NormalColumn` / `HardColumn` / `HellColumn` 均保留作者指定贴图与 `preserveAspect=true`，禁止回退为纯色无图背景。同步 SPEC_04 §6、`InSaveShellPanel.prefab` |
 | 2026-09-03 | v0.84.05 | PushMap 一键上阵修复（方案 B）：`PushMap_Demo_01/02/03` 补 Mode2 全量 `FormationClassZone`；Ensure 锚点=`CameraFollowPath/WP_Start`（缺则 DigMapBounds.Center）；菜单 `PushMap/Ensure Formation Class Zones on Sample Maps`。同步 SPEC_03 D-057/D-074、SPEC_04 §6/§9.22/§13、DefendAssetBuilder / PushMapSampleMapBuilder |
@@ -472,6 +477,11 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-04 | v0.84.12 | UI-031 SubLevel hover Tips by GameplayType: Dig=`TipMessages` (enum+scale arrows); Shop/AM/UM=`IconAssetId2`+Description; PushMap/SE/Defend=`IconAssetId2`+Reward icons; Prefab `OptionHoverTips`; Localized `TipMsg_*`. Synced SPEC_03/04, CONTEXT, SubLevel table |
+| 2026-09-04 | v0.84.11 | Battle settlement UI-017 polish: casualty total + four BaseClass icons; defeat Return to Title / Restart same option; SE Leave→victory settlement, wipe→defeat; shared Factory for PushMap/SE. Synced SPEC_03 §3.6/§3.14/§3.19, SPEC_04 §6/§9.22, CONTEXT; issues `.scratch/battle-settlement-polish/` |
+| 2026-09-04 | v0.84.10 | SearchExtract map bind: gameplay `SearchExtract_01.MapId=SearchExtract_Lv1_01`; upsert `DefendPrefabCatalog.Maps` + `CatalogExtraMapIds` so GenerateAll does not drop it. Synced SPEC_03 §3.19, SPEC_04 §9.32, CONTEXT |
+| 2026-09-04 | v0.84.09 | UI-031 map-mode Icon tri-state: Cleared bottom-inner Checkmark; Selectable/Running slow blink+±10% scale (~1.6s); Locked RGB×0.4; art `Art/UI/Icons/Checkmark` → runtime `Resources/UI/Icons/Checkmark`. Synced SPEC_03/04, CONTEXT, `LevelRouteSelectView` |
+| 2026-09-04 | v0.84.08 | Dig HUD Warehouse → three-row icon stats (Spirit/wreck/race·class primary hands) + hover tips; add `Common_LocalizedDescriptionConfig` (§9.34); `BodyPartConfig.BaseClass`; issues `.scratch/dig-warehouse-hud-stats/`. Synced SPEC_03 §3.10, SPEC_04 §9.12/§9.34/§14, CONTEXT |
 | 2026-09-03 | v0.84.05 | PushMap one-click deploy fix (Approach B): add Mode2-full `FormationClassZone` on `PushMap_Demo_01/02/03`; Ensure anchor=`CameraFollowPath/WP_Start` (else DigMapBounds.Center); menu `PushMap/Ensure Formation Class Zones on Sample Maps`. Synced SPEC_03 D-057/D-074, SPEC_04 §6/§9.22/§13, DefendAssetBuilder / PushMapSampleMapBuilder |
 | 2026-09-03 | v0.84.04 | SearchExtract fix: `BeginPrepare`→`Stop` no longer drops `BindCombatConfigs`, else `MonsterConfig.Skills` (D-074 revive) silently never initialize. Synced SPEC_04 §9.33, Session/Stage |
 | 2026-09-03 | v0.84.03 | UI-031: Operation gains `LevelName`; tab Label and `Box/Title` show it (empty→`LevelId`); Demo samples 第1/2/3关. Synced SPEC_03/04, CONTEXT, Mode1+Mode2 Excel+CSV, Loader/View |

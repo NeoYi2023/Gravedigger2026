@@ -959,7 +959,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _root: {fileID: 1070342143672666990}
   _timerText: {fileID: 799940504988040632}
-  _warehouseText: {fileID: 4037953011456883074}
+  _warehouseText: {fileID: 0}
+  _warehouseRoot: {fileID: 3257387555093731162}
+  _spiritIcon: {fileID: 21300000, guid: 4876f66b2c64b1d4b8e91f04da17129b, type: 3}
+  _wreckIcon: {fileID: 21300000, guid: f743a475f19df734497a1fd474e4f5e4, type: 3}
+  _raceUndeadIcon: {fileID: 21300000, guid: 2a5b612e05a470d45b300e687404a09d, type: 3}
+  _raceOrcIcon: {fileID: 21300000, guid: 4f7fe5128e3f71644a2544020b05d687, type: 3}
+  _raceElfIcon: {fileID: 21300000, guid: 857085630624d1541a9127045c839eb1, type: 3}
+  _raceHumanIcon: {fileID: 21300000, guid: c8654c11e2dd1804a89c54fea9fc2b49, type: 3}
+  _classWarriorIcon: {fileID: 21300000, guid: 56718062a03996d4792447db046f0e63, type: 3}
+  _classArcherIcon: {fileID: 21300000, guid: 2e2048c091686c846951a9d767c2c9ca, type: 3}
+  _classMageIcon: {fileID: 21300000, guid: 1f6440f3f40e7fd468f4e7c91446cf4d, type: 3}
+  _classAssassinIcon: {fileID: 21300000, guid: bf5aab3ccb38a8c4a84fa6646530f751, type: 3}
   _addGravesButton: {fileID: 5248721082594603248}
   _addBodyPartsButton: {fileID: 5441936515949847915}
   _acquireDigRingButton: {fileID: 7908367009200685498}
@@ -1101,7 +1112,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 24, y: -90}
-  m_SizeDelta: {x: 900, y: 36}
+  m_SizeDelta: {x: 420, y: 260}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &9213255965924740873
 CanvasRenderer:
@@ -1120,31 +1131,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 1670737937698188530}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.01}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 22
-    m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
-    m_Alignment: 0
-    m_AlignByGeometry: 0
-    m_RichText: 1
-    m_HorizontalOverflow: 0
-    m_VerticalOverflow: 1
-    m_LineSpacing: 1
-  m_Text: "\u7CBE\u9B42 0"
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &2000699790742703526
 GameObject:
   m_ObjectHideFlags: 0

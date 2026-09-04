@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Level;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -11,7 +12,8 @@ namespace Gravedigger2026.UI
 {
     /// <summary>
     /// UI-031: LevelId tabs atop Box + route map (1450-wide) or legacy Stage rows + unlock edges.
-    /// Map mode: Icon-only options; hover Tips show Type/Title/Description/Reward.
+    /// Map mode: Icon-only options with Cleared/Selectable·Running/Locked visuals;
+    /// hover Tips by GameplayType (OptionHoverTipsController).
     /// </summary>
     public sealed class LevelRouteSelectView : MonoBehaviour
     {
@@ -19,6 +21,13 @@ namespace Gravedigger2026.UI
         public const float MapOptionIconSize = 150f;
         private const float ClearReturnHoldSeconds = 0.5f;
         private const float ClearReturnMoveSeconds = 0.5f;
+        private const float MapIconLockedRgbMul = 0.4f;
+        private const float MapClearedMarkSizeFraction = 0.36f;
+        private const string ClearedMarkChildName = "ClearedMark";
+        private const string CheckmarkResourcesPath = "UI/Icons/Checkmark";
+
+        private static Sprite _cachedCheckmark;
+        private static bool _checkmarkLoadAttempted;
 
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleText;
@@ -36,10 +45,9 @@ namespace Gravedigger2026.UI
         [SerializeField] private RectTransform _mapOptionsHost;
         [SerializeField] private ScrollRect _mapScroll;
         [SerializeField] private GameObject _optionHoverTipsRoot;
-        [SerializeField] private Text _optionTipsType;
-        [SerializeField] private Text _optionTipsTitle;
-        [SerializeField] private Text _optionTipsDescription;
-        [SerializeField] private Text _optionTipsReward;
+        [SerializeField] private OptionHoverTipsController _optionHoverTips;
+
+        private ConfigCsvRepository _configs;
 
         private readonly List<GameObject> _spawnedStages = new List<GameObject>();
         private readonly List<GameObject> _spawnedEdges = new List<GameObject>();
@@ -116,11 +124,7 @@ namespace Gravedigger2026.UI
             Image mapBackground = null,
             RectTransform mapOptionsHost = null,
             ScrollRect mapScroll = null,
-            GameObject optionHoverTipsRoot = null,
-            Text optionTipsType = null,
-            Text optionTipsTitle = null,
-            Text optionTipsDescription = null,
-            Text optionTipsReward = null)
+            GameObject optionHoverTipsRoot = null)
         {
             _root = root;
             _titleText = titleText;
@@ -149,26 +153,7 @@ namespace Gravedigger2026.UI
             if (optionHoverTipsRoot != null)
             {
                 _optionHoverTipsRoot = optionHoverTipsRoot;
-            }
-
-            if (optionTipsType != null)
-            {
-                _optionTipsType = optionTipsType;
-            }
-
-            if (optionTipsTitle != null)
-            {
-                _optionTipsTitle = optionTipsTitle;
-            }
-
-            if (optionTipsDescription != null)
-            {
-                _optionTipsDescription = optionTipsDescription;
-            }
-
-            if (optionTipsReward != null)
-            {
-                _optionTipsReward = optionTipsReward;
+                _optionHoverTips = optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
             }
 
             WireClose();
@@ -187,6 +172,15 @@ namespace Gravedigger2026.UI
             if (_levelTabTemplate != null)
             {
                 _levelTabTemplate.SetActive(false);
+            }
+        }
+
+        public void BindConfigs(ConfigCsvRepository configs)
+        {
+            _configs = configs;
+            if (_optionHoverTips != null)
+            {
+                _optionHoverTips.BindConfigs(configs);
             }
         }
 
@@ -960,6 +954,7 @@ namespace Gravedigger2026.UI
                     iconRt.pivot = new Vector2(0.5f, 0.5f);
                     iconRt.offsetMin = new Vector2(4f, 4f);
                     iconRt.offsetMax = new Vector2(-4f, -4f);
+                    ApplyMapOptionIconVisual(icon, opt.UiState);
                 }
             }
 
@@ -1005,39 +1000,28 @@ namespace Gravedigger2026.UI
             }
 
             EnsureOptionHoverTips();
-            if (_optionHoverTipsRoot == null)
+            if (_optionHoverTips == null)
             {
                 return;
             }
 
-            if (_optionTipsType != null)
+            if (_configs != null)
             {
-                _optionTipsType.text = opt.GameplayType.ToString();
+                _optionHoverTips.BindConfigs(_configs);
             }
 
-            if (_optionTipsTitle != null)
-            {
-                _optionTipsTitle.text = string.IsNullOrEmpty(opt.Title) ? opt.GameplayOptionId : opt.Title;
-            }
-
-            if (_optionTipsDescription != null)
-            {
-                _optionTipsDescription.text = opt.Description ?? string.Empty;
-            }
-
-            if (_optionTipsReward != null)
-            {
-                _optionTipsReward.text = FormatRewardLine(opt.Reward);
-            }
-
-            _optionHoverTipsRoot.SetActive(true);
+            _optionHoverTips.Show(opt);
             Canvas.ForceUpdateCanvases();
             PositionOptionTips(anchor);
         }
 
         private void HideOptionTips()
         {
-            if (_optionHoverTipsRoot != null)
+            if (_optionHoverTips != null)
+            {
+                _optionHoverTips.Hide();
+            }
+            else if (_optionHoverTipsRoot != null)
             {
                 _optionHoverTipsRoot.SetActive(false);
             }
@@ -1093,24 +1077,26 @@ namespace Gravedigger2026.UI
         {
             if (_optionHoverTipsRoot != null)
             {
-                if (_optionTipsType == null)
+                if (_optionHoverTips == null)
                 {
-                    _optionTipsType = _optionHoverTipsRoot.transform.Find("Type")?.GetComponent<Text>();
+                    _optionHoverTips = _optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
                 }
 
-                if (_optionTipsTitle == null)
+                // Legacy Type/Reward text tips → rebuild.
+                if (_optionHoverTips == null || _optionHoverTipsRoot.transform.Find("Type") != null)
                 {
-                    _optionTipsTitle = _optionHoverTipsRoot.transform.Find("Title")?.GetComponent<Text>();
-                }
-
-                if (_optionTipsDescription == null)
-                {
-                    _optionTipsDescription = _optionHoverTipsRoot.transform.Find("Description")?.GetComponent<Text>();
-                }
-
-                if (_optionTipsReward == null)
-                {
-                    _optionTipsReward = _optionHoverTipsRoot.transform.Find("Reward")?.GetComponent<Text>();
+                    var parent = _optionHoverTipsRoot.transform.parent;
+                    _optionHoverTipsRoot.name = "OptionHoverTips_Legacy";
+                    _optionHoverTipsRoot.SetActive(false);
+                    Destroy(_optionHoverTipsRoot);
+                    _optionHoverTipsRoot = null;
+                    _optionHoverTips = null;
+                    if (parent != null)
+                    {
+                        _optionHoverTipsRoot = BuildOptionHoverTips(parent);
+                        _optionHoverTips = _optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
+                        _optionHoverTipsRoot.SetActive(false);
+                    }
                 }
 
                 return;
@@ -1125,21 +1111,29 @@ namespace Gravedigger2026.UI
             var existing = box.Find("OptionHoverTips");
             if (existing != null)
             {
-                _optionHoverTipsRoot = existing.gameObject;
-                _optionTipsType = existing.Find("Type")?.GetComponent<Text>();
-                _optionTipsTitle = existing.Find("Title")?.GetComponent<Text>();
-                _optionTipsDescription = existing.Find("Description")?.GetComponent<Text>();
-                _optionTipsReward = existing.Find("Reward")?.GetComponent<Text>();
-                _optionHoverTipsRoot.SetActive(false);
-                return;
+                if (existing.Find("Type") != null || existing.GetComponent<OptionHoverTipsController>() == null)
+                {
+                    existing.name = "OptionHoverTips_Legacy";
+                    existing.gameObject.SetActive(false);
+                    Destroy(existing.gameObject);
+                }
+                else
+                {
+                    _optionHoverTipsRoot = existing.gameObject;
+                    _optionHoverTips = existing.GetComponent<OptionHoverTipsController>();
+                    _optionHoverTipsRoot.SetActive(false);
+                    return;
+                }
             }
 
             _optionHoverTipsRoot = BuildOptionHoverTips(box);
-            _optionTipsType = _optionHoverTipsRoot.transform.Find("Type")?.GetComponent<Text>();
-            _optionTipsTitle = _optionHoverTipsRoot.transform.Find("Title")?.GetComponent<Text>();
-            _optionTipsDescription = _optionHoverTipsRoot.transform.Find("Description")?.GetComponent<Text>();
-            _optionTipsReward = _optionHoverTipsRoot.transform.Find("Reward")?.GetComponent<Text>();
+            _optionHoverTips = _optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
             _optionHoverTipsRoot.SetActive(false);
+        }
+
+        public static GameObject BuildOptionHoverTips(Transform box)
+        {
+            return OptionHoverTipsController.BuildHierarchy(box);
         }
 
         private Transform ResolveBoxTransform()
@@ -1166,52 +1160,9 @@ namespace Gravedigger2026.UI
             return transform.Find("Box") ?? transform.Find("Panel/Box");
         }
 
-        public static GameObject BuildOptionHoverTips(Transform box)
+        private static string FormatRewardLine(string reward)
         {
-            var tips = new GameObject("OptionHoverTips", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            tips.transform.SetParent(box, false);
-            var rt = tips.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0f);
-            rt.sizeDelta = new Vector2(320f, 160f);
-            rt.anchoredPosition = Vector2.zero;
-            var img = tips.GetComponent<Image>();
-            img.color = new Color(0.08f, 0.09f, 0.12f, 0.94f);
-            img.raycastTarget = false;
-
-            CreateTipsText(tips.transform, "Type", "Type", 14, new Vector2(0f, -10f), new Vector2(300f, 22f));
-            CreateTipsText(tips.transform, "Title", "Title", 18, new Vector2(0f, -36f), new Vector2(300f, 26f));
-            CreateTipsText(tips.transform, "Description", "Description", 14, new Vector2(0f, -78f), new Vector2(300f, 48f));
-            CreateTipsText(tips.transform, "Reward", "奖励：—", 13, new Vector2(0f, -132f), new Vector2(300f, 22f));
-            return tips;
-        }
-
-        private static void CreateTipsText(
-            Transform parent,
-            string name,
-            string sample,
-            int fontSize,
-            Vector2 anchoredPos,
-            Vector2 size)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            go.transform.SetParent(parent, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = anchoredPos;
-            rt.sizeDelta = size;
-            var text = go.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            text.fontSize = fontSize;
-            text.color = Color.white;
-            text.alignment = TextAnchor.UpperLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Truncate;
-            text.raycastTarget = false;
-            text.text = sample;
+            return string.IsNullOrEmpty(reward) ? "奖励：—" : $"奖励：{reward}";
         }
 
         private static void SetChildActive(GameObject go, bool active)
@@ -1220,11 +1171,6 @@ namespace Gravedigger2026.UI
             {
                 go.SetActive(active);
             }
-        }
-
-        private static string FormatRewardLine(string reward)
-        {
-            return string.IsNullOrEmpty(reward) ? "奖励：—" : $"奖励：{reward}";
         }
 
         private void RebuildEdges()
@@ -1412,6 +1358,108 @@ namespace Gravedigger2026.UI
                 default:
                     return Locked;
             }
+        }
+
+        /// <summary>
+        /// Map-mode only: Cleared Checkmark / Selectable·Running pulse / Locked dim (SPEC_03 UI-031).
+        /// </summary>
+        private static void ApplyMapOptionIconVisual(Image icon, LevelRouteOptionUiState state)
+        {
+            if (icon == null)
+            {
+                return;
+            }
+
+            var locked = state == LevelRouteOptionUiState.Locked;
+            var pulseOn = state == LevelRouteOptionUiState.Selectable
+                || state == LevelRouteOptionUiState.Running;
+            var showCleared = state == LevelRouteOptionUiState.Cleared;
+
+            var rgb = locked ? MapIconLockedRgbMul : 1f;
+            icon.color = new Color(rgb, rgb, rgb, 1f);
+
+            SetMapClearedMark(icon, showCleared);
+
+            var pulse = icon.GetComponent<LevelRouteOptionIconPulse>();
+            if (pulseOn)
+            {
+                if (pulse == null)
+                {
+                    pulse = icon.gameObject.AddComponent<LevelRouteOptionIconPulse>();
+                }
+
+                pulse.Configure(icon);
+            }
+            else if (pulse != null)
+            {
+                pulse.ResetVisual();
+                pulse.enabled = false;
+            }
+        }
+
+        private static void SetMapClearedMark(Image icon, bool visible)
+        {
+            var existing = icon.transform.Find(ClearedMarkChildName);
+            if (!visible)
+            {
+                if (existing != null)
+                {
+                    existing.gameObject.SetActive(false);
+                }
+
+                return;
+            }
+
+            Image mark;
+            if (existing == null)
+            {
+                var go = new GameObject(ClearedMarkChildName, typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(icon.transform, false);
+                mark = go.GetComponent<Image>();
+                mark.raycastTarget = false;
+                mark.preserveAspect = true;
+
+                var rt = mark.rectTransform;
+                rt.anchorMin = new Vector2(0.5f, 0f);
+                rt.anchorMax = new Vector2(0.5f, 0f);
+                rt.pivot = new Vector2(0.5f, 0f);
+                rt.anchoredPosition = new Vector2(0f, 4f);
+                var size = MapOptionIconSize * MapClearedMarkSizeFraction;
+                rt.sizeDelta = new Vector2(size, size);
+            }
+            else
+            {
+                mark = existing.GetComponent<Image>();
+                existing.gameObject.SetActive(true);
+            }
+
+            if (mark == null)
+            {
+                return;
+            }
+
+            var sprite = LoadCheckmarkSprite();
+            mark.sprite = sprite;
+            mark.enabled = sprite != null;
+            mark.color = Color.white;
+        }
+
+        private static Sprite LoadCheckmarkSprite()
+        {
+            if (_checkmarkLoadAttempted)
+            {
+                return _cachedCheckmark;
+            }
+
+            _checkmarkLoadAttempted = true;
+            _cachedCheckmark = Resources.Load<Sprite>(CheckmarkResourcesPath);
+            if (_cachedCheckmark == null)
+            {
+                Debug.LogWarning(
+                    "[LevelRouteSelect] Missing Resources sprite '" + CheckmarkResourcesPath + "'.");
+            }
+
+            return _cachedCheckmark;
         }
 
         private static string[] SplitPipe(string encoded)

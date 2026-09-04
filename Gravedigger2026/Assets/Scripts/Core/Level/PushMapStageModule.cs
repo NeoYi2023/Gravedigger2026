@@ -36,7 +36,8 @@ namespace Gravedigger2026.Core.Level
         private readonly ProtagonistEquipmentService _protagonistEquipment;
         private readonly DungeonUnlockService _dungeonUnlocks;
         private readonly Action _onVictoryAdvance;
-        private readonly Action<string> _onLevelFailure;
+        private readonly Action _onFailureReturnTitle;
+        private readonly Action _onFailureRestart;
         private readonly Action<bool> _onPushMapPresentationActive;
         private readonly BgmService _bgm;
 
@@ -57,7 +58,8 @@ namespace Gravedigger2026.Core.Level
             ProtagonistEquipmentService protagonistEquipment,
             DungeonUnlockService dungeonUnlocks,
             Action onVictoryAdvance,
-            Action<string> onLevelFailure,
+            Action onFailureReturnTitle,
+            Action onFailureRestart,
             Action<bool> onPushMapPresentationActive = null,
             BgmService bgm = null)
         {
@@ -73,7 +75,8 @@ namespace Gravedigger2026.Core.Level
             _protagonistEquipment = protagonistEquipment;
             _dungeonUnlocks = dungeonUnlocks;
             _onVictoryAdvance = onVictoryAdvance;
-            _onLevelFailure = onLevelFailure;
+            _onFailureReturnTitle = onFailureReturnTitle;
+            _onFailureRestart = onFailureRestart;
             _onPushMapPresentationActive = onPushMapPresentationActive;
             _bgm = bgm;
         }
@@ -137,7 +140,8 @@ namespace Gravedigger2026.Core.Level
                 _protagonistEquipment,
                 _dungeonUnlocks,
                 _onVictoryAdvance,
-                _onLevelFailure);
+                _onFailureReturnTitle,
+                _onFailureRestart);
 
             Debug.Log(
                 $"[Stage:PushMap] Prepare Level={_context.LevelId} Stage={_context.StageNumber} ConfigId={_context.GameplayConfigId} MapId={_context.ResolvedMapId} Formation={_formation.Entries.Count}");

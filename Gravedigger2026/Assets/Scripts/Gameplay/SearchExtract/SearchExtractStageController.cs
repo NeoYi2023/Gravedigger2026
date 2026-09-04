@@ -32,8 +32,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
     /// SE-05: MassMove FormationHome relocate around Objective + tactical virtual center snap.
     /// SE-06: directional wave spawn after gather activation; PushMapMonsterAgentView + BodyRadius spread.
     /// SE-07: point success → invincible + clear monsters + UI-032 decision panel.
-    /// SE-08: point loot via RewardGrantService; Continue advances order + relocate; Leave → StageExp + TryAdvanceStage.
-    /// SE-09: active-gather loyal wipe → LevelFailure → AbortLevel + LevelSelect (no UI-017).
+    /// SE-08: point loot via RewardGrantService; Continue advances order + relocate; Leave → StageExp + UI-017 → TryAdvanceStage.
+    /// SE-09: active-gather loyal wipe → UI-017 defeat → TitleMenu / Restart.
     /// v0.83.93: Combat camera follows CameraFollowPath + soldiers (PushMapCameraFollowController).
     /// v0.83.94: Combat MassMove Tick includes monsters + AttackSlot chase refresh (same as PushMap).
     /// No BattleProtagonist.
@@ -53,7 +53,9 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private ProtagonistEquipmentService _protagonistEquipment;
         private RewardGrantService _rewardGrant;
         private Action _onVictoryAdvance;
-        private Action<string> _onLevelFailure;
+        private Action _onFailureReturnTitle;
+        private Action _onFailureRestart;
+        private PushMapBattleSettlementView _settlementView;
 
         private SearchExtractSessionService _session;
         private readonly SearchExtractFormationRelocateService _formationRelocate =
@@ -112,7 +114,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             SpecialEquipSlotsService specialEquipSlots = null,
             ProtagonistEquipmentService protagonistEquipment = null,
             Action onVictoryAdvance = null,
-            Action<string> onLevelFailure = null)
+            Action onFailureReturnTitle = null,
+            Action onFailureRestart = null)
         {
             EndInternal(destroyWorld: true);
 
@@ -130,7 +133,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _specialEquipSlots = specialEquipSlots;
             _protagonistEquipment = protagonistEquipment;
             _onVictoryAdvance = onVictoryAdvance;
-            _onLevelFailure = onLevelFailure;
+            _onFailureReturnTitle = onFailureReturnTitle;
+            _onFailureRestart = onFailureRestart;
             _driverOutcomeDispatched = false;
             _gatherPointRewardsEncoded = context.GatherPointRewards ?? string.Empty;
             _creditedGatherOrders.Clear();
@@ -244,7 +248,9 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _gatherPointRewardsEncoded = string.Empty;
             _rewardGrant = null;
             _onVictoryAdvance = null;
-            _onLevelFailure = null;
+            _onFailureReturnTitle = null;
+            _onFailureRestart = null;
+            _settlementView = null;
             _driverOutcomeDispatched = false;
             ReleaseNavMesh();
             DisableCameraFollow();
@@ -369,7 +375,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         {
             _decisionPanel?.Hide();
             CreditStageExpOnLeave();
-            DispatchVictoryToDriver();
+            ShowVictorySettlementThenAdvance();
         }
 
         private void HandleDecisionContinueClicked()
@@ -432,6 +438,26 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 $"[SearchExtractStage] Leave Exp +{stageExp} Lifetime={before}→{after} Level={_progress.Level} (+{levels})");
         }
 
+        private void ShowVictorySettlementThenAdvance()
+        {
+            EnsureSettlementView();
+            var casualties = _session != null ? _session.BuildCasualtyStats() : default;
+            if (_settlementView != null)
+            {
+                _settlementView.ShowVictory(
+                    elapsedSeconds: 0f,
+                    monstersKilled: 0,
+                    showKills: false,
+                    showElapsed: false,
+                    casualties,
+                    DispatchVictoryToDriver);
+            }
+            else
+            {
+                DispatchVictoryToDriver();
+            }
+        }
+
         private void DispatchVictoryToDriver()
         {
             if (_driverOutcomeDispatched)
@@ -441,7 +467,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
             _driverOutcomeDispatched = true;
             _running = false;
-            Debug.Log("[SearchExtractStage] Leave → TryAdvanceStage (SubLevel Reward via driver; no point loot re-grant).");
+            Debug.Log("[SearchExtractStage] Leave → UI-017 Continue → TryAdvanceStage (SubLevel Reward via driver; no point loot re-grant).");
             _onVictoryAdvance?.Invoke();
         }
 
@@ -450,10 +476,35 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _decisionPanel?.Hide();
             DestroyCountdownHud();
             CameraFogService.Resolve()?.SetPushMapCombatActive(false);
-            DispatchFailureToDriver("SearchExtract 忠诚全灭");
+            ShowDefeatSettlement();
         }
 
-        private void DispatchFailureToDriver(string reason)
+        private void ShowDefeatSettlement()
+        {
+            EnsureSettlementView();
+            var casualties = _session != null ? _session.BuildCasualtyStats() : default;
+            if (_settlementView != null)
+            {
+                _settlementView.ShowDefeat(
+                    casualties,
+                    DispatchFailureReturnTitle,
+                    DispatchFailureRestart);
+            }
+            else
+            {
+                DispatchFailureReturnTitle();
+            }
+        }
+
+        private void EnsureSettlementView()
+        {
+            if (_settlementView == null)
+            {
+                _settlementView = PushMapBattleResultUiFactory.EnsureSettlement(transform);
+            }
+        }
+
+        private void DispatchFailureReturnTitle()
         {
             if (_driverOutcomeDispatched)
             {
@@ -462,10 +513,21 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
             _driverOutcomeDispatched = true;
             _running = false;
-            Debug.LogWarning(
-                $"[SearchExtractStage] LevelFailure → AbortLevel + LevelSelect " +
-                $"(no stage Exp; no warehouse clawback). Reason={reason}");
-            _onLevelFailure?.Invoke(reason);
+            Debug.LogWarning("[SearchExtractStage] LevelFailure → TitleMenu (no stage Exp).");
+            _onFailureReturnTitle?.Invoke();
+        }
+
+        private void DispatchFailureRestart()
+        {
+            if (_driverOutcomeDispatched)
+            {
+                return;
+            }
+
+            _driverOutcomeDispatched = true;
+            _running = false;
+            Debug.LogWarning("[SearchExtractStage] LevelFailure → Restart same option (no stage Exp).");
+            _onFailureRestart?.Invoke();
         }
 
         private void RelocateTowardCurrentObjective(string reason)

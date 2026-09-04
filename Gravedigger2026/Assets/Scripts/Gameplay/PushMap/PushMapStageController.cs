@@ -72,7 +72,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private DungeonUnlockService _dungeonUnlocks;
         private RewardGrantService _rewardGrant;
         private Action _onVictoryAdvance;
-        private Action<string> _onLevelFailure;
+        private Action _onFailureReturnTitle;
+        private Action _onFailureRestart;
         private BgmService _bgm;
         private PushMapBattleSettlementView _settlementView;
         private PushMapRewardPopupView _rewardView;
@@ -146,7 +147,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             ProtagonistEquipmentService protagonistEquipment = null,
             DungeonUnlockService dungeonUnlocks = null,
             Action onVictoryAdvance = null,
-            Action<string> onLevelFailure = null)
+            Action onFailureReturnTitle = null,
+            Action onFailureRestart = null)
         {
             EndInternal(destroyWorld: true);
 
@@ -167,7 +169,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             _combatMagicBookBuff = CombatStatMulBuff.Identity;
             _rewardGrant = new RewardGrantService(_configs, _warehouse, _specialEquipSlots, _protagonistEquipment);
             _onVictoryAdvance = onVictoryAdvance;
-            _onLevelFailure = onLevelFailure;
+            _onFailureReturnTitle = onFailureReturnTitle;
+            _onFailureRestart = onFailureRestart;
             _driverOutcomeDispatched = false;
 
             if (!_configs.IsLoaded)
@@ -2076,13 +2079,34 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var elapsed = _session != null ? _session.CombatElapsedSeconds : 0f;
             var kills = _session != null ? _session.MonstersKilled : 0;
+            var casualties = _session != null ? _session.BuildCasualtyStats() : default;
             if (_settlementView != null)
             {
-                _settlementView.Show(isVictory, elapsed, kills, () => HandleSettlementContinue(isVictory));
+                if (isVictory)
+                {
+                    _settlementView.ShowVictory(
+                        elapsed,
+                        kills,
+                        showKills: true,
+                        showElapsed: true,
+                        casualties,
+                        () => HandleSettlementContinue(isVictory: true));
+                }
+                else
+                {
+                    _settlementView.ShowDefeat(
+                        casualties,
+                        DispatchFailureReturnTitle,
+                        DispatchFailureRestart);
+                }
+            }
+            else if (isVictory)
+            {
+                HandleSettlementContinue(isVictory: true);
             }
             else
             {
-                HandleSettlementContinue(isVictory);
+                DispatchFailureReturnTitle();
             }
         }
 
@@ -2091,10 +2115,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (isVictory)
             {
                 ShowRewardPopupThenComplete();
-                return;
             }
-
-            DispatchFailureToDriver();
         }
 
         private void ShowRewardPopupThenComplete()
@@ -2162,7 +2183,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _onVictoryAdvance?.Invoke();
         }
 
-        private void DispatchFailureToDriver()
+        private void DispatchFailureReturnTitle()
         {
             if (_driverOutcomeDispatched)
             {
@@ -2170,8 +2191,18 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _driverOutcomeDispatched = true;
-            _onLevelFailure?.Invoke(
-                string.IsNullOrEmpty(_pendingFailureReason) ? "PushMap LevelFailure" : _pendingFailureReason);
+            _onFailureReturnTitle?.Invoke();
+        }
+
+        private void DispatchFailureRestart()
+        {
+            if (_driverOutcomeDispatched)
+            {
+                return;
+            }
+
+            _driverOutcomeDispatched = true;
+            _onFailureRestart?.Invoke();
         }
 
         private void WriteDungeonUnlocksOnClear()

@@ -17,6 +17,10 @@ namespace Gravedigger2026.Core.Level
         public string Title;
         public string Description;
         public string IconAssetId;
+        /// <summary>Tips middle icon; empty = hide.</summary>
+        public string IconAssetId2;
+        /// <summary>Dig TipMessages encoding; empty = no message row.</summary>
+        public string TipMessages;
         public string Reward;
         public string UnlockNextOptionIds;
         public GameplayState GameplayType;

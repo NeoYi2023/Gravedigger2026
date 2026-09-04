@@ -30,6 +30,7 @@ namespace Gravedigger2026.Editor.Dig
         private const string CameraFogSpritePath = "Assets/Art/Maps/Fogs/Fog_1.png";
         private const string SummaryPanelSpritePath = "Assets/Art/UI/Meta/Title/UI_Kuang_09.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
+        private const string IconsDir = "Assets/Art/UI/Icons";
         private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08356_gmMenuTwoCol";
 
         private static readonly string[] MapIds =
@@ -464,9 +465,14 @@ namespace Gravedigger2026.Editor.Dig
             Place(timer.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(450f, -16f), new Vector2(640f, 40f));
 
-            var warehouse = CreateUiText(hudRoot.transform, "Warehouse", "精魂 0", 22, TextAnchor.UpperLeft);
+            var warehouse = CreateUiPanel(hudRoot.transform, "Warehouse", Color.clear);
             Place(warehouse.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-                new Vector2(24f, -90f), new Vector2(900f, 36f));
+                new Vector2(24f, -90f), new Vector2(420f, 260f));
+            var warehouseImg = warehouse.GetComponent<Image>();
+            if (warehouseImg != null)
+            {
+                warehouseImg.raycastTarget = true;
+            }
 
             var portrait = CreateUiPanel(hudRoot.transform, "ProtagonistPortrait", new Color(0.12f, 0.14f, 0.18f, 0.95f));
             Place(portrait.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -591,7 +597,28 @@ namespace Gravedigger2026.Editor.Dig
             var hso = new SerializedObject(hud);
             hso.FindProperty("_root").objectReferenceValue = hudRoot;
             hso.FindProperty("_timerText").objectReferenceValue = timer;
-            hso.FindProperty("_warehouseText").objectReferenceValue = warehouse;
+            hso.FindProperty("_warehouseText").objectReferenceValue = null;
+            hso.FindProperty("_warehouseRoot").objectReferenceValue = warehouse.GetComponent<RectTransform>();
+            hso.FindProperty("_spiritIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/Currency_Spirit.png");
+            hso.FindProperty("_wreckIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/WreckWarehouse.png");
+            hso.FindProperty("_raceUndeadIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/AllRacesIcon_1.png");
+            hso.FindProperty("_raceOrcIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/OrcIcon_1.png");
+            hso.FindProperty("_raceElfIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/ElvesIcon_1.png");
+            hso.FindProperty("_raceHumanIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/HumansIcon_1.png");
+            hso.FindProperty("_classWarriorIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/WarriorIcon.png");
+            hso.FindProperty("_classArcherIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/ArcherIcon.png");
+            hso.FindProperty("_classMageIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/MageIcon.png");
+            hso.FindProperty("_classAssassinIcon").objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/AssassinIcon.png");
             hso.FindProperty("_addGravesButton").objectReferenceValue = addGravesBtn.GetComponent<Button>();
             hso.FindProperty("_addBodyPartsButton").objectReferenceValue = addBodyPartsBtn.GetComponent<Button>();
             hso.FindProperty("_acquireDigRingButton").objectReferenceValue = acquireDigRingBtn.GetComponent<Button>();

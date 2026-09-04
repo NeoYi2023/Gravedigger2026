@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.AutoManufacture;
 using Gravedigger2026.Core.Config;
@@ -528,15 +527,20 @@ namespace Gravedigger2026.Gameplay.Dig
                 return;
             }
 
-            var wh = _session.Warehouse;
-            var sb = new StringBuilder();
-            sb.Append($"精魂 {wh.SpiritEssence:0.##}");
-            foreach (var kv in wh.Materials)
-            {
-                sb.Append($" | {kv.Key} {kv.Value}");
-            }
+            var stats = DigWarehouseHudStatsBuilder.Build(_session.Warehouse, _configs);
+            _hudView.SetWarehouseStats(stats);
 
-            _hudView.SetWarehouse(sb.ToString());
+            if (_configs != null &&
+                _configs.TryGetLocalizedText(DigHudView.DigWarehouseHoverTipsKey, out var tips))
+            {
+                _hudView.SetWarehouseTips(tips);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    $"[DigStageController] Missing LocalizedDescription Key={DigHudView.DigWarehouseHoverTipsKey}");
+                _hudView.SetWarehouseTips(string.Empty);
+            }
         }
 
         private void HandleGmAddGraves()

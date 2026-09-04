@@ -253,7 +253,8 @@ namespace Gravedigger2026.Meta
                         _protagonistEquipment,
                         _dungeonUnlocks,
                         HandlePushMapVictoryContinue,
-                        HandlePushMapFailureContinue,
+                        HandleBattleFailureReturnTitle,
+                        HandleBattleFailureRestart,
                         SetStagePresentationActive,
                         _bgm));
             }
@@ -277,7 +278,8 @@ namespace Gravedigger2026.Meta
                         _specialEquipSlots,
                         _protagonistEquipment,
                         HandleSearchExtractVictory,
-                        HandleSearchExtractFailure,
+                        HandleBattleFailureReturnTitle,
+                        HandleBattleFailureRestart,
                         SetStagePresentationActive));
             }
             else
@@ -459,6 +461,7 @@ namespace Gravedigger2026.Meta
             _routeSelectView.LevelTabSelected += HandleLevelTabSelected;
             _routeSelectView.LockedLevelTabClicked += HandleLockedLevelTabClicked;
             _routeSelectView.Closed += HandleRouteClosed;
+            _routeSelectView.BindConfigs(_configs);
             _routeSelectView.Hide();
         }
 
@@ -1133,16 +1136,6 @@ namespace Gravedigger2026.Meta
             AdvanceStageFromGameplay();
         }
 
-        private void HandleSearchExtractFailure(string reason)
-        {
-            if (_levelDriver != null)
-            {
-                _levelDriver.AbortLevelAsFailure(reason);
-            }
-
-            OpenLevelSelectPanel();
-        }
-
         private void HandlePushMapVictoryContinue()
         {
             var levelId = _levelDriver != null ? _levelDriver.ActiveLevelId : null;
@@ -1191,14 +1184,56 @@ namespace Gravedigger2026.Meta
             return int.TryParse(digits, out number);
         }
 
-        private void HandlePushMapFailureContinue(string reason)
+        private void HandleBattleFailureReturnTitle()
         {
             if (_levelDriver != null)
             {
-                _levelDriver.AbortLevelAsFailure(reason);
+                _levelDriver.AbortLevelAsFailure("LevelFailure → TitleMenu");
             }
 
-            OpenLevelSelectPanel();
+            ShowTitleMenu();
+        }
+
+        private void HandleBattleFailureRestart()
+        {
+            var levelId = _levelDriver != null ? _levelDriver.ActiveLevelId : null;
+            var optionId = _levelDriver != null ? _levelDriver.ActiveGameplayOptionId : null;
+
+            if (_levelDriver != null)
+            {
+                _levelDriver.AbortLevelAsFailure("LevelFailure → Restart");
+            }
+
+            if (string.IsNullOrEmpty(levelId) || string.IsNullOrEmpty(optionId) || _levelDriver == null)
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("无法重新开始：关卡上下文丢失");
+                }
+
+                ShowTitleMenu();
+                return;
+            }
+
+            if (!_levelDriver.TryEnterLevel(levelId, out var enterError, bypassUnlockGate: true))
+            {
+                Debug.LogError($"[MetaShell] Restart TryEnterLevel failed: {enterError}");
+                if (_toastView != null)
+                {
+                    _toastView.Show($"重新开始失败：{enterError}");
+                }
+
+                return;
+            }
+
+            if (!_levelDriver.TrySelectGameplayOption(optionId, out var selectError))
+            {
+                Debug.LogError($"[MetaShell] Restart TrySelectGameplayOption failed: {selectError}");
+                if (_toastView != null)
+                {
+                    _toastView.Show($"重新开始失败：{selectError}");
+                }
+            }
         }
 
         private void OpenLevelSelectPanel()

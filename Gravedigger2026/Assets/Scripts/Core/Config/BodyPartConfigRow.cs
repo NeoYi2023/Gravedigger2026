@@ -21,6 +21,8 @@ namespace Gravedigger2026.Core.Config
         public int IsPrimaryHand;
         /// <summary>Mode2 class pool encoding ClassId|… . Missing → empty.</summary>
         public string ClassRestrict;
+        /// <summary>Dig HUD primary-hand class bucket; same enum as ClassConfig.BaseClass. Missing → Unspecified.</summary>
+        public BaseClassKind BaseClass;
         /// <summary>True when BodyPrimaryStat column present and valid.</summary>
         public bool HasBodyPrimaryStat;
         /// <summary>Mode2 remaining-part matcher; only when HasBodyPrimaryStat.</summary>

@@ -24,7 +24,9 @@ namespace Gravedigger2026.UI
             return Load(iconAssetId, folder);
         }
 
-        public static Sprite Load(string iconAssetId, string resourcesFolder)
+        public static Sprite Load(
+            string iconAssetId,
+            string resourcesFolder)
         {
             var id = Normalize(iconAssetId);
             if (string.IsNullOrEmpty(id))
@@ -43,6 +45,44 @@ namespace Gravedigger2026.UI
             }
 
             return Resources.Load<Sprite>($"{resourcesFolder}/{id}");
+        }
+
+        /// <summary>
+        /// Resolve ItemCatalog IconAssetId for reward Tips (try path as-is, then UI/Icons basename).
+        /// </summary>
+        public static Sprite LoadFromCatalog(ConfigCsvRepository configs, string itemId)
+        {
+            if (configs == null || string.IsNullOrEmpty(itemId))
+            {
+                return null;
+            }
+
+            string iconAssetId = null;
+            if (configs.TryGetItemCatalog(itemId, out var catalog) && catalog != null)
+            {
+                iconAssetId = catalog.IconAssetId;
+            }
+
+            if (string.IsNullOrEmpty(iconAssetId))
+            {
+                iconAssetId = itemId;
+            }
+
+            var sprite = Load(iconAssetId, null);
+            if (sprite != null)
+            {
+                return sprite;
+            }
+
+            var id = Normalize(iconAssetId);
+            if (string.IsNullOrEmpty(id))
+            {
+                return null;
+            }
+
+            var slash = id.LastIndexOf('/');
+            var leaf = slash >= 0 && slash < id.Length - 1 ? id.Substring(slash + 1) : id;
+            return Resources.Load<Sprite>("UI/Icons/" + leaf);
         }
 
         private static string ResolveIconAssetId(

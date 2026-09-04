@@ -90,7 +90,8 @@ namespace Gravedigger2026.Editor.Defend
             "PushMap_Demo_01",
             "PushMap_Demo_02",
             "PushMap_Demo_03",
-            "SearchExtract_Demo_01"
+            "SearchExtract_Demo_01",
+            "SearchExtract_Lv1_01"
         };
 
         /// <summary>PushMap sample maps that need FormationClassZone for Prepare one-click (D-057/D-074).</summary>

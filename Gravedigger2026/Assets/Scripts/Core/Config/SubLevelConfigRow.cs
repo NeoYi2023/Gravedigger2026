@@ -9,6 +9,10 @@ namespace Gravedigger2026.Core.Config
         public GameplayState GameplayType;
         public string GameplayConfigId;
         public string IconAssetId;
+        /// <summary>Tips middle art only; empty = hide (SPEC_04 §9.31).</summary>
+        public string IconAssetId2;
+        /// <summary>Dig Tips messages: MsgType;StockScale|… (SPEC_04 §9.31).</summary>
+        public string TipMessages;
         public string Title;
         public string Description;
         public string Reward;

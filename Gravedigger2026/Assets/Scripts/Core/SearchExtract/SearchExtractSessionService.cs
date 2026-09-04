@@ -419,6 +419,12 @@ namespace Gravedigger2026.Core.SearchExtract
             RequestLevelFailure("我方士兵全灭");
         }
 
+        /// <summary>Loyal casualty snapshot for UI-017.</summary>
+        public BattleCasualtyStats BuildCasualtyStats()
+        {
+            return BattleCasualtyStatsBuilder.Build(_warriors.Values);
+        }
+
         /// <summary>Sync View rebel into rules; may trigger loyal wipe LevelFailure.</summary>
         public void SetWarriorRebel(string warriorId, bool isRebel)
         {

@@ -104,6 +104,8 @@ namespace Gravedigger2026.Core.Config
         private readonly List<BgmConfigRow> _bgmRows = new List<BgmConfigRow>();
         private readonly Dictionary<string, BgmConfigRow> _bgmById =
             new Dictionary<string, BgmConfigRow>(StringComparer.Ordinal);
+        private readonly Dictionary<string, LocalizedDescriptionConfigRow> _localizedTextByKey =
+            new Dictionary<string, LocalizedDescriptionConfigRow>(StringComparer.Ordinal);
 
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
@@ -180,6 +182,7 @@ namespace Gravedigger2026.Core.Config
             _shopRefreshPriceByCount.Clear();
             _bgmRows.Clear();
             _bgmById.Clear();
+            _localizedTextByKey.Clear();
 
             try
             {
@@ -231,6 +234,7 @@ namespace Gravedigger2026.Core.Config
                 LoadTechTree();
                 LoadTechEffects();
                 LoadBgm();
+                LoadLocalizedDescriptions();
                 if (mode == CampaignMode.Mode2)
                 {
                     ValidateSearchExtractRefs();
@@ -239,7 +243,7 @@ namespace Gravedigger2026.Core.Config
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormationById.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormationById.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}, LocalizedText={_localizedTextByKey.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -525,6 +529,26 @@ namespace Gravedigger2026.Core.Config
         public bool TryGetBodyPart(string bodyPartId, out BodyPartConfigRow row)
         {
             return _bodyPartById.TryGetValue(bodyPartId ?? string.Empty, out row);
+        }
+
+        /// <summary>
+        /// Demo reads TextZh only (SPEC_04 §9.34). Missing key → false.
+        /// </summary>
+        public bool TryGetLocalizedText(string textKey, out string textZh)
+        {
+            textZh = string.Empty;
+            if (string.IsNullOrEmpty(textKey))
+            {
+                return false;
+            }
+
+            if (!_localizedTextByKey.TryGetValue(textKey, out var row) || row == null)
+            {
+                return false;
+            }
+
+            textZh = row.TextZh ?? string.Empty;
+            return !string.IsNullOrEmpty(textZh);
         }
 
         public bool TryGetSoul(string soulId, out SoulConfigRow row)
@@ -916,6 +940,8 @@ namespace Gravedigger2026.Core.Config
                     GameplayType = gameplayType,
                     GameplayConfigId = OptionalText(raw, "GameplayConfigId") ?? string.Empty,
                     IconAssetId = OptionalText(raw, "IconAssetId") ?? string.Empty,
+                    IconAssetId2 = OptionalText(raw, "IconAssetId2") ?? string.Empty,
+                    TipMessages = OptionalText(raw, "TipMessages") ?? string.Empty,
                     Title = OptionalText(raw, "Title") ?? string.Empty,
                     Description = OptionalText(raw, "Description") ?? string.Empty,
                     Reward = OptionalText(raw, "Reward") ?? string.Empty,
@@ -1918,6 +1944,7 @@ namespace Gravedigger2026.Core.Config
                     ArtAssetId = OptionalText(raw, "ArtAssetId"),
                     IsPrimaryHand = isPrimaryHand,
                     ClassRestrict = OptionalText(raw, "ClassRestrict"),
+                    BaseClass = ParseBaseClass(OptionalText(raw, "BaseClass"), table, rowIndex),
                     HasBodyPrimaryStat = hasBodyPrimary,
                     BodyPrimaryStat = bodyPrimary
                 };
@@ -3092,6 +3119,43 @@ namespace Gravedigger2026.Core.Config
                 };
                 _bgmById[id] = row;
                 _bgmRows.Add(row);
+            }
+        }
+
+        private void LoadLocalizedDescriptions()
+        {
+            const string table = "Common_LocalizedDescriptionConfig.csv";
+            var path = CsvPathResolver.ResolveExistingFile(table, _loadMode);
+            if (path == null)
+            {
+                Debug.LogWarning(
+                    $"[ConfigCsvRepository] Optional table '{table}' missing (CampaignMode={_loadMode}); LocalizedText empty.");
+                return;
+            }
+
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var key = SimpleCsv.Require(raw, "TextKey", table, rowIndex).Trim();
+                if (string.IsNullOrEmpty(key))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: empty TextKey.");
+                }
+
+                if (_localizedTextByKey.ContainsKey(key))
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: duplicate TextKey '{key}'.");
+                }
+
+                _localizedTextByKey[key] = new LocalizedDescriptionConfigRow
+                {
+                    TextKey = key,
+                    TextZh = OptionalText(raw, "TextZh"),
+                    TextEn = OptionalText(raw, "TextEn"),
+                    Comment = OptionalText(raw, "Comment")
+                };
             }
         }
 

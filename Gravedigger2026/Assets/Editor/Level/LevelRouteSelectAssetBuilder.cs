@@ -11,13 +11,90 @@ namespace Gravedigger2026.EditorTools.Level
     public static class LevelRouteSelectAssetBuilder
     {
         private const string PrefabPath = "Assets/Prefabs/Level/LevelRouteSelectRoot.prefab";
+        private const string TipsPrefabPath = "Assets/Prefabs/Level/OptionHoverTips.prefab";
         private const string MenuPath = "Gravedigger2026/Level/Ensure LevelRouteSelectRoot Prefab (UI-031)";
+        private const string TipsMenuPath = "Gravedigger2026/Level/Ensure OptionHoverTips Prefab (UI-031)";
         private const string MapMenuPath = "Gravedigger2026/Level/Ensure Route Map Resources (UI-031)";
         private const string ArtMapDir = "Assets/Art/UI/SubLevelMaps";
         private const string ResourcesMapDir = "Assets/Resources/UI/SubLevelMaps";
+        private const string ArtIconsDir = "Assets/Art/UI/Icons";
+        private const string ResourcesIconsDir = "Assets/Resources/UI/Icons";
         private const float MapDisplayWidth = LevelRouteSelectView.MapDisplayWidth;
         private const float BoxWidth = 1520f;
         private const float BoxHeight = 860f;
+
+        [MenuItem(TipsMenuPath)]
+        public static void EnsureTipsPrefab()
+        {
+            EnsureFolder("Assets/Prefabs");
+            EnsureFolder("Assets/Prefabs/Level");
+            EnsureTipIconResources();
+
+            var temp = new GameObject("OptionHoverTips_Temp");
+            var tips = LevelRouteSelectView.BuildOptionHoverTips(temp.transform);
+            tips.transform.SetParent(null, false);
+            Object.DestroyImmediate(temp);
+
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(TipsPrefabPath);
+            if (existing != null)
+            {
+                PrefabUtility.SaveAsPrefabAsset(tips, TipsPrefabPath);
+            }
+            else
+            {
+                PrefabUtility.SaveAsPrefabAsset(tips, TipsPrefabPath);
+            }
+
+            Object.DestroyImmediate(tips);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log($"[LevelRouteSelect] Ensured Tips Prefab at {TipsPrefabPath}");
+        }
+
+        public static void EnsureTipIconResources()
+        {
+            EnsureFolder("Assets/Resources");
+            EnsureFolder("Assets/Resources/UI");
+            EnsureFolder(ResourcesIconsDir);
+            if (!System.IO.Directory.Exists(
+                    System.IO.Path.Combine(Application.dataPath, "Art", "UI", "Icons")))
+            {
+                Debug.LogWarning($"[LevelRouteSelect] Art icons folder missing: {ArtIconsDir}");
+                return;
+            }
+
+            var names = new[]
+            {
+                "Currency_Spirit", "WreckWarehouse", "WarriorIcon", "ArcherIcon", "AssassinIcon", "MageIcon",
+                "HumansIcon_1", "ElvesIcon_1", "OrcIcon_1", "AllRacesIcon_1", "Up_1", "Down_1", "Checkmark"
+            };
+            var copied = 0;
+            foreach (var name in names)
+            {
+                var src = $"{ArtIconsDir}/{name}.png";
+                var dst = $"{ResourcesIconsDir}/{name}.png";
+                if (!System.IO.File.Exists(src))
+                {
+                    continue;
+                }
+
+                var dstFull = System.IO.Path.GetFullPath(dst);
+                var srcFull = System.IO.Path.GetFullPath(src);
+                if (!System.IO.File.Exists(dstFull)
+                    || System.IO.File.GetLastWriteTimeUtc(srcFull) > System.IO.File.GetLastWriteTimeUtc(dstFull))
+                {
+                    System.IO.File.Copy(srcFull, dstFull, true);
+                    copied++;
+                }
+            }
+
+            if (copied > 0)
+            {
+                AssetDatabase.Refresh();
+            }
+
+            Debug.Log($"[LevelRouteSelect] Ensured Resources tip icons under {ResourcesIconsDir} (copied={copied})");
+        }
 
         [MenuItem(MenuPath)]
         public static void EnsurePrefab()
@@ -25,6 +102,8 @@ namespace Gravedigger2026.EditorTools.Level
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/Level");
             EnsureRouteMapResources();
+            EnsureTipIconResources();
+            EnsureTipsPrefab();
 
             var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
             GameObject rootGo;
@@ -372,11 +451,21 @@ namespace Gravedigger2026.EditorTools.Level
             }
 
             var tipsTf = boxTf != null ? boxTf.Find("OptionHoverTips") : null;
+            if (tipsTf != null
+                && (tipsTf.Find("Type") != null || tipsTf.GetComponent<OptionHoverTipsController>() == null))
+            {
+                Object.DestroyImmediate(tipsTf.gameObject);
+                tipsTf = null;
+            }
+
+            if (tipsTf == null && boxTf != null)
+            {
+                var tips = LevelRouteSelectView.BuildOptionHoverTips(boxTf);
+                tips.SetActive(false);
+                tipsTf = tips.transform;
+            }
+
             var tipsRoot = tipsTf != null ? tipsTf.gameObject : null;
-            var tipsType = tipsTf != null ? tipsTf.Find("Type")?.GetComponent<Text>() : null;
-            var tipsTitle = tipsTf != null ? tipsTf.Find("Title")?.GetComponent<Text>() : null;
-            var tipsDesc = tipsTf != null ? tipsTf.Find("Description")?.GetComponent<Text>() : null;
-            var tipsReward = tipsTf != null ? tipsTf.Find("Reward")?.GetComponent<Text>() : null;
 
             view.BindRuntime(
                 panel,
@@ -394,11 +483,7 @@ namespace Gravedigger2026.EditorTools.Level
                 mapBg,
                 mapHost,
                 mapScrollRect,
-                tipsRoot,
-                tipsType,
-                tipsTitle,
-                tipsDesc,
-                tipsReward);
+                tipsRoot);
 
             if (panel != null && panel != rootGo)
             {
@@ -448,7 +533,17 @@ namespace Gravedigger2026.EditorTools.Level
             }
             else
             {
-                box.Find("OptionHoverTips").gameObject.SetActive(false);
+                var tipsTf = box.Find("OptionHoverTips");
+                if (tipsTf.Find("Type") != null || tipsTf.GetComponent<OptionHoverTipsController>() == null)
+                {
+                    Object.DestroyImmediate(tipsTf.gameObject);
+                    var tips = LevelRouteSelectView.BuildOptionHoverTips(box);
+                    tips.SetActive(false);
+                }
+                else
+                {
+                    tipsTf.gameObject.SetActive(false);
+                }
             }
 
             var mapContent = box.Find("MapScroll/Viewport/MapContent");

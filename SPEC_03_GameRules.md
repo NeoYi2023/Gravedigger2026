@@ -60,7 +60,7 @@
 | Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每 Stage 挂最多 5 套玩法选项（多选一）；选项详情见子关卡表（§3.9；`Shop` / UM / AutoManufacture 的 ConfigId **忽略**）。进档 Hub / 工具「关卡」→ `DifficultySelectHost`；普通点击 → 路线选择 UI-031（Box 顶 LevelId 页签）；场景绑定 **TBD**。 |
 | LevelOperation | 关卡运作 | 关卡运作表一行：关卡 ID + 阶段编号 + `GameplayOptionId1..5` + 可选 `DifficultyId`（归属难度）+ 可选 `RouteMapAssetId`。 |
 | GameplayOption | 玩法选项 | 子关卡表一行；玩家在同 Stage 内多选一；通关后按 `UnlockNextOptionIds` 解锁下一 Stage 选项。 |
-| RouteSelect | 关卡路线选择 | 关卡内 Prefab（UI-031）：Box 顶部 LevelId 页签；有 `LevelRouteMap_{LevelId}` 时竖滑该关地图 Prefab（宽 1450、高按比例）+ 选项钉在 Prefab 内同名 `GameplayOptionId` 子节点（场景仅 Icon；悬停 Tips 展示 Type/Title/Description/Reward）；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版自下而上 Stage + 横向完整选项卡；跨 Stage 连线。 |
+| RouteSelect | 关卡路线选择 | 关卡内 Prefab（UI-031）：Box 顶部 LevelId 页签；有 `LevelRouteMap_{LevelId}` 时竖滑该关地图 Prefab（宽 1450、高按比例）+ 选项钉在 Prefab 内同名 `GameplayOptionId` 子节点（场景仅 Icon；地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 `GameplayType` 分型——Dig：`TipMessages`（类型名/图标/存量尺度箭头）+Description；Shop/AutoManufacture/UpgradeManufacture：`IconAssetId2`+Description；PushMap/SearchExtract/Defend：`IconAssetId2`+Reward 图标行+Description；空字段对应区块隐藏）；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版自下而上 Stage + 横向完整选项卡；跨 Stage 连线。 |
 | DigGameplayConfig | 挖坟配置 | 挖坟配置表一行：时长、开局坟数、过程生成速率、品质权重（零权重项剔除）等（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | Grave | 坟墓 | 挖坟地图上的可生成实体；带坟墓品质 ID；落点须避开已有坟与障碍物。 |
 | VictorySettlement | 胜利结算 | 关卡**最后一阶段**结束后触发的关卡级结算反馈。 |
@@ -76,6 +76,8 @@
 | DigReward | 挖掘奖励 | 坟 HP 归 0 时在成功动画中心生成的奖励图标；飞向 Dig HUD 左上角主角头像框，到达后入账并消失（§3.10）。 |
 | DigStageSummary | 挖坟阶段汇总 | Dig 有效时长归零后弹出的汇总弹窗：仅展示本阶段已获奖励按类型汇总，无额外发放；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`；右上「X」确认关闭（§3.10，UI-011）。 |
 | Warehouse | 仓库 | 按存档槽持久的材料仓库；不限格数与存储时长；材料按类型堆叠上限 10000（§3.10）。 |
+| WarehouseHudStats | Dig HUD 仓库统计 | Dig HUD `Warehouse` 三行图标统计：精魂、非主要手残骸总数、按种族/基础职业划分的主要手数量；数量为 0 不显示；Hover Tips 文案 ← `LocalizedDescriptionConfig`（§3.10）。 |
+| LocalizedDescriptionConfig | 多语言描述表 | `TextKey` → 多语言描述文案（Demo 读 `TextZh`；`TextEn` 预留）；Dig Warehouse Hover Tips Key=`DigWarehouseHoverTips`；子关卡 Tips 类型名 Key=`TipMsg_*`（§3.9 / UI-031，[SPEC_04 §9.34](SPEC_04_Technical.md)）。 |
 | SpiritEssence | 精魂 | 货币；挖坟获得（LootDrop 保留 Id + 堆叠超限自动兑换）；制造士兵时消耗（§3.10、§3.11）。 |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert、AppearanceIconId、AssetPath、WarehouseQualityOutlineId；堆叠超限时按 AutoConvert 兑精魂（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | CurrencyConfig | 货币配置表 | CurrencyId → 外观图/素材路径/仓库品质外轮廓；精魂保留 Id=`Spirit`（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
@@ -96,7 +98,7 @@
 | WarriorName | 士兵名字 | 制造完成时生成：`Prefix(es) + RaceName + ClassName + Suffix`（§3.11）。 |
 | ManufactureSlot | 制造槽位 | 制造区严格槽位：头1/躯干1/臂2/腿2/灵魂1/宝石6（类型互斥）/坐骑1/翅膀1（§3.11）。 |
 | BodyPart | 躯体部位 | 可拖入头部/躯干/手臂/腿部槽的躯体材料；配置见 `BodyPartConfig`（含 `BodyLevel`、`StatBonus`、`RaceId`、`SpiritCost`、`AutoConvert` 等）（§3.11，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
-| BodyPartConfig | 躯体材料配置表 | BodyPartId → 道具名称（`DisplayName`）/等级/部位/种族/控制力/精魂消耗/StatBonus/AutoConvert/介绍/美术素材（§3.11，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
+| BodyPartConfig | 躯体材料配置表 | BodyPartId → 道具名称（`DisplayName`）/等级/部位/种族/控制力/精魂消耗/StatBonus/AutoConvert/介绍/美术素材/`IsPrimaryHand`/`ClassRestrict`/`BaseClass`/`BodyPrimaryStat`（§3.11，[SPEC_04 §9.12](SPEC_04_Technical.md)）。 |
 | BodySlot | 躯体槽类型 | `Head` / `Torso` / `Arm` / `Leg`（§3.11）。 |
 | BodyLevel | 躯体等级 | 躯体材料字段；制造时对已放部位取平均后定外观等级（§3.11）。 |
 | StatBonus | 增加的属性值 | 躯体材料平坦属性加成串；`Base(S)=Σ StatBonus(S)`（§3.11）。 |
@@ -165,7 +167,8 @@
 | GatherCountdown | 搜集倒计时 | 单搜集点激活后规则层倒计时；归零且仍有忠诚存活 → 单点胜利（§3.19）。 |
 | SearchExtractPhase | 搜打撤子状态 | `Prepare` → `Combat` → `Ended`（§3.19）。 |
 | PushMapPhase | 推图战子状态 | 阶段内子状态：`Prepare` → `Combat` → `Ended`（与 DefendPhase 对齐；见 §3.14）。 |
-| PushMapBattleSettlement | 推图战斗结算 | 胜负均弹（UI-017）：上部胜利/失败、中部耗时与击杀、底中继续；见 §3.14。 |
+| PushMapBattleSettlement | 战斗结算（推图/搜打撤） | 胜负均弹（UI-017，PushMap + SearchExtract 共用）：胜利=标题+耗时/击杀（PushMap）+阵亡总数+四职业阵亡+继续；失败=标题「失败」+阵亡总数+「返回主界面」「重新开始」；见 §3.14 / §3.19。 |
+| BattleCasualtyStats | 阵亡统计 | 本场已登记非 Rebel 士兵中 `CombatDead`/`PermanentDead`/`HP≤0` 的总数，及按 `BaseClass`（战士/射手/法师/刺客）细分；`Unspecified` 只进总数；见 §3.14。 |
 | PushMapRewardPopup | 推图奖励弹窗 | UI-018：展示本场已入账 Exp+CaptureLoot；继续后打开关卡选择；见 §3.14。 |
 | MapId | 地图编号 | 推图战地图 Prefab 逻辑名（≠ LevelId）；多关卡可共用；合法池见 [SPEC_04](SPEC_04_Technical.md)；解析 → `Assets/Prefabs/Maps/{MapId}.prefab`（§3.14）。 |
 | ObjectivePoint | 目标点 | 推图战有序推进点（1→2→3…）；士兵自动前往当前目标；见 §3.14。 |
@@ -283,7 +286,7 @@
 | Level | 关卡 | Multi-stage flow defined by Level Operation table; each Stage mounts up to 5 gameplay options (pick-one); option details in SubLevel table (§3.9; `Shop` / UM / AutoManufacture ConfigId **ignored**). Enter-shell Hub / Tools Level → `DifficultySelectHost`; Normal click → RouteSelect UI-031 (LevelId tabs atop Box); scene binding **TBD**. |
 | LevelOperation | 关卡运作 | One Level Operation row: LevelId + StageNumber + `GameplayOptionId1..5` + optional `DifficultyId` + optional `RouteMapAssetId`. |
 | GameplayOption | 玩法选项 | One SubLevel row; pick-one within Stage; clear unlocks next-Stage options via `UnlockNextOptionIds`. |
-| RouteSelect | 关卡路线选择 | In-Level Prefab (UI-031): LevelId tabs atop Box; with `LevelRouteMap_{LevelId}` → scroll that map Prefab (width 1450, height by aspect) + options pinned to child nodes named `GameplayOptionId` (Icon only on map; hover Tips show Type/Title/Description/Reward); without map Prefab (or no `RouteMapAssetId`) → bottom-up Stages + full horizontal option cards; cross-Stage edges. |
+| RouteSelect | 关卡路线选择 | In-Level Prefab (UI-031): LevelId tabs atop Box; with `LevelRouteMap_{LevelId}` → scroll that map Prefab (width 1450, height by aspect) + options pinned to child nodes named `GameplayOptionId` (Icon only on map; map Icon tri-state: Cleared Checkmark / Selectable pulse / Locked dim; hover Tips by `GameplayType` — Dig: `TipMessages` (type name/icon/stock-scale arrows)+Description; Shop/AutoManufacture/UpgradeManufacture: `IconAssetId2`+Description; PushMap/SearchExtract/Defend: `IconAssetId2`+Reward icon row+Description; empty fields hide their block); without map Prefab (or no `RouteMapAssetId`) → bottom-up Stages + full horizontal option cards; cross-Stage edges. |
 | DigGameplayConfig | 挖坟配置 | One Dig config row: duration, initial grave count, spawn rate, quality weights (zero-weight entries dropped) (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | Grave | 坟墓 | Spawnable Dig-map entity with Grave Quality Id; placement must avoid existing graves and obstacles. |
 | VictorySettlement | 胜利结算 | Level-level settlement feedback after the **last** stage ends. |
@@ -299,6 +302,8 @@
 | DigReward | 挖掘奖励 | Reward icon spawned at dig-success anim center when HP hits 0; flies to Dig HUD top-left protagonist portrait, credits on arrival, then disappears (§3.10). |
 | DigStageSummary | 挖坟阶段汇总 | Popup after Dig effective duration hits 0: aggregate rewards earned this stage by type only; no extra grants; body-part lines `{DisplayName} Lv{BodyLevel} × count`; top-right "X" confirms (§3.10, UI-011). |
 | Warehouse | 仓库 | Per-SaveSlot material warehouse; unlimited slots and retention; materials stack by type up to 10000 (§3.10). |
+| WarehouseHudStats | Dig HUD warehouse stats | Dig HUD `Warehouse` three-row icon stats: Spirit, non-primary-hand wreck total, primary-hand counts by race / base class; hide zero counts; hover tips ← `LocalizedDescriptionConfig` (§3.10). |
+| LocalizedDescriptionConfig | Localized description table | `TextKey` → localized copy (Demo reads `TextZh`; `TextEn` reserved); Dig Warehouse hover Key=`DigWarehouseHoverTips`; SubLevel Tips type-name Keys=`TipMsg_*` (§3.9 / UI-031, [SPEC_04 §9.34](SPEC_04_Technical.md)). |
 | SpiritEssence | 精魂 | Currency; from Dig (LootDrop reserved Id + stack overflow AutoConvert); spent when manufacturing soldiers (§3.10, §3.11). |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert, AppearanceIconId, AssetPath, WarehouseQualityOutlineId; overflow converts to SpiritEssence via AutoConvert (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | CurrencyConfig | 货币配置表 | CurrencyId → appearance icon / asset path / warehouse quality outline; Spirit reserved Id=`Spirit` (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
@@ -383,7 +388,8 @@
 | GatherCountdown | 搜集倒计时 | Per-point countdown after activation; zero + living loyal → point success (§3.19). |
 | SearchExtractPhase | 搜打撤子状态 | `Prepare` → `Combat` → `Ended` (§3.19). |
 | PushMapPhase | 推图战子状态 | In-stage phases: `Prepare` → `Combat` → `Ended` (aligned with DefendPhase; §3.14). |
-| PushMapBattleSettlement | PushMap battle settlement | Always on win/lose (UI-017): result + time + kills + Continue; §3.14. |
+| PushMapBattleSettlement | Battle settlement (PushMap / SearchExtract) | Always on win/lose (UI-017, shared): victory = title + time/kills (PushMap) + casualty total + four BaseClass counts + Continue; defeat = title Defeat + casualty total + Return to Title / Restart; §3.14 / §3.19. |
+| BattleCasualtyStats | Casualty stats | Registered non-Rebel soldiers with `CombatDead`/`PermanentDead`/`HP≤0`: total + by `BaseClass` (Warrior/Archer/Mage/Thief); `Unspecified` in total only; §3.14. |
 | PushMapRewardPopup | PushMap reward popup | UI-018: show credited Exp+CaptureLoot; Continue → LevelSelect; §3.14. |
 | MapId | 地图编号 | PushMap map Prefab logical name (≠ LevelId); shared across levels; resolve → `Assets/Prefabs/Maps/{MapId}.prefab` (§3.14). |
 | ObjectivePoint | 目标点 | Ordered PushMap push points (1→2→3…); soldiers auto-advance to current; §3.14. |
@@ -792,7 +798,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-014 | 玩法模式选择 | Demo 旁路 | 组件保留；**本 Demo 新建/进入不弹出**（直进 Mode2）；Mode1 入口后置；**勿与** UI-013 混淆；验收见 §3.8 D-045 |
 | UI-015 | 制造记录弹窗 | 已定义（Demo / Mode2） | Mode2 UM：「布阵」右侧「制造记录」打开只读 Modal；最近一批士兵摘要（名字/种族/职业）；空态「本批无士兵」；Mode1 **无**此入口；验收见 §3.8 D-054 |
 | UI-016 | 自动制造演出 | 已定义（Demo / Mode2） | AutoManufacture 阶段：底层全屏背景 `Title_AutoManufacture_1`（`AspectRatioFitter` EnvelopeParent 锁定长宽比铺满；其上 `Dim`）+ Step1 中央士兵行（默认 150×200，卡中央谜底图 `UnknownSoldier_1`（`Art/UI/Icons`）+ 职业名 32 + 其下 `Lv.{ClassLevel}` 24，横滑传送带）+ 上方 6 魔法书槽（120×160）；进入第一张从视口中心右侧一格滑入；Step2 逐兵加强后揭示：先 Taunt 一遍再循环默认 Idle（Camera+RT）；传送带左移不等 Taunt；每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过；Mode1 **无**；验收见 §3.8 D-055 |
-| UI-017 | 推图战斗结算 | 已定义（Demo / PushMap） | 胜负均弹：上部「胜利/失败」；中部「战斗耗时」「击杀怪物总数」；底中「继续」。失败 Continue → LevelSelectPanel；胜利 Continue → UI-018；见 §3.14 |
+| UI-017 | 战斗结算（推图/搜打撤） | 已定义（Demo / PushMap + SearchExtract） | **胜利：**上部「胜利」；中部战斗耗时/击杀（PushMap；SE 可隐藏击杀）、**阵亡士兵总数**、四基础职业阵亡（战士/射手/法师/刺客，图标+数量）；底中「继续」。PushMap Continue → UI-018；SE Leave 后 Continue → §3.9 推进。**失败：**上部「失败」；中部阵亡士兵总数；底栏「返回主界面」（→ TitleMenu / UI-027）、「重新开始」（Abort 后重进同 LevelId+OptionId → Prepare）。Defend **不做**；见 §3.14 / §3.19 |
 | UI-018 | 推图奖励弹窗 | 已定义（Demo / PushMap） | 仅展示本场已入账：`StageExpReward` + 占领 `CaptureLoot` 汇总；`CaptureLoot` 先经 `ItemCatalogConfig` 解析为统一道具展示名/图标来源；无额外发放；底中「继续」→ 关闭后打开 LevelSelectPanel；见 §3.14 |
 | UI-019 | GM 发放列表 | 已定义（Demo GM） | Prefab `GmGrantListPanel`（InSaveShell 子级；布局对齐 UI-008）；Tools「增加主角装备」/「增加魔法书」打开；按钮文案 DisplayName（空则 Id）；装备点行→嵌套 LevelPicker（等级按钮）→`DebugGrantAtLevel`；魔法书点一次 `TryEquip`；关闭按钮；验收见 §3.8 D-061 |
 | UI-020 | GM 添加士兵 | 已定义（Demo GM） | Prefab `GmAddSoldierPanel`（InSaveShell 子级；画面左侧靠边）；Tools「添加士兵」打开；职业/种族下拉 + 数量 + 自动上阵 + 关闭/添加；仅 UM 布阵打开可用；验收见 §3.8 D-064 |
@@ -806,7 +812,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-028 | 登录设置面板 | 已定义（Demo） | Prefab `TitleSettingsPanel`（`MetaCanvas` 子级；对齐 UI-008：全屏遮罩 + 中框 + 关闭；`sortingOrder` ≥ 100）；页签首期仅 **「显示」**：分辨率列表（`Screen.resolutions` 按宽×高去重降序，文案 `1920 × 1080`）+ 显示模式三选一（窗口 / 无边框全屏 / 独占全屏）；点 **「应用」** 才 `Screen.SetResolution` 并写机台级 PlayerPrefs（关闭不提交草稿）；Boot 读盘应用；**不**挂科技树；与 UI-007 分离 |
 | UI-029 | 难度选择宿主 | 已定义（Demo） | Prefab 内 `DifficultySelectHost`（`InSaveShellPanel` 中心面）；三栏等宽**同屏**（各约 1/3）；悬停显示难度描述（Demo 写死；表 `Description` 接线后置）；**仅普通**点击 → UI-031；困难/地狱 Toast；无栏内 UI-008；无 MapHost；难度不改玩法；进档默认打开；独立壳 Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`；验收 D-081；难度解锁/通关奖规则见 §3.9（接线后置） |
 | UI-030 | 战术阵型小队条 | 已定义（Demo） | 共享 `FormationEditorRoot` / `_Mode2`：`FormationCanvas` **左缘**竖排已激活战术阵型小队按钮（`TacticalFormationSquadBarView`；数据=`TacticalFormationLayoutService.CollectActiveSquads`）；每小队独立按钮；图标=`Resources/UI/Formations/{IconAssetId}`（缺图空框+短 DisplayName）；点击 → 选中该 `FormationId`，士兵栏**仅**高亮该小队成员（未选中时仍按已上阵高亮）；不改相机、不改变整阵拖拽语义；&lt;Min 解散后按钮消失并清选中；Mode1/Mode2 均有；验收 §3.8 D-085 |
-| UI-031 | 关卡路线选择 | 已定义（Demo） | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab`（壳层）；进关后 / 选项通关后显示；**Box 顶部 LevelId 页签**（去重列表；页签 Label / `Box/Title` 显示运作表 `LevelName`，空则回退 `LevelId`；默认末项；切换=`TryEnterLevel`）；有 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab` 时：Box 内竖滑该关地图（展示宽 **1450**、高按底图比例；底图源 `Art/UI/SubLevelMaps/`，运行时 `Resources/UI/SubLevelMaps/`，`RouteMapAssetId` 仍表驱动文件名）；选项中心钉在地图 Prefab 内子节点名=`GameplayOptionId` 的 `anchoredPosition`（底图左下角原点、Y 向上）；**打开/切页签后竖滑初始 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 StageNumber，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部）；**选项通关返回地图模式时**：`JustClearedOptionId` 非空 → 先瞬时对准刚通关钉点，停顿 **0.5s**，再约 **0.5s** 平滑滚向当前「最新已解锁」前沿（只动 Y）；缺刚通关钉则直接对准前沿；**只动 Y、X 不变**；**地图模式场景仅显示 Icon**（约 80×80）；**悬停**壳层 `OptionHoverTips` 展示 Type / Title / Description / Reward；缺钉 Warning、图标仍生成于 `(0,0)`；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版**自下而上** Stage 行 + 横向**完整选项卡**；运行时仍 Instantiate 选项节点（地图 Prefab 只提供底图+钉点 Transform）；**SearchExtract** 另展示点奖励摘要与子关卡 `Reward` **分离显示**；按 `UnlockNextOptionIds` 画相邻 Stage 连线；状态：锁定 / 可点 / 已通关；点击可选项 → `TrySelectGameplayOption`；验收 D-086 |
+| UI-031 | 关卡路线选择 | 已定义（Demo） | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab`（壳层）；进关后 / 选项通关后显示；**Box 顶部 LevelId 页签**（去重列表；页签 Label / `Box/Title` 显示运作表 `LevelName`，空则回退 `LevelId`；默认末项；切换=`TryEnterLevel`）；有 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab` 时：Box 内竖滑该关地图（展示宽 **1450**、高按底图比例；底图源 `Art/UI/SubLevelMaps/`，运行时 `Resources/UI/SubLevelMaps/`，`RouteMapAssetId` 仍表驱动文件名）；选项中心钉在地图 Prefab 内子节点名=`GameplayOptionId` 的 `anchoredPosition`（底图左下角原点、Y 向上）；**打开/切页签后竖滑初始 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 StageNumber，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部）；**选项通关返回地图模式时**：`JustClearedOptionId` 非空 → 先瞬时对准刚通关钉点，停顿 **0.5s**，再约 **0.5s** 平滑滚向当前「最新已解锁」前沿（只动 Y）；缺刚通关钉则直接对准前沿；**只动 Y、X 不变**；**地图模式场景仅显示 Icon**（约 80×80）；**悬停**壳层 `OptionHoverTips` 按 GameplayType 分型展示（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标行；均含 Title）；缺钉 Warning、图标仍生成于 `(0,0)`；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版**自下而上** Stage 行 + 横向**完整选项卡**；运行时仍 Instantiate 选项节点（地图 Prefab 只提供底图+钉点 Transform）；**SearchExtract** 另展示点奖励摘要与子关卡 `Reward` **分离显示**；按 `UnlockNextOptionIds` 画相邻 Stage 连线；状态：锁定 / 可点 / 已通关；**地图模式 Icon 三态（仅地图模式；Stage 行仍用卡片底色）**：Cleared=正常色+Icon 下方内侧 Checkmark（源 `Art/UI/Icons/Checkmark.png`，运行时 `Resources/UI/Icons/Checkmark`）；Selectable/Running=慢速 alpha 闪烁+缩放 0.9↔1.1（周期约 1.6s）；Locked=Icon RGB×0.4 变暗；点击可选项 → `TrySelectGameplayOption`；验收 D-086 |
 | UI-032 | 搜打撤单点决策 | 已定义（规则库 / SearchExtract） | 单搜集点倒计时结束且仍有忠诚存活时弹出；底中「继续搜集」「离开」；最后一点仅「离开」；Continue → 解除无敌、推进下一 `ObjectiveOrder`；Leave → 子关卡通关（`TryAdvanceStage` 或 §3.9 通关链）；验收 D-087 |
 
 ### English
@@ -829,7 +835,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-014 | Campaign mode select | Demo bypass | Component retained; **not shown** on this Demo create/enter (straight Mode2); Mode1 entry deferred; **not** UI-013; accept §3.8 D-045 |
 | UI-015 | Manufacture record popup | Defined (Demo / Mode2) | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only Modal; last-batch summaries (name/race/class); empty 「本批无士兵」; Mode1 has **no** entry; accept §3.8 D-054 |
 | UI-016 | AutoManufacture presentation | Defined (Demo / Mode2) | AutoManufacture stage: bottom full-screen background `Title_AutoManufacture_1` (`AspectRatioFitter` EnvelopeParent keep aspect cover; `Dim` above) + Step1 center soldier row (default 150×200, mystery portrait `UnknownSoldier_1` (`Art/UI/Icons`) + class name 32 + `Lv.{ClassLevel}` 24 below, conveyor scroll) + 6 MagicBook slots above (120×160); enter: first card slides from one pitch right of viewport center; Step2 amplify then reveal: Taunt once then loop default Idle (Camera+RT); conveyor does not wait for Taunt; +25% speed every 3; Step3 enter UM then auto-open Formation; 0 craft skips; Mode1 **none**; accept §3.8 D-055 |
-| UI-017 | PushMap battle settlement | Defined (Demo / PushMap) | Always on win/lose: top Victory/Defeat; mid combat time + monsters killed; bottom Continue. Fail Continue → LevelSelectPanel; Win Continue → UI-018; §3.14 |
+| UI-017 | Battle settlement (PushMap / SearchExtract) | Defined (Demo / PushMap + SearchExtract) | **Victory:** top Victory; mid combat time/kills (PushMap; SE may hide kills), **loyal casualty total**, four BaseClass casualty rows (icons+counts); bottom Continue. PushMap Continue → UI-018; SE after Leave Continue → §3.9 advance. **Defeat:** top Defeat; mid casualty total; bottom Return to Title (→ TitleMenu / UI-027) / Restart (Abort then re-enter same LevelId+OptionId → Prepare). Defend **not** done; §3.14 / §3.19 |
 | UI-018 | PushMap reward popup | Defined (Demo / PushMap) | Show already-credited StageExpReward + CaptureLoot aggregate only; `CaptureLoot` first resolves through `ItemCatalogConfig` for shared display-name/icon sourcing; no extra grants; bottom Continue → LevelSelectPanel; §3.14 |
 | UI-019 | GM grant list | Defined (Demo GM) | Prefab `GmGrantListPanel` under InSaveShell (layout aligned with UI-008); Tools Grant Equipment / Grant MagicBook; label DisplayName (else Id); equipment pick → nested LevelPicker (level buttons) → `DebugGrantAtLevel`; MagicBook one click `TryEquip`; close button; accept §3.8 D-061 |
 | UI-020 | GM add soldier | Defined (Demo GM) | Prefab `GmAddSoldierPanel` under InSaveShell (left dock); Tools Add Soldier; class/race dropdowns + count + auto-deploy + Close/Add; UM Formation only; accept §3.8 D-064 |
@@ -843,7 +849,7 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-028 | Title settings panel | Defined (Demo) | Prefab `TitleSettingsPanel` under `MetaCanvas` (align UI-008: full-screen dim + center box + close; `sortingOrder` ≥ 100); first tab **Display** only: resolution list (`Screen.resolutions` dedupe by WxH descending, label `1920 × 1080`) + window mode tri-state (Windowed / Borderless / Exclusive); **Apply** commits `Screen.SetResolution` + machine-level PlayerPrefs (Close discards draft); Boot applies saved; **no** TechTree; separate from UI-007 |
 | UI-029 | Difficulty select host | Defined (Demo) | `DifficultySelectHost` inside `InSaveShellPanel`; equal-width **same-screen** columns (~1/3 each); hover shows difficulty description (Demo hardcoded; table `Description` wiring deferred); **Normal only** click → UI-031; Hard/Hell Toast; no in-column UI-008; no MapHost; no gameplay number change; default on enter; standalone Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`; accept D-081; unlock/clear-reward rules in §3.9 (wiring deferred) |
 | UI-030 | Tactical formation squad strip | Defined (Demo) | Shared `FormationEditorRoot` / `_Mode2`: left-edge vertical buttons for active tactical squads (`TacticalFormationSquadBarView`; data=`TacticalFormationLayoutService.CollectActiveSquads`); one button per squad; icon=`Resources/UI/Formations/{IconAssetId}` (missing → empty frame + short DisplayName); click selects `FormationId` and highlights **only** that squad’s members on the soldier bar (otherwise highlight = deployed); no camera focus; whole-squad drag unchanged; button removed and selection cleared when &lt;Min; Mode1+Mode2; accept §3.8 D-085 |
-| UI-031 | Level route select | Defined (Demo) | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab` (chrome); shown after enter Level / after option clear; **LevelId tabs atop Box** (distinct list; tab Label / `Box/Title` show Operation `LevelName`, empty→`LevelId`; default last; switch=`TryEnterLevel`); with `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`: vertical-scroll that map (display width **1450**, height by bg aspect; art source `Art/UI/SubLevelMaps/`, runtime `Resources/UI/SubLevelMaps/`; `RouteMapAssetId` still names the file); option centers pinned to child nodes named `GameplayOptionId` (`anchoredPosition`; map bottom-left origin, Y up); **on open / tab switch, initial scroll Y centers the latest unlocked pin** (prefer max StageNumber among Selectable/Running, else Cleared; same Stage → max pin Y; else bottom); **on clear-return in map mode**: non-empty `JustClearedOptionId` → snap to just-cleared pin, hold **0.5s**, then ~**0.5s** smooth scroll to current latest-unlocked frontier (Y only); missing cleared pin → frontier directly; **Y only, X unchanged**; **map mode shows Icon only** (~80×80); **hover** chrome `OptionHoverTips` shows Type / Title / Description / Reward; missing pin → Warning, icon at `(0,0)`; without map Prefab (or no `RouteMapAssetId`) → bottom-up Stage rows + horizontal **full cards**; runtime still Instantiates option nodes (map Prefab = bg + pin Transforms only); **SearchExtract** dual summaries; edges from `UnlockNextOptionIds`; states locked / selectable / cleared; click → `TrySelectGameplayOption`; accept D-086 |
+| UI-031 | Level route select | Defined (Demo) | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab` (chrome); shown after enter Level / after option clear; **LevelId tabs atop Box** (distinct list; tab Label / `Box/Title` show Operation `LevelName`, empty→`LevelId`; default last; switch=`TryEnterLevel`); with `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`: vertical-scroll that map (display width **1450**, height by bg aspect; art source `Art/UI/SubLevelMaps/`, runtime `Resources/UI/SubLevelMaps/`; `RouteMapAssetId` still names the file); option centers pinned to child nodes named `GameplayOptionId` (`anchoredPosition`; map bottom-left origin, Y up); **on open / tab switch, initial scroll Y centers the latest unlocked pin** (prefer max StageNumber among Selectable/Running, else Cleared; same Stage → max pin Y; else bottom); **on clear-return in map mode**: non-empty `JustClearedOptionId` → snap to just-cleared pin, hold **0.5s**, then ~**0.5s** smooth scroll to current latest-unlocked frontier (Y only); missing cleared pin → frontier directly; **Y only, X unchanged**; **map mode shows Icon only** (~80×80); **hover** chrome `OptionHoverTips` shows Type / Title / Description / Reward; missing pin → Warning, icon at `(0,0)`; without map Prefab (or no `RouteMapAssetId`) → bottom-up Stage rows + horizontal **full cards**; runtime still Instantiates option nodes (map Prefab = bg + pin Transforms only); **SearchExtract** dual summaries; edges from `UnlockNextOptionIds`; states locked / selectable / cleared; **map-mode Icon visuals (map mode only; Stage rows keep card tint)**: Cleared=normal + bottom-inner Checkmark (art `Art/UI/Icons/Checkmark.png`, runtime `Resources/UI/Icons/Checkmark`); Selectable/Running=slow alpha blink + scale 0.9↔1.1 (~1.6s period); Locked=Icon RGB×0.4 dim; click → `TrySelectGameplayOption`; accept D-086 |
 | UI-032 | SearchExtract point decision | Defined (rules library / SearchExtract) | After gather countdown ends with ≥1 living loyal: bottom-center **Continue Gather** / **Leave**; last point shows **Leave** only; Continue → drop invincibility, advance next `ObjectiveOrder`; Leave → SubLevel clear (§3.9 chain); accept D-087 |
 
 ---
@@ -942,7 +948,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-083 | 怪物尸体投射（抛物线击飞+砸击合一）：`distance≥DeathDie2KnockbackThreshold` 时飞行扫掠+落地砸其它存活怪；`OutgoingDamage×DeathCorpseSmashDamageMul`；同目标只结算一次；砸死不连锁；`MonsterCombatDead` 亦飞砸后 Delay→倒放；Defend+PushMap | P1 | **完成**（方案 A：Session `TryApplyCorpseSmashDamage` + View 抛物线/扫掠；Correctness 菜单 `Run Corpse Projectile Correctness Checks (D-083)`；issues `.scratch/corpse-projectile/`） |
 | D-084 | 战术阵型 TacticalFormation（方案 A）：魔法书 `GrantFormationSkill` 授予阵型技能；布阵 ≥Min 自动 snap 到 Pattern 槽位（覆盖职业区、整阵拖拽）；Defend+PushMap 虚拟中心 + `FormationSlot` + 接敌 leash；阵亡 &lt;Min 运行时解散；属性/专属技能 overlay；专表 `TacticalFormationConfig` | P1 | **完成**（方案 A；TF-01～06；样例楔阵 `Form_Wedge_01` / `MagicBook_Form_Wedge` + 平行阵 `Form_Wedge_02` / `MagicBook_Form_Wedge_02`；GM 添加士兵仅 GrantFormationSkill；手验清单 `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`；Play Mode 由负责人勾选） |
 | D-085 | 布阵战术阵型小队条（UI-030）：左侧列出已 snap 小队；点选高亮整队士兵栏成员 | P1 | **完成**（方案 A：`TacticalFormationSquadBarView` + Editor 选中态；Mode1+Mode2 Prefab） |
-| D-086 | 关卡 Stage 多选一 + 路线选择（UI-031）：运作表挂 `GameplayOptionId1..5` + 可选 `RouteMapAssetId` + Stage1 `UnlockLevelId`；子关卡表承载 Type/Config/图标/文案/Reward/UnlockNext（**不含**地图坐标）；每关地图 Prefab `LevelRouteMap_{LevelId}` 承载底图+`GameplayOptionId` 钉点；进关先开路线图；**Box 顶全量 LevelId 页签**（未解锁灰禁+Toast；切换已解锁=`TryEnterLevel`；默认已解锁末项）；有地图 Prefab 时选项钉坐标、**场景仅 Icon、悬停 Tips 展示 Type/Title/Description/Reward**；**通关返回地图：对准刚通关→停顿 0.5s→平滑至新解锁前沿**；同 Stage 多选一；通关发奖并解锁下一 Stage 选项；空 UnlockNext → 关卡胜利；壳 Prefab + 每关地图 Prefab | P0 | **更新**（LevelId 门闩；通关返回镜头；地图 Icon+Tips；方案 C 钉点；Play Mode 由负责人勾选） |
+| D-086 | 关卡 Stage 多选一 + 路线选择（UI-031）：运作表挂 `GameplayOptionId1..5` + 可选 `RouteMapAssetId` + Stage1 `UnlockLevelId`；子关卡表承载 Type/Config/图标/文案/Reward/UnlockNext（**不含**地图坐标）；每关地图 Prefab `LevelRouteMap_{LevelId}` 承载底图+`GameplayOptionId` 钉点；进关先开路线图；**Box 顶全量 LevelId 页签**（未解锁灰禁+Toast；切换已解锁=`TryEnterLevel`；默认已解锁末项）；有地图 Prefab 时选项钉坐标、**场景仅 Icon、悬停 Tips 按 GameplayType 分型（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标）**；**地图 Icon 三态**（Cleared Checkmark / Selectable·Running 慢闪+±10% 缩放 / Locked 变暗）；**通关返回地图：对准刚通关→停顿 0.5s→平滑至新解锁前沿**；同 Stage 多选一；通关发奖并解锁下一 Stage 选项；空 UnlockNext → 关卡胜利；壳 Prefab + 每关地图 Prefab | P0 | **更新**（地图 Icon 三态；LevelId 门闩；通关返回镜头；地图 Icon+Tips；方案 C 钉点；Play Mode 由负责人勾选） |
 | D-087 | Mode2 搜打撤 SearchExtract（方案 A）：子关卡 `GameplayType=SearchExtract`；独立 `SearchExtractStageModule`+Session；有序搜集点进圈倒计时+方向波次刷怪+布阵中心重定位；单点胜利无敌停刷清怪+UI-032；全灭整关 LevelFailure；每点奖励+子关卡 Reward 分离；**非** CampaignMode | P1 | TBD（规则库 SE-00～SE-09 已关；**字段工作坊已签字**；SE-01～SE-09 已落地；全灭 AbortLevel 可复现；**D-087 Demo 验收须负责人 Play Mode 勾选手验**；issues `.scratch/mode3-search-extract/`） |
 | D-088 | 关卡路线进度存档（方案 A）：按槽+CampaignMode 持久化已通关 `GameplayOptionId`；`TryEnterLevel` 水合 Cleared 并派生 Unlocked；通关立即写回；进行中选项不存；整关胜利保留 Cleared；删档清键 | P0 | **完成**（`LevelRouteProgressService` + Driver 水合；Play Mode 由负责人勾选） |
 
@@ -1020,7 +1026,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-083 | Monster corpse projectile (parabolic knockback + smash unified): when `distance≥DeathDie2KnockbackThreshold`, flight sweep + landing smash other living monsters; `OutgoingDamage×DeathCorpseSmashDamageMul`; once per target; smash kills no chain; `MonsterCombatDead` also flies/smashes then Delay→reverse revive; Defend+PushMap | P1 | **Done** (Approach A: Session `TryApplyCorpseSmashDamage` + View parabolic/sweep; menu `Run Corpse Projectile Correctness Checks (D-083)`; issues `.scratch/corpse-projectile/`) |
 | D-084 | TacticalFormation (Approach A): MagicBook `GrantFormationSkill`; formation editor auto-snap to Pattern slots when deployed ≥Min (over class zones, whole-squad drag); Defend+PushMap virtual center + `FormationSlot` + engage leash; dissolve when living &lt;Min; stat/exclusive-skill overlay; table `TacticalFormationConfig` | P1 | **Done** (Approach A; TF-01–06; sample wedge `Form_Wedge_01` / `MagicBook_Form_Wedge` + parallel `Form_Wedge_02` / `MagicBook_Form_Wedge_02`; GM Add Soldier applies GrantFormationSkill only; handcheck `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`; Play Mode checkboxes for owner) |
 | D-085 | Formation tactical-squad strip (UI-030): left-edge buttons for snapped squads; click highlights whole squad on soldier bar | P1 | **Done** (Approach A: `TacticalFormationSquadBarView` + editor selection; Mode1+Mode2 Prefabs) |
-| D-086 | Level Stage multi-pick + route select (UI-031): Operation mounts `GameplayOptionId1..5` + optional `RouteMapAssetId` + Stage1 `UnlockLevelId`; SubLevel holds Type/Config/icon/copy/Reward/UnlockNext (**no** map coords); per-level map Prefab `LevelRouteMap_{LevelId}` holds bg + `GameplayOptionId` pins; enter opens route; **all LevelId tabs atop Box** (locked gray+Toast; unlocked switch=`TryEnterLevel`; default last unlocked); with map Prefab, options pin to coordinates, **Icon only on map, hover Tips show Type/Title/Description/Reward**; **clear-return map: snap just-cleared → hold 0.5s → smooth to new frontier**; pick-one per Stage; clear grants reward + unlocks next-Stage options; empty UnlockNext → victory; chrome Prefab + per-level map Prefab | P0 | **Updated** (LevelId gate; clear-return camera; map Icon+Tips; Approach C pins; Play Mode checkboxes for owner) |
+| D-086 | Level Stage multi-pick + route select (UI-031): Operation mounts `GameplayOptionId1..5` + optional `RouteMapAssetId` + Stage1 `UnlockLevelId`; SubLevel holds Type/Config/icon/copy/Reward/UnlockNext (**no** map coords); per-level map Prefab `LevelRouteMap_{LevelId}` holds bg + `GameplayOptionId` pins; enter opens route; **all LevelId tabs atop Box** (locked gray+Toast; unlocked switch=`TryEnterLevel`; default last unlocked); with map Prefab, options pin to coordinates, **Icon only on map, hover Tips by GameplayType (Dig=TipMessages; Shop/AM/UM=IconAssetId2+Description; PushMap/SE/Defend=IconAssetId2+Reward icons); **map Icon tri-state** (Cleared Checkmark / Selectable·Running slow blink+±10% scale / Locked dim)**; **clear-return map: snap just-cleared → hold 0.5s → smooth to new frontier**; pick-one per Stage; clear grants reward + unlocks next-Stage options; empty UnlockNext → victory; chrome Prefab + per-level map Prefab | P0 | **Updated** (map Icon tri-state; LevelId gate; clear-return camera; map Icon+Tips; Approach C pins; Play Mode checkboxes for owner) |
 | D-087 | Mode2 SearchExtract (Approach A): SubLevel `GameplayType=SearchExtract`; independent `SearchExtractStageModule`+Session; ordered gather points with zone countdown + directional wave spawns + formation-center relocate; point success invincible/stop-spawn/clear monsters + UI-032; wipe → Level failure; per-point loot separate from SubLevel Reward; **not** CampaignMode | P1 | TBD (rules SE-00–SE-09 closed; **field workshop signed**; SE-01–SE-09 landed; wipe AbortLevel reproducible; **D-087 Demo accept needs owner Play Mode handcheck**; issues `.scratch/mode3-search-extract/`) |
 | D-088 | Level route progress save (Approach A): persist cleared `GameplayOptionId`s per slot+CampaignMode; `TryEnterLevel` hydrates Cleared and derives Unlocked; write on clear; no in-progress option; keep Cleared after level victory; delete slot clears keys | P0 | **Done** (`LevelRouteProgressService` + Driver hydrate; Play Mode checkboxes for owner) |
 
@@ -1100,7 +1106,7 @@ Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 | 奖励 | `ItemId;Count\|…`（经道具汇总表）；可空；**通关时发放**且路线图展示 |
 | 解锁下一阶段选项 | `OptId\|OptId`；目标须属于 StageNumber+1；**空 = 通关后关卡胜利** |
 
-**路线地图 Prefab（方案 C，UI-031）：** 路径 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`。子节点名 = `GameplayOptionId`；`RectTransform.anchoredPosition` = 选项中心（底图左下 `(0,0)`，Y 向上；单位=展示宽 1450 UI 像素）。玩法选项 ID **只**来自运作表+子关卡表，Prefab **不**发明 ID。Editor 菜单（Mode2 CSV）：`Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)` 建/贴底图并补缺钉；`Gravedigger2026/Level/Sync LevelRouteMap Pins (UI-031)` 从表同步缺钉、警告表外多余钉（**不**覆盖已摆坐标）。钉点仅为占位 Transform，不是选项节点。运行时 Instantiate 选项节点，地图 Prefab 只提供底图 + 钉点 Transform。**地图模式：场景仅显示 Icon**（约 80×80）；Type / Title / Description / Reward 放入壳层悬停 Tips（`OptionHoverTips`）。**打开/切页签后 `LevelRouteSelectView` 将 `MapContent` 竖滑 Y 定位到最新已解锁钉点居中（只动 Y）**。**选项通关返回地图模式：** Snapshot 一次性携带 `JustClearedOptionId` → View 先瞬时对准刚通关钉点，停顿 0.5s，再约 0.5s 平滑滚向当前最新解锁前沿（只动 Y；Driver 不写 Transform）。缺钉 → Warning，图标仍生成于 `(0,0)`。无该 Prefab（或无 `RouteMapAssetId`）→ 旧 Stage 行布局（完整选项卡）。
+**路线地图 Prefab（方案 C，UI-031）：** 路径 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`。子节点名 = `GameplayOptionId`；`RectTransform.anchoredPosition` = 选项中心（底图左下 `(0,0)`，Y 向上；单位=展示宽 1450 UI 像素）。玩法选项 ID **只**来自运作表+子关卡表，Prefab **不**发明 ID。Editor 菜单（Mode2 CSV）：`Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)` 建/贴底图并补缺钉；`Gravedigger2026/Level/Sync LevelRouteMap Pins (UI-031)` 从表同步缺钉、警告表外多余钉（**不**覆盖已摆坐标）。钉点仅为占位 Transform，不是选项节点。运行时 Instantiate 选项节点，地图 Prefab 只提供底图 + 钉点 Transform。**地图模式：场景仅显示 Icon**（约 80×80）；壳层悬停 Tips（`OptionHoverTips` Prefab）按 GameplayType 分型（Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标行）。**打开/切页签后 `LevelRouteSelectView` 将 `MapContent` 竖滑 Y 定位到最新已解锁钉点居中（只动 Y）**。**选项通关返回地图模式：** Snapshot 一次性携带 `JustClearedOptionId` → View 先瞬时对准刚通关钉点，停顿 0.5s，再约 0.5s 平滑滚向当前最新解锁前沿（只动 Y；Driver 不写 Transform）。缺钉 → Warning，图标仍生成于 `(0,0)`。无该 Prefab（或无 `RouteMapAssetId`）→ 旧 Stage 行布局（完整选项卡）。
 
 **阶段流转**
 
@@ -1109,7 +1115,7 @@ Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
 3. 选项结束条件：同旧各玩法（Shop 关闭、Dig 倒计时、AM 自动、UM 确认、Defend/PushMap 胜负、**SearchExtract「离开」或 LevelFailure** 等）。
 4. **关卡失败**：同旧 → AbortLevel（**不**清除已存 Cleared）。
 5. **通关成功**：发放子关卡 `Reward`（若有）→ 标记已通关 → **立即写入 `LevelRouteProgress`** → 解锁 `UnlockNextOptionIds` → 若解锁列表为空 → **VictorySettlement**；否则 **返回路线选择**。
-6. 路线图：有 `LevelRouteMap_{LevelId}` 时竖滑该关地图 Prefab + 钉点选项（**仅 Icon**；悬停 Tips 展示 Type/Title/Description/Reward）；**打开/切 LevelId 页签后初始竖滑 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 Stage，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部；**只动 Y**）；**通关返回地图：对准刚通关钉点 → 停顿 0.5s → 平滑至新解锁前沿**；无地图 Prefab（或无 `RouteMapAssetId`）时竖版自下而上 Stage、横向完整选项卡；按解锁字段画相邻 Stage 连线；状态锁定/可点/已通关。
+6. 路线图：有 `LevelRouteMap_{LevelId}` 时竖滑该关地图 Prefab + 钉点选项（**仅 Icon**；悬停 Tips 按 GameplayType 分型（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标））；**打开/切 LevelId 页签后初始竖滑 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 Stage，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部；**只动 Y**）；**通关返回地图：对准刚通关钉点 → 停顿 0.5s → 平滑至新解锁前沿**；无地图 Prefab（或无 `RouteMapAssetId`）时竖版自下而上 Stage、横向完整选项卡；按解锁字段画相邻 Stage 连线；状态锁定/可点/已通关。
 
 **路线进度持久化（`LevelRouteProgress`，方案 A / D-088）**
 
@@ -1190,7 +1196,7 @@ A Level is driven by Level Operation + SubLevel tables. Operation rows share `Le
 | Reward | `ItemId;Count\|…` via ItemCatalog; grant on clear |
 | UnlockNextOptionIds | `OptId\|…` must be Stage+1; **empty → level victory on clear** |
 
-**Route map Prefab (Approach C, UI-031):** path `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`. Child name = `GameplayOptionId`; `RectTransform.anchoredPosition` = option center (map bottom-left `(0,0)`, Y up; units = UI px at display width 1450). Option IDs come **only** from Operation + SubLevel tables; Prefab does **not** invent IDs. Editor menus (Mode2 CSV): `Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)` creates/paints Background and fills missing pins; `Gravedigger2026/Level/Sync LevelRouteMap Pins (UI-031)` syncs missing pins from tables and warns on extras (**does not** overwrite authored positions). Pins are placeholder Transforms, not option nodes. Runtime Instantiates option nodes; map Prefab supplies bg + pin Transforms only. **Map mode: Icon only on scene** (~80×80); Type / Title / Description / Reward live in chrome hover Tips (`OptionHoverTips`). **On open / LevelId tab switch, `LevelRouteSelectView` scrolls `MapContent` Y to center the latest unlocked pin (Y only).** **On clear-return in map mode:** Snapshot one-shot `JustClearedOptionId` → View snaps to just-cleared pin, holds 0.5s, then ~0.5s smooth scrolls to current latest-unlocked frontier (Y only; Driver does not write Transforms). Missing pin → Warning, icon at `(0,0)`. Without that Prefab (or no `RouteMapAssetId`) → legacy Stage-row layout (full cards).
+**Route map Prefab (Approach C, UI-031):** path `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`. Child name = `GameplayOptionId`; `RectTransform.anchoredPosition` = option center (map bottom-left `(0,0)`, Y up; units = UI px at display width 1450). Option IDs come **only** from Operation + SubLevel tables; Prefab does **not** invent IDs. Editor menus (Mode2 CSV): `Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)` creates/paints Background and fills missing pins; `Gravedigger2026/Level/Sync LevelRouteMap Pins (UI-031)` syncs missing pins from tables and warns on extras (**does not** overwrite authored positions). Pins are placeholder Transforms, not option nodes. Runtime Instantiates option nodes; map Prefab supplies bg + pin Transforms only. **Map mode: Icon only on scene** (~80×80); chrome hover Tips (`OptionHoverTips` Prefab) by GameplayType (Dig=`TipMessages`; Shop/AM/UM=`IconAssetId2`+Description; PushMap/SE/Defend=`IconAssetId2`+Reward icons). **On open / LevelId tab switch, `LevelRouteSelectView` scrolls `MapContent` Y to center the latest unlocked pin (Y only).** **On clear-return in map mode:** Snapshot one-shot `JustClearedOptionId` → View snaps to just-cleared pin, holds 0.5s, then ~0.5s smooth scrolls to current latest-unlocked frontier (Y only; Driver does not write Transforms). Missing pin → Warning, icon at `(0,0)`. Without that Prefab (or no `RouteMapAssetId`) → legacy Stage-row layout (full cards).
 
 **Flow:** EnterLevel (formal: LevelId unlock gate first; Tools may bypass) → hydrate Cleared from `LevelRouteProgress` → derive Unlocked → RouteSelect (all LevelId tabs; locked gray+Toast; default last unlocked; Stage1 + unlocked next; map Prefab when present; map mode initial scroll Y → latest unlocked pin centered; clear-return → just-cleared hold then frontier) → pick → run module → fail aborts (**Cleared kept**); clear grants Reward, **persists Cleared**, unlocks next; empty UnlockNext → VictorySettlement (Cleared retained on re-enter) else RouteSelect.
 
@@ -1365,6 +1371,26 @@ EnterLevel
    - 令 `space = 10000 − 当前堆叠数量`；`toStack = min(Count, space)`；`excess = Count − toStack`。
    - `toStack` 加入该材料堆叠。
    - `excess > 0` 时：按材料配置表 `AutoConvert`（每 1 个超出材料兑换的精魂数，≥ 0）兑换精魂：`SpiritGain = excess × AutoConvert`；`AutoConvert = 0` 时超出部分不入堆且不兑精魂。
+
+**Dig HUD 仓库统计（WarehouseHudStats）**
+
+Dig HUD 左上 `Warehouse` **不再**展示具体道具名 / raw Id 文本链，改为三行图标+数量统计（近似「可造士兵种族/职业」的提示，非材料明细）：
+
+| 行 | 内容 | 图标（`Assets/Art/UI/Icons/`） |
+|----|------|-------------------------------|
+| 1 | 精魂（`SpiritEssence`）+ **尸体残骸总数** | `Currency_Spirit` / `WreckWarehouse` |
+| 2 | 四种族「主要手」数量（序：亡灵→兽人→精灵→人类） | `AllRacesIcon_1` / `OrcIcon_1` / `ElvesIcon_1` / `HumansIcon_1` |
+| 3 | 四基础职业「主要手」数量（序：战士→射手→法师→刺客） | `WarriorIcon` / `ArcherIcon` / `MageIcon` / `AssassinIcon` |
+
+| 规则 | 说明 |
+|------|------|
+| 布局 | 左上对齐；图标 **60×60**；数值字号 **24**（图标下方）；单元左右间距 **10**；行距 **20**；每行左对齐 |
+| 未获得 | 数量 = 0（精魂同）→ **不显示** 该单元图标与数值 |
+| 残骸总数 | 仓库中所有 `BodyPartConfig` 且 `IsPrimaryHand ≠ 1` 的堆叠数量之和（不含精魂、不含 Dig Material、不含主要手） |
+| 主要手·种族 | `IsPrimaryHand == 1`，按 `RaceId` 归桶（展示仅 `Race_Undead` / `Race_Orc` / `Race_Elf` / `Race_Human`） |
+| 主要手·职业 | `IsPrimaryHand == 1`，按 `BodyPartConfig.BaseClass` 归桶（`战士\|射手\|法师\|刺客`；与 `ClassConfig.BaseClass` 同枚举） |
+| Hover Tips | 鼠标指向 Warehouse 区域旁显示 Tips；文案 ← `LocalizedDescriptionConfig` Key=`DigWarehouseHoverTips`（Demo 中文：`此处统计可大致制造的士兵种族与职业数量`） |
+| 刷新 | `WarehouseChanged` → 重算统计并刷新 HUD |
 
 **阶段结束与结算（无胜负）**
 
@@ -1545,6 +1571,26 @@ For each settled `Id_Count` (not the raw table `Id;Weight;Count`):
    - `space = 10000 − currentStack`; `toStack = min(Count, space)`; `excess = Count − toStack`.
    - Add `toStack` to that material stack.
    - If `excess > 0`: convert via MaterialConfig `AutoConvert` (SpiritEssence per 1 excess unit, ≥ 0): `SpiritGain = excess × AutoConvert`; if `AutoConvert = 0`, excess is discarded and yields no Spirit.
+
+**Dig HUD warehouse stats (WarehouseHudStats)**
+
+Dig HUD top-left `Warehouse` **no longer** shows item names / raw Id text chains. It shows three icon+count rows (approximate “craftable race/class” hint, not material detail):
+
+| Row | Content | Icons (`Assets/Art/UI/Icons/`) |
+|-----|---------|--------------------------------|
+| 1 | SpiritEssence + **wreck total** | `Currency_Spirit` / `WreckWarehouse` |
+| 2 | Primary-hand counts by race (Undead→Orc→Elf→Human) | `AllRacesIcon_1` / `OrcIcon_1` / `ElvesIcon_1` / `HumansIcon_1` |
+| 3 | Primary-hand counts by base class (Warrior→Archer→Mage→Thief) | `WarriorIcon` / `ArcherIcon` / `MageIcon` / `AssassinIcon` |
+
+| Rule | Notes |
+|------|-------|
+| Layout | Top-left align; icon **60×60**; value font size **24** (below icon); cell gap **10**; row gap **20**; each row left-aligned |
+| Not owned | Count = 0 (incl. Spirit) → **hide** that cell icon and value |
+| Wreck total | Sum of warehouse stacks for all `BodyPartConfig` with `IsPrimaryHand ≠ 1` (excludes Spirit, Dig Material, primary hands) |
+| Primary hand · race | `IsPrimaryHand == 1`, bucket by `RaceId` (display only `Race_Undead` / `Race_Orc` / `Race_Elf` / `Race_Human`) |
+| Primary hand · class | `IsPrimaryHand == 1`, bucket by `BodyPartConfig.BaseClass` (`战士\|射手\|法师\|刺客`; same enum as `ClassConfig.BaseClass`) |
+| Hover tips | Hover Warehouse area → side tips; copy ← `LocalizedDescriptionConfig` Key=`DigWarehouseHoverTips` (Demo ZH: `此处统计可大致制造的士兵种族与职业数量`) |
+| Refresh | `WarehouseChanged` → rebuild stats and refresh HUD |
 
 **Stage end & settlement (no win/lose)**
 
@@ -3330,7 +3376,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | Demo 刷怪 AI 边界 | PM-05 怪物 AI 用 Defend 默认追击语义（就近忠诚兵/主角；进 `AttackRange` 普攻；对主角扣盾）；AggroMode 四态后置 **PM-06**（见下「Demo AggroMode 边界」）；BOSS 通关结算见「Demo BOSS 通关边界」 |
 | Demo AggroMode 边界 | PM-06 四态实现：主动态（`ActiveChase`/`StationaryActive`）发现半径用 `AlertRadius`（与 `AttackRange` 并列）且**仅**对忠诚士兵触发主动发现；被动态（`PassiveChase`/`StationaryPassive`）须先被攻击→挑衅优先＝对该怪的士兵 **真实 HitConfirm**（PM-12）；可保留「忠诚兵首次进入该怪 `AttackRange`」兜底，以免远程未命中永远不激怒；原地态（`Stationary*`）不移动，仅 `AttackRange` 内攻击。技能施放 / 副本玩法正文 **不做** |
 | Demo BOSS 通关边界 | PM-07：击杀 `IsBoss` 行生成且落于 `BossPoint` 的 BOSS → `Ended` → 入账 `StageExpReward`（`AddExperience`）；**不**立即 `TryAdvanceStage`。`Shield≤0` **或** 已登记士兵≥1 且场上无忠诚存活（`!IsRebel && !CombatDead`）→ LevelFailure **不**入账本阶段经验。叛变写入规则层 `IsRebel` 供判定。**击杀契约（PM-12 起）：** 怪物 `RemainingHp≤0` → 表现层 `NotifyKilled`（事件带 `outgoingDamage`；击飞见 SPEC_04 §15.5）；BOSS 另 `TryNotifyBossKilled`。占领时发放 `CaptureLoot`（**不含**经验），并先经 `ItemCatalogConfig` 解析后再累加本场展示 ledger；写 `DungeonUnlockIds`；通关同样写解锁钩子。`IsBoss` 与 `BossPoint`：缺标记 warn |
-| Demo 战斗结算 / 奖励 UI | **UI-017 / UI-018（方案 A）：** 胜负均先弹战斗结算（上部胜利/失败；中部战斗耗时 `mm:ss`、击杀怪物总数；底中「继续」）。失败 Continue → `AbortLevel` + 打开 `LevelSelectPanel`。胜利 Continue → 奖励弹窗（仅展示已入账 Exp + CaptureLoot 汇总，无额外发放）→ Continue → 结束关卡（无 VictorySettlement 占位 toast）+ `LevelSelectPanel`。Defend 同款 UI **不做** |
+| Demo 战斗结算 / 奖励 UI | **UI-017 / UI-018（方案 A 扩展）：** 胜负均先弹 UI-017。**胜利：**标题「胜利」；耗时 `mm:ss`、击杀怪物总数、**阵亡士兵总数**、四基础职业阵亡（图标+数量）；Continue → UI-018（已入账 Exp + CaptureLoot；无额外发放）→ 结束关卡 + `LevelSelectPanel`。**失败：**标题「失败」；阵亡士兵总数；「返回主界面」→ `AbortLevel` + TitleMenu（UI-027）；「重新开始」→ `AbortLevel` 后立刻重进同 `LevelId`+`OptionId`（Prepare；不清存档槽；已 PermanentDeath 不复活）。阵亡统计归属 Session（`BattleCasualtyStats`）。Defend 同款 UI **不做** |
 | Demo 士兵攻击 / WarriorCombat 边界 | **PM-12（方案 B）：** PushMap 忠诚士兵战斗对齐 §3.12 方案 D——`AttackMode=Melee`：`AttackWindup` 结束 → `HitConfirm`（目标仍存活且在 `AttackRange`）→ 怪 `HP -= NormalAttackPower`；`AttackMode=Ranged`：生成弹道（复用 Defend `ProjectileView`）→ 软碰撞命中再结算 / 超时未命中不结算。`NormalAttackPower` / `AttackSpeed` / 前摇 / 弹速取自开战登记（`WarriorCombatMath` + `ClassConfig`，镜像 Defend）。保留 FlowField / AttackSlot / 粘滞选敌；**移除**固定 `PushMapAttackAnimSeconds` 仅播动作、无结算的旧边界。怪物本片仍可不驱动 Animator（§15.5） |
 | Demo 遇敌检测（警戒半径） | **v0.82.55 方案 C：** PushMap 忠诚选敌半径 = `max(武器触及, 该怪 AlertRadius)`（武器触及见 §3.12）。近战职业 `AttackRange` 仅 0.35 时武器触及约 0.86，三人围 `Monster_12`（`AlertRadius=4`）时旁边友军也会改 `AttackSlot`。**v0.82.57：** 已「追击」但未进距时须继续贴近（内收点/更近槽），已进距则停步挥刀；命中距离用 XZ。仍**不是**全图 EngageZone。 |
 | Demo 伤害飘字边界 | **DamagePopup（PM-12/13）：** 规则层命中成功后，在**被击目标**头顶显示 `-受伤值`（数值与本次结算伤害一致）。敌方怪物：红色；我方士兵：白色；敌我字号均为 **12**。出现后 **0.5s** 内世界坐标 `position.z` 相对起点从 **+0** 线性增至 **+0.5**，随后销毁（不做 Y 轴持续上浮）。主角护盾受击**不要求**飘字。防守战本需求 **不做** |
@@ -3364,8 +3410,8 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 
 | 规则 | 说明 |
 |------|------|
-| 通关 | 击杀 **BossPoint** 生成的 BOSS 怪物（`PushMapSpawnConfig.IsBoss=1`）→ `PushMapPhase=Ended` → 阶段胜利 → 入账 `StageExpReward` → UI-017 → UI-018 → 结束关卡并打开 LevelSelectPanel（Demo；不自动下一阶段） |
-| 失败 | `Shield ≤ 0` **或** 无忠诚存活士兵 → LevelFailure；**不**入账本阶段经验 → UI-017 → Continue → AbortLevel + LevelSelectPanel |
+| 通关 | 击杀 **BossPoint** 生成的 BOSS 怪物（`PushMapSpawnConfig.IsBoss=1`）→ `PushMapPhase=Ended` → 阶段胜利 → 入账 `StageExpReward` → UI-017（含阵亡）→ UI-018 → 结束关卡并打开 LevelSelectPanel（Demo；不自动下一阶段） |
+| 失败 | `Shield ≤ 0` **或** 无忠诚存活士兵 → LevelFailure；**不**入账本阶段经验 → UI-017（失败布局）→「返回主界面」Abort+TitleMenu / 「重新开始」Abort+重进同选项 |
 | 清场 | **不**以「全部刷怪点刷完+全灭」为通关条件 |
 | 规则归属 | 胜负结算归 `PushMapSessionService`（`TryNotifyBossKilled` / `VictorySettled` / `RequestLevelFailure` / 忠诚全灭检测）；经验入账由表现层调用 `ProtagonistProgressService.AddExperience`；驱动交还延迟至结算 UI Continue |
 
@@ -3410,7 +3456,7 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
             → stop future spawns for linked points; keep living; grant capture loot/unlock hook
             → advance CurrentObjective
        → AggroMode AI + WarriorCombat (§3.12 hit scheme D)
-       → Shield ≤ 0 OR no living loyal → LevelFailure → UI-017 → LevelSelect
+       → Shield ≤ 0 OR no living loyal → LevelFailure → UI-017 defeat → TitleMenu / Restart
        → Boss from BossPoint killed → Ended → credit Exp → UI-017 → UI-018 → LevelSelect
 ```
 
@@ -3418,7 +3464,7 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 
 | 优先级 | 内容 |
 |--------|------|
-| P0 | 地图标记契约、配置表、Stage 接线、目标点占领、刷怪/陷阱、BOSS 通关、护盾失败（已落地 PM-01～05/07）；战斗结算/奖励 UI（UI-017/018） |
+| P0 | 地图标记契约、配置表、Stage 接线、目标点占领、刷怪/陷阱、BOSS 通关、护盾失败（已落地 PM-01～05/07）；战斗结算/奖励 UI（UI-017/018；含阵亡与失败双按钮） |
 | P1 | AggroMode 四态、空气墙 NavMesh（已落地 PM-06 / PM-08）；Combat 镜头双模式跟随（已落地 PM-09）；怪物占地散开 / BodyRadius（已落地 PM-10） |
 | P2 | 副本解锁 UI；副本玩法另专题 |
 
@@ -3490,7 +3536,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Demo spawn AI edge | PM-05 monster AI uses Defend default-chase semantics (nearest loyal soldier / protagonist; attack in `AttackRange`; Shield hit on protagonist); AggroMode four-state deferred to **PM-06** (see "Demo AggroMode edge" below); Boss-clear settlement see "Demo Boss-clear edge" |
 | Demo AggroMode edge | PM-06 four-state: active stances (`ActiveChase`/`StationaryActive`) detect via `AlertRadius` (alongside `AttackRange`) and **only** on loyal soldiers; passive stances (`PassiveChase`/`StationaryPassive`) must be attacked first → provoke prefers a real soldier **HitConfirm** on that monster (PM-12); may keep first loyal entry into `AttackRange` as fallback so a ranged miss cannot forever leave the passive idle; stationary stances (`Stationary*`) never move, attack only inside `AttackRange`. Skill casts / dungeon gameplay body **not** done |
 | Demo Boss-clear edge | PM-07: kill Boss from `IsBoss` row at `BossPoint` → `Ended` → credit `StageExpReward` (`AddExperience`); **do not** immediately `TryAdvanceStage`. `Shield≤0` **or** registered warriors≥1 with no living loyal (`!IsRebel && !CombatDead`) → LevelFailure with **no** stage Exp. Sync Rebel into rules `IsRebel`. **Kill contract (from PM-12):** monster `RemainingHp≤0` → View `NotifyKilled` (event carries `outgoingDamage`; knockback: SPEC_04 §15.5); Boss also `TryNotifyBossKilled`. Capture grants `CaptureLoot` (**no** Exp), resolves it through `ItemCatalogConfig`, accumulates display ledger, and writes `DungeonUnlockIds`; Boss-clear also writes unlocks. Missing `BossPoint` with `IsBoss` → warn |
-| Demo battle settlement / reward UI | **UI-017 / UI-018 (Approach A):** always show settlement on win/lose (top Victory/Defeat; mid combat time `mm:ss` + monsters killed; bottom Continue). Fail Continue → `AbortLevel` + `LevelSelectPanel`. Win Continue → reward popup (already-credited Exp + CaptureLoot only; no extra grants; CaptureLoot display entries come from `ItemCatalogConfig`) → Continue → end Level (no VictorySettlement placeholder toast) + `LevelSelectPanel`. Defend counterpart **not** done |
+| Demo battle settlement / reward UI | **UI-017 / UI-018 (Approach A extended):** always show UI-017 on win/lose. **Victory:** title Victory; time `mm:ss`, monsters killed, **loyal casualty total**, four BaseClass casualty rows (icons+counts); Continue → reward popup (already-credited Exp + CaptureLoot only; no extra grants) → end Level + `LevelSelectPanel`. **Defeat:** title Defeat; casualty total; Return to Title → `AbortLevel` + TitleMenu (UI-027); Restart → `AbortLevel` then immediately re-enter same `LevelId`+`OptionId` (Prepare; keep save slot; PermanentDeath not revived). Casualty stats owned by Session (`BattleCasualtyStats`). Defend counterpart **not** done |
 | Demo soldier attack / WarriorCombat edge | **PM-12 (Approach B):** PushMap loyal WarriorCombat aligns with §3.12 scheme D — `AttackMode=Melee`: `AttackWindup` end → `HitConfirm` (target alive + in `AttackRange`) → monster `HP -= NormalAttackPower`; `AttackMode=Ranged`: spawn projectile (reuse Defend `ProjectileView`) → soft-collision hit settles / timeout miss does not. `NormalAttackPower` / `AttackSpeed` / windup / projectile params from StartBattle registry (`WarriorCombatMath` + `ClassConfig`, mirrored from Defend). Keep FlowField / AttackSlot / sticky engage; **remove** the old anim-only `PushMapAttackAnimSeconds` loop with no settlement. Monsters may still skip Animator this slice (§15.5) |
 | Demo engage detect (AlertRadius) | **v0.82.55 Approach C:** PushMap loyal engage radius = `max(weapon reach, that monster's AlertRadius)` (weapon reach in §3.12). Melee `AttackRange` 0.35 yields ~0.86 weapon reach; three `Class_BaseWarrior` vs `Monster_12` (`AlertRadius=4`) all convert to `AttackSlot`. **v0.82.57:** while chasing, keep closing if not in range (inward close point / closer slot); hold and swing once in range; hit distance is XZ. Still **not** map-wide EngageZone. |
 | Demo DamagePopup edge | **DamagePopup (PM-12/13):** after rules confirm a hit, show `-damage` above the **hit target** (value matches settled damage). Enemy monsters: red; loyal soldiers: white; font size **12** for both. Over **0.5s**, world `position.z` lerps relative start **+0→+0.5**, then despawn (no sustained Y rise). Protagonist Shield hits **do not** require a popup. Defend mode out of scope for this request |
@@ -3524,8 +3570,8 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 
 | Rule | Notes |
 |------|-------|
-| Clear | Kill Boss from **BossPoint** (`IsBoss=1`) → Ended → credit `StageExpReward` → UI-017 → UI-018 → end Level + LevelSelectPanel (Demo; no auto next stage) |
-| Fail | `Shield ≤ 0` **or** no living loyal soldiers → LevelFailure; **no** stage Exp → UI-017 → Continue → AbortLevel + LevelSelectPanel |
+| Clear | Kill Boss from **BossPoint** (`IsBoss=1`) → Ended → credit `StageExpReward` → UI-017 (incl. casualties) → UI-018 → end Level + LevelSelectPanel (Demo; no auto next stage) |
+| Fail | `Shield ≤ 0` **or** no living loyal soldiers → LevelFailure; **no** stage Exp → UI-017 (defeat layout) → Return to Title Abort+TitleMenu / Restart Abort+re-enter same option |
 | Not used | “All spawn rows fired + all killed” clear condition |
 | Rules ownership | Outcome in `PushMapSessionService` (`TryNotifyBossKilled` / `VictorySettled` / `RequestLevelFailure` / loyal-wipe check); Exp via presentation `AddExperience`; driver handoff deferred until settlement Continue |
 
@@ -3546,7 +3592,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
   → Prepare → StartBattle → shared CurrentObjective push
   → Non-trap spawns; trap-triggered spawns; Capture on arrive; AggroMode + WarriorCombat
-  → Shield≤0 OR no living loyal → LevelFailure → UI-017 → LevelSelect
+  → Shield≤0 OR no living loyal → LevelFailure → UI-017 defeat → TitleMenu / Restart
   → Boss kill → Ended + Exp → UI-017 → UI-018 → LevelSelect
 ```
 
@@ -4702,7 +4748,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | 怪物死亡技能 | 同 §3.14 D-074：Session 实现 `IMonsterDeathSkillHost`，登记 `MonsterConfig.Skills`（样例 `Monster_01`=`MSkill_SelfRevive_99`）；HP≤0 可假死复活。**点清场**规则层彻底死亡，不拦截复活 |
 | 镜头 | 默认沿用 PushMap Combat `CameraFollowPath` / 正交战斗相机（[SPEC_04 §6](SPEC_04_Technical.md)） |
 | 不复用 | PushMap 进圈 instant Capture、开战瞬间 `PushMapSpawnConfig`、BOSS 通关、Defend `WaveSpawnConfig` 全局剩余秒、PushMap `Shield≤0` 失败 |
-| 失败 | **仅** 搜集中忠诚兵全灭 → **整关** `LevelFailure`（`AbortLevel` + 关卡列表重进；不清档） |
+| 失败 | **仅** 搜集中忠诚兵全灭 → **整关** `LevelFailure` → UI-017 战败（返回主界面 / 重新开始；不清档） |
 | 护盾 | Demo **默认不驱动**战斗主角护盾失败（不放 `BattleProtagonist` / 不扣 `Shield`）；失控/Rebel 仍开战锁定 |
 
 **阶段内子状态（SearchExtractPhase）**
@@ -4756,15 +4802,15 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | 效果 | ① 全体忠诚士兵 **无敌**（`CombatStatusService`）；② 停刷；③ 存活怪立即死亡；④ 入账 **该点** 奖励（经 `ItemCatalogConfig`）；⑤ 弹出 **UI-032** |
 | UI-032 | 底中「继续搜集」「离开」；**最后一点** 隐藏/禁用「继续搜集」，仅「离开」 |
 | Continue | 解除无敌；**不**复活 `CombatDead`；当前点标记完成；以 **下一** Objective 为布阵中心再走位；下一激活仍须 1 兵进圈 |
-| Leave | 子关卡通关 → §3.9 发放子关卡行 `Reward`（若有）→ 若 §9.32 `StageExpReward`>0 则 `AddExperience` → 解锁 / 回路线 / 关卡胜利链；**离开时不补发**已入账点奖励 |
+| Leave | 子关卡通关 → 若 §9.32 `StageExpReward`>0 则 `AddExperience` → **UI-017 胜利** → Continue → §3.9 发放子关卡行 `Reward`（若有）/ 解锁 / 回路线；**离开时不补发**已入账点奖励 |
 
 **失败与经验**
 
 | 规则 | 说明 |
 |------|------|
-| 全灭 | 当前搜集 **进行中**（已激活、倒计时未结束或 UI-032 未选）且 **无** 忠诚存活 → **整关** LevelFailure |
-| 重开 | `AbortLevel` → 打开关卡列表重进；**不清**存档槽 |
-| 经验 | Leave 时入账 `StageExpReward`（§9.32；`≥0`；**0=不发**）；点奖励与子关卡 `Reward` 仍分离；全灭 **不**入账本阶段经验 |
+| 全灭 | 当前搜集 **进行中**（已激活、倒计时未结束或 UI-032 未选）且 **无** 忠诚存活 → **整关** LevelFailure → **UI-017 战败**（阵亡总数；「返回主界面」→ TitleMenu；「重新开始」→ Abort 后重进同选项）；**不**静默 Abort |
+| 重开 | UI-017「重新开始」：`AbortLevel` 后立刻重进同 `LevelId`+`OptionId`（Prepare）；**不清**存档槽；已 PermanentDeath 不复活 |
+| 经验 | Leave 时入账 `StageExpReward`（§9.32；`≥0`；**0=不发**）后弹 **UI-017 胜利**（阵亡总数+四职业；可隐藏击杀行）→ Continue → 子关卡 `Reward` / 解锁 / 回路线（§3.9）；点奖励与子关卡 `Reward` 仍分离；全灭 **不**入账本阶段经验 |
 
 **配置职责（列名已锁定；工作坊 2026-09-02）**
 
@@ -4773,7 +4819,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | `SubLevelConfig` | `GameplayType=SearchExtract`；`GatherPointCount`（int N）；`GatherPointRewards`（`N:ItemId;Count\|…`，`\|` 分段且 `N:` 开头为新点） |
 | `SearchExtractGameplayConfig` | `GameplayConfigId` → `MapId`、`GatherCountdownSeconds`（全局）、`StageExpReward` |
 | `SearchExtractWaveSpawnConfig` | 一行一配方：`GatherPointOrder` + `WaveIndex` + `SpawnPointId` + Delay/Interval/`RepeatSpawnCount` + `MonsterId`/`SpawnCount` |
-| 地图 Prefab | Objective 数 ≥ N；Objective 不得落 AirWall 内（§3.14 作者硬约束）；Demo 样例 `SearchExtract_Demo_01`（SE-02 方案 B：自 `PushMap_Demo_01` 复制，**不**改写 PushMap 原图）；样例图须含 `FormationClassZone`（Mode2 全 ClassId；供 Prepare「一键上阵」D-074；**不**回写 PushMap 原图） |
+| 地图 Prefab | Objective 数 ≥ N；Objective 不得落 AirWall 内（§3.14 作者硬约束）；Demo 权威图 `SearchExtract_Lv1_01`（另保留 `SearchExtract_Demo_01` 作 SE-02 方案 B 参考副本，自 `PushMap_Demo_01` 复制，**不**改写 PushMap 原图）；图须含 `FormationClassZone`（Mode2 全 ClassId；供 Prepare「一键上阵」D-074；**不**回写 PushMap 原图）；运行时须 `DefendPrefabCatalog.Maps` 绑定 |
 
 ```
 Enter SearchExtract (SubLevel GameplayType=SearchExtract)
@@ -4785,8 +4831,8 @@ Enter SearchExtract (SubLevel GameplayType=SearchExtract)
   → First loyal in CaptureZone → start GatherCountdown + wave timers + relocate to formation offsets around Objective
   → Tick independent per-row spawn recipes (FirstDelay → optional Interval repeats) until point success or wipe
   → Countdown end + ≥1 loyal → invincible, stop spawn, kill living monsters, grant point loot, UI-032
-  → Continue → next point OR Leave → SubLevel clear (§3.9)
-  → No loyal during active gather → LevelFailure → AbortLevel
+  → Continue → next point OR Leave → credit StageExp → UI-017 victory → Continue → SubLevel clear (§3.9)
+  → No loyal during active gather → LevelFailure → UI-017 defeat → TitleMenu / Restart
 ```
 
 **字段已锁定（工作坊 2026-09-02；Excel 后置 SE-01）**
@@ -4827,12 +4873,12 @@ Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.32](SPEC_04_Technica
 | Monster death skills | Same §3.14 D-074: Session implements `IMonsterDeathSkillHost` and registers `MonsterConfig.Skills` (sample `Monster_01`=`MSkill_SelfRevive_99`); HP≤0 may fake-death revive. **Point-clear** is true death (no SelfRevive intercept) |
 | Camera | Default PushMap Combat follow / ortho battle camera ([SPEC_04 §6](SPEC_04_Technical.md)) |
 | Not reused | PushMap instant Capture, StartBattle `PushMapSpawnConfig`, Boss clear, Defend `WaveSpawnConfig`, PushMap `Shield≤0` fail |
-| Failure | **Only** all loyal dead during active gather → **whole Level** `LevelFailure` (AbortLevel + level list; no save wipe) |
+| Failure | **Only** all loyal dead during active gather → **whole Level** `LevelFailure` → UI-017 defeat (Return to Title / Restart; no save wipe) |
 | Shield | Demo **default:** no battle protagonist shield fail; LossOfControl/Rebel still at StartBattle |
 
 **Phases, gather chain, countdown/spawn, formation relocate, point success, failure:** same semantics as Chinese block above.
 
-**Config layers:** SubLevel (`GatherPointCount` + `GatherPointRewards` encoding `N:ItemId;Count|…`); `SearchExtractGameplayConfig` (global `GatherCountdownSeconds`, `StageExpReward` credited on Leave); `SearchExtractWaveSpawnConfig` (one independent recipe per row: FirstDelay from point activation, then Interval×`RepeatSpawnCount` re-spawns of the same row; `SpawnPointId` only); map Prefab ≥ N objectives. Demo sample map `SearchExtract_Demo_01` (SE-02 Approach B: copy of `PushMap_Demo_01`; **do not** rewrite the PushMap source; sample carries `FormationClassZone` for Prepare one-click).
+**Config layers:** SubLevel (`GatherPointCount` + `GatherPointRewards` encoding `N:ItemId;Count|…`); `SearchExtractGameplayConfig` (global `GatherCountdownSeconds`, `StageExpReward` credited on Leave); `SearchExtractWaveSpawnConfig` (one independent recipe per row: FirstDelay from point activation, then Interval×`RepeatSpawnCount` re-spawns of the same row; `SpawnPointId` only); map Prefab ≥ N objectives. Demo authority map `SearchExtract_Lv1_01` (keeps `SearchExtract_Demo_01` as SE-02 Approach B reference copy of `PushMap_Demo_01`; **do not** rewrite the PushMap source; maps carry `FormationClassZone` for Prepare one-click; runtime bind via `DefendPrefabCatalog.Maps`).
 
 **Pre-activation approach (Approach A):** after StartBattle and before gather activation, loyal soldiers approach the current `ObjectivePoint` XZ via `FormationHome` DesiredDestination (no FlowField required); countdown / waves / formation-offset relocate start only on first loyal `CaptureZone` entry.
 

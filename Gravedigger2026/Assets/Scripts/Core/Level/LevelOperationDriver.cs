@@ -498,6 +498,8 @@ namespace Gravedigger2026.Core.Level
                             Title = sub.Title,
                             Description = sub.Description,
                             IconAssetId = sub.IconAssetId,
+                            IconAssetId2 = sub.IconAssetId2,
+                            TipMessages = sub.TipMessages,
                             Reward = sub.Reward,
                             UnlockNextOptionIds = sub.UnlockNextOptionIds,
                             GameplayType = sub.GameplayType,

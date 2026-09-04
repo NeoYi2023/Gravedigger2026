@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Dig;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Dig
@@ -20,6 +22,12 @@ namespace Gravedigger2026.Gameplay.Dig
     public sealed class DigHudView : MonoBehaviour
     {
         private const float PortraitSize = 60f;
+        private const float WarehouseIconSize = 60f;
+        private const int WarehouseValueFontSize = 24;
+        private const float WarehouseCellGap = 10f;
+        private const float WarehouseRowGap = 20f;
+        private const float WarehouseValueHeight = 28f;
+        private const float WarehouseCellHeight = WarehouseIconSize + WarehouseValueHeight;
         private const float GmButtonHeight = 40f;
         private const float GmButtonGap = 8f;
         private const float GmRowStep = GmButtonHeight + GmButtonGap;
@@ -30,10 +38,22 @@ namespace Gravedigger2026.Gameplay.Dig
         private const int DigMagicFixedRows = 2;
         private const int EquipRows = 8;
         private const string MagicBookButtonPrefix = "GmEquipMagicBook_";
+        public const string DigWarehouseHoverTipsKey = "DigWarehouseHoverTips";
 
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _timerText;
         [SerializeField] private Text _warehouseText;
+        [SerializeField] private RectTransform _warehouseRoot;
+        [SerializeField] private Sprite _spiritIcon;
+        [SerializeField] private Sprite _wreckIcon;
+        [SerializeField] private Sprite _raceUndeadIcon;
+        [SerializeField] private Sprite _raceOrcIcon;
+        [SerializeField] private Sprite _raceElfIcon;
+        [SerializeField] private Sprite _raceHumanIcon;
+        [SerializeField] private Sprite _classWarriorIcon;
+        [SerializeField] private Sprite _classArcherIcon;
+        [SerializeField] private Sprite _classMageIcon;
+        [SerializeField] private Sprite _classAssassinIcon;
         [SerializeField] private Button _addGravesButton;
         [SerializeField] private Button _addBodyPartsButton;
         [SerializeField] private Button _acquireDigRingButton;
@@ -99,10 +119,36 @@ namespace Gravedigger2026.Gameplay.Dig
         private readonly List<UnityEngine.Events.UnityAction> _magicBookHandlers =
             new List<UnityEngine.Events.UnityAction>();
 
+        private RectTransform _statsRow1;
+        private RectTransform _statsRow2;
+        private RectTransform _statsRow3;
+        private WarehouseStatCell _spiritCell;
+        private WarehouseStatCell _wreckCell;
+        private WarehouseStatCell _undeadCell;
+        private WarehouseStatCell _orcCell;
+        private WarehouseStatCell _elfCell;
+        private WarehouseStatCell _humanCell;
+        private WarehouseStatCell _warriorCell;
+        private WarehouseStatCell _archerCell;
+        private WarehouseStatCell _mageCell;
+        private WarehouseStatCell _assassinCell;
+        private RectTransform _warehouseTipsPanel;
+        private Text _warehouseTipsText;
+        private string _warehouseTipsCopy = string.Empty;
+        private bool _warehouseStatsBuilt;
+
+        private sealed class WarehouseStatCell
+        {
+            public GameObject Root;
+            public Image Icon;
+            public Text Value;
+        }
+
         private void OnEnable()
         {
             EnsureCanvasLayers();
             EnsurePortraitFrame();
+            EnsureWarehouseStats();
             EnsureGmMenu();
             Wire(_gmToggleButton, HandleGmToggle);
             Wire(_addGravesButton, HandleAddGraves);
@@ -222,9 +268,75 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public void SetWarehouse(string summary)
         {
+            // Legacy text API retained for DigAssetBuilder wiring; stats UI supersedes it.
             if (_warehouseText != null)
             {
-                _warehouseText.text = summary ?? string.Empty;
+                _warehouseText.enabled = false;
+            }
+        }
+
+        public void SetWarehouseTips(string tipsCopy)
+        {
+            _warehouseTipsCopy = tipsCopy ?? string.Empty;
+            if (_warehouseTipsText != null)
+            {
+                _warehouseTipsText.text = _warehouseTipsCopy;
+            }
+        }
+
+        public void SetWarehouseStats(DigWarehouseHudStats stats)
+        {
+            EnsureWarehouseStats();
+            if (stats == null)
+            {
+                stats = new DigWarehouseHudStats();
+            }
+
+            ApplyCell(_spiritCell, _spiritIcon, stats.Spirit > 0f, FormatSpirit(stats.Spirit));
+            ApplyCell(_wreckCell, _wreckIcon, stats.WreckCount > 0, stats.WreckCount.ToString());
+            ApplyCell(_undeadCell, _raceUndeadIcon, stats.UndeadPrimaryHand > 0, stats.UndeadPrimaryHand.ToString());
+            ApplyCell(_orcCell, _raceOrcIcon, stats.OrcPrimaryHand > 0, stats.OrcPrimaryHand.ToString());
+            ApplyCell(_elfCell, _raceElfIcon, stats.ElfPrimaryHand > 0, stats.ElfPrimaryHand.ToString());
+            ApplyCell(_humanCell, _raceHumanIcon, stats.HumanPrimaryHand > 0, stats.HumanPrimaryHand.ToString());
+            ApplyCell(_warriorCell, _classWarriorIcon, stats.WarriorPrimaryHand > 0, stats.WarriorPrimaryHand.ToString());
+            ApplyCell(_archerCell, _classArcherIcon, stats.ArcherPrimaryHand > 0, stats.ArcherPrimaryHand.ToString());
+            ApplyCell(_mageCell, _classMageIcon, stats.MagePrimaryHand > 0, stats.MagePrimaryHand.ToString());
+            ApplyCell(_assassinCell, _classAssassinIcon, stats.ThiefPrimaryHand > 0, stats.ThiefPrimaryHand.ToString());
+            RelayoutWarehouseRows();
+        }
+
+        private static string FormatSpirit(float spirit)
+        {
+            if (Mathf.Approximately(spirit, Mathf.Round(spirit)))
+            {
+                return Mathf.RoundToInt(spirit).ToString();
+            }
+
+            return spirit.ToString("0.##");
+        }
+
+        private static void ApplyCell(WarehouseStatCell cell, Sprite icon, bool visible, string valueText)
+        {
+            if (cell == null || cell.Root == null)
+            {
+                return;
+            }
+
+            cell.Root.SetActive(visible);
+            if (!visible)
+            {
+                return;
+            }
+
+            if (cell.Icon != null)
+            {
+                cell.Icon.sprite = icon;
+                cell.Icon.enabled = icon != null;
+            }
+
+            if (cell.Value != null)
+            {
+                cell.Value.text = valueText ?? string.Empty;
             }
         }
 
@@ -779,16 +891,412 @@ namespace Gravedigger2026.Gameplay.Dig
 
         private void NudgeWarehouseBelowPortrait()
         {
-            if (_warehouseText == null)
+            var whRt = _warehouseRoot;
+            if (whRt == null && _warehouseText != null)
             {
-                return;
+                whRt = _warehouseText.GetComponent<RectTransform>();
             }
 
-            var whRt = _warehouseText.GetComponent<RectTransform>();
             if (whRt != null && whRt.anchoredPosition.y > -90f)
             {
                 whRt.anchoredPosition = new Vector2(whRt.anchoredPosition.x, -90f);
             }
+        }
+
+        private void EnsureWarehouseStats()
+        {
+            if (_warehouseStatsBuilt && _warehouseRoot != null && _statsRow1 != null)
+            {
+                return;
+            }
+
+            var parent = _root != null ? _root.transform : transform;
+            if (_warehouseRoot == null)
+            {
+                var existing = parent.Find("Warehouse");
+                if (existing != null)
+                {
+                    _warehouseRoot = existing as RectTransform ?? existing.GetComponent<RectTransform>();
+                }
+            }
+
+            if (_warehouseRoot == null)
+            {
+                var go = new GameObject("Warehouse", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(parent, false);
+                _warehouseRoot = go.GetComponent<RectTransform>();
+                _warehouseRoot.anchorMin = new Vector2(0f, 1f);
+                _warehouseRoot.anchorMax = new Vector2(0f, 1f);
+                _warehouseRoot.pivot = new Vector2(0f, 1f);
+                _warehouseRoot.anchoredPosition = new Vector2(24f, -90f);
+                _warehouseRoot.sizeDelta = new Vector2(420f, 260f);
+            }
+
+            // Legacy DigStageRoot used Text on Warehouse; Image cannot be added while Text remains.
+            var legacyText = _warehouseRoot.GetComponent<Text>();
+            if (legacyText != null)
+            {
+                if (_warehouseText == legacyText)
+                {
+                    _warehouseText = null;
+                }
+
+                DestroyImmediate(legacyText);
+            }
+            else if (_warehouseText != null)
+            {
+                _warehouseText.enabled = false;
+                _warehouseText.raycastTarget = false;
+            }
+
+            var rootImg = _warehouseRoot.GetComponent<Image>();
+            if (rootImg == null)
+            {
+                rootImg = _warehouseRoot.gameObject.AddComponent<Image>();
+            }
+
+            if (rootImg == null)
+            {
+                Debug.LogError("[DigHudView] Warehouse root Image missing; stats hover disabled.");
+                return;
+            }
+
+            rootImg.color = Color.clear;
+            rootImg.raycastTarget = true;
+
+            ClearWarehouseChildrenExceptLegacyText();
+            _statsRow1 = CreateStatsRow(_warehouseRoot, "Row1", 0f);
+            _statsRow2 = CreateStatsRow(_warehouseRoot, "Row2", -(WarehouseCellHeight + WarehouseRowGap));
+            _statsRow3 = CreateStatsRow(_warehouseRoot, "Row3", -2f * (WarehouseCellHeight + WarehouseRowGap));
+
+            _spiritCell = CreateStatCell(_statsRow1, "Spirit");
+            _wreckCell = CreateStatCell(_statsRow1, "Wreck");
+            _undeadCell = CreateStatCell(_statsRow2, "RaceUndead");
+            _orcCell = CreateStatCell(_statsRow2, "RaceOrc");
+            _elfCell = CreateStatCell(_statsRow2, "RaceElf");
+            _humanCell = CreateStatCell(_statsRow2, "RaceHuman");
+            _warriorCell = CreateStatCell(_statsRow3, "ClassWarrior");
+            _archerCell = CreateStatCell(_statsRow3, "ClassArcher");
+            _mageCell = CreateStatCell(_statsRow3, "ClassMage");
+            _assassinCell = CreateStatCell(_statsRow3, "ClassAssassin");
+
+            EnsureWarehouseTips();
+            WireWarehouseHover();
+            TryLoadWarehouseIconsFromEditor();
+            RelayoutWarehouseRows();
+            NudgeWarehouseBelowPortrait();
+            _warehouseStatsBuilt = true;
+        }
+
+        private void ClearWarehouseChildrenExceptLegacyText()
+        {
+            if (_warehouseRoot == null)
+            {
+                return;
+            }
+
+            for (var i = _warehouseRoot.childCount - 1; i >= 0; i--)
+            {
+                var child = _warehouseRoot.GetChild(i);
+                if (_warehouseText != null && child == _warehouseText.transform)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(child.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(child.gameObject);
+                }
+            }
+        }
+
+        private static RectTransform CreateStatsRow(RectTransform parent, string name, float anchoredY)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(0f, anchoredY);
+            rt.sizeDelta = new Vector2(420f, WarehouseCellHeight);
+            return rt;
+        }
+
+        private WarehouseStatCell CreateStatCell(RectTransform row, string name)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(row, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.sizeDelta = new Vector2(WarehouseIconSize, WarehouseCellHeight);
+
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGo.transform.SetParent(go.transform, false);
+            var iconRt = iconGo.GetComponent<RectTransform>();
+            iconRt.anchorMin = new Vector2(0.5f, 1f);
+            iconRt.anchorMax = new Vector2(0.5f, 1f);
+            iconRt.pivot = new Vector2(0.5f, 1f);
+            iconRt.anchoredPosition = Vector2.zero;
+            iconRt.sizeDelta = new Vector2(WarehouseIconSize, WarehouseIconSize);
+            var icon = iconGo.GetComponent<Image>();
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            var valueGo = new GameObject("Value", typeof(RectTransform), typeof(Text));
+            valueGo.transform.SetParent(go.transform, false);
+            var valueRt = valueGo.GetComponent<RectTransform>();
+            valueRt.anchorMin = new Vector2(0.5f, 1f);
+            valueRt.anchorMax = new Vector2(0.5f, 1f);
+            valueRt.pivot = new Vector2(0.5f, 1f);
+            valueRt.anchoredPosition = new Vector2(0f, -WarehouseIconSize);
+            valueRt.sizeDelta = new Vector2(WarehouseIconSize + 20f, WarehouseValueHeight);
+            var value = valueGo.GetComponent<Text>();
+            value.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            value.fontSize = WarehouseValueFontSize;
+            value.alignment = TextAnchor.UpperCenter;
+            value.color = Color.white;
+            value.raycastTarget = false;
+            value.horizontalOverflow = HorizontalWrapMode.Overflow;
+            value.verticalOverflow = VerticalWrapMode.Overflow;
+
+            go.SetActive(false);
+            return new WarehouseStatCell
+            {
+                Root = go,
+                Icon = icon,
+                Value = value
+            };
+        }
+
+        private void RelayoutWarehouseRows()
+        {
+            LayoutRow(_statsRow1, _spiritCell, _wreckCell);
+            LayoutRow(_statsRow2, _undeadCell, _orcCell, _elfCell, _humanCell);
+            LayoutRow(_statsRow3, _warriorCell, _archerCell, _mageCell, _assassinCell);
+
+            var rowY = 0f;
+            PlaceRowIfVisible(_statsRow1, ref rowY);
+            PlaceRowIfVisible(_statsRow2, ref rowY);
+            PlaceRowIfVisible(_statsRow3, ref rowY);
+
+            if (_warehouseRoot != null)
+            {
+                var height = Mathf.Max(WarehouseCellHeight, -rowY + WarehouseCellHeight);
+                _warehouseRoot.sizeDelta = new Vector2(420f, height);
+            }
+        }
+
+        private static void PlaceRowIfVisible(RectTransform row, ref float rowY)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            var any = false;
+            for (var i = 0; i < row.childCount; i++)
+            {
+                if (row.GetChild(i).gameObject.activeSelf)
+                {
+                    any = true;
+                    break;
+                }
+            }
+
+            row.gameObject.SetActive(any);
+            if (!any)
+            {
+                return;
+            }
+
+            row.anchoredPosition = new Vector2(0f, rowY);
+            rowY -= WarehouseCellHeight + WarehouseRowGap;
+        }
+
+        private static void LayoutRow(RectTransform row, params WarehouseStatCell[] cells)
+        {
+            if (row == null || cells == null)
+            {
+                return;
+            }
+
+            var x = 0f;
+            for (var i = 0; i < cells.Length; i++)
+            {
+                var cell = cells[i];
+                if (cell == null || cell.Root == null || !cell.Root.activeSelf)
+                {
+                    continue;
+                }
+
+                var rt = cell.Root.GetComponent<RectTransform>();
+                rt.anchoredPosition = new Vector2(x, 0f);
+                x += WarehouseIconSize + WarehouseCellGap;
+            }
+        }
+
+        private void EnsureWarehouseTips()
+        {
+            if (_warehouseRoot == null)
+            {
+                return;
+            }
+
+            if (_warehouseTipsPanel != null)
+            {
+                return;
+            }
+
+            var tipsGo = new GameObject("WarehouseTips", typeof(RectTransform), typeof(Image));
+            tipsGo.transform.SetParent(_warehouseRoot, false);
+            _warehouseTipsPanel = tipsGo.GetComponent<RectTransform>();
+            _warehouseTipsPanel.anchorMin = new Vector2(0f, 1f);
+            _warehouseTipsPanel.anchorMax = new Vector2(0f, 1f);
+            _warehouseTipsPanel.pivot = new Vector2(0f, 1f);
+            _warehouseTipsPanel.anchoredPosition = new Vector2(430f, 0f);
+            _warehouseTipsPanel.sizeDelta = new Vector2(280f, 72f);
+            var tipsBg = tipsGo.GetComponent<Image>();
+            tipsBg.color = new Color(0.08f, 0.1f, 0.14f, 0.92f);
+            tipsBg.raycastTarget = false;
+
+            var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(tipsGo.transform, false);
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(8f, 6f);
+            textRt.offsetMax = new Vector2(-8f, -6f);
+            _warehouseTipsText = textGo.GetComponent<Text>();
+            _warehouseTipsText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            _warehouseTipsText.fontSize = 18;
+            _warehouseTipsText.alignment = TextAnchor.UpperLeft;
+            _warehouseTipsText.color = Color.white;
+            _warehouseTipsText.raycastTarget = false;
+            _warehouseTipsText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _warehouseTipsText.verticalOverflow = VerticalWrapMode.Overflow;
+            _warehouseTipsText.text = _warehouseTipsCopy;
+            tipsGo.SetActive(false);
+        }
+
+        private void WireWarehouseHover()
+        {
+            if (_warehouseRoot == null)
+            {
+                return;
+            }
+
+            var trigger = _warehouseRoot.GetComponent<EventTrigger>();
+            if (trigger == null)
+            {
+                trigger = _warehouseRoot.gameObject.AddComponent<EventTrigger>();
+            }
+
+            trigger.triggers.Clear();
+            AddTrigger(trigger, EventTriggerType.PointerEnter, _ => ShowWarehouseTips(true));
+            AddTrigger(trigger, EventTriggerType.PointerExit, _ => ShowWarehouseTips(false));
+        }
+
+        private static void AddTrigger(
+            EventTrigger trigger,
+            EventTriggerType type,
+            UnityEngine.Events.UnityAction<BaseEventData> action)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(action);
+            trigger.triggers.Add(entry);
+        }
+
+        private void ShowWarehouseTips(bool show)
+        {
+            if (_warehouseTipsPanel == null)
+            {
+                return;
+            }
+
+            if (show && string.IsNullOrEmpty(_warehouseTipsCopy))
+            {
+                _warehouseTipsPanel.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_warehouseTipsText != null)
+            {
+                _warehouseTipsText.text = _warehouseTipsCopy;
+            }
+
+            _warehouseTipsPanel.gameObject.SetActive(show);
+        }
+
+        private void TryLoadWarehouseIconsFromEditor()
+        {
+#if UNITY_EDITOR
+            if (_spiritIcon == null)
+            {
+                _spiritIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/Currency_Spirit.png");
+            }
+
+            if (_wreckIcon == null)
+            {
+                _wreckIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/WreckWarehouse.png");
+            }
+
+            if (_raceUndeadIcon == null)
+            {
+                _raceUndeadIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/AllRacesIcon_1.png");
+            }
+
+            if (_raceOrcIcon == null)
+            {
+                _raceOrcIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/OrcIcon_1.png");
+            }
+
+            if (_raceElfIcon == null)
+            {
+                _raceElfIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/ElvesIcon_1.png");
+            }
+
+            if (_raceHumanIcon == null)
+            {
+                _raceHumanIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/HumansIcon_1.png");
+            }
+
+            if (_classWarriorIcon == null)
+            {
+                _classWarriorIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/WarriorIcon.png");
+            }
+
+            if (_classArcherIcon == null)
+            {
+                _classArcherIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/ArcherIcon.png");
+            }
+
+            if (_classMageIcon == null)
+            {
+                _classMageIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/MageIcon.png");
+            }
+
+            if (_classAssassinIcon == null)
+            {
+                _classAssassinIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/Art/UI/Icons/AssassinIcon.png");
+            }
+#endif
         }
 
         private void ApplyPortraitSprite()

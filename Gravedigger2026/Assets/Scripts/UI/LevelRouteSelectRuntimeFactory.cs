@@ -115,11 +115,7 @@ namespace Gravedigger2026.UI
                 mapBg,
                 mapHost,
                 mapScrollGo.GetComponent<ScrollRect>(),
-                tips,
-                tips.transform.Find("Type")?.GetComponent<Text>(),
-                tips.transform.Find("Title")?.GetComponent<Text>(),
-                tips.transform.Find("Description")?.GetComponent<Text>(),
-                tips.transform.Find("Reward")?.GetComponent<Text>());
+                tips);
             return view;
         }
 

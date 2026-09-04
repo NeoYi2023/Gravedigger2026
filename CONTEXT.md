@@ -73,8 +73,10 @@
 | BakedWholeCharacter | 烘焙整角 | 用 Creator 拼装后导出整角 spritesheet/Animator/Prefab；非运行时叠装 | [SPEC_04 §15](SPEC_04_Technical.md) |
 | LevelOperation | 关卡运作 | 关卡 ID + `DifficultyId` + 阶段编号 + 最多 5 个玩法选项 ID（`GameplayOptionId1..5`）+ 可选 `RouteMapAssetId` + Stage1 `UnlockLevelId`（LevelId 门闩） | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
 | GameplayOption | 玩法选项 | 子关卡表一行；含 GameplayType/ConfigId/图标/文案/奖励/解锁下一 Stage 选项 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.31](SPEC_04_Technical.md) |
-| SubLevelConfig | 子关卡表 | `Level_SubLevelConfig`；PK=`GameplayOptionId` | [SPEC_04 §9.31](SPEC_04_Technical.md) |
-| RouteSelect | 关卡路线选择 | Prefab（UI-031）：壳 `LevelRouteSelectRoot` + 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，悬停 Tips 展示 Type/Title/Description/Reward）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
+| SubLevelConfig | 子关卡表 | `Level_SubLevelConfig`；PK=`GameplayOptionId`；含 `TipMessages` / `IconAssetId2`（Tips 专用） | [SPEC_04 §9.31](SPEC_04_Technical.md) |
+| TipMessages | 子关卡 Tips 消息 | 编码 `MsgType;StockScale\|…`（≤3；尺度∈[-3,-1]∪[1,3]）；类型名←`TipMsg_*` | [SPEC_04 §9.31](SPEC_04_Technical.md) |
+| IconAssetId2 | Tips 中部图标 | 子关卡列；仅悬停 Tips；空=不显示；与地图钉点 `IconAssetId` 分离 | [SPEC_04 §9.31](SPEC_04_Technical.md) |
+| RouteSelect | 关卡路线选择 | Prefab（UI-031）：壳 `LevelRouteSelectRoot` + 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
 | LevelRouteMap | 关卡路线地图 | 每关独立 Prefab `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`；底图 + 选项钉点（子节点名=`GameplayOptionId`）；Editor `Ensure LevelRouteMap Prefabs` / `Sync LevelRouteMap Pins` | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §2](SPEC_04_Technical.md) / §9.31 |
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
@@ -95,6 +97,8 @@
 | DigReward | 挖掘奖励 | HP=0 时生成；飞向 Dig HUD 左上头像框，到达后入账并消失 | [§3.10](SPEC_03_GameRules.md) |
 | DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；躯体行 DisplayName+BodyLevel；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | Warehouse | 仓库 | 存档槽材料仓；不限格/时长；按类型堆叠上限 10000 | [§3.10](SPEC_03_GameRules.md) |
+| WarehouseHudStats | Dig HUD 仓库统计 | Dig HUD 三行图标统计（精魂/残骸/种族·职业主要手）；0 隐藏；Tips←LocalizedDescriptionConfig | [§3.10](SPEC_03_GameRules.md) |
+| LocalizedDescriptionConfig | 多语言描述表 | TextKey→TextZh（Demo）；TextEn 预留；DigWarehouseHoverTips；`TipMsg_*`（子关卡 Tips 类型名） | [SPEC_04 §9.34](SPEC_04_Technical.md) |
 | SpiritEssence | 精魂 | 货币；LootDrop `Spirit` + AutoConvert；造士兵消耗 | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | MaterialConfig | 材料配置表 | MaterialId → AutoConvert、外观图、素材路径、仓库品质外轮廓 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | CurrencyConfig | 货币配置表 | CurrencyId → 外观图、素材路径、仓库品质外轮廓；精魂=`Spirit` | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
@@ -123,7 +127,7 @@
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
 | Remanufacture | 再造 | 按士兵实例配方快照后台再走制造流水线，成功则新增池内士兵；不足弹 Tips | [§3.11](SPEC_03_GameRules.md) |
 | BodyPart | 躯体部位 | Head/Torso/Arm/Leg 材料；BodyPartConfig（BodyLevel/StatBonus/RaceId/SpiritCost/AutoConvert 等） | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.12](SPEC_04_Technical.md) |
-| BodyPartConfig | 躯体材料配置表 | BodyPartId → DisplayName（道具名称）/等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术/IsPrimaryHand/ClassRestrict/BodyPrimaryStat | [SPEC_04 §9.12](SPEC_04_Technical.md) |
+| BodyPartConfig | 躯体材料配置表 | BodyPartId → DisplayName（道具名称）/等级/部位/种族/控制力/精魂/StatBonus/AutoConvert/介绍/美术/IsPrimaryHand/ClassRestrict/BaseClass/BodyPrimaryStat | [SPEC_04 §9.12](SPEC_04_Technical.md) |
 | BodySlot | 躯体槽类型 | Head / Torso / Arm / Leg | [§3.11](SPEC_03_GameRules.md) |
 | BodyLevel | 躯体等级 | 躯体材料字段；平均后定外观等级 | [§3.11](SPEC_03_GameRules.md) |
 | StatBonus | 增加的属性值 | 躯体平坦加成；Base(S)=Σ StatBonus(S) | [§3.11](SPEC_03_GameRules.md) |
@@ -197,7 +201,7 @@
 | BattleModeSelect | 战斗模式选关 | 进入 Defend 后选模式+关卡（UI-013 / D-044；模式2确认→§3.14） | [§3.12](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | PushMap | 推图战 | GameplayType/GameplayState；亦可作战斗模式2；目标点占领+刷怪/陷阱/BOSS；复用 Defend 布阵/护盾/失控 | [§3.14](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | PushMapPhase | 推图战子状态 | Prepare / Combat / Ended | [§3.14](SPEC_03_GameRules.md) |
-| MapId | 地图编号 | PushMap / SearchExtract 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo：`PushMap_Demo_01`–`03`）或 `SearchExtract_*`（Demo：`SearchExtract_Demo_01`）→ `Prefabs/Maps/`；运行时经 `DefendPrefabCatalog.Maps` 绑定 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md)/[§9.32](SPEC_04_Technical.md) |
+| MapId | 地图编号 | PushMap / SearchExtract 地图 Prefab 逻辑名（≠ LevelId）；`Ground_*` 或 `PushMap_*`（Demo：`PushMap_Demo_01`–`03`）或 `SearchExtract_*`（Demo：`SearchExtract_Demo_01`、`SearchExtract_Lv1_01`）→ `Prefabs/Maps/`；运行时经 `DefendPrefabCatalog.Maps` 绑定（须进 `CatalogExtraMapIds`，防 GenerateAll 冲掉） | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md)/[§9.32](SPEC_04_Technical.md) |
 | ObjectivePoint | 目标点 | 有序推进点 1→2→3…；全队共当前目标 | [§3.14](SPEC_03_GameRules.md) |
 | CaptureZone | 判定圈 | 默认半径 2；任一忠诚兵进入当前圈 → 立即占领 | [§3.14](SPEC_03_GameRules.md) |
 | Capture | 占领 | 目标点本场已占领；关联刷怪停刷；可发奖励/副本解锁钩子 | [§3.14](SPEC_03_GameRules.md) |
@@ -258,8 +262,9 @@
 | TargetSelect | 目标选择 | Nearest / PreferWarrior / PreferProtagonist | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
 | AttackPriority | 攻击优先级 | 灵魂字段；与 TargetSelect 同枚举；本批不驱动选目标（默认 EngageZone 内最近） | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | TargetRetargetInterval | 目标修正间隔 | 怪物与士兵重算目的地间隔；暂定 1s | [§3.12](SPEC_03_GameRules.md) |
-| LevelFailure | 关卡失败 | 护盾归零等（Defend/PushMap）；PushMap 另含无忠诚存活；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣；PushMap Demo 经 UI-017 → LevelSelect | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md) |
-| PushMapBattleSettlement | 推图战斗结算 | 胜负均弹（UI-017）：胜利/失败 + 耗时 + 击杀数；Continue 路由选关或奖励弹窗 | [§3.14](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| LevelFailure | 关卡失败 | 护盾归零等（Defend/PushMap）；PushMap 另含无忠诚存活；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣；PushMap/SE Demo 经 UI-017 战败 → TitleMenu 或重开同选项 | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md) |
+| PushMapBattleSettlement | 战斗结算（推图/搜打撤） | UI-017：胜利含阵亡总数+四职业；失败含阵亡总数+返回主界面/重新开始；SE Leave 后亦弹 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| BattleCasualtyStats | 阵亡统计 | 本场非 Rebel 阵亡士兵总数及按 BaseClass 四职业细分 | [§3.14](SPEC_03_GameRules.md) |
 | PushMapRewardPopup | 推图奖励弹窗 | UI-018：展示本场已入账 Exp+CaptureLoot；Continue → LevelSelect | [§3.14](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | SearchExtract | 搜打撤 | Mode2 子关卡 `GameplayType`；有序搜集点+进圈倒计时守点+方向波次刷怪；**非** CampaignMode；SE-03 已接 `SearchExtractStageModule`（Prepare+开战） | [§3.19](SPEC_03_GameRules.md) |
 | GatherPoint | 搜集点 | SearchExtract 有序目标；复用 `ObjectivePoint`+`CaptureZone`；进圈激活倒计时（非 PushMap 即时占领） | [§3.19](SPEC_03_GameRules.md) |
