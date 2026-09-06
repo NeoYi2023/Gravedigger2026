@@ -292,6 +292,10 @@ namespace Gravedigger2026.UI
             _cachedDown = Resources.Load<Sprite>(IconsFolder + "Down_1");
         }
 
+        /// <summary>
+        /// Editor-only hierarchy builder used by Ensure OptionHoverTips Prefab.
+        /// Runtime must Instantiate the Prefab; do not call this in play mode.
+        /// </summary>
         public static GameObject BuildHierarchy(Transform parent)
         {
             var tips = new GameObject(
@@ -450,7 +454,7 @@ namespace Gravedigger2026.UI
             var sh = scaleRow.GetComponent<HorizontalLayoutGroup>();
             sh.spacing = 2f;
             sh.childAlignment = TextAnchor.MiddleCenter;
-            sh.childControlWidth = false;
+            sh.childControlWidth = true;
             sh.childControlHeight = true;
             sh.childForceExpandWidth = false;
             sh.childForceExpandHeight = true;

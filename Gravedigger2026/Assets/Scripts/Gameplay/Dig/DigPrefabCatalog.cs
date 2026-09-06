@@ -106,6 +106,35 @@ namespace Gravedigger2026.Gameplay.Dig
             _maps = maps ?? new List<MapEntry>();
             _graves = graves ?? new List<GraveEntry>();
         }
+
+        public void EditorUpsertGrave(string qualityId, GameObject prefab)
+        {
+            if (string.IsNullOrEmpty(qualityId) || prefab == null)
+            {
+                return;
+            }
+
+            if (_graves == null)
+            {
+                _graves = new List<GraveEntry>();
+            }
+
+            for (var i = 0; i < _graves.Count; i++)
+            {
+                var e = _graves[i];
+                if (e != null && string.Equals(e.QualityId, qualityId, StringComparison.Ordinal))
+                {
+                    e.Prefab = prefab;
+                    return;
+                }
+            }
+
+            _graves.Add(new GraveEntry
+            {
+                QualityId = qualityId,
+                Prefab = prefab
+            });
+        }
 #endif
     }
 }

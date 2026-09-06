@@ -1,7 +1,7 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.12
-**最后更新 / Last Updated:** 2026-09-04
+**文档版本 / Document Version:** v0.84.18
+**最后更新 / Last Updated:** 2026-09-05
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
@@ -65,6 +65,12 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-06 | v0.84.18 | Dig **精魂结晶** `QualityId=Q101`：品质表 DropMode2 仅掉 `Spirit`（2/4/8/16）；`Dig_01/02/03` 权重 `Q101;10`；Prefab/Catalog/HitShape 覆盖 Q101。同步 SPEC_03 §3.10、SPEC_04 §9、CONTEXT |
+| 2026-09-05 | v0.84.17 | UI-031：`MapScroll` 宽改为 **1920**（竖向铺满、水平居中）；地图内容仍锁展示宽 **1450**，在视口内水平居中。同步 SPEC_03/04、RuntimeFactory / Ensure / Prefab / View |
+| 2026-09-05 | v0.84.16 | UI-031 地图模式：`MapScroll` 展示宽 1450、竖向铺满、**水平居中**（避免全屏视口把 1450 底图顶到左边）。同步 SPEC_03/04、RuntimeFactory / Ensure / Prefab |
+| 2026-09-05 | v0.84.15 | Mode2 商店空栏保底（方案 B）：打开商店时若 6 槽皆空，按 `max(1, LevelId尾数)` 抬 `maxUnlocked`/置 pending 并走 `TryAutoRefreshOnceIfPending`，路线第一次进商店即有货；已有货/已售不重刷。同步 SPEC_03 §3.5、SPEC_04 §10 |
+| 2026-09-05 | v0.84.14 | UI-031 壳层布局：`Box` 改为全屏 stretch；`MapScroll`（及 Stage 回退 `StageScroll`）竖向铺满与屏幕同高；`Title` / `LevelTabBar` 叠在地图之上（不占 MapScroll 顶边留白）。同步 SPEC_03/04、`LevelRouteSelectRoot` / Ensure |
+| 2026-09-04 | v0.84.13 | UI-031 `OptionHoverTips` 改为独立 Prefab：`Assets/Prefabs/Level/OptionHoverTips.prefab`，以 Prefab 实例嵌套于 `LevelRouteSelectRoot/Box`；Ensure 同步 `Resources/Prefabs/Level/`；运行时仅 SerializeField，禁止 `BuildHierarchy` 拼装。同步 SPEC_03/04 |
 | 2026-09-04 | v0.84.12 | UI-031 子关卡悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`（枚举+尺度箭头）；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标行；Prefab `OptionHoverTips`；Localized `TipMsg_*`。同步 SPEC_03/04、CONTEXT、子关卡表 |
 | 2026-09-04 | v0.84.11 | 战斗结算 UI-017 完善：阵亡统计（总数+四职业图标）；战败「返回主界面」(TitleMenu)/「重新开始」(重进同选项)；SE Leave 后弹胜利结算、全灭弹战败；PushMap/SE 共用 Factory。同步 SPEC_03 §3.6/§3.14/§3.19、SPEC_04 §6/§9.22、CONTEXT；issues `.scratch/battle-settlement-polish/` |
 | 2026-09-04 | v0.84.10 | SearchExtract 地图绑定：玩法表 `SearchExtract_01.MapId=SearchExtract_Lv1_01`；`DefendPrefabCatalog.Maps` + `CatalogExtraMapIds` 补绑该 Prefab（防 GenerateAll 冲掉）。同步 SPEC_03 §3.19、SPEC_04 §9.32、CONTEXT |
@@ -477,6 +483,12 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-06 | v0.84.18 | Dig **Spirit Crystal** `QualityId=Q101`: GraveQuality DropMode2 Spirit-only loot (2/4/8/16); `Dig_01/02/03` weight `Q101;10`; Prefab/Catalog/HitShape cover Q101. Synced SPEC_03 §3.10, SPEC_04 §9, CONTEXT |
+| 2026-09-05 | v0.84.17 | UI-031: `MapScroll` width **1920** (full height, horizontally centered); map content still display width **1450**, centered in the viewport. Synced SPEC_03/04, RuntimeFactory / Ensure / Prefab / View |
+| 2026-09-05 | v0.84.16 | UI-031 map mode: `MapScroll` stays 1450 wide, full viewport height, **horizontally centered** (fullscreen viewport no longer left-aligns the 1450 map). Synced SPEC_03/04, RuntimeFactory / Ensure / Prefab |
+| 2026-09-05 | v0.84.15 | Mode2 shop empty-shelf ensure (Approach B): on Open, if all 6 slots empty, raise `maxUnlocked` to `max(1, LevelId suffix)` / set pending and run `TryAutoRefreshOnceIfPending` so first route shop visit has stock; do not re-roll if any slot has itemId (incl. sold). Synced SPEC_03 §3.5, SPEC_04 §10 |
+| 2026-09-05 | v0.84.14 | UI-031 chrome layout: `Box` stretch fullscreen; `MapScroll` (and Stage fallback `StageScroll`) height matches screen; `Title` / `LevelTabBar` overlay the map (no top inset reserved for chrome). Synced SPEC_03/04, `LevelRouteSelectRoot` / Ensure |
+| 2026-09-04 | v0.84.13 | UI-031 `OptionHoverTips` as standalone Prefab at `Assets/Prefabs/Level/OptionHoverTips.prefab`, nested Prefab instance under `LevelRouteSelectRoot/Box`; Ensure copies to `Resources/Prefabs/Level/`; runtime SerializeField only — no runtime `BuildHierarchy`. Synced SPEC_03/04 |
 | 2026-09-04 | v0.84.12 | UI-031 SubLevel hover Tips by GameplayType: Dig=`TipMessages` (enum+scale arrows); Shop/AM/UM=`IconAssetId2`+Description; PushMap/SE/Defend=`IconAssetId2`+Reward icons; Prefab `OptionHoverTips`; Localized `TipMsg_*`. Synced SPEC_03/04, CONTEXT, SubLevel table |
 | 2026-09-04 | v0.84.11 | Battle settlement UI-017 polish: casualty total + four BaseClass icons; defeat Return to Title / Restart same option; SE Leave→victory settlement, wipe→defeat; shared Factory for PushMap/SE. Synced SPEC_03 §3.6/§3.14/§3.19, SPEC_04 §6/§9.22, CONTEXT; issues `.scratch/battle-settlement-polish/` |
 | 2026-09-04 | v0.84.10 | SearchExtract map bind: gameplay `SearchExtract_01.MapId=SearchExtract_Lv1_01`; upsert `DefendPrefabCatalog.Maps` + `CatalogExtraMapIds` so GenerateAll does not drop it. Synced SPEC_03 §3.19, SPEC_04 §9.32, CONTEXT |

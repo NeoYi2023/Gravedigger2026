@@ -26,3 +26,4 @@ Q24,26,1,BP_Arm_Orc_Guardian;4000;1|BP_Arm_Orc_Berserker;4000;1|BP_Head_Orc_2;40
 Q25,26,1,BP_Arm_Orc_BombMaster;4000;1|BP_Arm_Orc_Longbowman;4000;1|BP_Head_Orc_2;4000;1|BP_Torso_Orc_2;4000;1|BP_Arm_Orc_2;4000;1|BP_Leg_Orc_2;4000;1,GraveIcon_Q25_High,GraveIcon_Q25_Mid,GraveIcon_Q25_Low
 Q26,26,1,BP_Arm_Orc_IceMage;4000;1|BP_Arm_Orc_FireMage;4000;1|BP_Head_Orc_2;4000;1|BP_Torso_Orc_2;4000;1|BP_Arm_Orc_2;4000;1|BP_Leg_Orc_2;4000;1,GraveIcon_Q26_High,GraveIcon_Q26_Mid,GraveIcon_Q26_Low
 Q27,26,1,BP_Arm_Orc_Brawler;4000;1|BP_Arm_Orc_Shadowblade;4000;1|BP_Head_Orc_2;4000;1|BP_Torso_Orc_2;4000;1|BP_Arm_Orc_2;4000;1|BP_Leg_Orc_2;4000;1,GraveIcon_Q27_High,GraveIcon_Q27_Mid,GraveIcon_Q27_Low
+Q101,100,2,Spirit;6000;2|Spirit;2000;4|Spirit;1500;8|Spirit;500;16,GraveIcon_Q28_High,GraveIcon_Q28_Mid,GraveIcon_Q28_Low

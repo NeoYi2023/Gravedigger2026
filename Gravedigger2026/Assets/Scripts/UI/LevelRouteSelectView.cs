@@ -459,8 +459,8 @@ namespace Gravedigger2026.UI
             _mapContent.anchorMin = Vector2.zero;
             _mapContent.anchorMax = Vector2.zero;
             _mapContent.pivot = Vector2.zero;
-            _mapContent.anchoredPosition = Vector2.zero;
             _mapContent.sizeDelta = size;
+            CenterMapContentHorizontally();
 
             if (mapRt != null)
             {
@@ -708,6 +708,28 @@ namespace Gravedigger2026.UI
             {
                 _mapScroll.verticalNormalizedPosition = 0f;
             }
+
+            CenterMapContentHorizontally();
+        }
+
+        private void CenterMapContentHorizontally()
+        {
+            if (_mapContent == null || _mapScroll == null)
+            {
+                return;
+            }
+
+            var viewport = _mapScroll.viewport != null
+                ? _mapScroll.viewport
+                : _mapScroll.GetComponent<RectTransform>();
+            if (viewport == null)
+            {
+                return;
+            }
+
+            var pos = _mapContent.anchoredPosition;
+            pos.x = (viewport.rect.width - _mapContent.rect.width) * 0.5f;
+            _mapContent.anchoredPosition = pos;
         }
 
         /// <summary>
@@ -1002,6 +1024,8 @@ namespace Gravedigger2026.UI
             EnsureOptionHoverTips();
             if (_optionHoverTips == null)
             {
+                Debug.LogWarning(
+                    "[LevelRouteSelect] OptionHoverTips missing on Prefab; hover Tips disabled. Run Ensure OptionHoverTips / LevelRouteSelectRoot.");
                 return;
             }
 
@@ -1082,23 +1106,6 @@ namespace Gravedigger2026.UI
                     _optionHoverTips = _optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
                 }
 
-                // Legacy Type/Reward text tips → rebuild.
-                if (_optionHoverTips == null || _optionHoverTipsRoot.transform.Find("Type") != null)
-                {
-                    var parent = _optionHoverTipsRoot.transform.parent;
-                    _optionHoverTipsRoot.name = "OptionHoverTips_Legacy";
-                    _optionHoverTipsRoot.SetActive(false);
-                    Destroy(_optionHoverTipsRoot);
-                    _optionHoverTipsRoot = null;
-                    _optionHoverTips = null;
-                    if (parent != null)
-                    {
-                        _optionHoverTipsRoot = BuildOptionHoverTips(parent);
-                        _optionHoverTips = _optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
-                        _optionHoverTipsRoot.SetActive(false);
-                    }
-                }
-
                 return;
             }
 
@@ -1109,31 +1116,20 @@ namespace Gravedigger2026.UI
             }
 
             var existing = box.Find("OptionHoverTips");
-            if (existing != null)
+            if (existing == null)
             {
-                if (existing.Find("Type") != null || existing.GetComponent<OptionHoverTipsController>() == null)
-                {
-                    existing.name = "OptionHoverTips_Legacy";
-                    existing.gameObject.SetActive(false);
-                    Destroy(existing.gameObject);
-                }
-                else
-                {
-                    _optionHoverTipsRoot = existing.gameObject;
-                    _optionHoverTips = existing.GetComponent<OptionHoverTipsController>();
-                    _optionHoverTipsRoot.SetActive(false);
-                    return;
-                }
+                return;
             }
 
-            _optionHoverTipsRoot = BuildOptionHoverTips(box);
-            _optionHoverTips = _optionHoverTipsRoot.GetComponent<OptionHoverTipsController>();
-            _optionHoverTipsRoot.SetActive(false);
-        }
+            if (existing.GetComponent<OptionHoverTipsController>() == null)
+            {
+                Debug.LogWarning(
+                    "[LevelRouteSelect] Box/OptionHoverTips has no OptionHoverTipsController; regenerate Prefab via Ensure menu.");
+                return;
+            }
 
-        public static GameObject BuildOptionHoverTips(Transform box)
-        {
-            return OptionHoverTipsController.BuildHierarchy(box);
+            _optionHoverTipsRoot = existing.gameObject;
+            _optionHoverTips = existing.GetComponent<OptionHoverTipsController>();
         }
 
         private Transform ResolveBoxTransform()

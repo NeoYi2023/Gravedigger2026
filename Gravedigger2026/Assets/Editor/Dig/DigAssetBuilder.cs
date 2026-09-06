@@ -42,7 +42,8 @@ namespace Gravedigger2026.Editor.Dig
         {
             "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
             "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20",
-            "Q21", "Q22", "Q23", "Q24", "Q25", "Q26", "Q27"
+            "Q21", "Q22", "Q23", "Q24", "Q25", "Q26", "Q27",
+            "Q101"
         };
 
         [InitializeOnLoadMethod]
@@ -62,8 +63,80 @@ namespace Gravedigger2026.Editor.Dig
                 {
                     GenerateAll();
                     EditorPrefs.SetBool(RegenPrefsKey, true);
+                    return;
                 }
+
+                EnsureMissingGravePrefabs();
             };
+        }
+
+        [MenuItem("Gravedigger2026/Dig/Ensure Missing Grave Prefabs + Catalog")]
+        public static void EnsureMissingGravePrefabsMenu()
+        {
+            EnsureMissingGravePrefabs();
+        }
+
+        /// <summary>
+        /// Creates any QualityIds Prefab/Catalog gaps without regenerating existing graves.
+        /// </summary>
+        public static void EnsureMissingGravePrefabs()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<DigPrefabCatalog>(CatalogPath);
+            if (catalog == null)
+            {
+                Debug.LogWarning("[DigAssetBuilder] DigPrefabCatalog missing — run Generate Dig Prefabs + Catalog first.");
+                return;
+            }
+
+            var added = 0;
+            var catalogDirty = false;
+            for (var i = 0; i < QualityIds.Length; i++)
+            {
+                var q = QualityIds[i];
+                var path = $"{PrefabDigDir}/Grave_{q}.prefab";
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                var catalogHas = catalog.TryGetGrave(q, out var bound) && bound != null;
+                if (prefab != null && catalogHas)
+                {
+                    var hit = prefab.GetComponent<DigHitShape>();
+                    if (hit != null && !hit.HasValidPolygon)
+                    {
+                        DigHitShapeBaker.BakePrefabPath(path);
+                    }
+
+                    continue;
+                }
+
+                if (prefab == null)
+                {
+                    Sprite keepSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                        $"Assets/Art/Dig/Graves/Grave_{q}/Grave_{q}.png");
+                    if (keepSprite == null)
+                    {
+                        keepSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                            "Assets/Art/Dig/Graves/Grave_Q20/Grave_Q20.png");
+                    }
+
+                    var go = BuildGrave(q, i, keepSprite);
+                    PrefabUtility.SaveAsPrefabAsset(go, path);
+                    Object.DestroyImmediate(go);
+                    prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    DigHitShapeBaker.BakePrefabPath(path);
+                    added++;
+                }
+
+                catalog.EditorUpsertGrave(q, prefab);
+                catalogDirty = true;
+            }
+
+            if (catalogDirty)
+            {
+                EditorUtility.SetDirty(catalog);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                EditorPrefs.SetBool(RegenPrefsKey, true);
+                Debug.Log($"[DigAssetBuilder] EnsureMissingGravePrefabs done. newlyCreated={added}");
+            }
         }
 
         [MenuItem("Gravedigger2026/Dig/Generate Dig Prefabs + Catalog")]

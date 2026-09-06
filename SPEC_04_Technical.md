@@ -83,7 +83,7 @@ Gravedigger2026/Assets/
 │   │   ├── Appearances/   # Appearances/{AppearanceId}/
 │   │   └── Monsters/      # Monsters/{ModelId}/
 │   ├── Dig/               # 坟墓、挖坟反馈等非角色源
-│   │   ├── Graves/        # Graves/{Grave_Q*}/（Demo 正式美术 Q1…Q20；Q21…Q27 可占位回退 Q20 Sprite）
+│   │   ├── Graves/        # Graves/{Grave_Q*}/（Demo 正式美术含 Q1…Q20、Q101 精魂结晶；Q21…Q27 可占位回退 Q20 Sprite）
 │   │   └── Feedback/
 │   ├── Maps/              # Maps/Tiles/ + Maps/{Ground_0N}/ + Maps/Shaders/Water/（流动水面 Built-in）
 │   ├── Defend/            # 弹道、护盾等非角色表现源
@@ -544,7 +544,7 @@ DigGameplayConfig {
 
 **落点：** 在 DigMap 整体可放置区域内采样；须避开 `DigObstacle`（**仅**未消除 Grave）的圆形障碍半径（半径在对应 Prefab 上配置）。单次生成采样失败最多重试 **32** 次，仍失败则放弃该次生成。
 
-**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下各品质 Grave 预制体暴露圆形障碍半径（Dig 阶段不 Instantiate 地图 Digger；HUD 左上 60x60 头像框为 DigReward 飞向目标）（`DigObstacleRadius`）；每种 `QualityId` 对应专属 Grave Prefab。`SpriteRenderer` 源图固定为 `Assets/Art/Dig/Graves/Grave_{QualityId}/Grave_{QualityId}.png`；`DigPrefabCatalog` 须覆盖当前模式 `GraveQualityConfig` 全部 QualityId（Mode2 Demo 为 Q1–Q27；Q21–Q27 无专属美术时可用 Q20 Sprite 占位）；`DigAssetBuilder` / HitShape baker 品质列表与表一致。Grave 根另挂 `DigHitShape`：本地 XZ 凸包顶点（≤12）+ `BoundingRadius`，由 Editor 菜单 `Gravedigger2026/Dig/Bake All Grave Hit Shapes` 离线烘焙（优先 `Sprite.GetPhysicsShape`，否则 alpha 扫边 → 凸包 → 简化）；换图后须重烘焙。规则层只读烘焙顶点，禁止运行时读 Sprite/像素。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。**镜头迷雾滤镜：** `DigStageRoot` → `DigHudCanvas/HudRoot/CameraFogOverlay`（`HudRoot` 第一子节点、全屏拉伸 Image）；Sprite = `Assets/Art/Maps/Fogs/Fog_1.png`（导入 Sprite、`npotScale=None`）；`raycastTarget=false`；随 HudRoot 显隐。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
+**Dig Prefab 约定：** `Assets/Prefabs/Dig/` 下各品质 Grave 预制体暴露圆形障碍半径（Dig 阶段不 Instantiate 地图 Digger；HUD 左上 60x60 头像框为 DigReward 飞向目标）（`DigObstacleRadius`）；每种 `QualityId` 对应专属 Grave Prefab。`SpriteRenderer` 源图固定为 `Assets/Art/Dig/Graves/Grave_{QualityId}/Grave_{QualityId}.png`；`DigPrefabCatalog` 须覆盖当前模式 `GraveQualityConfig` 全部 QualityId（Mode2 Demo 为 Q1–Q27 + **Q101 精魂结晶**；Q21–Q27 无专属美术时可用 Q20 Sprite 占位）；`DigAssetBuilder` / HitShape baker 品质列表与表一致。Grave 根另挂 `DigHitShape`：本地 XZ 凸包顶点（≤12）+ `BoundingRadius`，由 Editor 菜单 `Gravedigger2026/Dig/Bake All Grave Hit Shapes` 离线烘焙（优先 `Sprite.GetPhysicsShape`，否则 alpha 扫边 → 凸包 → 简化）；换图后须重烘焙。规则层只读烘焙顶点，禁止运行时读 Sprite/像素。Digger 视觉为 Character Creator **烘焙整角**，固定 Prefab 逻辑名 `Digger` → `Assets/Prefabs/Dig/Digger.prefab`；美术导出源见 [§15](#15-角色美术管线character-creator-烘焙整角)。挖坟圆圈光标 UI：`UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab`（双层圆形：Stroke 外径 + Fill 内径差固定**屏幕**像素描边；Fill 白色半透明）；由 `DigPrefabCatalog` 绑定，`DigCursorView` 在 Dig HUD Canvas 下 Instantiate：先将 `DigCursorRadius` 投影为屏幕像素直径，再 ÷ `Canvas.scaleFactor` 写入 `sizeDelta`（Scale With Screen Size 下禁止把屏幕像素当 canvas 单位）；圆形 Sprite 源 `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`。**镜头迷雾滤镜：** `DigStageRoot` → `DigHudCanvas/HudRoot/CameraFogOverlay`（`HudRoot` 第一子节点、全屏拉伸 Image）；Sprite = `Assets/Art/Maps/Fogs/Fog_1.png`（导入 Sprite、`npotScale=None`）；`raycastTarget=false`；随 HudRoot 显隐。Dig 地图：`DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`。
 
 #### 9.3 坟墓品质定义表 `GraveQualityConfig`
 
@@ -2488,7 +2488,7 @@ Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). **Demo:** three sample rows align 
 
 **Placement:** sample DigMap continuous placeable space; avoid `DigObstacle` circles (uncleared Graves only; radii on Prefabs). Retry up to **32** times per spawn; then abandon that spawn.
 
-**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, per-quality Grave Prefabs expose circle obstacle radius (`DigObstacleRadius`; Dig stage does not Instantiate map Digger; HUD top-left 60x60 portrait is DigReward fly target); one Grave Prefab per `QualityId`. `SpriteRenderer` source is `Assets/Art/Dig/Graves/Grave_{QualityId}/Grave_{QualityId}.png`; `DigPrefabCatalog` must cover every QualityId in the current-mode `GraveQualityConfig` (Mode2 Demo: Q1–Q27; Q21–Q27 may reuse Q20 Sprite as placeholder when dedicated art is missing); `DigAssetBuilder` / HitShape baker quality lists match the table. Grave roots also carry `DigHitShape`: local XZ convex hull (≤12 verts) + `BoundingRadius`, offline-baked via Editor menu `Gravedigger2026/Dig/Bake All Grave Hit Shapes` (prefer `Sprite.GetPhysicsShape`, else alpha outline → hull → simplify); re-bake after art changes. Rules read baked verts only — no runtime Sprite/pixel reads. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. **Camera fog filter:** `DigStageRoot` → `DigHudCanvas/HudRoot/CameraFogOverlay` (first child of `HudRoot`, stretched Image); Sprite = `Assets/Art/Maps/Fogs/Fog_1.png` (Sprite importer, `npotScale=None`); `raycastTarget=false`; shows/hides with HudRoot. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
+**Dig Prefab convention:** under `Assets/Prefabs/Dig/`, per-quality Grave Prefabs expose circle obstacle radius (`DigObstacleRadius`; Dig stage does not Instantiate map Digger; HUD top-left 60x60 portrait is DigReward fly target); one Grave Prefab per `QualityId`. `SpriteRenderer` source is `Assets/Art/Dig/Graves/Grave_{QualityId}/Grave_{QualityId}.png`; `DigPrefabCatalog` must cover every QualityId in the current-mode `GraveQualityConfig` (Mode2 Demo: Q1–Q27 + **Q101 Spirit Crystal**; Q21–Q27 may reuse Q20 Sprite as placeholder when dedicated art is missing); `DigAssetBuilder` / HitShape baker quality lists match the table. Grave roots also carry `DigHitShape`: local XZ convex hull (≤12 verts) + `BoundingRadius`, offline-baked via Editor menu `Gravedigger2026/Dig/Bake All Grave Hit Shapes` (prefer `Sprite.GetPhysicsShape`, else alpha outline → hull → simplify); re-bake after art changes. Rules read baked verts only — no runtime Sprite/pixel reads. Digger visuals are Character Creator **baked whole characters**; fixed Prefab logical name `Digger` → `Assets/Prefabs/Dig/Digger.prefab`; art export sources: [§15](#15-角色美术管线character-creator-烘焙整角). Dig circle-cursor UI: `UiDigCursorRing` → `Assets/Prefabs/Dig/UiDigCursorRing.prefab` (dual circle layers: Stroke outer + Fill inner with fixed **screen**-pixel stroke gap; Fill white semi-transparent); bound on `DigPrefabCatalog`, instantiated by `DigCursorView` under Dig HUD Canvas: project `DigCursorRadius` to screen-pixel diameter, then ÷ `Canvas.scaleFactor` into `sizeDelta` (do not treat screen pixels as canvas units under Scale With Screen Size); circle Sprite source `Assets/Art/UI/Dig/Ui_DigCursor_Circle.png`. **Camera fog filter:** `DigStageRoot` → `DigHudCanvas/HudRoot/CameraFogOverlay` (first child of `HudRoot`, stretched Image); Sprite = `Assets/Art/Maps/Fogs/Fog_1.png` (Sprite importer, `npotScale=None`); `raycastTarget=false`; shows/hides with HudRoot. Dig map: `DigMapId` → `Assets/Prefabs/Maps/{DigMapId}.prefab`.
 
 #### 9.3 GraveQualityConfig
 
@@ -4314,12 +4314,13 @@ SubLevelConfig {
 
 
 
-**悬停 Tips 布局（UI-031 / `OptionHoverTips` Prefab）：** 按 `GameplayType`——**Dig**：Title + `TipMessages`（≤3：类型名/图标/`Up_1`·`Down_1` 尺度箭头）+ Description；**Shop / AutoManufacture / UpgradeManufacture**：Title + `IconAssetId2`（空隐藏）+ Description；**PushMap / SearchExtract / Defend**：Title + `IconAssetId2`（空隐藏）+ `Reward` 图标行（≤3，经 §9.5a）+ Description；Description 空则隐藏。地图钉点仍只用 `IconAssetId`。运行时图标源 `Art/UI/Icons/` → `Resources/UI/Icons/`（含 Up/Down 与 TipMsg 图标）。
+**悬停 Tips 布局（UI-031 / `OptionHoverTips` Prefab）：** 权威资产 `Assets/Prefabs/Level/OptionHoverTips.prefab`；以 **Prefab 实例**嵌套于 `LevelRouteSelectRoot/Box`；Editor `Gravedigger2026/Level/Ensure OptionHoverTips Prefab (UI-031)` 生成/刷新，并同步运行时副本 `Assets/Resources/Prefabs/Level/OptionHoverTips.prefab`；`Ensure LevelRouteSelectRoot` 缺则 `InstantiatePrefab` 嵌套。运行时 `LevelRouteSelectView` **仅**用 SerializeField 驱动 `Show`/`Hide`；**禁止**运行时 `BuildHierarchy` 拼装（`BuildHierarchy` 仅 Editor 建资产）。按 `GameplayType`——**Dig**：Title + `TipMessages`（≤3：类型名/图标/`Up_1`·`Down_1` 尺度箭头）+ Description；**Shop / AutoManufacture / UpgradeManufacture**：Title + `IconAssetId2`（空隐藏）+ Description；**PushMap / SearchExtract / Defend**：Title + `IconAssetId2`（空隐藏）+ `Reward` 图标行（≤3，经 §9.5a）+ Description；Description 空则隐藏。地图钉点仍只用 `IconAssetId`。运行时图标源 `Art/UI/Icons/` → `Resources/UI/Icons/`（含 Up/Down 与 TipMsg 图标）。
+**壳层布局（UI-031 / `LevelRouteSelectRoot`）：** `Panel/Box` **全屏 stretch**（不再 1520×860 居中框）；`MapScroll` **竖向铺满与屏幕同高、宽 1920、水平居中**（Stage 回退 `StageScroll` 仍铺满）；`Title` / `LevelTabBar` **叠在 MapScroll 之上**（兄弟序更靠前绘制地图、靠后绘制标题/页签；不给 MapScroll 顶边留白）。地图内容展示宽仍锁 **1450**，在 `MapScroll` 视口内**水平居中**。
 **路线地图 Prefab（方案 C，UI-031）：** `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab` 承载底图 + 钉点（子节点名=`GameplayOptionId`，`anchoredPosition`=卡片中心；坐标约定同 SPEC_03 §3.9）。根 `RectTransform` 左下原点、宽 **1450**、高按 Background Sprite 比例。子节点仅为占位（非选项卡）。Editor（读 Mode2 `Level_LevelOperationConfig` + `Level_SubLevelConfig`）：
 - `Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)`：缺则建；`RouteMapAssetId` 贴 `Background`；补缺钉；并同步运行时副本到 `Assets/Resources/Prefabs/Level/`
 - `Gravedigger2026/Level/Sync LevelRouteMap Pins (UI-031)`：表有、Prefab 无 → 补钉（新钉默认 `(0,0)`）；Prefab 有、表无 → Warning；**不**覆盖已摆 `anchoredPosition`
 
-子关卡表**不含** `MapPosX`/`MapPosY`（钉点仅 Prefab）。运行时：`LevelRouteSelectView` 按 `LevelId` `Resources.Load` 地图 Prefab，选项钉在同名子节点；**地图模式场景仅 Icon**（选项根 `Image` 为白色全透明 `(1,1,1,0)`，仍可点击/悬停；Icon 三态由 View 按 `LevelRouteOptionUiState` 应用：Cleared→`Icon/ClearedMark` Checkmark；Selectable/Running→脉冲组件；Locked→变暗；Checkmark=`Resources.Load("UI/Icons/Checkmark")`）；悬停壳层 `OptionHoverTips` 按 GameplayType 分型（Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标行）；**打开/切页签后 View 将 `MapContent` 竖滑 Y 定位到最新已解锁钉点居中（只动 Y）**；**通关返回：`JustClearedOptionId` 非空时先瞬时对准刚通关钉点，停顿 0.5s，再约 0.5s 平滑至前沿**；缺钉 Warning + `(0,0)`；无 Prefab 或无 `RouteMapAssetId` → 旧 Stage 行（完整选项卡）。**解锁连线 `EdgeLayer`：** Prefab 默认可挂在 `MapContent`；地图模式运行时挂入 `LevelRouteMap_{LevelId}`，置于 `Background` 之后、选项 Icon 之前（连线在底图之上、Icon 之下），随竖滑滚动；`CanvasGroup.blocksRaycasts=false`。旧 Stage 行模式仍挂回 Box 覆盖层。
+子关卡表**不含** `MapPosX`/`MapPosY`（钉点仅 Prefab）。运行时：`LevelRouteSelectView` 按 `LevelId` `Resources.Load` 地图 Prefab，选项钉在同名子节点；**地图模式场景仅 Icon**（选项根 `Image` 为白色全透明 `(1,1,1,0)`，仍可点击/悬停；Icon 三态由 View 按 `LevelRouteOptionUiState` 应用：Cleared→`Icon/ClearedMark` Checkmark；Selectable/Running→脉冲组件；Locked→变暗；Checkmark=`Resources.Load("UI/Icons/Checkmark")`）；悬停壳层嵌套实例 `OptionHoverTips`（独立 Prefab，见上）按 GameplayType 分型（Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标行）；**打开/切页签后 View 将 `MapContent` 竖滑 Y 定位到最新已解锁钉点居中（只动 Y）**；**通关返回：`JustClearedOptionId` 非空时先瞬时对准刚通关钉点，停顿 0.5s，再约 0.5s 平滑至前沿**；缺钉 Warning + `(0,0)`；无 Prefab 或无 `RouteMapAssetId` → 旧 Stage 行（完整选项卡）。**解锁连线 `EdgeLayer`：** Prefab 默认可挂在 `MapContent`；地图模式运行时挂入 `LevelRouteMap_{LevelId}`，置于 `Background` 之后、选项 Icon 之前（连线在底图之上、Icon 之下），随竖滑滚动；`CanvasGroup.blocksRaycasts=false`。旧 Stage 行模式仍挂回 Box 覆盖层。
 
 **UM 下一战斗地图预览（Demo）：** `FormationMapResolver` 自当前 Stage 起向后扫描运作表选项，取首个 `GameplayType=Defend` 或 `PushMap` 或 `SearchExtract` 选项的 Config 地图；找不到 → `Ground_01`。
 
@@ -4423,7 +4424,7 @@ LocalizedDescriptionConfig {
 
 ### English (SubLevelConfig)
 
-Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). One row = one gameplay option (PK `GameplayOptionId`; **must not reuse across LevelIds**). Disk: Excel `关卡_子关卡表_Level_SubLevelConfig.xlsx`; CSV `Level_SubLevelConfig.csv`. Fields: Type/ConfigId (Shop/UM/AM ignore ConfigId; SearchExtract → §9.32); SearchExtract-only `GatherPointCount` (int N) and `GatherPointRewards` (`N:ItemId;Count|…`; `|` splits; `N:` starts a new point); Icon → `Resources/UI/Levels/`; Title/Description; Reward `ItemId;Count|…`; UnlockNext `OptId|…` must be Stage+1; empty UnlockNext → level victory on clear. **No** `MapPosX`/`MapPosY` (pins live only on `LevelRouteMap_{LevelId}` Prefab; Approach C). Editor (Mode2 CSV): `Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)` creates/paints Background (width 1450, height by sprite), fills missing pins, and copies runtime Prefabs to `Assets/Resources/Prefabs/Level/`; `Sync LevelRouteMap Pins` adds missing pins (new pins default `(0,0)`) and warns on extras without overwriting authored positions. Runtime `LevelRouteSelectView` `Resources.Load`s the map Prefab by LevelId and pins options to child `anchoredPosition`; **map mode shows Icon only** (option root `Image` white fully transparent `(1,1,1,0)`, still clickable/hoverable); hover chrome `OptionHoverTips` shows Type/Title/Description/Reward; **on open / tab switch View scrolls `MapContent` Y to center the latest unlocked pin (Y only)**; **on clear-return non-empty `JustClearedOptionId` → snap just-cleared, hold 0.5s, ~0.5s smooth to frontier**; missing pin → Warning + `(0,0)`; no Prefab / no `RouteMapAssetId` → legacy Stage rows (full cards). Pins are placeholders, not option nodes. **Unlock edges `EdgeLayer`:** Prefab may default under `MapContent`; at runtime in map mode reparented under `LevelRouteMap_{LevelId}`, sibling after `Background` and before option Icons (edges above bg, below Icons), scrolls with the map (`CanvasGroup.blocksRaycasts=false`); legacy Stage-row mode reparents to Box overlay.
+Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). One row = one gameplay option (PK `GameplayOptionId`; **must not reuse across LevelIds**). Disk: Excel `关卡_子关卡表_Level_SubLevelConfig.xlsx`; CSV `Level_SubLevelConfig.csv`. Fields: Type/ConfigId (Shop/UM/AM ignore ConfigId; SearchExtract → §9.32); SearchExtract-only `GatherPointCount` (int N) and `GatherPointRewards` (`N:ItemId;Count|…`; `|` splits; `N:` starts a new point); Icon → `Resources/UI/Levels/`; Title/Description; Reward `ItemId;Count|…`; UnlockNext `OptId|…` must be Stage+1; empty UnlockNext → level victory on clear. **No** `MapPosX`/`MapPosY` (pins live only on `LevelRouteMap_{LevelId}` Prefab; Approach C). Editor (Mode2 CSV): `Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)` creates/paints Background (width 1450, height by sprite), fills missing pins, and copies runtime Prefabs to `Assets/Resources/Prefabs/Level/`; `Sync LevelRouteMap Pins` adds missing pins (new pins default `(0,0)`) and warns on extras without overwriting authored positions. Runtime `LevelRouteSelectView` `Resources.Load`s the map Prefab by LevelId and pins options to child `anchoredPosition`; **map mode shows Icon only** (option root `Image` white fully transparent `(1,1,1,0)`, still clickable/hoverable); hover Tips = standalone Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab` nested under `LevelRouteSelectRoot/Box` (Ensure copies to `Resources/Prefabs/Level/`; runtime SerializeField only — no runtime `BuildHierarchy`); **chrome: `Box` stretch fullscreen; `MapScroll` height-full / width 1920 / horizontally centered (map content 1450 centered in viewport); `Title`/`LevelTabBar` overlay the map**; layout by GameplayType (Dig=`TipMessages`; Shop/AM/UM=`IconAssetId2`+Description; PushMap/SE/Defend=`IconAssetId2`+Reward icons); **on open / tab switch View scrolls `MapContent` Y to center the latest unlocked pin (Y only)**; **on clear-return non-empty `JustClearedOptionId` → snap just-cleared, hold 0.5s, ~0.5s smooth to frontier**; missing pin → Warning + `(0,0)`; no Prefab / no `RouteMapAssetId` → legacy Stage rows (full cards). Pins are placeholders, not option nodes. **Unlock edges `EdgeLayer`:** Prefab may default under `MapContent`; at runtime in map mode reparented under `LevelRouteMap_{LevelId}`, sibling after `Background` and before option Icons (edges above bg, below Icons), scrolls with the map (`CanvasGroup.blocksRaycasts=false`); legacy Stage-row mode reparents to Box overlay.
 
 ### English (SearchExtractGameplayConfig / SearchExtractWaveSpawnConfig)
 
@@ -4458,7 +4459,7 @@ Catalog：`Assets/Settings/Shop/ShopPrefabCatalog.asset`（`ShopAssetBuilder` �
   - 右侧“待售商品”（6 项 slot0..5 + 每项道具图标/名称/价格/购买按钮；图标经 `ItemIconLoader` 按归类 A/B 分别从 `Resources/UI/Equipment/`、`Resources/UI/MagicBooks/` 加载）
   - **OfferSlot 着色（UI-026）：** `OffersArea/OfferSlot_*` 根 Image 未购恒为 `Color.white`（alpha=1）；购买后 `Button.interactable=false`，ColorTint `DisabledColor` 仅改 RGB 且 **alpha 必须为 1**（禁止默认半透明禁用色）；View 刷新时不得用半透明深色覆盖槽位底图
   - 底部“刷新商品”按钮（显示下一次刷新价格并根据可用性置灰）
-  - Shop 打开（首次渲染）前应优先调用 `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)`
+  - Shop 打开（首次渲染）前：先 `ShopOfferRefreshService.TryEnsureOffersIfAllEmpty(progress, configs, activeLevelNumberFloor)`（6 槽皆空时抬门槛/置 pending 并生成一次），再 `TryAutoRefreshOnceIfPending`（消化残留 pending）
   - 关闭按钮（销毁实例；阶段路径由 Module Exit 兜底 Destroy）
   - 出售确认 `ConfirmDialog`：`overrideSorting` ≥ 201（商店 Canvas ≥ 200）
 
@@ -4470,6 +4471,7 @@ Catalog：`Assets/Settings/Shop/ShopPrefabCatalog.asset`（`ShopAssetBuilder` �
    - 管理 `ShopProgress` 快照并持久化（PlayerPrefs；键见 §6/持久化意图）
    - 对外提供：是否应触发本次“新关卡解锁”开放、当前 offers、currentRefreshCount 等只读状态
    - `OnLevelCleared(newMaxLevelNumber)`：仅设置 `pendingOpenOnNewUnlock=true` 并清空/重置 offers；最终 offers 生成由 `ShopOfferRefreshService.TryAutoRefreshOnceIfPending` 完成
+   - `AreAllOffersEmpty()` / `ForcePendingOpenForEmptyOffers()`：空栏保底用（仅当 6 槽 `itemId` 皆空时置 pending；不抬门槛、不清栏）
 
 2. `ShopOfferGenerator`
    - 输入：`ShopProgress.maxUnlockedLevelNumber`
@@ -4477,12 +4479,17 @@ Catalog：`Assets/Settings/Shop/ShopPrefabCatalog.asset`（`ShopAssetBuilder` �
    - 解析每个 pool 的 `PoolItemsRaw`，对归类 A/B 分别汇总 `byItemIdTotalWeight`
    - 对每个归类随机抽取 3 个不重复 `itemId`，不足则留空，不补齐
 
-3. `ShopRefreshPriceResolver`
+3. `ShopOfferRefreshService`
+   - `TryAutoRefreshOnceIfPending`：pending 时生成 6 项并清 pending
+   - `TryEnsureOffersIfAllEmpty(progress, configs, activeLevelNumberFloor)`：全空时 `floor=max(1,activeLevelNumberFloor)`；不足则 `OnLevelCleared(floor)`，否则 `ForcePendingOpenForEmptyOffers`；再走 `TryAutoRefreshOnceIfPending`
+   - `TryManualRefresh`：扣刷新价后重抽
+
+4. `ShopRefreshPriceResolver`
    - 输入：`currentRefreshCount`
    - 读取 `Shop_ShopRefreshPriceConfig` 给出下一次刷新价格
    - 若缺行则返回“不可刷新”状态供 View 置灰
 
-4. `ShopPurchaseService`
+5. `ShopPurchaseService`
    - 输入：slotIndex、offer itemId、category、priceSpirit
    - 校验：SpiritEssence 足够、slot 未 sold、物品 ID 与 category 映射合法
    - 扣除精魂并入账/入仓：
@@ -4490,35 +4497,37 @@ Catalog：`Assets/Settings/Shop/ShopPrefabCatalog.asset`（`ShopAssetBuilder` �
      - category B：调用 `SpecialEquipSlotsService.TryEquip(itemId)`
    - 标记 slot 为 sold 并写回 `ShopProgress`
 
-5. `ShopSellService`（D-076）
+6. `ShopSellService`（D-076）
    - `TrySellEquipment(equipId)`：校验 `ItemCatalogConfig.SellPrice ≥ 0` → `ProtagonistEquipmentService.TryRemove` → `Warehouse.AddSpirit(SellPrice)`；整件删除，不退 `CurrentExp`/`EquipCommonExp`
    - `TrySellMagicBook(slotIndex)`：校验 catalog → `SpecialEquipSlotsService.TryUnequip` → `AddSpirit(SellPrice)`（不补位、无仓库）
    - 失败不改库存/精魂；View 只派发点击与 ConfirmDialog
 
-6. `ShopStageModule`
+7. `ShopStageModule`
    - `HandledState = GameplayState.Shop`
-   - Enter：Instantiate Catalog Prefab → `Bind` + `Open`；Exit：Destroy
+   - Enter：Instantiate Catalog Prefab → `Bind` + `Open(activeLevelNumberFloor)`（自 `LevelStageContext.LevelId` 解析尾数）；Exit：Destroy
    - View `Closed`：阶段路径 `TryAdvanceStage`；overlay 路径仅清引用
+   - Overlay（`MetaShellController`）：`Open(floor)` 自 `ActiveLevelId` 解析；无活动关则 floor=0→ensure 用 1
 
-7. 与关卡解锁的集成点
+8. 与关卡解锁的集成点
    - 在 Mode2 PushMap 的 Boss 通关结算流程中，`Meta` 层在准备进入 `LevelSelectPanel` 前，
      - 读取当前关卡 `LevelId` 对应的数字“最大通过关卡号”
      - 调用 `ShopProgressService.OnLevelCleared(levelMaxNumber)`：
       - 若该数值比已记录更大，设置 `pendingOpenOnNewUnlock=true` 且清空 offers（安全准备）
       - 然后由 `Meta` 层立刻调用 `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)` 完成 offers 生成与 pending 消化（自动刷新不消耗刷新价格；刷新次数复位为 0）
 
-变更原因/影响：商店从壳层 overlay 升为可配置玩法类型；offers 生成仍只走 `TryAutoRefreshOnceIfPending`。
+变更原因/影响：路线第一次进商店即可出货（空栏保底）；生成仍只走 pending→`TryAutoRefreshOnceIfPending`。
 
 ### English
-Shop StageRoot prefab: `Assets/Prefabs/Shop/ShopStageRoot.prefab` (full-screen stretch Canvas; `ShopAssetBuilder` + `ShopPrefabCatalog`). Background stack: `Background` (`Title_Shop_1.png`, `AspectRatioFitter` EnvelopeParent keep-aspect cover) → semi-transparent `ShopBackdrop` Dim → transparent `ShopBox` content host; `ShopAssetBuilder.EnsureShopBackground` assigns the sprite. Dual entry: Level `GameplayType=Shop` via `ShopStageModule` (close → `TryAdvanceStage`; ignore `GameplayConfigId`); InSaveShell overlay instantiates the same prefab (close does not advance; no-op while Shop stage is open). **OfferSlot tint:** unsold root Image = opaque `Color.white`; sold ColorTint `DisabledColor` RGB-only with alpha=1 (no semi-transparent disable fade); View must not overwrite slot backgrounds with semi-transparent fills.
+Shop StageRoot prefab: `Assets/Prefabs/Shop/ShopStageRoot.prefab` (full-screen stretch Canvas; `ShopAssetBuilder` + `ShopPrefabCatalog`). Background stack: `Background` (`Title_Shop_1.png`, `AspectRatioFitter` EnvelopeParent keep-aspect cover) → semi-transparent `ShopBackdrop` Dim → transparent `ShopBox` content host; `ShopAssetBuilder.EnsureShopBackground` assigns the sprite. Dual entry: Level `GameplayType=Shop` via `ShopStageModule` (close → `TryAdvanceStage`; ignore `GameplayConfigId`); InSaveShell overlay instantiates the same prefab (close does not advance; no-op while Shop stage is open). **OfferSlot tint:** unsold root Image = opaque `Color.white`; sold ColorTint `DisabledColor` RGB-only with alpha=1 (no semi-transparent disable fade); View must not overwrite slot backgrounds with semi-transparent fills. On Open: `TryEnsureOffersIfAllEmpty` then `TryAutoRefreshOnceIfPending`.
 
 Service split (minimum responsibilities):
-- `ShopProgressService`: persist snapshot (slot+Mode2) via PlayerPrefs (see §6).
+- `ShopProgressService`: persist snapshot (slot+Mode2) via PlayerPrefs (see §6); `AreAllOffersEmpty` / `ForcePendingOpenForEmptyOffers` for empty-shelf ensure.
 - `ShopOfferGenerator`: unlock pools from `Shop_ShopPoolConfig`, parse `PoolItemsRaw`, sum weights by identical `itemId` per category (A/B), then pick 3 distinct items per category.
+- `ShopOfferRefreshService`: `TryEnsureOffersIfAllEmpty` (Approach B) + `TryAutoRefreshOnceIfPending` + manual refresh.
 - `ShopRefreshPriceResolver`: read next `RefreshPrice` from `Shop_ShopRefreshPriceConfig`; missing row disables refresh.
 - `ShopPurchaseService`: validate SpiritEssence and slot state, deduct Spirit, grant items by category (A→`ProtagonistEquipmentService.TryAcquire`, B→`SpecialEquipSlotsService.TryEquip`), then mark sold + persist.
 - `ShopSellService` (D-076): sell owned equipment/MagicBook for `ItemCatalogConfig.SellPrice` Spirit via `TryRemove` / `TryUnequip`; View shows ICONs + floating Sell under selection; ConfirmDialog sorting ≥ 201.
-- `ShopStageModule`: Instantiate/Destroy prefab; stage close advances.
+- `ShopStageModule`: Instantiate/Destroy prefab; `Open(floor)` from LevelId suffix; stage close advances.
 
 Unlock integration: on Mode2 PushMap boss-clear settlement, Meta calls `ShopProgressService.OnLevelCleared(levelMaxNumber)` and (when OnLevelCleared returns true) immediately calls `ShopOfferRefreshService.TryAutoRefreshOnceIfPending(progress, configs)` to generate offers once and clear pending (free, no refresh-price deduction).
 

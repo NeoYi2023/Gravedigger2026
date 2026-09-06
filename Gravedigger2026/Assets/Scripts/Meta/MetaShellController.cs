@@ -1006,7 +1006,15 @@ namespace Gravedigger2026.Meta
                 _toastView);
 
             _shopStageRootView.Closed += HandleShopOverlayClosed;
-            _shopStageRootView.Open();
+
+            var floor = 0;
+            var activeLevelId = _levelDriver != null ? _levelDriver.ActiveLevelId : null;
+            if (ShopOfferRefreshService.TryParseLevelNumberSuffix(activeLevelId, out var levelNumber))
+            {
+                floor = levelNumber;
+            }
+
+            _shopStageRootView.Open(floor);
             RefreshCameraFogMetaBlocking();
         }
 
@@ -1143,7 +1151,7 @@ namespace Gravedigger2026.Meta
             // SS-06：Mode2 新关卡解锁 → OnLevelCleared(pending) → 立刻 TryAutoRefreshOnceIfPending 生成 offers once。
             if (_campaignMode.HasMode && _campaignMode.Current == CampaignMode.Mode2)
             {
-                if (!string.IsNullOrEmpty(levelId) && TryExtractTrailingNumber(levelId, out var levelMaxNumber))
+                if (ShopOfferRefreshService.TryParseLevelNumberSuffix(levelId, out var levelMaxNumber))
                 {
                     var updated = _shopProgress.OnLevelCleared(levelMaxNumber);
                     if (updated)
@@ -1159,29 +1167,6 @@ namespace Gravedigger2026.Meta
             }
 
             OpenLevelSelectPanel();
-        }
-
-        private static bool TryExtractTrailingNumber(string levelId, out int number)
-        {
-            number = 0;
-            if (string.IsNullOrEmpty(levelId))
-            {
-                return false;
-            }
-
-            var i = levelId.Length - 1;
-            while (i >= 0 && char.IsDigit(levelId[i]))
-            {
-                i--;
-            }
-
-            if (i == levelId.Length - 1)
-            {
-                return false; // no trailing digits
-            }
-
-            var digits = levelId.Substring(i + 1);
-            return int.TryParse(digits, out number);
         }
 
         private void HandleBattleFailureReturnTitle()

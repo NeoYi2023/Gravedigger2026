@@ -34,6 +34,49 @@ namespace Gravedigger2026.Core.Shop
             ResetOffersToDefaults();
         }
 
+        /// <summary>
+        /// True when every offer slot has an empty ItemId (sold slots with ItemId count as non-empty).
+        /// </summary>
+        public bool AreAllOffersEmpty()
+        {
+            for (var slot = 0; slot < _offers.Length; slot++)
+            {
+                var offer = _offers[slot];
+                if (offer != null && !string.IsNullOrEmpty(offer.ItemId))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Empty-shelf ensure: set pending without raising unlock or clearing slots.
+        /// No-op unless all offers are empty and a save slot is bound (Mode2).
+        /// </summary>
+        public bool ForcePendingOpenForEmptyOffers()
+        {
+            if (_slotIndex < 0 || _campaignMode != CampaignMode.Mode2)
+            {
+                return false;
+            }
+
+            if (!AreAllOffersEmpty())
+            {
+                return false;
+            }
+
+            if (_pendingOpenOnNewUnlock)
+            {
+                return true;
+            }
+
+            _pendingOpenOnNewUnlock = true;
+            Persist();
+            return true;
+        }
+
         public void BindSlot(int slotIndex, CampaignMode campaignMode)
         {
             if (slotIndex < 0 || slotIndex > 2)

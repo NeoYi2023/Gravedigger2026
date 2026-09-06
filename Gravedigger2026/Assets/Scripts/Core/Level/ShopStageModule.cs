@@ -115,10 +115,18 @@ namespace Gravedigger2026.Core.Level
                 _toastView);
             _view.Closed += HandleClosed;
             _onPresentationActive?.Invoke(true);
-            _view.Open();
+
+            var floor = 0;
+            if (context != null
+                && ShopOfferRefreshService.TryParseLevelNumberSuffix(context.LevelId, out var levelNumber))
+            {
+                floor = levelNumber;
+            }
+
+            _view.Open(floor);
 
             Debug.Log(
-                $"[Stage:Shop] Enter Level={context?.LevelId} Stage={context?.StageNumber} ConfigIdIgnored={context?.GameplayConfigId} (D-075)");
+                $"[Stage:Shop] Enter Level={context?.LevelId} Stage={context?.StageNumber} ConfigIdIgnored={context?.GameplayConfigId} floor={floor} (D-075)");
         }
 
         public void Exit(LevelStageContext context)

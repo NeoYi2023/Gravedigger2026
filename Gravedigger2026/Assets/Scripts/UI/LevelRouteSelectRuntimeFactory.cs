@@ -11,8 +11,7 @@ namespace Gravedigger2026.UI
     {
         private const int ModalSortingOrder = 220;
         private const float MapDisplayWidth = LevelRouteSelectView.MapDisplayWidth;
-        private const float BoxWidth = 1520f;
-        private const float BoxHeight = 860f;
+        private const float MapScrollWidth = 1920f;
 
         public static LevelRouteSelectView Create(Transform parent)
         {
@@ -42,15 +41,14 @@ namespace Gravedigger2026.UI
             canvas.sortingOrder = ModalSortingOrder;
             root.AddComponent<GraphicRaycaster>();
 
-            var box = CreatePanel(root.transform, "Box", new Color(0.12f, 0.14f, 0.18f, 1f));
-            Place(box.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(BoxWidth, BoxHeight));
+            var box = CreatePanel(root.transform, "Box", new Color(0x12 / 255f, 0x12 / 255f, 0x12 / 255f, 1f));
+            StretchFull(box.GetComponent<RectTransform>());
+
+            var stageScrollGo = BuildStageScroll(box.transform, out var content, out var stageRow, out var optionCard);
+            var mapScrollGo = BuildMapScroll(box.transform, out var mapContent, out var mapBg, out var mapHost);
 
             CreateText(box.transform, "Title", "路线选择", 30, TextAnchor.MiddleCenter,
                 new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(900f, 44f));
-
-            var closeGo = CreateButton(box.transform, "CloseButton", "X",
-                new Color(0.45f, 0.22f, 0.22f, 1f),
-                new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
 
             var tabBarGo = new GameObject("LevelTabBar", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             tabBarGo.transform.SetParent(box.transform, false);
@@ -79,8 +77,9 @@ namespace Gravedigger2026.UI
                 new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(130f, 36f));
             tabTemplate.SetActive(false);
 
-            var stageScrollGo = BuildStageScroll(box.transform, out var content, out var stageRow, out var optionCard);
-            var mapScrollGo = BuildMapScroll(box.transform, out var mapContent, out var mapBg, out var mapHost);
+            var closeGo = CreateButton(box.transform, "CloseButton", "X",
+                new Color(0.45f, 0.22f, 0.22f, 1f),
+                new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
 
             var edgeLayer = new GameObject("EdgeLayer", typeof(RectTransform));
             edgeLayer.transform.SetParent(mapContent, false);
@@ -92,8 +91,11 @@ namespace Gravedigger2026.UI
             edgeCg.blocksRaycasts = false;
             edgeCg.interactable = false;
 
-            var tips = LevelRouteSelectView.BuildOptionHoverTips(box.transform);
-            tips.SetActive(false);
+            var tips = InstantiateOptionHoverTips(box.transform);
+            if (tips != null)
+            {
+                tips.SetActive(false);
+            }
 
             // Close above scroll so X always receives clicks.
             closeGo.transform.SetAsLastSibling();
@@ -119,6 +121,21 @@ namespace Gravedigger2026.UI
             return view;
         }
 
+        private static GameObject InstantiateOptionHoverTips(Transform box)
+        {
+            var prefab = Resources.Load<GameObject>("Prefabs/Level/OptionHoverTips");
+            if (prefab == null)
+            {
+                Debug.LogWarning(
+                    "[LevelRouteSelectRuntimeFactory] Missing Resources Prefab Prefabs/Level/OptionHoverTips; hover Tips disabled.");
+                return null;
+            }
+
+            var tips = Object.Instantiate(prefab, box, false);
+            tips.name = "OptionHoverTips";
+            return tips;
+        }
+
         private static GameObject BuildStageScroll(
             Transform box,
             out GameObject content,
@@ -127,7 +144,7 @@ namespace Gravedigger2026.UI
         {
             var scrollGo = new GameObject("StageScroll", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
             scrollGo.transform.SetParent(box, false);
-            Place(scrollGo.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(1460f, 680f));
+            StretchFull(scrollGo.GetComponent<RectTransform>());
             scrollGo.GetComponent<Image>().color = new Color(0.08f, 0.09f, 0.11f, 1f);
 
             var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
@@ -226,7 +243,7 @@ namespace Gravedigger2026.UI
         {
             var scrollGo = new GameObject("MapScroll", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
             scrollGo.transform.SetParent(box, false);
-            Place(scrollGo.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(1460f, 680f));
+            StretchVerticalCentered(scrollGo.GetComponent<RectTransform>(), MapScrollWidth);
             scrollGo.GetComponent<Image>().color = new Color(0.06f, 0.07f, 0.09f, 1f);
 
             var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Mask));
@@ -332,6 +349,16 @@ namespace Gravedigger2026.UI
             rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        private static void StretchVerticalCentered(RectTransform rt, float width)
+        {
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(width, 0f);
         }
 
         private static void Place(RectTransform rt, Vector2 anchor, Vector2 anchoredPos, Vector2 size)

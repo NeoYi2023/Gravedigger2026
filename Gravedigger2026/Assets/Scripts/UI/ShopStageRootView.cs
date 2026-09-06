@@ -125,7 +125,10 @@ namespace Gravedigger2026.UI
             HideSellPopover();
         }
 
-        public void Open()
+        /// <param name="activeLevelNumberFloor">
+        /// Trailing digits of current LevelId (0 if none). Used by empty-shelf ensure (Approach B).
+        /// </param>
+        public void Open(int activeLevelNumberFloor = 0)
         {
             if (_progress == null)
             {
@@ -139,11 +142,15 @@ namespace Gravedigger2026.UI
             {
                 try
                 {
+                    _refreshService.TryEnsureOffersIfAllEmpty(
+                        _progress,
+                        _configs,
+                        activeLevelNumberFloor);
                     _refreshService.TryAutoRefreshOnceIfPending(_progress, _configs);
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"[ShopStageRootView] Auto refresh pending failed: {e}");
+                    Debug.LogError($"[ShopStageRootView] Auto refresh / empty-shelf ensure failed: {e}");
                 }
             }
 

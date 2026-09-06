@@ -89,3 +89,5 @@ MonoBehaviour:
     Prefab: {fileID: 8700002600000000001, guid: c218800f4f8f455b8bb3de90a32beb41, type: 3}
   - QualityId: Q27
     Prefab: {fileID: 8700002700000000001, guid: cf257cd21c7d4e5f858895960f87d494, type: 3}
+  - QualityId: Q101
+    Prefab: {fileID: 8700010100000000001, guid: e30392855f59397489a95a3ddb703762, type: 3}

@@ -18,6 +18,45 @@ namespace Gravedigger2026.Core.Shop
         }
 
         /// <summary>
+        /// 方案 B：打开商店时若 6 槽皆空，按 floor=max(1, activeLevelNumberFloor) 抬门槛/置 pending，再生成一次。
+        /// 任一槽已有 itemId（含已售）则不重刷。
+        /// </summary>
+        public bool TryEnsureOffersIfAllEmpty(
+            ShopProgressService progress,
+            ConfigCsvRepository configs,
+            int activeLevelNumberFloor)
+        {
+            if (progress == null || configs == null)
+            {
+                return false;
+            }
+
+            if (!progress.AreAllOffersEmpty())
+            {
+                return false;
+            }
+
+            var floor = Math.Max(1, activeLevelNumberFloor);
+            if (progress.MaxUnlockedLevelNumber < floor)
+            {
+                progress.OnLevelCleared(floor);
+            }
+            else
+            {
+                progress.ForcePendingOpenForEmptyOffers();
+            }
+
+            var generated = TryAutoRefreshOnceIfPending(progress, configs);
+            if (generated)
+            {
+                Debug.Log(
+                    $"[ShopRefresh] Empty-shelf ensure done (slot={progress.BoundSlotIndex}, floor={floor}, maxUnlocked={progress.MaxUnlockedLevelNumber}).");
+            }
+
+            return generated;
+        }
+
+        /// <summary>
         /// 当 pendingOpenOnNewUnlock=true 时，自动生成 offers 一次（不扣 refresh price）。
         /// </summary>
         public bool TryAutoRefreshOnceIfPending(
@@ -42,6 +81,30 @@ namespace Gravedigger2026.Core.Shop
 
             Debug.Log($"[ShopRefresh] Auto refresh once done (slot={progress.BoundSlotIndex}, mode={progress.BoundCampaignMode}).");
             return true;
+        }
+
+        /// <summary>Parse trailing digits of LevelId (e.g. Level_01 → 1).</summary>
+        public static bool TryParseLevelNumberSuffix(string levelId, out int number)
+        {
+            number = 0;
+            if (string.IsNullOrEmpty(levelId))
+            {
+                return false;
+            }
+
+            var i = levelId.Length - 1;
+            while (i >= 0 && char.IsDigit(levelId[i]))
+            {
+                i--;
+            }
+
+            if (i == levelId.Length - 1)
+            {
+                return false;
+            }
+
+            var digits = levelId.Substring(i + 1);
+            return int.TryParse(digits, out number);
         }
 
         /// <summary>

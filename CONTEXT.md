@@ -76,7 +76,7 @@
 | SubLevelConfig | 子关卡表 | `Level_SubLevelConfig`；PK=`GameplayOptionId`；含 `TipMessages` / `IconAssetId2`（Tips 专用） | [SPEC_04 §9.31](SPEC_04_Technical.md) |
 | TipMessages | 子关卡 Tips 消息 | 编码 `MsgType;StockScale\|…`（≤3；尺度∈[-3,-1]∪[1,3]）；类型名←`TipMsg_*` | [SPEC_04 §9.31](SPEC_04_Technical.md) |
 | IconAssetId2 | Tips 中部图标 | 子关卡列；仅悬停 Tips；空=不显示；与地图钉点 `IconAssetId` 分离 | [SPEC_04 §9.31](SPEC_04_Technical.md) |
-| RouteSelect | 关卡路线选择 | Prefab（UI-031）：壳 `LevelRouteSelectRoot` + 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
+| RouteSelect | 关卡路线选择 | Prefab（UI-031）：壳 `LevelRouteSelectRoot`（`Box` 全屏；`MapScroll` 竖向铺满、宽 1920 水平居中；地图内容 1450 视口内居中；`Title`/页签叠地图上）+ 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
 | LevelRouteMap | 关卡路线地图 | 每关独立 Prefab `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`；底图 + 选项钉点（子节点名=`GameplayOptionId`）；Editor `Ensure LevelRouteMap Prefabs` / `Sync LevelRouteMap Pins` | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §2](SPEC_04_Technical.md) / §9.31 |
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |
@@ -85,6 +85,7 @@
 | MapEdgeFog | 地图边缘迷雾 | 世界空间雾片挂 `Prefabs/Maps/{MapId}`，遮 IsoDiamond 可玩区外空白；方案 A；与 `CameraFogOverlay` 职责分离可叠加；静态零 Update；不参与寻路/空气墙/占领 | [SPEC_04 §13](SPEC_04_Technical.md) |
 | CameraFogOverlay | 镜头迷雾滤镜 | 全局 `CameraFogService` 拥有的 `DigFogCanvas` 全屏 Image；素材 `Art/Maps/Fogs/Fog_1.png`；**仅** Dig 会话与 PushMap Combat（含 Intro）显示；Meta 弹窗打开时主动隐藏；呼吸缩放见 `DigCameraFogOverlayView` | [§3.10](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | Grave | 坟墓 | 挖坟可生成实体；带品质 ID；未消除时为 DigObstacle | [§3.10](SPEC_03_GameRules.md) |
+| SpiritCrystal | 精魂结晶 | 挖坟品质 `QualityId=Q101`；玩法同普通坟；`LootDrop` 仅 `Spirit`（无尸体残骸）；Mode2 样例 DropMode=2 加权抽 2/4/8/16 | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9.3](SPEC_04_Technical.md) |
 | Digger | 挖坟主角 | Dig 阶段不生成地图模型；HUD 左上 60×60 头像框；Prefab 可保留于 Catalog/Art | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §15](SPEC_04_Technical.md) |
 | DigAction | 挖掘流程 | 0.2s 停留触发；`DigActionDuration` 帧动画后扣血；busy 不可重触 | [§3.10](SPEC_03_GameRules.md) |
 | DigObstacle | 挖坟障碍物 | 仅未消除 Grave；圆形半径在 Prefab 上 | [§3.10](SPEC_03_GameRules.md) |

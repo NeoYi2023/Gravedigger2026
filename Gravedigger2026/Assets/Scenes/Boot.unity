@@ -341,10 +341,7 @@ MonoBehaviour:
   _mapOptionsHost: {fileID: 0}
   _mapScroll: {fileID: 0}
   _optionHoverTipsRoot: {fileID: 0}
-  _optionTipsType: {fileID: 0}
-  _optionTipsTitle: {fileID: 0}
-  _optionTipsDescription: {fileID: 0}
-  _optionTipsReward: {fileID: 0}
+  _optionHoverTips: {fileID: 0}
 --- !u!114 &570231280
 MonoBehaviour:
   m_ObjectHideFlags: 0

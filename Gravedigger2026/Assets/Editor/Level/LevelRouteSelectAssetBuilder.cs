@@ -12,6 +12,7 @@ namespace Gravedigger2026.EditorTools.Level
     {
         private const string PrefabPath = "Assets/Prefabs/Level/LevelRouteSelectRoot.prefab";
         private const string TipsPrefabPath = "Assets/Prefabs/Level/OptionHoverTips.prefab";
+        private const string TipsResourcesPrefabPath = "Assets/Resources/Prefabs/Level/OptionHoverTips.prefab";
         private const string MenuPath = "Gravedigger2026/Level/Ensure LevelRouteSelectRoot Prefab (UI-031)";
         private const string TipsMenuPath = "Gravedigger2026/Level/Ensure OptionHoverTips Prefab (UI-031)";
         private const string MapMenuPath = "Gravedigger2026/Level/Ensure Route Map Resources (UI-031)";
@@ -20,35 +21,64 @@ namespace Gravedigger2026.EditorTools.Level
         private const string ArtIconsDir = "Assets/Art/UI/Icons";
         private const string ResourcesIconsDir = "Assets/Resources/UI/Icons";
         private const float MapDisplayWidth = LevelRouteSelectView.MapDisplayWidth;
-        private const float BoxWidth = 1520f;
-        private const float BoxHeight = 860f;
+        private const float MapScrollWidth = 1920f;
 
         [MenuItem(TipsMenuPath)]
         public static void EnsureTipsPrefab()
         {
             EnsureFolder("Assets/Prefabs");
             EnsureFolder("Assets/Prefabs/Level");
+            EnsureFolder("Assets/Resources");
+            EnsureFolder("Assets/Resources/Prefabs");
+            EnsureFolder("Assets/Resources/Prefabs/Level");
             EnsureTipIconResources();
 
             var temp = new GameObject("OptionHoverTips_Temp");
-            var tips = LevelRouteSelectView.BuildOptionHoverTips(temp.transform);
+            var tips = OptionHoverTipsController.BuildHierarchy(temp.transform);
             tips.transform.SetParent(null, false);
             Object.DestroyImmediate(temp);
 
-            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(TipsPrefabPath);
-            if (existing != null)
-            {
-                PrefabUtility.SaveAsPrefabAsset(tips, TipsPrefabPath);
-            }
-            else
-            {
-                PrefabUtility.SaveAsPrefabAsset(tips, TipsPrefabPath);
-            }
-
+            PrefabUtility.SaveAsPrefabAsset(tips, TipsPrefabPath);
+            PrefabUtility.SaveAsPrefabAsset(tips, TipsResourcesPrefabPath);
             Object.DestroyImmediate(tips);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log($"[LevelRouteSelect] Ensured Tips Prefab at {TipsPrefabPath}");
+            Debug.Log($"[LevelRouteSelect] Ensured Tips Prefab at {TipsPrefabPath} + Resources copy");
+        }
+
+        /// <summary>
+        /// Nest OptionHoverTips Prefab under Box (replace legacy / code-built tree).
+        /// </summary>
+        public static GameObject NestTipsPrefabUnderBox(Transform box)
+        {
+            if (box == null)
+            {
+                return null;
+            }
+
+            EnsureTipsPrefab();
+            var tipsPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TipsPrefabPath);
+            if (tipsPrefab == null)
+            {
+                Debug.LogError($"[LevelRouteSelect] Missing Tips Prefab at {TipsPrefabPath}");
+                return null;
+            }
+
+            var existing = box.Find("OptionHoverTips");
+            if (existing != null)
+            {
+                Object.DestroyImmediate(existing.gameObject);
+            }
+
+            var instance = PrefabUtility.InstantiatePrefab(tipsPrefab, box) as GameObject;
+            if (instance == null)
+            {
+                return null;
+            }
+
+            instance.name = "OptionHoverTips";
+            instance.SetActive(false);
+            return instance;
         }
 
         public static void EnsureTipIconResources()
@@ -220,12 +250,19 @@ namespace Gravedigger2026.EditorTools.Level
             backdrop.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.72f);
 
             var box = CreateUi(panel.transform, "Box", typeof(Image));
-            var boxRt = box.GetComponent<RectTransform>();
-            Place(boxRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(BoxWidth, BoxHeight));
-            box.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.18f, 1f);
+            StretchFull(box.GetComponent<RectTransform>());
+            box.GetComponent<Image>().color = new Color(0x12 / 255f, 0x12 / 255f, 0x12 / 255f, 1f);
+
+            // Scrolls behind chrome so Title / LevelTabBar can overlay the map.
+            BuildStageScroll(box.transform);
+            BuildMapScroll(box.transform);
 
             var title = CreateText(box.transform, "Title", "路线选择", 30, TextAnchor.MiddleCenter);
             Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(900f, 44f));
+            title.GetComponent<Text>().raycastTarget = false;
+
+            BuildTabBar(box.transform);
+            NestTipsPrefabUnderBox(box.transform);
 
             var closeGo = CreateUi(box.transform, "CloseButton", typeof(Image), typeof(Button));
             Place(closeGo.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
@@ -233,16 +270,13 @@ namespace Gravedigger2026.EditorTools.Level
             var closeLabel = CreateText(closeGo.transform, "Label", "X", 22, TextAnchor.MiddleCenter);
             StretchFull(closeLabel.GetComponent<RectTransform>());
 
-            BuildTabBar(box.transform);
-            BuildStageScroll(box.transform);
-            BuildMapScroll(box.transform);
-            LevelRouteSelectView.BuildOptionHoverTips(box.transform);
             var mapContent = box.transform.Find("MapScroll/Viewport/MapContent");
             if (mapContent != null)
             {
                 BuildEdgeLayer(mapContent);
             }
 
+            ReorderBoxChrome(box.transform);
             return canvasGo;
         }
 
@@ -286,8 +320,7 @@ namespace Gravedigger2026.EditorTools.Level
         private static GameObject BuildStageScroll(Transform box)
         {
             var scrollGo = CreateUi(box, "StageScroll", typeof(Image), typeof(ScrollRect));
-            var scrollRt = scrollGo.GetComponent<RectTransform>();
-            Place(scrollRt, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(1460f, 680f));
+            StretchFull(scrollGo.GetComponent<RectTransform>());
             scrollGo.GetComponent<Image>().color = new Color(0.08f, 0.09f, 0.11f, 1f);
 
             var viewport = CreateUi(scrollGo.transform, "Viewport", typeof(Image), typeof(Mask));
@@ -355,7 +388,7 @@ namespace Gravedigger2026.EditorTools.Level
         private static void BuildMapScroll(Transform box)
         {
             var scrollGo = CreateUi(box, "MapScroll", typeof(Image), typeof(ScrollRect));
-            Place(scrollGo.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -40f), new Vector2(1460f, 680f));
+            StretchVerticalCentered(scrollGo.GetComponent<RectTransform>(), MapScrollWidth);
             scrollGo.GetComponent<Image>().color = new Color(0.06f, 0.07f, 0.09f, 1f);
 
             var viewport = CreateUi(scrollGo.transform, "Viewport", typeof(Image), typeof(Mask));
@@ -450,22 +483,24 @@ namespace Gravedigger2026.EditorTools.Level
                 edge = boxTf.Find("EdgeLayer")?.GetComponent<RectTransform>();
             }
 
-            var tipsTf = boxTf != null ? boxTf.Find("OptionHoverTips") : null;
-            if (tipsTf != null
-                && (tipsTf.Find("Type") != null || tipsTf.GetComponent<OptionHoverTipsController>() == null))
+            GameObject tipsRoot = null;
+            if (boxTf != null)
             {
-                Object.DestroyImmediate(tipsTf.gameObject);
-                tipsTf = null;
+                var tipsTf = boxTf.Find("OptionHoverTips");
+                var needsNest = tipsTf == null
+                    || tipsTf.Find("Type") != null
+                    || tipsTf.GetComponent<OptionHoverTipsController>() == null
+                    || PrefabUtility.GetCorrespondingObjectFromSource(tipsTf.gameObject) == null;
+                if (needsNest)
+                {
+                    tipsRoot = NestTipsPrefabUnderBox(boxTf);
+                }
+                else
+                {
+                    tipsRoot = tipsTf.gameObject;
+                    tipsRoot.SetActive(false);
+                }
             }
-
-            if (tipsTf == null && boxTf != null)
-            {
-                var tips = LevelRouteSelectView.BuildOptionHoverTips(boxTf);
-                tips.SetActive(false);
-                tipsTf = tips.transform;
-            }
-
-            var tipsRoot = tipsTf != null ? tipsTf.gameObject : null;
 
             view.BindRuntime(
                 panel,
@@ -503,7 +538,13 @@ namespace Gravedigger2026.EditorTools.Level
             var boxRt = box as RectTransform;
             if (boxRt != null)
             {
-                boxRt.sizeDelta = new Vector2(BoxWidth, BoxHeight);
+                StretchFull(boxRt);
+            }
+
+            var boxImage = box.GetComponent<Image>();
+            if (boxImage != null)
+            {
+                boxImage.color = new Color(0x12 / 255f, 0x12 / 255f, 0x12 / 255f, 1f);
             }
 
             EnsureLevelTabBar(box);
@@ -516,8 +557,7 @@ namespace Gravedigger2026.EditorTools.Level
                 var scroll = box.Find("StageScroll") as RectTransform;
                 if (scroll != null)
                 {
-                    scroll.sizeDelta = new Vector2(1460f, 680f);
-                    scroll.anchoredPosition = new Vector2(0f, -40f);
+                    StretchFull(scroll);
                 }
             }
 
@@ -525,25 +565,33 @@ namespace Gravedigger2026.EditorTools.Level
             {
                 BuildMapScroll(box);
             }
-
-            if (box.Find("OptionHoverTips") == null)
+            else
             {
-                var tips = LevelRouteSelectView.BuildOptionHoverTips(box);
-                tips.SetActive(false);
+                var mapScroll = box.Find("MapScroll") as RectTransform;
+                if (mapScroll != null)
+                {
+                    StretchVerticalCentered(mapScroll, MapScrollWidth);
+                }
+            }
+
+            var title = box.Find("Title")?.GetComponent<Text>();
+            if (title != null)
+            {
+                title.raycastTarget = false;
+            }
+
+            var tipsTf = box.Find("OptionHoverTips");
+            var needsNest = tipsTf == null
+                || tipsTf.Find("Type") != null
+                || tipsTf.GetComponent<OptionHoverTipsController>() == null
+                || PrefabUtility.GetCorrespondingObjectFromSource(tipsTf.gameObject) == null;
+            if (needsNest)
+            {
+                NestTipsPrefabUnderBox(box);
             }
             else
             {
-                var tipsTf = box.Find("OptionHoverTips");
-                if (tipsTf.Find("Type") != null || tipsTf.GetComponent<OptionHoverTipsController>() == null)
-                {
-                    Object.DestroyImmediate(tipsTf.gameObject);
-                    var tips = LevelRouteSelectView.BuildOptionHoverTips(box);
-                    tips.SetActive(false);
-                }
-                else
-                {
-                    tipsTf.gameObject.SetActive(false);
-                }
+                tipsTf.gameObject.SetActive(false);
             }
 
             var mapContent = box.Find("MapScroll/Viewport/MapContent");
@@ -572,7 +620,51 @@ namespace Gravedigger2026.EditorTools.Level
                 }
             }
 
+            ReorderBoxChrome(box);
+        }
+
+        /// <summary>
+        /// Back-to-front: StageScroll → MapScroll → Title → LevelTabBar → Tips → Close.
+        /// </summary>
+        private static void ReorderBoxChrome(Transform box)
+        {
+            if (box == null)
+            {
+                return;
+            }
+
+            var stageScroll = box.Find("StageScroll");
+            var mapScroll = box.Find("MapScroll");
+            var title = box.Find("Title");
+            var tabBar = box.Find("LevelTabBar");
+            var tips = box.Find("OptionHoverTips");
             var close = box.Find("CloseButton");
+
+            if (stageScroll != null)
+            {
+                stageScroll.SetAsFirstSibling();
+            }
+
+            if (mapScroll != null)
+            {
+                mapScroll.SetSiblingIndex(stageScroll != null ? 1 : 0);
+            }
+
+            if (title != null)
+            {
+                title.SetAsLastSibling();
+            }
+
+            if (tabBar != null)
+            {
+                tabBar.SetAsLastSibling();
+            }
+
+            if (tips != null)
+            {
+                tips.SetAsLastSibling();
+            }
+
             if (close != null)
             {
                 close.SetAsLastSibling();
@@ -688,6 +780,15 @@ namespace Gravedigger2026.EditorTools.Level
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
             rt.pivot = new Vector2(0.5f, 0.5f);
+        }
+
+        private static void StretchVerticalCentered(RectTransform rt, float width)
+        {
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(width, 0f);
         }
 
         private static void Place(
