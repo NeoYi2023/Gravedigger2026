@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.18
-**最后更新 / Last Updated:** 2026-09-05
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；Demo 须另授权）  
+**文档版本 / Document Version:** v0.84.24
+**最后更新 / Last Updated:** 2026-09-07
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,14 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-07 | v0.84.26 | 追击卡住换目标回归修复：`TryClaim` 换目标先占新槽再 Release（避免满环空放→回阵）；强制换目标仅选仍有空槽的次近怪；卡住检测改滑动窗且不依赖 steer；黑名单防 A↔B。同步 SPEC_03/04 |
+| 2026-09-07 | v0.84.25 | 追击卡住强制换目标（方案 A）：`GoalKind=AttackSlot` 未进距且位移不足 1s → 排除当前认领、绕过粘滞、认领次近；常量 `ChaseStuckRetargetSeconds`/`Cooldown`；PushMap/SE/Defend。同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.7/§9.20b、CONTEXT |
+| 2026-09-07 | v0.84.24 | UI-031 / D-086：同 Stage 已通关后兄弟选项 Locked 变暗不可选（可选=Unlock 派生且无同 Stage Cleared；快照 UiState + TrySelect 双重门闩）。同步 SPEC_03 §3.9、SPEC_04、`LevelOperationDriver` |
+| 2026-09-07 | v0.84.23 | 布局：隐藏 `StateLabel`/`StageInfoLabel`；CombatIndicator `y=-10`；SE `CountdownBar` `y=-123`。同步 SPEC_03/04、CONTEXT |
+| 2026-09-07 | v0.84.22 | UI-033：敌方开场未现身前中央右半显示 `?`；存活数 Text BestFit 26～42。同步 SPEC_03/04、CONTEXT |
+| 2026-09-07 | v0.84.21 | UI-033 布局微调：`y=-100`、根 `scale=0.75`、存活数挂 `CenterBg` 左右半区、单行截断（不换行）。同步 SPEC_03/04、CONTEXT |
+| 2026-09-07 | v0.84.20 | D-089 CI-03：共享 `ICombatIndicatorSessionReads`；SearchExtract Combat 接线同一 HUD；UI-032/UI-017 期间隐藏。同步 SPEC_04 §6 |
+| 2026-09-07 | v0.84.19 | 战斗指示器 UI-033 / D-089（方案 A）：PushMap+SearchExtract Combat 顶中敌我单位格 HUD；`ClassConfig`/`MonsterConfig` 增 `SilhouetteIconAssetId`；0.2s 轮询；死亡 0.5s 后移除；issues `.scratch/combat-indicator/`。同步 SPEC_03/04、CONTEXT |
 | 2026-09-06 | v0.84.18 | Dig **精魂结晶** `QualityId=Q101`：品质表 DropMode2 仅掉 `Spirit`（2/4/8/16）；`Dig_01/02/03` 权重 `Q101;10`；Prefab/Catalog/HitShape 覆盖 Q101。同步 SPEC_03 §3.10、SPEC_04 §9、CONTEXT |
 | 2026-09-05 | v0.84.17 | UI-031：`MapScroll` 宽改为 **1920**（竖向铺满、水平居中）；地图内容仍锁展示宽 **1450**，在视口内水平居中。同步 SPEC_03/04、RuntimeFactory / Ensure / Prefab / View |
 | 2026-09-05 | v0.84.16 | UI-031 地图模式：`MapScroll` 展示宽 1450、竖向铺满、**水平居中**（避免全屏视口把 1450 底图顶到左边）。同步 SPEC_03/04、RuntimeFactory / Ensure / Prefab |
@@ -483,6 +491,14 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-07 | v0.84.26 | Chase-stuck retarget regression fix: `TryClaim` claims new slot before Release (no full-ring empty→FormationHome thrash); force retarget only to alternates with a free slot; sliding-window stuck detect without steer gate; blacklist vs A↔B. Synced SPEC_03/04 |
+| 2026-09-07 | v0.84.25 | Chase-stuck force retarget (Approach A): `GoalKind=AttackSlot` out of range + insufficient displacement for 1s → exclude claimed, bypass stickiness, claim next-nearest; constants `ChaseStuckRetargetSeconds`/`Cooldown`; PushMap/SE/Defend. Synced SPEC_03 §3.12/§3.14, SPEC_04 §9.7/§9.20b, CONTEXT |
+| 2026-09-07 | v0.84.24 | UI-031 / D-086: same-Stage Cleared locks uncleared siblings (Selectable iff unlock-derived and no sibling Cleared; UiState + TrySelect dual gate). Synced SPEC_03 §3.9, SPEC_04, `LevelOperationDriver` |
+| 2026-09-07 | v0.84.23 | Layout: hide `StateLabel`/`StageInfoLabel`; CombatIndicator `y=-10`; SE `CountdownBar` `y=-123`. Synced SPEC_03/04, CONTEXT |
+| 2026-09-07 | v0.84.22 | UI-033: enemy center count shows `?` until first `>0` this battle; alive-count Text BestFit 26–42. Synced SPEC_03/04, CONTEXT |
+| 2026-09-07 | v0.84.21 | UI-033 layout polish: `y=-100`, root `scale=0.75`, alive counts as `CenterBg` children, single-row truncate (no wrap). Synced SPEC_03/04, CONTEXT |
+| 2026-09-07 | v0.84.20 | D-089 CI-03: shared `ICombatIndicatorSessionReads`; SearchExtract Combat wires the same HUD; hide during UI-032/UI-017. Synced SPEC_04 §6 |
+| 2026-09-07 | v0.84.19 | CombatIndicator UI-033 / D-089 (Approach A): PushMap+SearchExtract Combat top-center ally/enemy unit-slot HUD; `ClassConfig`/`MonsterConfig` add `SilhouetteIconAssetId`; 0.2s poll; remove dead slot after 0.5s; issues `.scratch/combat-indicator/`. Synced SPEC_03/04, CONTEXT |
 | 2026-09-06 | v0.84.18 | Dig **Spirit Crystal** `QualityId=Q101`: GraveQuality DropMode2 Spirit-only loot (2/4/8/16); `Dig_01/02/03` weight `Q101;10`; Prefab/Catalog/HitShape cover Q101. Synced SPEC_03 §3.10, SPEC_04 §9, CONTEXT |
 | 2026-09-05 | v0.84.17 | UI-031: `MapScroll` width **1920** (full height, horizontally centered); map content still display width **1450**, centered in the viewport. Synced SPEC_03/04, RuntimeFactory / Ensure / Prefab / View |
 | 2026-09-05 | v0.84.16 | UI-031 map mode: `MapScroll` stays 1450 wide, full viewport height, **horizontally centered** (fullscreen viewport no longer left-aligns the 1450 map). Synced SPEC_03/04, RuntimeFactory / Ensure / Prefab |

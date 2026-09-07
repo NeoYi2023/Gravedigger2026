@@ -16,6 +16,13 @@ namespace Gravedigger2026.UI
         private bool _modePanelsSuppressed;
         private GameplayState _lastState = GameplayState.Dig;
 
+        private void Awake()
+        {
+            // Demo chrome: keep nodes for Debug text writes, but do not show on screen.
+            SetActiveSafe(_stateLabel != null ? _stateLabel.gameObject : null, false);
+            SetActiveSafe(_stageInfoLabel != null ? _stageInfoLabel.gameObject : null, false);
+        }
+
         public void ShowState(GameplayState state)
         {
             _lastState = state;

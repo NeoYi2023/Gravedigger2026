@@ -51,6 +51,8 @@ LocalDetourDetourBias,本地绕行偏置,0.85,LocalDetour L/R bias blend,绕行�
 LocalDetourForwardConeHalfAngleDeg,本地绕行前向锥半角,50,Forward block cone half-angle degrees,判定前方友军阻挡的圆锥半角（度）
 BossAdvanceArriveRadius,Boss推进到达半径,0.35,BossPoint advance arrive radius,目标链耗尽后推进Boss点的到达半径
 EngageStickHysteresisMargin,接战粘滞余量,0.15,Engage sticky retarget hysteresis,接战粘滞：新目标需更近超过本余量才换目标
+ChaseStuckRetargetSeconds,追击卡住换目标秒数,1,Chase out-of-range stuck force-retarget window seconds,追击未进距且位移不足达本秒→强制换目标（排除当前/绕过粘滞）
+ChaseStuckRetargetCooldownSeconds,追击卡住换目标冷却,1,Cooldown after chase-stuck force retarget,强制换目标后冷却，防A↔B来回甩
 PushMapSpawnMinSampleDistance,刷怪散布最小采样距,0.75,PushMap spawn min sample distance,刷怪散布环形采样的最小间距
 PushMapSpawnSampleDistanceBodyMul,刷怪散布体半径倍数,2.5,Spawn sample distance = max(min,r*mul)
 PushMapSpawnLeashSlack,刷怪拴绳松弛,0.35,NavMesh sample leash slack,刷怪SamplePosition相对基点的拴绳松弛

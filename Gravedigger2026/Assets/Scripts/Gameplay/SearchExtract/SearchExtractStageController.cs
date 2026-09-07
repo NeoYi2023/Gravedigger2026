@@ -36,6 +36,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
     /// SE-09: active-gather loyal wipe → UI-017 defeat → TitleMenu / Restart.
     /// v0.83.93: Combat camera follows CameraFollowPath + soldiers (PushMapCameraFollowController).
     /// v0.83.94: Combat MassMove Tick includes monsters + AttackSlot chase refresh (same as PushMap).
+    /// UI-033 / D-089: shared CombatIndicator HUD in Combat; hide Prepare/Ended/UI-032/UI-017.
     /// No BattleProtagonist.
     /// </summary>
     public sealed class SearchExtractStageController : MonoBehaviour
@@ -90,6 +91,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private Text _countdownHudText;
         private GameObject _countdownHudRoot;
         private SearchExtractDecisionPanelView _decisionPanel;
+        private CombatIndicatorHudView _combatIndicatorHud;
 
         public void ConfigureCatalog(DefendPrefabCatalog catalog, FormationPrefabCatalog formationCatalog = null)
         {
@@ -197,6 +199,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _session.BindGatherOrders(CollectObjectiveOrdersAscending());
 
             EnsureDecisionPanel();
+            HideCombatIndicatorHud();
             OpenFormationEditor();
             _running = true;
             Debug.Log(
@@ -212,6 +215,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private void EndInternal(bool destroyWorld)
         {
             _running = false;
+            HideCombatIndicatorHud();
             CloseFormationEditor();
 
             if (_session != null)
@@ -321,6 +325,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             EnableCameraFollowForCombat();
             EnsureCountdownHud();
             RefreshCountdownHud();
+            EnsureCombatIndicatorHud();
+            ShowCombatIndicatorHud();
             Debug.Log(
                 $"[SearchExtractStage] Combat Level={_session.LevelId} Option={_session.GameplayOptionId} " +
                 $"Deployed={deployed} AirWalls={airWallBoxes.Count} NavMesh={_navMeshInstance.valid} " +
@@ -354,6 +360,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
             CreditGatherPointRewards(info.GatherPointOrder);
             EnsureDecisionPanel();
+            HideCombatIndicatorHud();
             _decisionPanel?.Show(info.ShowContinue, info.GatherPointOrder, info.GatherPointCount);
             RefreshCountdownHud();
             Debug.Log(
@@ -366,6 +373,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _decisionPanel?.Hide();
             RefreshCountdownHud();
             RelocateTowardCurrentObjective("Continue");
+            ShowCombatIndicatorHud();
             Debug.Log(
                 $"[SearchExtractStage] Continue → CurrentOrder={_session?.CurrentGatherOrder} " +
                 "(re-enter zone required; CombatDead stay dead)");
@@ -374,6 +382,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private void HandlePointLeaveRequested()
         {
             _decisionPanel?.Hide();
+            HideCombatIndicatorHud();
             CreditStageExpOnLeave();
             ShowVictorySettlementThenAdvance();
         }
@@ -440,6 +449,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void ShowVictorySettlementThenAdvance()
         {
+            HideCombatIndicatorHud();
             EnsureSettlementView();
             var casualties = _session != null ? _session.BuildCasualtyStats() : default;
             if (_settlementView != null)
@@ -474,6 +484,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private void HandleLevelFailureRequested()
         {
             _decisionPanel?.Hide();
+            HideCombatIndicatorHud();
             DestroyCountdownHud();
             CameraFogService.Resolve()?.SetPushMapCombatActive(false);
             ShowDefeatSettlement();
@@ -481,6 +492,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void ShowDefeatSettlement()
         {
+            HideCombatIndicatorHud();
             EnsureSettlementView();
             var casualties = _session != null ? _session.BuildCasualtyStats() : default;
             if (_settlementView != null)
@@ -501,6 +513,38 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             if (_settlementView == null)
             {
                 _settlementView = PushMapBattleResultUiFactory.EnsureSettlement(transform);
+            }
+        }
+
+        private void EnsureCombatIndicatorHud()
+        {
+            if (_combatIndicatorHud != null)
+            {
+                return;
+            }
+
+            _combatIndicatorHud = CombatIndicatorHudRuntimeFactory.Create(transform);
+            _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
+        }
+
+        private void ShowCombatIndicatorHud()
+        {
+            EnsureCombatIndicatorHud();
+            if (_combatIndicatorHud == null)
+            {
+                return;
+            }
+
+            _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
+            _combatIndicatorHud.ResetBattleState();
+            _combatIndicatorHud.Show();
+        }
+
+        private void HideCombatIndicatorHud()
+        {
+            if (_combatIndicatorHud != null)
+            {
+                _combatIndicatorHud.Hide();
             }
         }
 
@@ -555,10 +599,12 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             {
                 var fog = CameraFogService.Resolve();
                 fog?.SetPushMapCombatActive(true);
+                ShowCombatIndicatorHud();
             }
             else
             {
                 CameraFogService.Resolve()?.SetPushMapCombatActive(false);
+                HideCombatIndicatorHud();
                 DestroyCountdownHud();
                 _decisionPanel?.Hide();
             }
@@ -1842,7 +1888,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             barRt.anchorMin = new Vector2(0.5f, 1f);
             barRt.anchorMax = new Vector2(0.5f, 1f);
             barRt.pivot = new Vector2(0.5f, 1f);
-            barRt.anchoredPosition = new Vector2(0f, -16f);
+            barRt.anchoredPosition = new Vector2(0f, -123f);
             barRt.sizeDelta = new Vector2(320f, 44f);
             _countdownHudRoot.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.14f, 0.88f);
 

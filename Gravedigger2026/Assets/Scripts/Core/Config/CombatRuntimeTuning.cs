@@ -140,6 +140,12 @@ namespace Gravedigger2026.Core.Config
         public static float EngageStickHysteresisMargin { get; private set; } =
             CombatConstantKeys.Safety.EngageStickHysteresisMargin;
 
+        public static float ChaseStuckRetargetSeconds { get; private set; } =
+            CombatConstantKeys.Safety.ChaseStuckRetargetSeconds;
+
+        public static float ChaseStuckRetargetCooldownSeconds { get; private set; } =
+            CombatConstantKeys.Safety.ChaseStuckRetargetCooldownSeconds;
+
         public static float PushMapSpawnMinSampleDistance { get; private set; } =
             CombatConstantKeys.Safety.PushMapSpawnMinSampleDistance;
 
@@ -306,6 +312,12 @@ namespace Gravedigger2026.Core.Config
             EngageStickHysteresisMargin = Mathf.Max(0f, F(
                 CombatConstantKeys.EngageStickHysteresisMargin,
                 CombatConstantKeys.Safety.EngageStickHysteresisMargin));
+            ChaseStuckRetargetSeconds = Mathf.Max(0.01f, F(
+                CombatConstantKeys.ChaseStuckRetargetSeconds,
+                CombatConstantKeys.Safety.ChaseStuckRetargetSeconds));
+            ChaseStuckRetargetCooldownSeconds = Mathf.Max(0f, F(
+                CombatConstantKeys.ChaseStuckRetargetCooldownSeconds,
+                CombatConstantKeys.Safety.ChaseStuckRetargetCooldownSeconds));
             PushMapSpawnMinSampleDistance = Mathf.Max(0.01f, F(
                 CombatConstantKeys.PushMapSpawnMinSampleDistance,
                 CombatConstantKeys.Safety.PushMapSpawnMinSampleDistance));

@@ -128,47 +128,30 @@ namespace Gravedigger2026.Core.Pathing
                     }
                 }
             }
-            else if (_byAttacker.ContainsKey(attackerId))
-            {
-                Release(attackerId);
-            }
 
+            // Retarget: find a free slot on the NEW target BEFORE releasing the old claim
+            // (v0.84.26). Releasing first caused empty claims → FormationHome thrash when
+            // the alternate ring was full (chase-stuck force retarget regression).
             var targetTable = EnsureTable(targetId, slotCount, ringRadius, targetPos);
             MaybeRecomputePositions(targetTable, ringRadius, targetPos);
 
             var preferred = PreferredApproachXZ(attackerPos, targetPos);
-            var bestIndex = -1;
-            var bestScore = float.NegativeInfinity;
-
-            for (var i = 0; i < targetTable.Slots.Length; i++)
-            {
-                ref var slot = ref targetTable.Slots[i];
-                if (slot.AttackerId != null)
-                {
-                    continue;
-                }
-
-                if (!IsAcceptableSlot(slot.WorldPos, targetPos, minDistFromCenter))
-                {
-                    continue;
-                }
-
-                if (IsSlotInGap(targetTable, slot.WorldPos, targetPos, surround, attackerPos))
-                {
-                    continue;
-                }
-
-                var score = ScoreSlot(slot.WorldPos, targetPos, preferred);
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestIndex = i;
-                }
-            }
+            var bestIndex = FindBestFreeSlotIndex(
+                targetTable,
+                targetPos,
+                minDistFromCenter,
+                preferred,
+                surround,
+                attackerPos);
 
             if (bestIndex < 0)
             {
                 return false;
+            }
+
+            if (_byAttacker.ContainsKey(attackerId))
+            {
+                Release(attackerId);
             }
 
             targetTable.Slots[bestIndex].AttackerId = attackerId;
@@ -188,6 +171,85 @@ namespace Gravedigger2026.Core.Pathing
                 SlotCount = slotCount
             };
             return true;
+        }
+
+        /// <summary>
+        /// Preview whether <paramref name="attackerId"/> could claim a free slot on
+        /// <paramref name="targetId"/> without mutating claims (v0.84.26 chase-stuck).
+        /// Treats the attacker's current slot on this target as available (self-reclaim).
+        /// </summary>
+        public bool HasAvailableSlot(
+            string attackerId,
+            string targetId,
+            float attackRange,
+            Vector3 targetPos,
+            AttackMode attackMode = AttackMode.Melee,
+            Vector3 attackerPos = default,
+            float targetBodyRadius = CombatConstantKeys.Safety.AttackSlotDefaultTargetBodyRadius,
+            float attackerBodyRadius = 0f,
+            SurroundParams? surround = null)
+        {
+            if (string.IsNullOrEmpty(attackerId) || string.IsNullOrEmpty(targetId))
+            {
+                return false;
+            }
+
+            var ringRadius = ComputeRingRadius(attackRange, attackerBodyRadius, targetBodyRadius);
+            var slotCount = SlotCountFor(attackMode);
+            var minDistFromCenter = Mathf.Max(0f, targetBodyRadius * 0.5f);
+            var table = EnsureTable(targetId, slotCount, ringRadius, targetPos);
+            MaybeRecomputePositions(table, ringRadius, targetPos);
+            var preferred = PreferredApproachXZ(attackerPos, targetPos);
+            return FindBestFreeSlotIndex(
+                       table,
+                       targetPos,
+                       minDistFromCenter,
+                       preferred,
+                       surround,
+                       attackerPos,
+                       treatAttackerIdAsFree: attackerId) >= 0;
+        }
+
+        private int FindBestFreeSlotIndex(
+            TargetSlotTable table,
+            Vector3 targetPos,
+            float minDistFromCenter,
+            Vector2 preferred,
+            SurroundParams? surround,
+            Vector3 attackerPos,
+            string treatAttackerIdAsFree = null)
+        {
+            var bestIndex = -1;
+            var bestScore = float.NegativeInfinity;
+            for (var i = 0; i < table.Slots.Length; i++)
+            {
+                ref var slot = ref table.Slots[i];
+                if (slot.AttackerId != null &&
+                    (treatAttackerIdAsFree == null ||
+                     !string.Equals(slot.AttackerId, treatAttackerIdAsFree, System.StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                if (!IsAcceptableSlot(slot.WorldPos, targetPos, minDistFromCenter))
+                {
+                    continue;
+                }
+
+                if (IsSlotInGap(table, slot.WorldPos, targetPos, surround, attackerPos))
+                {
+                    continue;
+                }
+
+                var score = ScoreSlot(slot.WorldPos, targetPos, preferred);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
         }
 
         /// <summary>Release one attacker's claim (death / retarget handled by caller).</summary>

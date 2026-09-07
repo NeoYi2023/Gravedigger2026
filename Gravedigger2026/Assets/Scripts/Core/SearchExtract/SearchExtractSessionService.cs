@@ -15,8 +15,12 @@ namespace Gravedigger2026.Core.SearchExtract
     /// multi-point advance + Leave→Ended (SE-08), loyal wipe → LevelFailure (SE-09).
     /// Does not touch PushMapSessionService Capture.
     /// D-074 Approach B: implements IMonsterDeathSkillHost (shared MonsterDeathSkillService).
+    /// UI-033 / D-089: ICombatIndicatorSessionReads (same thin-read APIs as PushMap).
     /// </summary>
-    public sealed class SearchExtractSessionService : IWarriorMassCombatSession, IMonsterDeathSkillHost
+    public sealed class SearchExtractSessionService :
+        IWarriorMassCombatSession,
+        IMonsterDeathSkillHost,
+        ICombatIndicatorSessionReads
     {
         public const string PointSuccessInvincibleSkillId = "SearchExtractPointSuccess";
 
@@ -43,6 +47,17 @@ namespace Gravedigger2026.Core.SearchExtract
             new Dictionary<string, DefendCombatWarriorState>(StringComparer.Ordinal);
         private readonly Dictionary<string, DefendCombatMonsterState> _monsters =
             new Dictionary<string, DefendCombatMonsterState>(StringComparer.Ordinal);
+        /// <summary>UI-033: StartBattle / spawn registration order (stable sort tie-break).</summary>
+        private readonly List<string> _warriorRegisterOrder = new List<string>(32);
+        private readonly List<string> _monsterRegisterOrder = new List<string>(64);
+        private readonly Dictionary<string, int> _warriorRegisterIndex =
+            new Dictionary<string, int>(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _monsterRegisterIndex =
+            new Dictionary<string, int>(StringComparer.Ordinal);
+        private readonly List<CombatIndicatorWarriorRead> _warriorIndicatorScratch =
+            new List<CombatIndicatorWarriorRead>(32);
+        private readonly List<CombatIndicatorMonsterRead> _monsterIndicatorScratch =
+            new List<CombatIndicatorMonsterRead>(64);
         private readonly List<string> _clearScratch = new List<string>(32);
 
         public event Action<SearchExtractPhase> PhaseChanged;
@@ -566,6 +581,7 @@ namespace Gravedigger2026.Core.SearchExtract
             _gatherOrders.Clear();
             _warriors.Clear();
             _monsters.Clear();
+            ClearIndicatorRegisterOrder();
             UnbindDeathSkillHost();
             _combatStatus.ClearAll();
             GatherPointCount = 0;
@@ -661,6 +677,7 @@ namespace Gravedigger2026.Core.SearchExtract
             };
 
             _warriors[warrior.Id] = state;
+            RememberWarriorRegisterOrder(warrior.Id);
             warrior.RemainingHP = state.RemainingHp;
             Debug.Log(
                 $"[SearchExtractSession] RegisterWarrior {state.WarriorId} HP={state.RemainingHp:0}/{state.MaxHp} " +
@@ -690,6 +707,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 IsAlive = true,
                 IsCombatDead = false
             };
+            RememberMonsterRegisterOrder(runtimeId);
             if (_configs == null)
             {
                 Debug.LogWarning(
@@ -699,6 +717,94 @@ namespace Gravedigger2026.Core.SearchExtract
 
             _monsterDeathSkills.InitializeMonsterState(_monsters[runtimeId], _configs);
             return true;
+        }
+
+        /// <summary>
+        /// UI-033: copy registered warriors into a reused list (no per-call allocation of the list itself).
+        /// </summary>
+        public IReadOnlyList<CombatIndicatorWarriorRead> CopyWarriorIndicatorReads()
+        {
+            _warriorIndicatorScratch.Clear();
+            for (var i = 0; i < _warriorRegisterOrder.Count; i++)
+            {
+                var id = _warriorRegisterOrder[i];
+                if (!_warriors.TryGetValue(id, out var state) || state == null)
+                {
+                    continue;
+                }
+
+                _warriorIndicatorScratch.Add(new CombatIndicatorWarriorRead(
+                    state.WarriorId,
+                    state.RemainingHp,
+                    state.MaxHp,
+                    state.IsCombatDead,
+                    state.IsPermanentDead,
+                    state.IsRebel,
+                    i));
+            }
+
+            return _warriorIndicatorScratch;
+        }
+
+        /// <summary>
+        /// UI-033: copy registered monsters into a reused list (no per-call allocation of the list itself).
+        /// </summary>
+        public IReadOnlyList<CombatIndicatorMonsterRead> CopyMonsterIndicatorReads()
+        {
+            _monsterIndicatorScratch.Clear();
+            for (var i = 0; i < _monsterRegisterOrder.Count; i++)
+            {
+                var id = _monsterRegisterOrder[i];
+                if (!_monsters.TryGetValue(id, out var state) || state == null)
+                {
+                    continue;
+                }
+
+                _monsterIndicatorScratch.Add(new CombatIndicatorMonsterRead(
+                    state.RuntimeId,
+                    state.MonsterId,
+                    state.RemainingHp,
+                    state.MaxHp,
+                    state.IsAlive,
+                    state.IsCombatDead,
+                    state.RevivePhase,
+                    state.RevivesRemaining,
+                    i));
+            }
+
+            return _monsterIndicatorScratch;
+        }
+
+        private void RememberWarriorRegisterOrder(string warriorId)
+        {
+            if (_warriorRegisterIndex.ContainsKey(warriorId))
+            {
+                return;
+            }
+
+            _warriorRegisterIndex[warriorId] = _warriorRegisterOrder.Count;
+            _warriorRegisterOrder.Add(warriorId);
+        }
+
+        private void RememberMonsterRegisterOrder(string runtimeId)
+        {
+            if (_monsterRegisterIndex.ContainsKey(runtimeId))
+            {
+                return;
+            }
+
+            _monsterRegisterIndex[runtimeId] = _monsterRegisterOrder.Count;
+            _monsterRegisterOrder.Add(runtimeId);
+        }
+
+        private void ClearIndicatorRegisterOrder()
+        {
+            _warriorRegisterOrder.Clear();
+            _monsterRegisterOrder.Clear();
+            _warriorRegisterIndex.Clear();
+            _monsterRegisterIndex.Clear();
+            _warriorIndicatorScratch.Clear();
+            _monsterIndicatorScratch.Clear();
         }
 
         public bool TryGetWarrior(string warriorId, out DefendCombatWarriorState state)

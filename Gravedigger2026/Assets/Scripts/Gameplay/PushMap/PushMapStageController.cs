@@ -34,6 +34,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// MonsterKilled(runtimeId, killerWarriorId, outgoingDamage). PM-13: monster→warrior TryApplyMonsterDamageToWarrior →
     /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
     /// D-071 CombatSkillIcon: SkillIconPopup / SkillPersistChanged → WarriorSkillIconHudView.
+    /// UI-033 / D-089 CombatIndicator: 0.2s snapshot HUD in Combat only (Hide Prepare/Ended/settlement).
     /// VictorySettled → AddExperience → settlement UI (UI-017) → reward (UI-018) → LevelSelect;
     /// LevelFailure (Shield≤0 / loyal wipe) → settlement → LevelSelect; no Exp.
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
@@ -59,6 +60,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private PushMapCameraFollowController _cameraFollow;
         private GameObject _resumeFollowButtonRoot;
         private FormationBondHudView _combatBondHud;
+        private CombatIndicatorHudView _combatIndicatorHud;
 
         private DefendPrefabCatalog _catalog;
         private FormationPrefabCatalog _formationCatalog;
@@ -227,6 +229,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             PushMapBattleResultUiFactory.Ensure(transform, out _settlementView, out _rewardView);
             _pendingFailureReason = null;
+            HideCombatIndicatorHud();
 
             if (_hudView != null)
             {
@@ -253,6 +256,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _running = false;
             _bgm?.Stop();
             CameraFogService.Resolve()?.SetPushMapCombatActive(false);
+            HideCombatIndicatorHud();
             CloseFormationEditor();
 
             if (_session != null)
@@ -307,6 +311,21 @@ namespace Gravedigger2026.Gameplay.PushMap
             ClearDeployedViews();
             ClearSpawnedMonsters();
             ClearFlowFieldPathing();
+            if (destroyWorld && _combatIndicatorHud != null)
+            {
+                var indicatorCanvas = _combatIndicatorHud.GetComponentInParent<Canvas>();
+                if (indicatorCanvas != null)
+                {
+                    Destroy(indicatorCanvas.gameObject);
+                }
+                else
+                {
+                    Destroy(_combatIndicatorHud.gameObject);
+                }
+
+                _combatIndicatorHud = null;
+            }
+
             _objectives.Clear();
             _spawnPointsById.Clear();
             _trapZones.Clear();
@@ -379,6 +398,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.SetTacticalFormationOverlay(_tacticalRuntime);
             EnsureCombatBondHud();
             RefreshCombatBondHud();
+            EnsureCombatIndicatorHud();
+            ShowCombatIndicatorHud();
             _session.EmitStartBattleSkillIcons();
             ClearSpawnedMonsters();
             _session.FireStartBattleSpawns();
@@ -2016,6 +2037,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _running = false;
             CameraFogService.Resolve()?.SetPushMapCombatActive(false);
+            HideCombatIndicatorHud();
             DisableCameraFollow();
             WriteDungeonUnlocksOnClear();
 
@@ -2041,11 +2063,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _bgm?.Play(BgmContext.Combat);
                 fog?.SetPushMapCombatActive(true);
+                ShowCombatIndicatorHud();
             }
             else
             {
                 _bgm?.Stop();
                 fog?.SetPushMapCombatActive(false);
+                HideCombatIndicatorHud();
             }
         }
 
@@ -2058,6 +2082,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _running = false;
             CameraFogService.Resolve()?.SetPushMapCombatActive(false);
+            HideCombatIndicatorHud();
             DisableCameraFollow();
             _pendingFailureReason = "PushMap LevelFailure";
             if (_hudView != null)
@@ -2072,6 +2097,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void ShowSettlementPanel(bool isVictory)
         {
+            HideCombatIndicatorHud();
             if (_settlementView == null)
             {
                 PushMapBattleResultUiFactory.Ensure(transform, out _settlementView, out _rewardView);
@@ -2448,6 +2474,38 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _combatBondHud = FormationBondHudRuntimeFactory.Create(transform, sortingOrder: 65);
+        }
+
+        private void EnsureCombatIndicatorHud()
+        {
+            if (_combatIndicatorHud != null)
+            {
+                return;
+            }
+
+            _combatIndicatorHud = CombatIndicatorHudRuntimeFactory.Create(transform);
+            _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
+        }
+
+        private void ShowCombatIndicatorHud()
+        {
+            EnsureCombatIndicatorHud();
+            if (_combatIndicatorHud == null)
+            {
+                return;
+            }
+
+            _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
+            _combatIndicatorHud.ResetBattleState();
+            _combatIndicatorHud.Show();
+        }
+
+        private void HideCombatIndicatorHud()
+        {
+            if (_combatIndicatorHud != null)
+            {
+                _combatIndicatorHud.Hide();
+            }
         }
 
         private void EnsureResumeFollowButton()

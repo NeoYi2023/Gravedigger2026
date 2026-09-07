@@ -57,6 +57,16 @@ namespace Gravedigger2026.Core.Config
         /// Duplicates keep first. Unknown SkillId kept (warn at grant, not load).
         /// </summary>
         public string[] DefaultSkillIds = Array.Empty<string>();
+        /// <summary>
+        /// UI-033 CombatIndicator silhouette filename (SPEC_04 §9.9b).
+        /// Runtime Resources/UI/Icons/{Id}; missing/empty → empty frame. Not used in combat math.
+        /// </summary>
+        public string SilhouetteIconAssetId;
+        /// <summary>
+        /// In-memory CSV data-row order (0-based) for stable same-level indicator sort.
+        /// Not a CSV column (SPEC_04 §9.9b).
+        /// </summary>
+        public int TableOrder;
 
         public float ResolveBaseMoveSpeed()
         {

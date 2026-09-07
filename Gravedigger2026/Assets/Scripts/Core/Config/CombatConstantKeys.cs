@@ -83,6 +83,8 @@ namespace Gravedigger2026.Core.Config
         public const string LocalDetourForwardConeHalfAngleDeg = "LocalDetourForwardConeHalfAngleDeg";
         public const string BossAdvanceArriveRadius = "BossAdvanceArriveRadius";
         public const string EngageStickHysteresisMargin = "EngageStickHysteresisMargin";
+        public const string ChaseStuckRetargetSeconds = "ChaseStuckRetargetSeconds";
+        public const string ChaseStuckRetargetCooldownSeconds = "ChaseStuckRetargetCooldownSeconds";
         public const string PushMapSpawnMinSampleDistance = "PushMapSpawnMinSampleDistance";
         public const string PushMapSpawnSampleDistanceBodyMul = "PushMapSpawnSampleDistanceBodyMul";
         public const string PushMapSpawnLeashSlack = "PushMapSpawnLeashSlack";
@@ -159,6 +161,8 @@ namespace Gravedigger2026.Core.Config
             public const float LocalDetourForwardConeHalfAngleDeg = 50f;
             public const float BossAdvanceArriveRadius = 0.35f;
             public const float EngageStickHysteresisMargin = 0.15f;
+            public const float ChaseStuckRetargetSeconds = 1f;
+            public const float ChaseStuckRetargetCooldownSeconds = 1f;
             public const float PushMapSpawnMinSampleDistance = 0.75f;
             public const float PushMapSpawnSampleDistanceBodyMul = 2.5f;
             public const float PushMapSpawnLeashSlack = 0.35f;

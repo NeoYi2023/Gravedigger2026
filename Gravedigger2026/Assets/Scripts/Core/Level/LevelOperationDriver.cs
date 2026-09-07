@@ -9,6 +9,7 @@ namespace Gravedigger2026.Core.Level
     /// <summary>
     /// Drives Level Operation + SubLevel route graph (SPEC_03 §3.9 / D-086 / D-088). Approach A.
     /// Enter → hydrate Cleared → RouteSelect → pick option → module → clear → persist/unlock → RouteSelect or victory.
+    /// Same-Stage Cleared locks uncleared siblings via UiState + TrySelect (unlock-derived set unchanged).
     /// </summary>
     public sealed class LevelOperationDriver
     {
@@ -249,6 +250,13 @@ namespace Gravedigger2026.Core.Level
                 return false;
             }
 
+            // SPEC_03 §3.9: same-Stage exclusivity — sibling Cleared blocks pick (Approach A).
+            if (StageHasAnyCleared(stageNumber))
+            {
+                error = $"Option '{optionId}' locked — another option on Stage {stageNumber} is already cleared.";
+                return false;
+            }
+
             if (!TryBuildContext(sub, stageNumber, out var context, out error))
             {
                 return false;
@@ -486,7 +494,8 @@ namespace Gravedigger2026.Core.Level
                         {
                             ui = LevelRouteOptionUiState.Running;
                         }
-                        else if (_unlockedOptions.Contains(oid))
+                        else if (_unlockedOptions.Contains(oid)
+                                 && !StageHasAnyCleared(stage.StageNumber))
                         {
                             ui = LevelRouteOptionUiState.Selectable;
                         }
@@ -823,6 +832,41 @@ namespace Gravedigger2026.Core.Level
                     _unlockedOptions.Add(nextId);
                 }
             }
+        }
+
+        /// <summary>
+        /// True when any option mounted on <paramref name="stageNumber"/> is already Cleared
+        /// (SPEC_03 §3.9 same-Stage sibling lock; does not mutate unlock-derived set).
+        /// </summary>
+        private bool StageHasAnyCleared(int stageNumber)
+        {
+            for (var i = 0; i < _stages.Count; i++)
+            {
+                var stage = _stages[i];
+                if (stage == null || stage.StageNumber != stageNumber)
+                {
+                    continue;
+                }
+
+                var ids = stage.GameplayOptionIds;
+                if (ids == null)
+                {
+                    return false;
+                }
+
+                for (var j = 0; j < ids.Length; j++)
+                {
+                    var oid = ids[j];
+                    if (!string.IsNullOrEmpty(oid) && _clearedOptions.Contains(oid))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return false;
         }
 
         private static List<string> ParsePipeIds(string encoded)

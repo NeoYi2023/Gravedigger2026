@@ -123,6 +123,7 @@
 | AttackFacingLock | 攻击朝向锁 | `PlayAttack` 后冻结 `DirIndex` 至 Attack1 clip 结束（或移动打断解锁）；禁止攻击中途因碰撞/目标微移换向 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | LastDesired | 移动意图方向 | MassMove 经 LocalDetour **之前**的 desired（FlowField / 槽位直线）；表现层八向跟此向量，位移仍跟 steer | [SPEC_04 §9.7](SPEC_04_Technical.md)/[§15.5](SPEC_04_Technical.md) |
 | StuckHold | 受堵停滞 | 可移动战斗单位 steer 非零但检测窗内 XZ 位移过小 → 停播 Run；**不**改 `DirIndex`（保持进入停滞前朝向）；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
+| ChaseStuckRetarget | 追击卡住换目标 | 忠诚兵追击未进距且位移卡住达阈值 → 排除当前认领、绕过粘滞、认领次近（保底；非 LocalDetour 治本） | [§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
 | WarriorName | 士兵名字 | Prefix(es)+RaceName+ClassName+Suffix | [§3.11](SPEC_03_GameRules.md) |
 | ManufactureSlot | 制造槽位 | 头1/躯干1/臂2/腿2/灵魂1/宝石6/坐骑1/翅膀1 | [§3.11](SPEC_03_GameRules.md) |
@@ -183,6 +184,7 @@
 | SoldierSkills | 士兵技能列表 | 实例 `{SkillId,SkillLevel}[]`；制造烘进；CombatDead 保留 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | SkillCast | 士兵技能施放 | Combat 内按 SoldierSkills+SkillConfig 自动施放；PushMap `Skill_03` 占用普攻通道 3×方案 D；`Skill_01` 独立被动格挡钩子；`Skill_02` 满血 Outgoing 倍率；`Skill_04`～`Skill_12` 走 EffectKind 管线（D-073）；Mode2 提交后进 CD（仅 BaseCD>0） | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.21](SPEC_04_Technical.md) |
 | CombatSkillIcon | 战斗技能图标 | PushMap 头顶 35×35 静止 0.6s 后 +Z 上飘 0.3s；持续脚下 20×20；`Skill_03`/`Skill_01` 头顶；`Skill_02` 满血脚下+生效头顶飘；D-071 / UI-025；D-073 Handler 复用同一对事件 | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| CombatIndicator | 战斗指示器 | PushMap/SearchExtract Combat 顶中敌我单位格 HUD（`y=-10`/`scale=0.75`）；`CenterBg` 内左右存活数（BestFit 26～42；敌方开场未现身前 `?`）；简画+HP% 四色；死亡 0.5s 后移除；单行截断；0.2s 轮询；UI-033 / D-089 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | EffectKind | 技能效果种类 | `SkillEffectConfig` 登记制 PascalCase Token（对齐 MagicBook `EffectPayload`）；空=未实现；Session 禁止按 SkillId 硬分支 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21b](SPEC_04_Technical.md) |
 | CombatStatusService | 战斗状态服务 | 无敌 / 击晕 / 减速 / 灼烧 DoT 的统一 Tick + 查询；士兵与怪物分 bucket | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/`EffectImplemented`(UI-021 绿/红)/CD/失控加成；PushMap `Skill_03`/`Skill_01`/`Skill_02` 见 D-069；`Skill_04`～`Skill_12` 见 D-073 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |

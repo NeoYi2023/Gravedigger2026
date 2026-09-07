@@ -63,11 +63,12 @@ namespace Gravedigger2026.Gameplay.Defend
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
         private int _moveId;
-        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun — not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
+        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun �?not NavMeshAgent.velocity (SPEC_04 §15.5).</summary>
         private Vector3 _lastSteerDirXZ;
         /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 §15.5 v0.83.31).</summary>
         private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
+        private readonly ChaseStuckRetargetTracker _chaseStuckRetarget = new ChaseStuckRetargetTracker();
         private AllyFootCircleView _footCircle;
 
         public string WarriorId => _warriorId;
@@ -95,7 +96,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ≤50/frame (SPEC_04 §9.7).</summary>
+        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted �?0/frame (SPEC_04 §9.7).</summary>
         public float TargetRetargetInterval => _retargetInterval;
 
         public float AttackRange
@@ -182,6 +183,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _windupTargetId = null;
             _diePlayed = false;
             _stuckHold.Reset();
+            _chaseStuckRetarget.Reset();
             _lastSteerDirXZ = Vector3.zero;
             _lastDesiredDirXZ = Vector3.zero;
             _scheduler = scheduler;
@@ -327,7 +329,9 @@ namespace Gravedigger2026.Gameplay.Defend
                 active);
         }
 
-        /// <summary>Nearest living monster inside EngageZone (loyal targeting).</summary>
+        /// <summary>Nearest living monster inside EngageZone (loyal targeting).
+        /// v0.84.25/26: chase-stuck force retarget excludes stuck ids when armed;
+        /// only switches to an alternate with a free AttackSlot.</summary>
         public MonsterAgentView FindNearestEngageMonster()
         {
             var list = _monstersProvider != null ? _monstersProvider() : null;
@@ -338,6 +342,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
             MonsterAgentView best = null;
             var bestDist = float.MaxValue;
+            MonsterAgentView excludedClaimed = null;
+            string claimedId = null;
+            var hasClaim = _attackSlots != null &&
+                           _attackSlots.TryGetClaimedTargetId(AttackerId, out claimedId);
+            var bypass = _chaseStuckRetarget.BypassStickiness;
+
             for (var i = 0; i < list.Count; i++)
             {
                 var m = list[i];
@@ -356,12 +366,97 @@ namespace Gravedigger2026.Gameplay.Defend
                     continue;
                 }
 
+                if (hasClaim && m.RuntimeId == claimedId)
+                {
+                    excludedClaimed = m;
+                }
+
+                if (_chaseStuckRetarget.IsExcluded(m.RuntimeId))
+                {
+                    continue;
+                }
+
                 var d = Vector3.Distance(transform.position, m.transform.position);
                 if (d < bestDist)
                 {
                     bestDist = d;
                     best = m;
                 }
+            }
+
+            MonsterAgentView picked;
+            if (bypass)
+            {
+                picked = PickForceRetargetMonster(list) ?? excludedClaimed;
+            }
+            else
+            {
+                picked = best;
+            }
+
+            if (picked != null)
+            {
+                _chaseStuckRetarget.NotifyApplied(picked.RuntimeId);
+            }
+
+            return picked;
+        }
+
+        private MonsterAgentView PickForceRetargetMonster(IReadOnlyList<MonsterAgentView> list)
+        {
+            if (list == null || _attackSlots == null)
+            {
+                return null;
+            }
+
+            MonsterAgentView best = null;
+            var bestDist = float.MaxValue;
+            var surround = CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode);
+            for (var i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                if (_engageZone != null && !_engageZone.ContainsXZ(m.transform.position))
+                {
+                    continue;
+                }
+
+                if (_session != null && !_session.IsMonsterAlive(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                if (_chaseStuckRetarget.IsExcluded(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                var d = Vector3.Distance(transform.position, m.transform.position);
+                if (d >= bestDist)
+                {
+                    continue;
+                }
+
+                if (!_attackSlots.HasAvailableSlot(
+                        AttackerId,
+                        m.RuntimeId,
+                        AttackRange,
+                        m.transform.position,
+                        AttackMode,
+                        transform.position,
+                        m.BodyRadius,
+                        _bodyRadius,
+                        surround))
+                {
+                    continue;
+                }
+
+                bestDist = d;
+                best = m;
             }
 
             return best;
@@ -458,6 +553,7 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _lastSteerDirXZ = Vector3.zero;
                 _stuckHold.Tick(false, transform.position, Time.deltaTime);
+                TickChaseStuckRetarget();
                 return;
             }
 
@@ -465,6 +561,7 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _lastSteerDirXZ = Vector3.zero;
                 _stuckHold.Tick(false, transform.position, Time.deltaTime);
+                TickChaseStuckRetarget();
                 return;
             }
 
@@ -479,6 +576,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 {
                     _lastSteerDirXZ = Vector3.zero;
                     _stuckHold.Tick(false, transform.position, Time.deltaTime);
+                    TickChaseStuckRetarget();
                     return;
                 }
             }
@@ -492,6 +590,7 @@ namespace Gravedigger2026.Gameplay.Defend
             {
                 _lastSteerDirXZ = Vector3.zero;
                 _stuckHold.Tick(false, transform.position, Time.deltaTime);
+                TickChaseStuckRetarget();
                 ClearPathingState();
                 return;
             }
@@ -520,10 +619,119 @@ namespace Gravedigger2026.Gameplay.Defend
 
             var wantsMove = _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
+            TickChaseStuckRetarget();
             if (_stuckHold.IsHolding && _anim != null)
             {
                 _anim.SetMoving(false);
             }
+        }
+
+        /// <summary>
+        /// SPEC_03 §3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
+        /// </summary>
+        private void TickChaseStuckRetarget()
+        {
+            if (IsRebel || _scheduler == null || _moveId == 0 || _attackSlots == null)
+            {
+                _chaseStuckRetarget.Tick(false, transform.position, null, false, Time.deltaTime);
+                return;
+            }
+
+            if (!_scheduler.TryGetGoal(_moveId, out var kind, out _) || kind != GoalKind.AttackSlot)
+            {
+                _chaseStuckRetarget.Tick(false, transform.position, null, false, Time.deltaTime);
+                return;
+            }
+
+            if (!_attackSlots.TryGetClaimedTargetId(AttackerId, out var claimedId) ||
+                string.IsNullOrEmpty(claimedId))
+            {
+                _chaseStuckRetarget.Tick(false, transform.position, null, false, Time.deltaTime);
+                return;
+            }
+
+            var claimedMonster = FindMonsterByRuntimeId(claimedId);
+            if (claimedMonster == null || !claimedMonster.IsAlive)
+            {
+                _chaseStuckRetarget.Tick(false, transform.position, null, false, Time.deltaTime);
+                return;
+            }
+
+            var distXZ = CombatReach.DistanceXZ(transform.position, claimedMonster.transform.position);
+            var inRange = CombatReach.IsInAttackRange(
+                distXZ,
+                AttackRange,
+                _bodyRadius,
+                claimedMonster.BodyRadius);
+            if (inRange || _attackPhase == AttackPhase.Windup)
+            {
+                _chaseStuckRetarget.Tick(false, transform.position, claimedId, false, Time.deltaTime);
+                return;
+            }
+
+            var hasAlternate = HasEngageAlternateWithFreeSlotExcluding(claimedId);
+            _chaseStuckRetarget.Tick(
+                eligible: true,
+                worldPos: transform.position,
+                currentTargetId: claimedId,
+                hasAlternateCandidate: hasAlternate,
+                dt: Time.deltaTime);
+        }
+
+        private bool HasEngageAlternateWithFreeSlotExcluding(string excludeId)
+        {
+            var list = _monstersProvider != null ? _monstersProvider() : null;
+            if (list == null || list.Count == 0 || _attackSlots == null)
+            {
+                return false;
+            }
+
+            var surround = CombatMoveModePolicy.SurroundFor(GoalKind.AttackSlot, AttackMode);
+            for (var i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                if (_engageZone != null && !_engageZone.ContainsXZ(m.transform.position))
+                {
+                    continue;
+                }
+
+                if (_session != null && !_session.IsMonsterAlive(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(excludeId) &&
+                    string.Equals(m.RuntimeId, excludeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (_chaseStuckRetarget.IsExcluded(m.RuntimeId))
+                {
+                    continue;
+                }
+
+                if (_attackSlots.HasAvailableSlot(
+                        AttackerId,
+                        m.RuntimeId,
+                        AttackRange,
+                        m.transform.position,
+                        AttackMode,
+                        transform.position,
+                        m.BodyRadius,
+                        _bodyRadius,
+                        surround))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void OnDisable()
@@ -544,7 +752,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             CacheDesiredDirFromScheduler();
 
-            // MassMove uses Move()+ResetPath — velocity≈0; use steer like monsters (SPEC_04 §15.5).
+            // MassMove uses Move()+ResetPath �?velocity�?; use steer like monsters (SPEC_04 §15.5).
             var wantsMove = _attackPhase != AttackPhase.Windup
                             && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;
@@ -584,7 +792,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _anim.SetFacing(_lastDesiredDirXZ);
         }
 
-        /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing → +∞).</summary>
+        /// <summary>SPEC_04 §15.5: distance for attack→run interrupt gate (Objective / missing �?+�?.</summary>
         private float ResolveMoveTargetDistanceXZ()
         {
             if (_scheduler == null || _moveId == 0)
@@ -606,6 +814,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _diePlayed = true;
             HideFootCircle();
             _stuckHold.Reset();
+            _chaseStuckRetarget.Reset();
             _anim.PlayDie(corpseAlphaMul: WarriorAnimView.DefendCorpseAlphaMul);
         }
 

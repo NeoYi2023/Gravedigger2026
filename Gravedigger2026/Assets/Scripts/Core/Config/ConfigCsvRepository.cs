@@ -1413,7 +1413,9 @@ namespace Gravedigger2026.Core.Config
                     NormalAttackAnims = OptionalText(raw, "NormalAttackAnims"),
                     WalkAnims = OptionalText(raw, "WalkAnims"),
                     RunAnims = OptionalText(raw, "RunAnims"),
-                    LootDrop = OptionalText(raw, "LootDrop")
+                    LootDrop = OptionalText(raw, "LootDrop"),
+                    SilhouetteIconAssetId = OptionalText(raw, "SilhouetteIconAssetId"),
+                    TableOrder = i
                 };
             }
 
@@ -2036,7 +2038,9 @@ namespace Gravedigger2026.Core.Config
                     AttackMode = attackMode,
                     PlacementOrder = ParseOptionalPlacementOrder(raw, "PlacementOrder", table, rowIndex),
                     DefaultAppearanceId = OptionalText(raw, "DefaultAppearanceId"),
-                    DefaultSkillIds = ParseDefaultSkillIds(OptionalText(raw, "DefaultSkillIds"))
+                    DefaultSkillIds = ParseDefaultSkillIds(OptionalText(raw, "DefaultSkillIds")),
+                    SilhouetteIconAssetId = OptionalText(raw, "SilhouetteIconAssetId"),
+                    TableOrder = i
                 };
             }
         }

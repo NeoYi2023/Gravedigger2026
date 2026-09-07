@@ -63,6 +63,16 @@ namespace Gravedigger2026.Core.Config
         /// <summary>Presentation: run BlendTree state pool; empty → RunBT (SPEC_04 §9.19).</summary>
         public string RunAnims;
         public string LootDrop;
+        /// <summary>
+        /// UI-033 CombatIndicator enemy silhouette filename (SPEC_04 §9.19).
+        /// Runtime Resources/UI/Icons/{Id}; missing/empty → empty frame. Not used in combat math.
+        /// </summary>
+        public string SilhouetteIconAssetId;
+        /// <summary>
+        /// In-memory CSV data-row order (0-based) for stable same-MonsterType indicator sort.
+        /// Not a CSV column (SPEC_04 §9.19).
+        /// </summary>
+        public int TableOrder;
 
         /// <summary>Run speed with MoveSpeed fallback (SPEC_04 §9.19).</summary>
         public float ResolveRunSpeed()
