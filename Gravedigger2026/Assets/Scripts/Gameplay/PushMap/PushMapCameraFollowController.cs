@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Gameplay.SearchExtract;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,6 +15,8 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto.
     /// Manual: LMB drag pans XZ mirrored to screen delta (grab-map); ResumeFollow returns to Auto.
     /// Scroll wheel zooms orthographicSize (forward zoom-in); clamp from CombatConstantConfig.
+    /// SearchExtract HoldFraming (SE-CAM-02 / SPEC_03 §3.19): SetHoldFraming / Clear / Freeze;
+    /// PushMap Stage must not call those APIs. ResumeFollow during Hold returns to Hold, not rail.
     /// Prepare path preview lives on FormationEditor (not this controller).
     /// </summary>
     public sealed class PushMapCameraFollowController : MonoBehaviour
@@ -46,7 +49,19 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Vector3 _smoothVelocity;
         private bool _loggedMissingPath;
 
+        private readonly SearchExtractHoldFramingSolver _holdSolver = new SearchExtractHoldFramingSolver();
+        private readonly List<Vector3> _holdLoyalScratch = new List<Vector3>(16);
+        private bool _holdActive;
+        private bool _holdFrozen;
+        private bool _holdUserZoomOverride;
+        private bool _holdHasTarget;
+        private Vector3 _holdTargetLookAt;
+        private float _holdTargetSize;
+        private bool _holdWantsExpand;
+        private float _sizeSmoothVelocity;
+
         public Mode CurrentMode => _mode;
+        public bool IsHoldFramingActive => _holdActive;
 
         public event Action<Mode> ModeChanged;
 
@@ -91,8 +106,48 @@ namespace Gravedigger2026.Gameplay.PushMap
             RefreshResumeButtonVisibility();
         }
 
+        /// <summary>
+        /// SearchExtract-only. Starts HoldFraming without Snap; current pose is the SmoothDamp origin.
+        /// </summary>
+        public void SetHoldFraming()
+        {
+            _holdActive = true;
+            _holdFrozen = false;
+            _holdUserZoomOverride = false;
+            _holdHasTarget = false;
+            _holdWantsExpand = false;
+            _sizeSmoothVelocity = 0f;
+            _smoothVelocity = Vector3.zero;
+            _holdSolver.Reset();
+        }
+
+        /// <summary>SearchExtract-only. Drops Hold and returns Auto follow to CameraFollowPath.</summary>
+        public void ClearHoldFraming()
+        {
+            ResetHoldState();
+        }
+
+        /// <summary>
+        /// SearchExtract-only. UI-032: keep the last Hold look-at + Size (no sudden zoom-in on clear).
+        /// </summary>
+        public void FreezeHoldFraming()
+        {
+            if (!_holdActive)
+            {
+                return;
+            }
+
+            if (!_holdHasTarget)
+            {
+                TryRefreshHoldTarget(0f);
+            }
+
+            _holdFrozen = true;
+        }
+
         public void EnableForCombat()
         {
+            ResetHoldState();
             _combatActive = true;
             _dragArmed = false;
             _dragAccumPixels = 0f;
@@ -123,6 +178,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _dragArmed = false;
             _mode = Mode.Auto;
             _smoothVelocity = Vector3.zero;
+            ResetHoldState();
             RefreshResumeButtonVisibility();
         }
 
@@ -178,6 +234,12 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
+            if (_holdActive)
+            {
+                TickHoldFraming();
+                return;
+            }
+
             if (!TryGetLookAt(out var lookAt))
             {
                 return;
@@ -215,6 +277,20 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private bool TryGetLookAt(out Vector3 worldXz)
         {
+            if (_holdActive)
+            {
+                if (!_holdHasTarget)
+                {
+                    TryRefreshHoldTarget(0f);
+                }
+
+                if (_holdHasTarget)
+                {
+                    worldXz = _holdTargetLookAt;
+                    return true;
+                }
+            }
+
             if (_followPath != null && _followPath.HasBakedPath)
             {
                 return TryGetPathLookAt(out worldXz);
@@ -319,6 +395,11 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var size = _camera.orthographicSize - scroll * _zoomStepPerNotch;
             _camera.orthographicSize = Mathf.Clamp(size, _orthoSizeMin, _orthoSizeMax);
+            if (_holdActive)
+            {
+                _holdUserZoomOverride = true;
+                _sizeSmoothVelocity = 0f;
+            }
         }
 
         private void HandleDragInput()
@@ -426,6 +507,113 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             return EventSystem.current.IsPointerOverGameObject();
+        }
+
+        private void TickHoldFraming()
+        {
+            if (_camera == null)
+            {
+                return;
+            }
+
+            if (!_holdFrozen || !_holdHasTarget)
+            {
+                TryRefreshHoldTarget(Time.deltaTime);
+            }
+
+            if (!_holdHasTarget)
+            {
+                return;
+            }
+
+            var hold = _presentationConstants.HoldFraming;
+            var expanding = _holdWantsExpand
+                             || _holdTargetSize > _camera.orthographicSize + 0.01f;
+            var smoothTime = expanding ? hold.SmoothTimeOut : hold.SmoothTimeIn;
+            var p = _camera.transform.position;
+            var desired = _presentationConstants.ResolveCombatCameraPosition(_holdTargetLookAt);
+            _camera.transform.position = Vector3.SmoothDamp(
+                p,
+                desired,
+                ref _smoothVelocity,
+                smoothTime);
+
+            if (_holdUserZoomOverride)
+            {
+                return;
+            }
+
+            _camera.orthographicSize = Mathf.SmoothDamp(
+                _camera.orthographicSize,
+                _holdTargetSize,
+                ref _sizeSmoothVelocity,
+                smoothTime);
+        }
+
+        private void TryRefreshHoldTarget(float deltaTime)
+        {
+            if (_camera == null)
+            {
+                return;
+            }
+
+            CollectHoldLoyalPositions();
+            var objective = _currentObjectiveProvider?.Invoke();
+            var objectivePos = objective != null ? objective.transform.position : Vector3.zero;
+            var currentLookAt = _presentationConstants.ResolveCombatLookAt(
+                _camera.transform.position,
+                objectivePos.y);
+            if (!_holdSolver.TryEvaluate(
+                    _camera,
+                    objectivePos,
+                    _holdLoyalScratch,
+                    currentLookAt,
+                    _camera.orthographicSize,
+                    _presentationConstants,
+                    deltaTime,
+                    out var target))
+            {
+                return;
+            }
+
+            _holdTargetLookAt = target.LookAt;
+            _holdTargetSize = target.OrthoSize;
+            _holdWantsExpand = target.WantsExpand;
+            _holdHasTarget = true;
+        }
+
+        private void CollectHoldLoyalPositions()
+        {
+            _holdLoyalScratch.Clear();
+            if (_advanceViews == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var view = _advanceViews[i];
+                if (!IsFollowable(view))
+                {
+                    continue;
+                }
+
+                _holdLoyalScratch.Add(view.transform.position);
+            }
+        }
+
+        private void ResetHoldState()
+        {
+            _holdActive = false;
+            _holdFrozen = false;
+            _holdUserZoomOverride = false;
+            _holdHasTarget = false;
+            _holdWantsExpand = false;
+            _holdTargetSize = 0f;
+            _sizeSmoothVelocity = 0f;
+            _smoothVelocity = Vector3.zero;
+            _holdLoyalScratch.Clear();
+            _holdSolver.Reset();
         }
     }
 }

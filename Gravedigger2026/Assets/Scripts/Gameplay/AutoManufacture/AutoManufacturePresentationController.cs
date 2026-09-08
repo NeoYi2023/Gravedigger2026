@@ -46,6 +46,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private Coroutine _playRoutine;
         private Canvas _canvas;
         private AutoMfgSoldierPreviewFarm _previewFarm;
+        private AmBodyRainPresentation _bodyRainPresentation;
         private bool _booksChangedSubscribed;
 
         public bool IsWired
@@ -101,6 +102,11 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
             BindBooks(specialEquipSlots);
             BindSoldierCards();
+            if (AutoMfgPresentationConstants.FromRepository(configs).UseLegacySoldierRow <= 0.5f)
+            {
+                SetSoldierScrollVisible(false);
+            }
+
             gameObject.SetActive(true);
             _playRoutine = StartCoroutine(CoPlay());
         }
@@ -176,6 +182,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             DestroyFarm();
+            DestroyBodyRain();
             ClearCards();
             UnsubscribeBooksChanged();
             _boundBooks = null;
@@ -649,11 +656,24 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private IEnumerator CoPlay()
         {
             yield return null;
+            var presentationConstants = AutoMfgPresentationConstants.FromRepository(_configs);
+            if (presentationConstants.UseLegacySoldierRow > 0.5f)
+            {
+                yield return CoPlayLegacyConveyor();
+                yield break;
+            }
+
+            yield return CoPlayBodyRain(presentationConstants);
+        }
+
+        private IEnumerator CoPlayLegacyConveyor()
+        {
             Canvas.ForceUpdateCanvases();
             ApplyCenterPadding();
             Canvas.ForceUpdateCanvases();
             if (_soldierScroll != null)
             {
+                _soldierScroll.gameObject.SetActive(true);
                 _soldierScroll.StopMovement();
                 _soldierScroll.inertia = false;
                 _soldierScroll.horizontalNormalizedPosition = 0f;
@@ -699,10 +719,98 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 }
             }
 
+            CompletePlay();
+        }
+
+        private IEnumerator CoPlayBodyRain(AutoMfgPresentationConstants presentationConstants)
+        {
+            SetSoldierScrollVisible(false);
+            EnsureBodyRain(presentationConstants);
+
+            var bodyEntries = AmBodyRainPresentation.CollectBatchBodyParts(_batchIds, _warriorPool, _configs);
+            yield return _bodyRainPresentation.CoDropBodies(bodyEntries);
+            if (_batchIds.Count == 0)
+            {
+                CompletePlay();
+                yield break;
+            }
+
+            yield return new WaitForSeconds(Step1HoldSeconds);
+
+            var completed = 0;
+            for (var i = 0; i < _batchIds.Count; i++)
+            {
+                var warriorId = _batchIds[i];
+                var speed = Mathf.Pow(SpeedStep, completed / SpeedEveryN);
+                var pulseDur = BaseBookPulseSeconds / speed;
+                var revealHold = BaseRevealHoldSeconds / speed;
+
+                _bodyRainPresentation.SetMagicCircleActive(true);
+
+                for (var b = 0; b < _bookSlots.Length; b++)
+                {
+                    var slot = _bookSlots[b];
+                    if (slot == null)
+                    {
+                        _onBookPulsePeak?.Invoke(warriorId, b);
+                        continue;
+                    }
+
+                    yield return CoPulseBook(slot, pulseDur, warriorId, b);
+                }
+
+                _bodyRainPresentation.SetMagicCircleActive(false);
+                yield return _bodyRainPresentation.CoReviveSoldier(
+                    warriorId,
+                    _warriorPool,
+                    _defendCatalog,
+                    presentationConstants.GravityScale);
+                yield return new WaitForSeconds(revealHold);
+
+                completed++;
+            }
+
+            CompletePlay();
+        }
+
+        private void CompletePlay()
+        {
             _playRoutine = null;
             var done = _onComplete;
             _onComplete = null;
             done?.Invoke();
+        }
+
+        private void SetSoldierScrollVisible(bool visible)
+        {
+            if (_soldierScroll != null)
+            {
+                _soldierScroll.gameObject.SetActive(visible);
+            }
+        }
+
+        private void EnsureBodyRain(AutoMfgPresentationConstants presentationConstants)
+        {
+            if (_bodyRainPresentation == null)
+            {
+                _bodyRainPresentation = AmBodyRainPresentation.Ensure(transform, presentationConstants);
+            }
+            else
+            {
+                _bodyRainPresentation.Initialize(transform, presentationConstants);
+            }
+        }
+
+        private void DestroyBodyRain()
+        {
+            if (_bodyRainPresentation == null)
+            {
+                return;
+            }
+
+            _bodyRainPresentation.Cleanup();
+            Destroy(_bodyRainPresentation.gameObject);
+            _bodyRainPresentation = null;
         }
 
         private void LockSoldierScrollDrag()

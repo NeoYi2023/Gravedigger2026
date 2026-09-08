@@ -1125,6 +1125,7 @@ namespace Gravedigger2026.Meta
 
         private System.Collections.IEnumerator CoAdvanceAfterAutoManufacture()
         {
+            // Re-entrancy: StageModule.Enter must finish. Zero-craft Tips are ~1s on the AM shell.
             yield return null;
             AdvanceStageFromGameplay();
         }

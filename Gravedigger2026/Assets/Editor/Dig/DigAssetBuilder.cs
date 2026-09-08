@@ -25,13 +25,14 @@ namespace Gravedigger2026.Editor.Dig
         private const string StageRootPath = PrefabDigDir + "/DigStageRoot.prefab";
         private const string DiggerPath = PrefabDigDir + "/Digger.prefab";
         private const string RewardPath = PrefabDigDir + "/DigRewardFlyer.prefab";
+        private const string SummaryItemCellPath = PrefabDigDir + "/DigSummaryItemCell.prefab";
         private const string UiCursorRingPath = PrefabDigDir + "/UiDigCursorRing.prefab";
         private const string CircleSpritePath = ArtUiDigDir + "/Ui_DigCursor_Circle.png";
         private const string CameraFogSpritePath = "Assets/Art/Maps/Fogs/Fog_1.png";
         private const string SummaryPanelSpritePath = "Assets/Art/UI/Meta/Title/UI_Kuang_09.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string IconsDir = "Assets/Art/UI/Icons";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08356_gmMenuTwoCol";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08437_summaryItemGrid";
 
         private static readonly string[] MapIds =
         {
@@ -58,16 +59,155 @@ namespace Gravedigger2026.Editor.Dig
 
                 var missing = AssetDatabase.LoadAssetAtPath<DigPrefabCatalog>(CatalogPath) == null
                               || AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath) == null;
-                var needsRegen = !EditorPrefs.GetBool(RegenPrefsKey, false);
-                if (missing || needsRegen)
+                if (missing)
                 {
                     GenerateAll();
                     EditorPrefs.SetBool(RegenPrefsKey, true);
                     return;
                 }
 
+                var needsSummaryGrid = !EditorPrefs.GetBool(RegenPrefsKey, false)
+                    || AssetDatabase.LoadAssetAtPath<GameObject>(SummaryItemCellPath) == null;
+                if (needsSummaryGrid)
+                {
+                    EnsureSummaryItemGrid();
+                    EditorPrefs.SetBool(RegenPrefsKey, true);
+                }
+
                 EnsureMissingGravePrefabs();
             };
+        }
+
+        [MenuItem("Gravedigger2026/Dig/Ensure Dig Summary Item Grid (UI-011)")]
+        public static void EnsureSummaryItemGridMenu()
+        {
+            EnsureSummaryItemGrid();
+        }
+
+        /// <summary>
+        /// Ensures DigSummaryItemCell Prefab exists and DigStageRoot Summary Body uses FixedColumnCount=5 grid.
+        /// </summary>
+        public static void EnsureSummaryItemGrid()
+        {
+            EnsureFolders();
+
+            var cellPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SummaryItemCellPath);
+            DigSummaryItemCell cellView = null;
+            if (cellPrefab == null || cellPrefab.GetComponent<DigSummaryItemCell>() == null)
+            {
+                var cellGo = BuildSummaryItemCell();
+                PrefabUtility.SaveAsPrefabAsset(cellGo, SummaryItemCellPath);
+                Object.DestroyImmediate(cellGo);
+                cellPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SummaryItemCellPath);
+            }
+
+            if (cellPrefab != null)
+            {
+                cellView = cellPrefab.GetComponent<DigSummaryItemCell>();
+            }
+
+            var stage = AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath);
+            if (stage == null)
+            {
+                Debug.LogWarning("[DigAssetBuilder] DigStageRoot missing — run Generate Dig Prefabs + Catalog first.");
+                return;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(StageRootPath);
+            try
+            {
+                var summaryView = contents.GetComponentInChildren<DigStageSummaryView>(true);
+                if (summaryView == null)
+                {
+                    Debug.LogWarning("[DigAssetBuilder] DigStageSummaryView missing on DigStageRoot.");
+                    return;
+                }
+
+                var summaryRoot = summaryView.transform as RectTransform;
+                if (summaryRoot == null)
+                {
+                    summaryRoot = summaryView.GetComponent<RectTransform>();
+                }
+
+                var body = summaryRoot.Find("Body");
+                if (body == null)
+                {
+                    Debug.LogWarning("[DigAssetBuilder] SummaryRoot/Body missing.");
+                    return;
+                }
+
+                // Convert legacy Body Text → grid panel.
+                var legacyText = body.GetComponent<Text>();
+                if (legacyText != null)
+                {
+                    Object.DestroyImmediate(legacyText);
+                }
+
+                var bodyImg = body.GetComponent<Image>();
+                if (bodyImg == null)
+                {
+                    bodyImg = body.gameObject.AddComponent<Image>();
+                }
+
+                bodyImg.color = Color.clear;
+                bodyImg.raycastTarget = false;
+
+                var bodyRt = body.GetComponent<RectTransform>();
+                Place(bodyRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(920f, 620f));
+
+                var grid = body.GetComponent<GridLayoutGroup>();
+                if (grid == null)
+                {
+                    grid = body.gameObject.AddComponent<GridLayoutGroup>();
+                }
+
+                grid.cellSize = new Vector2(168f, 200f);
+                grid.spacing = new Vector2(12f, 12f);
+                grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+                grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+                grid.childAlignment = TextAnchor.UpperLeft;
+                grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                grid.constraintCount = 5;
+
+                var empty = summaryRoot.Find("EmptyText");
+                Text emptyText;
+                if (empty == null)
+                {
+                    emptyText = CreateUiText(summaryRoot, "EmptyText", "本阶段未获得奖励。", 32, TextAnchor.UpperCenter);
+                    emptyText.color = Color.black;
+                    Place(emptyText.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                        new Vector2(0.5f, 1f), new Vector2(0f, -200f), new Vector2(800f, 80f));
+                }
+                else
+                {
+                    emptyText = empty.GetComponent<Text>();
+                }
+
+                var confirm = summaryRoot.Find("ConfirmButton");
+                var confirmBtn = confirm != null ? confirm.GetComponent<Button>() : null;
+
+                var sso = new SerializedObject(summaryView);
+                sso.FindProperty("_root").objectReferenceValue = summaryRoot.gameObject;
+                sso.FindProperty("_itemGrid").objectReferenceValue = bodyRt;
+                sso.FindProperty("_itemCellPrefab").objectReferenceValue = cellView;
+                sso.FindProperty("_emptyText").objectReferenceValue = emptyText;
+                if (confirmBtn != null)
+                {
+                    sso.FindProperty("_confirmButton").objectReferenceValue = confirmBtn;
+                }
+
+                sso.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(contents, StageRootPath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                EditorPrefs.SetBool(RegenPrefsKey, true);
+                Debug.Log("[DigAssetBuilder] EnsureSummaryItemGrid done.");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
         }
 
         [MenuItem("Gravedigger2026/Dig/Ensure Missing Grave Prefabs + Catalog")]
@@ -211,6 +351,14 @@ namespace Gravedigger2026.Editor.Dig
             Object.DestroyImmediate(rewardGo);
             var rewardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RewardPath);
 
+            var summaryCellGo = BuildSummaryItemCell();
+            PrefabUtility.SaveAsPrefabAsset(summaryCellGo, SummaryItemCellPath);
+            Object.DestroyImmediate(summaryCellGo);
+            var summaryCellPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SummaryItemCellPath);
+            var summaryCellView = summaryCellPrefab != null
+                ? summaryCellPrefab.GetComponent<DigSummaryItemCell>()
+                : null;
+
             var circleSprite = EnsureCircleSprite();
             var cursorRingGo = BuildUiDigCursorRing(circleSprite);
             PrefabUtility.SaveAsPrefabAsset(cursorRingGo, UiCursorRingPath);
@@ -220,7 +368,7 @@ namespace Gravedigger2026.Editor.Dig
                 ? cursorRingPrefab.GetComponent<DigCursorRingView>()
                 : null;
 
-            var stageGo = BuildDigStageRoot(cursorRingView);
+            var stageGo = BuildDigStageRoot(cursorRingView, summaryCellView);
             PrefabUtility.SaveAsPrefabAsset(stageGo, StageRootPath);
             Object.DestroyImmediate(stageGo);
             var stagePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(StageRootPath);
@@ -361,6 +509,49 @@ namespace Gravedigger2026.Editor.Dig
             return root;
         }
 
+        /// <summary>UI-011 DigSummaryItemCell: square icon + bottom-right qty + name below.</summary>
+        private static GameObject BuildSummaryItemCell()
+        {
+            var root = new GameObject("DigSummaryItemCell", typeof(RectTransform));
+            var rootRt = root.GetComponent<RectTransform>();
+            rootRt.sizeDelta = new Vector2(168f, 200f);
+
+            var iconRoot = CreateUiPanel(root.transform, "IconRoot", Color.clear);
+            var iconRootImg = iconRoot.GetComponent<Image>();
+            iconRootImg.raycastTarget = false;
+            Place(iconRoot.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(140f, 140f));
+
+            var iconGo = CreateUiPanel(iconRoot.transform, "Icon", Color.white);
+            var iconImg = iconGo.GetComponent<Image>();
+            iconImg.raycastTarget = false;
+            iconImg.preserveAspect = true;
+            iconImg.enabled = false;
+            Stretch(iconGo.GetComponent<RectTransform>());
+
+            var qty = CreateUiText(iconRoot.transform, "Quantity", "0", 22, TextAnchor.LowerRight);
+            qty.color = Color.black;
+            qty.horizontalOverflow = HorizontalWrapMode.Overflow;
+            qty.verticalOverflow = VerticalWrapMode.Overflow;
+            Place(qty.GetComponent<RectTransform>(), new Vector2(1f, 0f), new Vector2(1f, 0f),
+                new Vector2(1f, 0f), new Vector2(-4f, 4f), new Vector2(72f, 28f));
+
+            var name = CreateUiText(root.transform, "Name", "道具名", 18, TextAnchor.UpperCenter);
+            name.color = Color.black;
+            name.horizontalOverflow = HorizontalWrapMode.Wrap;
+            name.verticalOverflow = VerticalWrapMode.Truncate;
+            Place(name.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(160f, 40f));
+
+            var cell = root.AddComponent<DigSummaryItemCell>();
+            var cso = new SerializedObject(cell);
+            cso.FindProperty("_icon").objectReferenceValue = iconImg;
+            cso.FindProperty("_quantityText").objectReferenceValue = qty;
+            cso.FindProperty("_nameText").objectReferenceValue = name;
+            cso.ApplyModifiedPropertiesWithoutUndo();
+            return root;
+        }
+
         private static Sprite EnsureCircleSprite()
         {
             EnsureFolder("Assets/Art");
@@ -452,7 +643,9 @@ namespace Gravedigger2026.Editor.Dig
             return root;
         }
 
-        private static GameObject BuildDigStageRoot(DigCursorRingView uiCursorRingPrefab)
+        private static GameObject BuildDigStageRoot(
+            DigCursorRingView uiCursorRingPrefab,
+            DigSummaryItemCell summaryItemCellPrefab)
         {
             var root = new GameObject("DigStageRoot");
             var controller = root.AddComponent<DigStageController>();
@@ -743,15 +936,32 @@ namespace Gravedigger2026.Editor.Dig
             Place(confirmBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f),
                 new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
 
-            var summaryBody = CreateUiText(summaryRoot.transform, "Body", "", 32, TextAnchor.UpperLeft);
-            summaryBody.color = Color.black;
+            var summaryBody = CreateUiPanel(summaryRoot.transform, "Body", Color.clear);
+            var bodyImg = summaryBody.GetComponent<Image>();
+            bodyImg.raycastTarget = false;
             Place(summaryBody.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(920f, 1030f));
+                new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(920f, 620f));
+
+            var grid = summaryBody.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(168f, 200f);
+            grid.spacing = new Vector2(12f, 12f);
+            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+            grid.childAlignment = TextAnchor.UpperLeft;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 5;
+
+            var emptyText = CreateUiText(summaryRoot.transform, "EmptyText", "本阶段未获得奖励。", 32, TextAnchor.UpperCenter);
+            emptyText.color = Color.black;
+            Place(emptyText.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0.5f, 1f), new Vector2(0f, -200f), new Vector2(800f, 80f));
 
             var summary = summaryRoot.AddComponent<DigStageSummaryView>();
             var sso = new SerializedObject(summary);
             sso.FindProperty("_root").objectReferenceValue = summaryRoot;
-            sso.FindProperty("_bodyText").objectReferenceValue = summaryBody;
+            sso.FindProperty("_itemGrid").objectReferenceValue = summaryBody.GetComponent<RectTransform>();
+            sso.FindProperty("_itemCellPrefab").objectReferenceValue = summaryItemCellPrefab;
+            sso.FindProperty("_emptyText").objectReferenceValue = emptyText;
             sso.FindProperty("_confirmButton").objectReferenceValue = confirmBtn.GetComponent<Button>();
             sso.ApplyModifiedPropertiesWithoutUndo();
             summaryRoot.SetActive(false);

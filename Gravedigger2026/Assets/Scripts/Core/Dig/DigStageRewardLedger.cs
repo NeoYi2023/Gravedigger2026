@@ -4,6 +4,23 @@ using Gravedigger2026.Core.Config;
 
 namespace Gravedigger2026.Core.Dig
 {
+    /// <summary>One aggregated Dig-stage reward row for DigStageSummary (UI-011).</summary>
+    public readonly struct DigStageSummaryEntry
+    {
+        public DigStageSummaryEntry(string rewardId, string displayName, float amount, bool isBodyPart)
+        {
+            RewardId = rewardId ?? string.Empty;
+            DisplayName = displayName ?? string.Empty;
+            Amount = amount;
+            IsBodyPart = isBodyPart;
+        }
+
+        public string RewardId { get; }
+        public string DisplayName { get; }
+        public float Amount { get; }
+        public bool IsBodyPart { get; }
+    }
+
     /// <summary>
     /// Aggregates rewards credited this Dig stage for DigStageSummary (no extra grants).
     /// </summary>
@@ -29,35 +46,34 @@ namespace Gravedigger2026.Core.Dig
             _amounts[rewardId] = current + amount;
         }
 
-        public string BuildSummaryText(ConfigCsvRepository configs)
+        public IReadOnlyList<DigStageSummaryEntry> BuildSummaryEntries(ConfigCsvRepository configs)
         {
             if (_amounts.Count == 0)
             {
-                return "本阶段未获得奖励。";
+                return Array.Empty<DigStageSummaryEntry>();
             }
 
-            var lines = new List<string> { "Dig 阶段汇总（已入账）：" };
+            var list = new List<DigStageSummaryEntry>(_amounts.Count);
             foreach (var kv in _amounts)
             {
-                lines.Add($"  {FormatRewardLine(kv.Key, kv.Value, configs)}");
+                list.Add(FormatEntry(kv.Key, kv.Value, configs));
             }
 
-            return string.Join("\n", lines);
+            return list;
         }
 
-        private static string FormatRewardLine(string rewardId, float amount, ConfigCsvRepository configs)
+        private static DigStageSummaryEntry FormatEntry(string rewardId, float amount, ConfigCsvRepository configs)
         {
-            var countText = FormatAmount(amount);
             if (configs != null && configs.TryGetBodyPart(rewardId, out var part))
             {
                 var name = string.IsNullOrEmpty(part.DisplayName) ? part.BodyPartId : part.DisplayName;
-                return $"{name} Lv{FormatAmount(part.BodyLevel)} × {countText}";
+                return new DigStageSummaryEntry(rewardId, name, amount, isBodyPart: true);
             }
 
-            return $"{rewardId} × {countText}";
+            return new DigStageSummaryEntry(rewardId, rewardId, amount, isBodyPart: false);
         }
 
-        private static string FormatAmount(float value)
+        public static string FormatAmount(float value)
         {
             if (Math.Abs(value - Math.Round(value)) < 0.001f)
             {

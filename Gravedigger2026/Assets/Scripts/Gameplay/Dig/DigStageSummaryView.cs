@@ -1,15 +1,25 @@
 using System;
+using System.Collections.Generic;
+using Gravedigger2026.Core.Config;
+using Gravedigger2026.Core.Dig;
+using Gravedigger2026.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
+    /// <summary>DigStageSummary (UI-011): icon+name+qty grid, max 5 columns.</summary>
     public sealed class DigStageSummaryView : MonoBehaviour
     {
+        private const string EmptyMessage = "本阶段未获得奖励。";
+
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _bodyText;
+        [SerializeField] private RectTransform _itemGrid;
+        [SerializeField] private DigSummaryItemCell _itemCellPrefab;
+        [SerializeField] private Text _emptyText;
         [SerializeField] private Button _confirmButton;
 
+        private readonly List<GameObject> _spawnedCells = new List<GameObject>(16);
         private Action _onConfirm;
 
         private void Awake()
@@ -21,12 +31,42 @@ namespace Gravedigger2026.Gameplay.Dig
             }
         }
 
-        public void Show(string body, Action onConfirm)
+        public void Show(
+            IReadOnlyList<DigStageSummaryEntry> entries,
+            ConfigCsvRepository configs,
+            Action onConfirm)
         {
             _onConfirm = onConfirm;
-            if (_bodyText != null)
+            ClearCells();
+
+            var hasItems = entries != null && entries.Count > 0;
+            if (_emptyText != null)
             {
-                _bodyText.text = body ?? string.Empty;
+                _emptyText.gameObject.SetActive(!hasItems);
+                if (!hasItems)
+                {
+                    _emptyText.text = EmptyMessage;
+                }
+            }
+
+            if (_itemGrid != null)
+            {
+                _itemGrid.gameObject.SetActive(hasItems);
+            }
+
+            if (hasItems && _itemCellPrefab != null && _itemGrid != null)
+            {
+                for (var i = 0; i < entries.Count; i++)
+                {
+                    var entry = entries[i];
+                    var cell = Instantiate(_itemCellPrefab, _itemGrid);
+                    cell.gameObject.SetActive(true);
+                    cell.Bind(
+                        ResolveIcon(entry, configs),
+                        entry.DisplayName,
+                        DigStageRewardLedger.FormatAmount(entry.Amount));
+                    _spawnedCells.Add(cell.gameObject);
+                }
             }
 
             if (_root != null)
@@ -37,6 +77,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public void Hide()
         {
+            ClearCells();
             if (_root != null)
             {
                 _root.SetActive(false);
@@ -50,6 +91,29 @@ namespace Gravedigger2026.Gameplay.Dig
             var cb = _onConfirm;
             Hide();
             cb?.Invoke();
+        }
+
+        private void ClearCells()
+        {
+            for (var i = 0; i < _spawnedCells.Count; i++)
+            {
+                if (_spawnedCells[i] != null)
+                {
+                    Destroy(_spawnedCells[i]);
+                }
+            }
+
+            _spawnedCells.Clear();
+        }
+
+        private static Sprite ResolveIcon(DigStageSummaryEntry entry, ConfigCsvRepository configs)
+        {
+            if (entry.IsBodyPart && configs != null && configs.TryGetBodyPart(entry.RewardId, out var part))
+            {
+                return DigBodyArtLoader.LoadBodyPart(part.ArtAssetId, part.BodySlot);
+            }
+
+            return ItemIconLoader.LoadFromCatalog(configs, entry.RewardId);
         }
     }
 }

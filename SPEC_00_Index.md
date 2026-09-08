@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.24
-**最后更新 / Last Updated:** 2026-09-07
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；Demo 须另授权）  
+**文档版本 / Document Version:** v0.84.38
+**最后更新 / Last Updated:** 2026-09-08
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**UI-016 尸骸雨+法阵复活 AM-RAIN SPEC 已关**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,18 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-08 | v0.84.38 | UI-016 StepB：影子宽/高样例 **20**/**8**；已复活士兵落地成一行（首中、后先左后右，间距=`MaxEdge`×`VisualScale`）。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b |
+| 2026-09-08 | v0.84.37 | DigStageSummary（UI-011）：获得物改为图标格子（方图标+右下数量+下方名称）；`Body` GridLayoutGroup 每行最多 5；名称仅 DisplayName（不再展示 BodyLevel）。同步 SPEC_03 §3.6/§3.10、SPEC_04 §9.12、CONTEXT、`DigStageRoot`/`DigSummaryItemCell` |
+| 2026-09-08 | v0.84.36 | UI-016：躯体绝对转角夹紧 ±`AutoMfgBodyAngleMaxDeg`（270）；士兵 size 64 + `VisualScale` 8；落地 Y −410、影子相对 Y −40；堆地板 −300；法阵始终低于躯体。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b |
+| 2026-09-08 | v0.84.35 | UI-016 调尺：躯体适配边长样例 49（约原 35%）、复活士兵/问号 440（约×2）、落地 Y −520（下移 200）；脚下椭圆半透明影子。常量 `AutoMfgBodyMaxEdgePx` / `AutoMfgSoldierMaxEdgePx` / Shadow*。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b |
+| 2026-09-08 | v0.84.34 | AutoManufacture 选料：主要手按 BodyLevel 降序尝试；当前锚点凑不齐近似套件或 ClassRestrict 空则跳过（不消耗）试下一档；仍优先能成套的最高档。修 Dig_01+Dig_02 混品质 0 兵。同步 SPEC_03 §3.15 |
+| 2026-09-08 | v0.84.33 | UI-016 尸骸雨碰撞改为可转 OBB（SAT）+ 碰撞体内缩：落下随机转角、互撞/落地可斜放，堆得更紧；常量 `AutoMfgColliderInset` / `AutoMfgSpawnAngleMaxDeg`。同步 SPEC_03 §3.15、SPEC_04 §6/§9.20b |
+| 2026-09-08 | v0.84.32 | AutoManufacture 0 兵诊断：`RunBatch` 结束打仓库槽位/BodyLevel dump；Dig HUD 种族·职业数=主要手不是可造套数；跨 Dig 混品质时现行「最高主要手失败即整批停造」待 AM-CRAFT-02。issues `.scratch/auto-mfg-craft-zero/`。同步 SPEC_03 §3.15、SPEC_04 §6 |
+| 2026-09-08 | v0.84.31 | UI-016 0 兵：仍挂 AM 壳层约 1s + Tips「无士兵可制造」，不播尸骸雨/复活/套书、不自动开布阵（避免路线图瞬间 ClearedMark、看起来像没进制造）。同步 SPEC_03 §3.15 |
+| 2026-09-08 | v0.84.30 | UI-016 尸骸雨改为 Overlay `AmBodyRainLayer`（1920×1080 Image + 像素重力堆叠）；独立正交相机 RT 会被 ScreenSpaceOverlay 挡住。同步 SPEC_03 §3.15、SPEC_04 §6 |
+| 2026-09-08 | v0.84.29 | UI-016 / D-055：自动制造演出改为尸骸雨+法阵复活（方案 A 独立 2D 物理层）；中央士兵行默认隐藏保留；常量 `AutoMfg*`；`Resources/UI/Dig`；issues `.scratch/auto-mfg-body-rain/`。同步 SPEC_03 §3.6/§3.8/§3.15、SPEC_04 §2/§6/§9.20b/§13、CONTEXT |
+| 2026-09-08 | v0.84.28 | SE-CAM-03：`SearchExtractHold*` 样例锁定为 v0.84.27 初值（Size 3～8、半径 8、滞留 0.8、Out 0.2 / In 0.55）；几何盒测 + Play Mode 手验清单。同步 SPEC_03 §3.8 D-087 / §3.19、SPEC_04 §9.20b/§6 |
+| 2026-09-08 | v0.84.27 | 搜打撤倒计时战斗镜头 HoldFraming（方案 B）：仅点激活期间视口包围+迟滞；进圈前/Continue 后仍轨跟随；超半径允许出镜；常量 `SearchExtractHold*`；issues `.scratch/search-extract-hold-camera/`。同步 SPEC_03 §3.19、SPEC_04 §9.20b/§9.32/§6、CONTEXT |
 | 2026-09-07 | v0.84.26 | 追击卡住换目标回归修复：`TryClaim` 换目标先占新槽再 Release（避免满环空放→回阵）；强制换目标仅选仍有空槽的次近怪；卡住检测改滑动窗且不依赖 steer；黑名单防 A↔B。同步 SPEC_03/04 |
 | 2026-09-07 | v0.84.25 | 追击卡住强制换目标（方案 A）：`GoalKind=AttackSlot` 未进距且位移不足 1s → 排除当前认领、绕过粘滞、认领次近；常量 `ChaseStuckRetargetSeconds`/`Cooldown`；PushMap/SE/Defend。同步 SPEC_03 §3.12/§3.14、SPEC_04 §9.7/§9.20b、CONTEXT |
 | 2026-09-07 | v0.84.24 | UI-031 / D-086：同 Stage 已通关后兄弟选项 Locked 变暗不可选（可选=Unlock 派生且无同 Stage Cleared；快照 UiState + TrySelect 双重门闩）。同步 SPEC_03 §3.9、SPEC_04、`LevelOperationDriver` |
@@ -491,6 +503,18 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-08 | v0.84.38 | UI-016 StepB: foot-shadow W/H samples **20**/**8**; landed revived soldiers form one row (first center, then left/right alternate, pitch=`MaxEdge`×`VisualScale`). Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b |
+| 2026-09-08 | v0.84.37 | DigStageSummary (UI-011): rewards as icon cells (square icon + bottom-right qty + name below); `Body` GridLayoutGroup max 5/row; name = DisplayName only (no BodyLevel). Synced SPEC_03 §3.6/§3.10, SPEC_04 §9.12, CONTEXT, `DigStageRoot`/`DigSummaryItemCell` |
+| 2026-09-08 | v0.84.36 | UI-016: clamp body Z angle ±`AutoMfgBodyAngleMaxDeg` (270); soldier size 64 + `VisualScale` 8; land Y −410, shadow local Y −40; pile floor −300; circle always under bodies. Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b |
+| 2026-09-08 | v0.84.35 | UI-016 scale polish: body fit max-edge sample 49 (~35%), revive/mystery 440 (~×2), land Y −520 (−200px); oval soft foot shadow. Keys `AutoMfgBodyMaxEdgePx` / `AutoMfgSoldierMaxEdgePx` / Shadow*. Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b |
+| 2026-09-08 | v0.84.34 | AutoManufacture pick: try PrimaryHands by BodyLevel descending; skip (do not consume) if approx kit or empty ClassRestrict fails; still prefer the highest completable kit. Fixes mixed Dig_01+Dig_02 zero-craft. Synced SPEC_03 §3.15 |
+| 2026-09-08 | v0.84.33 | UI-016 body-rain collision: rotatable OBB (SAT) + collider inset; random spawn angle; pieces rest at slants and pack tighter; constants `AutoMfgColliderInset` / `AutoMfgSpawnAngleMaxDeg`. Synced SPEC_03 §3.15, SPEC_04 §6/§9.20b |
+| 2026-09-08 | v0.84.32 | AutoManufacture zero-craft diagnostics: `RunBatch` dumps warehouse slot/BodyLevel stock; Dig HUD race/class counts = PrimaryHands not craftable kits; mixed-Dig max-primary abort pending AM-CRAFT-02. Issues `.scratch/auto-mfg-craft-zero/`. Synced SPEC_03 §3.15, SPEC_04 §6 |
+| 2026-09-08 | v0.84.31 | UI-016 zero-craft: still mount AM shell ~1s + Tips「无士兵可制造」; skip rain/revive/books and do not auto-open Formation (avoid instant ClearedMark looking like AM never opened). Synced SPEC_03 §3.15 |
+| 2026-09-08 | v0.84.30 | UI-016 body-rain now composites on Overlay `AmBodyRainLayer` (1920×1080 Images + pixel-space gravity); a separate ortho camera RT is covered by ScreenSpaceOverlay. Synced SPEC_03 §3.15, SPEC_04 §6 |
+| 2026-09-08 | v0.84.29 | UI-016 / D-055: AutoManufacture presentation → body-rain + magic-circle revive (Approach A separate 2D physics); legacy soldier row hidden by default; `AutoMfg*` constants; `Resources/UI/Dig`; issues `.scratch/auto-mfg-body-rain/`. Synced SPEC_03 §3.6/§3.8/§3.15, SPEC_04 §2/§6/§9.20b/§13, CONTEXT |
+| 2026-09-08 | v0.84.28 | SE-CAM-03: lock `SearchExtractHold*` samples at v0.84.27 initials (Size 3–8, radius 8, dwell 0.8, Out 0.2 / In 0.55); geometric box checks + Play Mode handcheck. Synced SPEC_03 §3.8 D-087 / §3.19, SPEC_04 §9.20b/§6 |
+| 2026-09-08 | v0.84.27 | SearchExtract HoldFraming camera (Approach B): viewport framing + hysteresis only while gather point active; rail follow before enter / after Continue; out-of-radius loyals may leave frame; constants `SearchExtractHold*`; issues `.scratch/search-extract-hold-camera/`. Synced SPEC_03 §3.19, SPEC_04 §9.20b/§9.32/§6, CONTEXT |
 | 2026-09-07 | v0.84.26 | Chase-stuck retarget regression fix: `TryClaim` claims new slot before Release (no full-ring empty→FormationHome thrash); force retarget only to alternates with a free slot; sliding-window stuck detect without steer gate; blacklist vs A↔B. Synced SPEC_03/04 |
 | 2026-09-07 | v0.84.25 | Chase-stuck force retarget (Approach A): `GoalKind=AttackSlot` out of range + insufficient displacement for 1s → exclude claimed, bypass stickiness, claim next-nearest; constants `ChaseStuckRetargetSeconds`/`Cooldown`; PushMap/SE/Defend. Synced SPEC_03 §3.12/§3.14, SPEC_04 §9.7/§9.20b, CONTEXT |
 | 2026-09-07 | v0.84.24 | UI-031 / D-086: same-Stage Cleared locks uncleared siblings (Selectable iff unlock-derived and no sibling Cleared; UiState + TrySelect dual gate). Synced SPEC_03 §3.9, SPEC_04, `LevelOperationDriver` |

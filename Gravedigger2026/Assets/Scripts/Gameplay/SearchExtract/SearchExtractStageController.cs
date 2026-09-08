@@ -35,6 +35,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
     /// SE-08: point loot via RewardGrantService; Continue advances order + relocate; Leave → StageExp + UI-017 → TryAdvanceStage.
     /// SE-09: active-gather loyal wipe → UI-017 defeat → TitleMenu / Restart.
     /// v0.83.93: Combat camera follows CameraFollowPath + soldiers (PushMapCameraFollowController).
+    /// SE-CAM-02: GatherCountdown HoldFraming via SetHoldFraming; UI-032 freeze; Continue back to rail.
     /// v0.83.94: Combat MassMove Tick includes monsters + AttackSlot chase refresh (same as PushMap).
     /// UI-033 / D-089: shared CombatIndicator HUD in Combat; hide Prepare/Ended/UI-032/UI-017.
     /// No BattleProtagonist.
@@ -361,22 +362,24 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             CreditGatherPointRewards(info.GatherPointOrder);
             EnsureDecisionPanel();
             HideCombatIndicatorHud();
+            _cameraFollow?.FreezeHoldFraming();
             _decisionPanel?.Show(info.ShowContinue, info.GatherPointOrder, info.GatherPointCount);
             RefreshCountdownHud();
             Debug.Log(
                 $"[SearchExtractStage] UI-032 show Order={info.GatherPointOrder}/{info.GatherPointCount} " +
-                $"Continue={info.ShowContinue}");
+                $"Continue={info.ShowContinue} HoldFraming frozen");
         }
 
         private void HandlePointContinueRequested()
         {
             _decisionPanel?.Hide();
             RefreshCountdownHud();
+            _cameraFollow?.ClearHoldFraming();
             RelocateTowardCurrentObjective("Continue");
             ShowCombatIndicatorHud();
             Debug.Log(
                 $"[SearchExtractStage] Continue → CurrentOrder={_session?.CurrentGatherOrder} " +
-                "(re-enter zone required; CombatDead stay dead)");
+                "(HoldFraming off; rail follow; re-enter zone required; CombatDead stay dead)");
         }
 
         private void HandlePointLeaveRequested()
@@ -591,6 +594,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private void HandleGatherPointActivated()
         {
             RelocateTowardCurrentObjective("Activate");
+            _cameraFollow?.SetHoldFraming();
+            Debug.Log("[SearchExtractStage] HoldFraming on (GatherPointActivated; no Snap).");
         }
 
         private void HandlePhaseChanged(SearchExtractPhase phase)
@@ -607,6 +612,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 HideCombatIndicatorHud();
                 DestroyCountdownHud();
                 _decisionPanel?.Hide();
+                DisableCameraFollow();
             }
         }
 

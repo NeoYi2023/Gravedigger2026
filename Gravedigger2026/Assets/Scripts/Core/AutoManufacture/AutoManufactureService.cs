@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Dig;
@@ -161,6 +162,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             Debug.Log(
                 $"[AutoManufacture] Batch done crafted={crafted} flushed={flushed} " +
                 $"tempLeft={_tempWarehouse.Count} stop={stopReason}");
+            LogWarehouseRecipeDump(crafted, stopReason);
             return crafted;
         }
 
@@ -217,6 +219,7 @@ namespace Gravedigger2026.Core.AutoManufacture
             var torso = 0;
             var arm = 0;
             var primary = 0;
+            var secondary = 0;
             var leg = 0;
 
             foreach (var pair in _warehouse.Materials)
@@ -240,6 +243,10 @@ namespace Gravedigger2026.Core.AutoManufacture
                         {
                             primary += pair.Value;
                         }
+                        else
+                        {
+                            secondary += pair.Value;
+                        }
 
                         break;
                     case BodySlot.Leg:
@@ -251,7 +258,8 @@ namespace Gravedigger2026.Core.AutoManufacture
             if (head < 1 || torso < 1 || arm < 2 || primary < 1 || leg < 2)
             {
                 reason =
-                    $"最低配方不足 Head={head} Torso={torso} Arm={arm}(Primary={primary}) Leg={leg}";
+                    $"最低配方不足 Head={head} Torso={torso} Arm={arm}" +
+                    $"(Primary={primary} Secondary={secondary}) Leg={leg}";
                 return false;
             }
 
@@ -261,36 +269,96 @@ namespace Gravedigger2026.Core.AutoManufacture
         private bool TryCraftOne(out string reason)
         {
             reason = null;
-            var reserved = CloneStock();
-
-            if (!TryPickPrimaryHand(reserved, out var primary, out reason))
+            var candidates = ListPrimaryHandsDescending(CloneStock());
+            if (candidates.Count == 0)
             {
+                reason = "无主要手，停造";
+                Debug.LogWarning($"[AutoManufacture] {reason}");
                 return false;
             }
 
-            Reserve(reserved, primary.BodyPartId);
+            string lastReason = null;
+            var skippedIds = new HashSet<string>(StringComparer.Ordinal);
 
-            if (!TryPickSecondaryHand(reserved, primary, out var secondary, out reason))
+            for (var i = 0; i < candidates.Count; i++)
             {
-                return false;
+                var primary = candidates[i];
+                if (primary == null || skippedIds.Contains(primary.BodyPartId))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(primary.ClassRestrict))
+                {
+                    lastReason = $"主要手 ClassRestrict 为空（配置错误）BodyPartId={primary.BodyPartId}，跳过";
+                    Debug.LogError($"[AutoManufacture] {lastReason}");
+                    skippedIds.Add(primary.BodyPartId);
+                    continue;
+                }
+
+                var reserved = CloneStock();
+                if (!reserved.TryGetValue(primary.BodyPartId, out var have) || have < 1)
+                {
+                    skippedIds.Add(primary.BodyPartId);
+                    continue;
+                }
+
+                Debug.Log(
+                    $"[AutoManufacture] Try primary {primary.BodyPartId} BodyLevel={primary.BodyLevel} " +
+                    $"ClassRestrict='{primary.ClassRestrict}'");
+
+                Reserve(reserved, primary.BodyPartId);
+
+                if (!TryPickSecondaryHand(reserved, primary, out var secondary, out var stepReason))
+                {
+                    SkipPrimary(skippedIds, primary, stepReason, ref lastReason);
+                    continue;
+                }
+
+                Reserve(reserved, secondary.BodyPartId);
+
+                if (!TryPickRemaining(reserved, primary, BodySlot.Head, out var head, out stepReason)
+                    || !TryPickRemaining(reserved, primary, BodySlot.Torso, out var torso, out stepReason)
+                    || !TryPickRemaining(reserved, primary, BodySlot.Leg, out var leg1, out stepReason)
+                    || !TryPickRemaining(reserved, primary, BodySlot.Leg, out var leg2, out stepReason))
+                {
+                    SkipPrimary(skippedIds, primary, stepReason, ref lastReason);
+                    continue;
+                }
+
+                if (!TryResolveClass(primary, secondary, out var classRow, out stepReason))
+                {
+                    SkipPrimary(skippedIds, primary, stepReason, ref lastReason);
+                    continue;
+                }
+
+                var parts = new[] { primary, secondary, head, torso, leg1, leg2 };
+                return TryCommitCraft(parts, classRow, out reason);
             }
 
-            Reserve(reserved, secondary.BodyPartId);
+            reason = lastReason ?? "选料失败，停造";
+            Debug.LogWarning($"[AutoManufacture] All primaries skipped stop={reason}");
+            return false;
+        }
 
-            if (!TryPickRemaining(reserved, primary, BodySlot.Head, out var head, out reason)
-                || !TryPickRemaining(reserved, primary, BodySlot.Torso, out var torso, out reason)
-                || !TryPickRemaining(reserved, primary, BodySlot.Leg, out var leg1, out reason)
-                || !TryPickRemaining(reserved, primary, BodySlot.Leg, out var leg2, out reason))
-            {
-                return false;
-            }
+        private static void SkipPrimary(
+            HashSet<string> skippedIds,
+            BodyPartConfigRow primary,
+            string stepReason,
+            ref string lastReason)
+        {
+            skippedIds.Add(primary.BodyPartId);
+            lastReason = stepReason;
+            Debug.LogWarning(
+                $"[AutoManufacture] Skip primary {primary.BodyPartId} Lv={primary.BodyLevel}: {stepReason}");
+        }
 
-            var parts = new[] { primary, secondary, head, torso, leg1, leg2 };
-            if (!TryResolveClass(primary, secondary, out var classRow, out reason))
-            {
-                return false;
-            }
-
+        private bool TryCommitCraft(
+            BodyPartConfigRow[] parts,
+            ClassConfigRow classRow,
+            out string reason)
+        {
+            reason = null;
             var baseStats = default(StatBlock);
             var raceCandidates = new List<string>(6);
             var consumed = new List<string>(6);
@@ -312,7 +380,6 @@ namespace Gravedigger2026.Core.AutoManufacture
                 }
             }
 
-            // Craft without MagicBook (SPEC_03 §3.15 Step2 per-slot apply). Default race only.
             var raceId = RaceResolve.ResolveDefaultRace(raceCandidates);
             _configs.TryGetRace(raceId, out var raceRow);
             var raceAdjust = raceRow != null ? raceRow.RaceAdjustCoeff : default;
@@ -349,15 +416,10 @@ namespace Gravedigger2026.Core.AutoManufacture
             return true;
         }
 
-        private bool TryPickPrimaryHand(
-            Dictionary<string, int> reserved,
-            out BodyPartConfigRow primary,
-            out string reason)
+        private List<BodyPartConfigRow> ListPrimaryHandsDescending(Dictionary<string, int> stock)
         {
-            primary = null;
-            reason = null;
-            BodyPartConfigRow best = null;
-            foreach (var pair in reserved)
+            var list = new List<BodyPartConfigRow>();
+            foreach (var pair in stock)
             {
                 if (pair.Value < 1 || !_configs.TryGetBodyPart(pair.Key, out var part) || part == null)
                 {
@@ -369,28 +431,20 @@ namespace Gravedigger2026.Core.AutoManufacture
                     continue;
                 }
 
-                if (best == null || part.BodyLevel > best.BodyLevel)
+                list.Add(part);
+            }
+
+            list.Sort((a, b) =>
+            {
+                var cmp = b.BodyLevel.CompareTo(a.BodyLevel);
+                if (cmp != 0)
                 {
-                    best = part;
+                    return cmp;
                 }
-            }
 
-            if (best == null)
-            {
-                reason = "无主要手，停造";
-                Debug.LogWarning($"[AutoManufacture] {reason}");
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(best.ClassRestrict))
-            {
-                reason = $"主要手 ClassRestrict 为空（配置错误）BodyPartId={best.BodyPartId}，停造";
-                Debug.LogError($"[AutoManufacture] {reason}");
-                return false;
-            }
-
-            primary = best;
-            return true;
+                return string.CompareOrdinal(a.BodyPartId, b.BodyPartId);
+            });
+            return list;
         }
 
         private bool TryPickSecondaryHand(
@@ -426,7 +480,8 @@ namespace Gravedigger2026.Core.AutoManufacture
 
             if (approx.Count == 0)
             {
-                reason = "无可用次要手（近似品质），停造";
+                reason =
+                    $"无可用次要手（近似品质），停造 primary={primary.BodyPartId} Lv={primary.BodyLevel}";
                 Debug.LogWarning($"[AutoManufacture] {reason}");
                 return false;
             }
@@ -484,7 +539,8 @@ namespace Gravedigger2026.Core.AutoManufacture
 
             if (approx.Count == 0)
             {
-                reason = $"无可用 {slot}（近似品质），停造";
+                reason =
+                    $"无可用 {slot}（近似品质），停造 primary={primary.BodyPartId} Lv={primary.BodyLevel}";
                 Debug.LogWarning($"[AutoManufacture] {reason}");
                 return false;
             }
@@ -914,6 +970,116 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
 
             return map;
+        }
+
+        private void LogWarehouseRecipeDump(int crafted, string stopReason)
+        {
+            var head = 0;
+            var torso = 0;
+            var primary = 0;
+            var secondary = 0;
+            var leg = 0;
+            var unknown = 0;
+            var byLevel = new Dictionary<string, Dictionary<int, int>>(StringComparer.Ordinal);
+            var lines = new List<string>();
+
+            foreach (var pair in _warehouse.Materials)
+            {
+                if (pair.Value < 1)
+                {
+                    continue;
+                }
+
+                if (!_configs.TryGetBodyPart(pair.Key, out var part) || part == null)
+                {
+                    unknown += pair.Value;
+                    lines.Add($"{pair.Key} x{pair.Value} (not BodyPart)");
+                    continue;
+                }
+
+                var slotKey = part.BodySlot.ToString();
+                if (part.BodySlot == BodySlot.Head)
+                {
+                    head += pair.Value;
+                }
+                else if (part.BodySlot == BodySlot.Torso)
+                {
+                    torso += pair.Value;
+                }
+                else if (part.BodySlot == BodySlot.Leg)
+                {
+                    leg += pair.Value;
+                }
+                else if (part.BodySlot == BodySlot.Arm)
+                {
+                    if (part.IsPrimaryHand == 1)
+                    {
+                        slotKey = "ArmPrimary";
+                        primary += pair.Value;
+                    }
+                    else
+                    {
+                        slotKey = "ArmSecondary";
+                        secondary += pair.Value;
+                    }
+                }
+
+                var lv = (int)Math.Round(part.BodyLevel);
+                if (!byLevel.TryGetValue(slotKey, out var lvMap))
+                {
+                    lvMap = new Dictionary<int, int>();
+                    byLevel[slotKey] = lvMap;
+                }
+
+                lvMap.TryGetValue(lv, out var n);
+                lvMap[lv] = n + pair.Value;
+                lines.Add(
+                    $"{pair.Key} slot={slotKey} Lv={part.BodyLevel} x{pair.Value} " +
+                    $"primaryHand={part.IsPrimaryHand} classRestrict='{part.ClassRestrict}'");
+            }
+
+            Debug.Log(
+                $"[AutoManufacture] Stock dump crafted={crafted} stop={stopReason} " +
+                $"Spirit={_warehouse.SpiritEssence} Head={head} Torso={torso} " +
+                $"ArmPrimary={primary} ArmSecondary={secondary} Leg={leg} UnknownId={unknown}");
+
+            var hist = new StringBuilder();
+            hist.Append("[AutoManufacture] Stock by BodyLevel");
+            AppendLevelHistogram(hist, byLevel, "Head");
+            AppendLevelHistogram(hist, byLevel, "Torso");
+            AppendLevelHistogram(hist, byLevel, "ArmPrimary");
+            AppendLevelHistogram(hist, byLevel, "ArmSecondary");
+            AppendLevelHistogram(hist, byLevel, "Leg");
+            Debug.Log(hist.ToString());
+
+            if (lines.Count == 0)
+            {
+                Debug.Log("[AutoManufacture] Stock lines: (empty warehouse BodyParts)");
+                return;
+            }
+
+            Debug.Log("[AutoManufacture] Stock lines:\n" + string.Join("\n", lines));
+        }
+
+        private static void AppendLevelHistogram(
+            StringBuilder hist,
+            Dictionary<string, Dictionary<int, int>> byLevel,
+            string slotKey)
+        {
+            hist.Append(" | ").Append(slotKey).Append(':');
+            if (!byLevel.TryGetValue(slotKey, out var lvMap) || lvMap.Count == 0)
+            {
+                hist.Append(" none");
+                return;
+            }
+
+            var keys = new List<int>(lvMap.Keys);
+            keys.Sort();
+            for (var i = 0; i < keys.Count; i++)
+            {
+                var lv = keys[i];
+                hist.Append(' ').Append('L').Append(lv).Append('=').Append(lvMap[lv]);
+            }
         }
 
         private static void Reserve(Dictionary<string, int> reserved, string bodyPartId)

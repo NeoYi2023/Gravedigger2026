@@ -75,7 +75,7 @@
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP% 切换：>65% 样式1；30%–65% 样式2；<30% 样式3（§3.10）。 |
 | GraveQualityConfig | 坟墓品质定义表 | 品质 ID → maxHP、掉落等；被挖坟权重引用（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | DigReward | 挖掘奖励 | 坟 HP 归 0 时在成功动画中心生成的奖励图标；飞向 Dig HUD 左上角主角头像框，到达后入账并消失（§3.10）。 |
-| DigStageSummary | 挖坟阶段汇总 | Dig 有效时长归零后弹出的汇总弹窗：仅展示本阶段已获奖励按类型汇总，无额外发放；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`；右上「X」确认关闭（§3.10，UI-011）。 |
+| DigStageSummary | 挖坟阶段汇总 | Dig 有效时长归零后弹出的汇总弹窗：仅展示本阶段已获奖励按类型汇总，无额外发放；每条奖励为格子（图标+名称+数量），每行最多 5；右上「X」确认关闭（§3.10，UI-011）。 |
 | Warehouse | 仓库 | 按存档槽持久的材料仓库；不限格数与存储时长；材料按类型堆叠上限 10000（§3.10）。 |
 | WarehouseHudStats | Dig HUD 仓库统计 | Dig HUD `Warehouse` 三行图标统计：精魂、非主要手残骸总数、按种族/基础职业划分的主要手数量；数量为 0 不显示；Hover Tips 文案 ← `LocalizedDescriptionConfig`（§3.10）。 |
 | LocalizedDescriptionConfig | 多语言描述表 | `TextKey` → 多语言描述文案（Demo 读 `TextZh`；`TextEn` 预留）；Dig Warehouse Hover Tips Key=`DigWarehouseHoverTips`；子关卡 Tips 类型名 Key=`TipMsg_*`（§3.9 / UI-031，[SPEC_04 §9.34](SPEC_04_Technical.md)）。 |
@@ -189,9 +189,11 @@
 | PreparePathPreview | 布阵路径预览 | PushMap Prepare：可选「快速预览」沿 `CameraFollowPath` 从 `WP_End` 反向扫到 `WP_Start`；默认不播；见 §3.14。 |
 | CameraPathSlider | 路径滑动条 | PushMap Prepare：左=`WP_Start`(s=0)、右=`WP_End`(s=1)，按折线弧长均匀映射；拖动即时定位 FormationCamera；见 §3.14。 |
 | PrepareSpawnPreview | 布阵开战刷怪预览 | PushMap Prepare：按开战非陷阱行刷出 Idle 怪供预览；开战销毁后正式重刷；见 §3.14。 |
-| ResumeFollow | 恢复跟随 | PushMap 手动模式下底中按钮；点击回到 `Auto`；见 §3.14。 |
+| ResumeFollow | 恢复跟随 | PushMap 手动模式下底中按钮；点击回到 `Auto`；SearchExtract Hold 期间回到 HoldFraming（非轨）；见 §3.14 / §3.19。 |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移；见 §3.14。 |
 | FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s；见 §3.14。 |
+| SearchExtractHoldCamera | 搜打撤守点镜头 | SearchExtract 点激活后的 Combat 镜头模式：视口包围忠诚兵 + 迟滞拉近；钳 Size/半径；见 §3.19。 |
+| HoldFraming | 守点包围取景 | Hold 表现算法：相机视口 AABB、外框立刻拉远/平移、内框滞留后慢收紧；锚点=当前 Objective；见 §3.19。 |
 | DamagePopup | 伤害飘字 | PushMap 命中成功后在**被击目标**头顶显示单次伤害文本（格式 `-受伤值`）；敌我字号均为 **12**（怪红 / 兵白）；0.5s 内 `position.z` 相对起点 +0→+0.5 后销毁；见 §3.14。 |
 | CombatSkillIcon | 战斗技能图标 | PushMap Combat 士兵技能图标（UI-025 / D-071）：瞬时头顶 35×35 静止 0.6s 后沿世界 +Z 上飘 0.3s 淡出；持续效果脚下 20×20；同列向屏幕右侧排开；见 §3.12 SkillCast / §3.14。 |
 | CombatIndicator | 战斗指示器 | PushMap / SearchExtract **Combat** 顶中「血条」HUD（UI-033 / D-089）：中央敌我存活数 + 两侧单位格（职业/怪物简画 + HP% 着色）；低频轮询；死亡格 0.5s 后移除；见 §3.14 / §3.19。 |
@@ -303,7 +305,7 @@
 | GraveIconStyle | 坟墓图标样式 | By remaining HP%: >65% style1; 30%–65% style2; <30% style3 (§3.10). |
 | GraveQualityConfig | 坟墓品质定义表 | Quality Id → maxHP, loot, etc.; referenced by Dig spawn weights (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | DigReward | 挖掘奖励 | Reward icon spawned at dig-success anim center when HP hits 0; flies to Dig HUD top-left protagonist portrait, credits on arrival, then disappears (§3.10). |
-| DigStageSummary | 挖坟阶段汇总 | Popup after Dig effective duration hits 0: aggregate rewards earned this stage by type only; no extra grants; body-part lines `{DisplayName} Lv{BodyLevel} × count`; top-right "X" confirms (§3.10, UI-011). |
+| DigStageSummary | 挖坟阶段汇总 | Popup after Dig effective duration hits 0: aggregate rewards earned this stage by type only; no extra grants; each reward is a cell (icon+name+qty), max 5 per row; top-right "X" confirms (§3.10, UI-011). |
 | Warehouse | 仓库 | Per-SaveSlot material warehouse; unlimited slots and retention; materials stack by type up to 10000 (§3.10). |
 | WarehouseHudStats | Dig HUD warehouse stats | Dig HUD `Warehouse` three-row icon stats: Spirit, non-primary-hand wreck total, primary-hand counts by race / base class; hide zero counts; hover tips ← `LocalizedDescriptionConfig` (§3.10). |
 | LocalizedDescriptionConfig | Localized description table | `TextKey` → localized copy (Demo reads `TextZh`; `TextEn` reserved); Dig Warehouse hover Key=`DigWarehouseHoverTips`; SubLevel Tips type-name Keys=`TipMsg_*` (§3.9 / UI-031, [SPEC_04 §9.34](SPEC_04_Technical.md)). |
@@ -412,9 +414,11 @@
 | PreparePathPreview | 布阵路径预览 | PushMap Prepare: optional Quick Preview reverse-sweeps `CameraFollowPath` WP_End→WP_Start; off by default; §3.14. |
 | CameraPathSlider | 路径滑动条 | PushMap Prepare: left=WP_Start (s=0), right=WP_End (s=1), uniform arc-length; drag snaps FormationCamera; §3.14. |
 | PrepareSpawnPreview | 布阵开战刷怪预览 | PushMap Prepare: Idle monsters from StartBattle non-trap rows for preview; destroyed then formal respawn on StartBattle; §3.14. |
-| ResumeFollow | 恢复跟随 | PushMap Manual-only bottom-center button → back to `Auto`; §3.14. |
+| ResumeFollow | 恢复跟随 | PushMap Manual-only bottom-center button → back to `Auto`; during SearchExtract Hold → HoldFraming (not rail); §3.14 / §3.19. |
 | FollowDeadzone | Follow deadzone | Auto world-XZ radius 0.15; ignore small target motion inside; §3.14. |
 | FollowSmoothTime | Follow smooth time | Auto XZ SmoothDamp time 0.25s when outside deadzone; §3.14. |
+| SearchExtractHoldCamera | SearchExtract hold camera | Combat camera mode after gather-point activation: viewport framing of loyal soldiers + delayed zoom-in; Size/radius clamps; §3.19. |
+| HoldFraming | Hold framing | Hold presentation solver: camera-viewport AABB; expand/pan immediately on outer pad breach; slow tighten after inner-pad dwell; anchor = current Objective; §3.19. |
 | DamagePopup | 伤害飘字 | PushMap floating damage text above the **hit target** after a successful hit (format `-damage`); font size **12** for both sides (monster red / soldier white); over **0.5s** world `position.z` rises relative start +0→+0.5 then despawn; §3.14. |
 | CombatSkillIcon | 战斗技能图标 | PushMap Combat soldier-skill presentation: instant casts show the skill icon **35×35 screen px** above **that soldier’s head** (hold 0.6s then world +Z rise 0.3s and fade); persistent effects sit at **that soldier’s feet** at 20×20; extras stack screen-right (4px gap); icons `Resources/UI/Skills/{SkillId}`; §3.12 SkillCast / UI-025 / D-071. |
 | CombatIndicator | 战斗指示器 | PushMap / SearchExtract **Combat** top-center unit-status HUD (UI-033 / D-089): center alive counts + per-unit slots (class/monster silhouette + HP% tint); low-frequency poll; dead slot removed after 0.5s; §3.14 / §3.19. |
@@ -804,12 +808,12 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-008 | 关卡选择面板 | 已实现（保留 Prefab；Hub 主路径不再嵌入） | Prefab `LevelSelectPanel`（可仍挂 InSaveShell 子级，默认隐藏）；去重 `LevelId` 选关由 UI-031 页签承担；验收见 §3.8 D-003 / D-081 |
 | UI-009 | 开战按钮 | 已定义（Demo 流水线） | Defend 准备态；点击 → StartBattle（§3.12）；验收见 §3.8 D-040 |
 | UI-010 | 升级与制造主屏 | 已定义（Demo 流水线） | 默认全屏制造区；顶部「GM升级」打开升级 Modal（右上 X 关闭）；底栏库存方格拖拽 +「完成」与其右「布阵」；布阵打开共享 FormationEditor；验收见 §3.8 D-030～D-032 |
-| UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；`SummaryRoot` **1103×796**（Image Sprite=`Art/UI/Meta/Title/UI_Kuang_09.png`、Color 纯白）、`Title`/`Body` 文字纯黑、`Body` **920×1030**；躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（精魂/非躯体仍 `{Id} × 数量`）；`ConfirmButton` 文案「X」、锚 `SummaryRoot` 右上角（语义仍为确认）；确认后接 §3.9；验收见 §3.8 D-020 |
+| UI-011 | 挖坟阶段汇总 | 已定义（Demo 流水线） | DigStageSummary：本阶段已获奖励按类型汇总；无额外发放；`SummaryRoot` **1103×796**（Image Sprite=`Art/UI/Meta/Title/UI_Kuang_09.png`、Color 纯白）、`Title` 文字纯黑；`Body` **920×620**（`GridLayoutGroup` `FixedColumnCount=5`，`cellSize` **168×200**，`spacing` **12×12**）；每条奖励为 `DigSummaryItemCell`（方图标 + 右下数量 + 下方名称）：躯体名=`DisplayName`（空则 `BodyPartId`），图标=`DigBodyArtLoader`；精魂/非躯体名=`Id`，图标=`ItemIconLoader.LoadFromCatalog`（缺图空 Icon）；空账本「本阶段未获得奖励。」；`ConfirmButton` 文案「X」、锚 `SummaryRoot` 右上角（语义仍为确认）；确认后接 §3.9；验收见 §3.8 D-020 |
 | UI-012 | 科技树画布 | 已实现（方案 A，可选） | 2D 可拖动画布；节点图标+类型框；连线；悬停描述；学习点击；见 §3.13；非 §3.8 P0；学会后 Dig 能力可验 |
 | UI-013 | 战斗模式选关 | 已定义（Demo 流水线） | 进入 Defend 阶段后：选 `BattleMode` + 关卡（该模式全部玩法配置）；模式1进保卫战 Prepare；模式2选 `PushMapGameplayConfig` 后进 §3.14 Prepare；验收见 §3.8 D-044 |
 | UI-014 | 玩法模式选择 | Demo 旁路 | 组件保留；**本 Demo 新建/进入不弹出**（直进 Mode2）；Mode1 入口后置；**勿与** UI-013 混淆；验收见 §3.8 D-045 |
 | UI-015 | 制造记录弹窗 | 已定义（Demo / Mode2） | Mode2 UM：「布阵」右侧「制造记录」打开只读 Modal；最近一批士兵摘要（名字/种族/职业）；空态「本批无士兵」；Mode1 **无**此入口；验收见 §3.8 D-054 |
-| UI-016 | 自动制造演出 | 已定义（Demo / Mode2） | AutoManufacture 阶段：底层全屏背景 `Title_AutoManufacture_1`（`AspectRatioFitter` EnvelopeParent 锁定长宽比铺满；其上 `Dim`）+ Step1 中央士兵行（默认 150×200，卡中央谜底图 `UnknownSoldier_1`（`Art/UI/Icons`）+ 职业名 32 + 其下 `Lv.{ClassLevel}` 24，横滑传送带）+ 上方 6 魔法书槽（120×160）；进入第一张从视口中心右侧一格滑入；Step2 逐兵加强后揭示：先 Taunt 一遍再循环默认 Idle（Camera+RT）；传送带左移不等 Taunt；每 3 兵加速；Step3 进 UM 后自动开布阵；0 兵跳过；Mode1 **无**；验收见 §3.8 D-055 |
+| UI-016 | 自动制造演出 | 已定义（Demo / Mode2） | AutoManufacture 阶段：底层全屏背景 `Title_AutoManufacture_1` + Dim + 上方 6 魔法书槽（120×160）。**默认流程（方案 A）：** StepA 落下本批消耗躯体（`SourceItemIds`→`BodyPartConfig.ArtAssetId`，`Art/UI/Dig`→`Resources/UI/Dig`；每 0.3s 随机 3～5 件；适配最长边 `AutoMfgBodyMaxEdgePx` 样例 **49**；绝对转角夹紧 ±`AutoMfgBodyAngleMaxDeg` 样例 **270**；堆地板 `AutoMfgPileFloorYPx` 样例 **−300**；2D 重力 + 可转 OBB 弱碰撞堆叠；法阵绘制层级低于躯体）→ StepB 逐兵：法阵 `MagicCircle_1` 持续闪红 + 6 书槽依次脉冲套书 → 堆底上 400px 问号 `UnknownSoldier_1` 变兵（sizeDelta `AutoMfgSoldierMaxEdgePx` 样例 **64** × `AutoMfgSoldierVisualScale` 样例 **8**）→ 落到落地线 `AutoMfgSoldierLandYPx`（样例 **−410**）Idle，脚下椭圆半透明影（`AutoMfgSoldierShadow*` 宽/高样例 **20**/**8**，相对 Y 样例 **−40**）；多兵落地成一行（首中、后先左后右，间距=`MaxEdge`×`VisualScale`）→ 循环下一兵 → StepC 上阵+UM 自动开布阵。**备选：** 中央士兵行传送带（卡+Camera+RT）默认隐藏、不删除；`AutoMfgUseLegacySoldierRow=1` 可切回。0 兵跳过；Mode1 **无**；参数见 `CombatConstantConfig` `AutoMfg*`；验收见 §3.8 D-055 |
 | UI-017 | 战斗结算（推图/搜打撤） | 已定义（Demo / PushMap + SearchExtract） | **胜利：**上部「胜利」；中部战斗耗时/击杀（PushMap；SE 可隐藏击杀）、**阵亡士兵总数**、四基础职业阵亡（战士/射手/法师/刺客，图标+数量）；底中「继续」。PushMap Continue → UI-018；SE Leave 后 Continue → §3.9 推进。**失败：**上部「失败」；中部阵亡士兵总数；底栏「返回主界面」（→ TitleMenu / UI-027）、「重新开始」（Abort 后重进同 LevelId+OptionId → Prepare）。Defend **不做**；见 §3.14 / §3.19 |
 | UI-018 | 推图奖励弹窗 | 已定义（Demo / PushMap） | 仅展示本场已入账：`StageExpReward` + 占领 `CaptureLoot` 汇总；`CaptureLoot` 先经 `ItemCatalogConfig` 解析为统一道具展示名/图标来源；无额外发放；底中「继续」→ 关闭后打开 LevelSelectPanel；见 §3.14 |
 | UI-019 | GM 发放列表 | 已定义（Demo GM） | Prefab `GmGrantListPanel`（InSaveShell 子级；布局对齐 UI-008）；Tools「增加主角装备」/「增加魔法书」打开；按钮文案 DisplayName（空则 Id）；装备点行→嵌套 LevelPicker（等级按钮）→`DebugGrantAtLevel`；魔法书点一次 `TryEquip`；关闭按钮；验收见 §3.8 D-061 |
@@ -842,12 +846,12 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-008 | Level select panel | Done (Prefab retained; Hub no longer embeds) | Prefab `LevelSelectPanel` (may remain under InSaveShell, hidden by default); LevelId pick moves to UI-031 tabs; accept §3.8 D-003 / D-081 |
 | UI-009 | StartBattle button | Defined (Demo pipeline) | Defend Prepare; click → StartBattle (§3.12); accept §3.8 D-040 |
 | UI-010 | UpgradeManufacture main screen | Defined (Demo pipeline) | Full-screen manufacture by default; top "GM Upgrade" opens upgrade Modal (top-right X closes); bottom inventory square bar + drag + Complete with Formation to its right; opens shared FormationEditor; accept §3.8 D-030–D-032 |
-| UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; `SummaryRoot` **1103×796** (Image Sprite=`Art/UI/Meta/Title/UI_Kuang_09.png`, Color white), `Title`/`Body` text black, `Body` **920×1030**; body-part lines `{DisplayName} Lv{BodyLevel} × count` (Spirit/non-body still `{Id} × count`); `ConfirmButton` label "X", top-right of `SummaryRoot` (still confirms); confirm → §3.9; accept §3.8 D-020 |
+| UI-011 | Dig stage summary | Defined (Demo pipeline) | DigStageSummary aggregate only; `SummaryRoot` **1103×796** (Image Sprite=`Art/UI/Meta/Title/UI_Kuang_09.png`, Color white), `Title` text black; `Body` **920×620** (`GridLayoutGroup` `FixedColumnCount=5`, `cellSize` **168×200**, `spacing` **12×12**); each reward is `DigSummaryItemCell` (square icon + bottom-right qty + name below): body name=`DisplayName` (empty → `BodyPartId`), icon=`DigBodyArtLoader`; Spirit/non-body name=`Id`, icon=`ItemIconLoader.LoadFromCatalog` (missing → empty Icon); empty ledger 「本阶段未获得奖励。」; `ConfirmButton` label "X", top-right of `SummaryRoot` (still confirms); confirm → §3.9; accept §3.8 D-020 |
 | UI-012 | TechTree canvas | Done (Approach A, optional) | 2D pannable canvas; §3.13; not §3.8 P0; Dig caps verifiable after learn |
 | UI-013 | Battle mode/level select | Defined (Demo pipeline) | After entering Defend: pick `BattleMode` + level (all configs for mode); Mode1 → Defend Prepare; Mode2 pick `PushMapGameplayConfig` → §3.14 Prepare; accept §3.8 D-044 |
 | UI-014 | Campaign mode select | Demo bypass | Component retained; **not shown** on this Demo create/enter (straight Mode2); Mode1 entry deferred; **not** UI-013; accept §3.8 D-045 |
 | UI-015 | Manufacture record popup | Defined (Demo / Mode2) | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only Modal; last-batch summaries (name/race/class); empty 「本批无士兵」; Mode1 has **no** entry; accept §3.8 D-054 |
-| UI-016 | AutoManufacture presentation | Defined (Demo / Mode2) | AutoManufacture stage: bottom full-screen background `Title_AutoManufacture_1` (`AspectRatioFitter` EnvelopeParent keep aspect cover; `Dim` above) + Step1 center soldier row (default 150×200, mystery portrait `UnknownSoldier_1` (`Art/UI/Icons`) + class name 32 + `Lv.{ClassLevel}` 24 below, conveyor scroll) + 6 MagicBook slots above (120×160); enter: first card slides from one pitch right of viewport center; Step2 amplify then reveal: Taunt once then loop default Idle (Camera+RT); conveyor does not wait for Taunt; +25% speed every 3; Step3 enter UM then auto-open Formation; 0 craft skips; Mode1 **none**; accept §3.8 D-055 |
+| UI-016 | AutoManufacture presentation | Defined (Demo / Mode2) | AutoManufacture stage: full-screen `Title_AutoManufacture_1` + Dim + 6 MagicBook slots (120×160) above. **Default (Approach A):** StepA rain consumed body parts (`SourceItemIds`→`ArtAssetId`, `Art/UI/Dig`→`Resources/UI/Dig`; every 0.3s drop 3–5; fit max-edge `AutoMfgBodyMaxEdgePx` sample **49**; Z-angle clamp ±`AutoMfgBodyAngleMaxDeg` sample **270**; pile floor `AutoMfgPileFloorYPx` sample **−300**; 2D gravity + rotatable OBB soft pile; circle draws under bodies) → StepB per soldier: `MagicCircle_1` flash red + 6 book pulses → mystery `UnknownSoldier_1` at pile-base+400px morphs (sizeDelta `AutoMfgSoldierMaxEdgePx` sample **64** × `AutoMfgSoldierVisualScale` sample **8**) → fall to `AutoMfgSoldierLandYPx` (sample **−410**) Idle with oval soft foot shadow (`AutoMfgSoldierShadow*` W/H samples **20**/**8**, local Y sample **−40**); multi-soldier land in one row (first center, then left/right alternate, pitch=`MaxEdge`×`VisualScale`) → next soldier → StepC deploy + UM auto-open Formation. **Legacy:** center soldier-row conveyor (cards+Camera+RT) hidden by default, kept for `AutoMfgUseLegacySoldierRow=1`. 0 craft skips; Mode1 **none**; tunables `CombatConstantConfig` `AutoMfg*`; accept §3.8 D-055 |
 | UI-017 | Battle settlement (PushMap / SearchExtract) | Defined (Demo / PushMap + SearchExtract) | **Victory:** top Victory; mid combat time/kills (PushMap; SE may hide kills), **loyal casualty total**, four BaseClass casualty rows (icons+counts); bottom Continue. PushMap Continue → UI-018; SE after Leave Continue → §3.9 advance. **Defeat:** top Defeat; mid casualty total; bottom Return to Title (→ TitleMenu / UI-027) / Restart (Abort then re-enter same LevelId+OptionId → Prepare). Defend **not** done; §3.14 / §3.19 |
 | UI-018 | PushMap reward popup | Defined (Demo / PushMap) | Show already-credited StageExpReward + CaptureLoot aggregate only; `CaptureLoot` first resolves through `ItemCatalogConfig` for shared display-name/icon sourcing; no extra grants; bottom Continue → LevelSelectPanel; §3.14 |
 | UI-019 | GM grant list | Defined (Demo GM) | Prefab `GmGrantListPanel` under InSaveShell (layout aligned with UI-008); Tools Grant Equipment / Grant MagicBook; label DisplayName (else Id); equipment pick → nested LevelPicker (level buttons) → `DebugGrantAtLevel`; MagicBook one click `TryEquip`; close button; accept §3.8 D-061 |
@@ -930,7 +934,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-052 | Mode2：批结束后清空布阵，按 `PlacementOrder` + `FormationClassZone` 自动上阵（碰撞挤开）；再进 UM | P1 | 已实现（AM-06 方案 A：区内螺旋采样 + BodyRadius；`FormationClassZone` **IsoDiamond**（同 WalkSurface；废止 OBB/IsoTileYaw）；仅本批 Id；手验见 AM-08 / FZ-01～02） |
 | D-053 | Mode2 UM：隐藏手动制造；保留升级 Modal 与可编辑布阵；控制力 HUD 屏蔽；布阵内 `CompleteButton`（SoldierBar 上右，UM/Prepare 均显示；UM 接线结束阶段）；Prepare `StartBattleButton` 叠于 Complete 正上方 | P1 | 已实现（方案 C：`UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`；Catalog 按 CampaignMode Resolve；手验见 AM-08；Complete 见 Mode2 差分） |
 | D-054 | Mode2 UM：布阵右侧「制造记录」打开只读弹窗；展示最近一批 AutoManufacture 士兵摘要（名字/种族/职业）；0 兵空态「本批无士兵」；下一批覆盖；同档再进仍可见；Mode1 无此按钮 | P1 | 已实现（方案 A：`AutoManufactureBatchRecordService` + Mode2 Modal；`UmAssetBuilder` Mode2 追加 / 运行时 Ensure） |
-| D-055 | Mode2 AutoManufacture 演出（UI-016）：批末可见 Step1 士兵行+6 书槽；进入时第一张从视口水平中心右侧一格滑入中心；Step2 逐兵加强/单槽脉冲套该书/书槽峰值同步士兵卡 VisualStyle live preview（Camera+RT；未烘进仍谜底图 `UnknownSoldier_1`）/6 槽结束揭示（Taunt 一遍→循环默认 Idle）后整行左移一格（末张不再移；传送带不等 Taunt）；每 3 兵加速；播完后按 final ClassId 上阵再进 UM 并自动开布阵；0 兵 Tips+跳过演出且不自动开布阵；Mode1 无此 UI | P1 | **更新**（Step2 脉冲峰值同步 VisualStyle 预览；方案 B Camera+RT） |
+| D-055 | Mode2 AutoManufacture 演出（UI-016）：批末播 StepA 落下本批消耗躯体（ArtAssetId；0.3s×3～5；2D 堆叠）→ StepB 逐兵法阵闪红+6 书槽单槽脉冲套书 → 堆底+400px 问号变兵落到法阵下 Idle → 循环 → StepC 按 final ClassId 上阵再进 UM 并自动开布阵；中央士兵行默认隐藏保留；0 兵 Tips+跳过且不自动开布阵；Mode1 无此 UI | P1 | **更新**（尸骸雨 Overlay Image 层；issues `.scratch/auto-mfg-body-rain/`） |
 | D-056 | 士兵外观：`BodyAppearanceConfig.AppearanceId` 在 `Art/Characters/Appearances/{Id}/` **Art 就绪**（Controller + Idle Sprite）时，须有游戏 Prefab `Prefabs/Defend/Warriors/{Id}.prefab`（根+`Visual`）并绑定 Defend/UM Catalog；缺绑定则布阵/战斗/演出不显示该外观 | P1 | Done（WA-01 / 方案 B：`WarriorAppearancePrefabAssembler` From-Art + Catalog 并集刷新；已补 `App_0_*`/`App_4_41`/`App_5_51`，并扩展人/精/兽 `App_1_*`/`App_2_*`/`App_3_*`） |
 | D-057 | 样例 `Ground_*` **与** `PushMap_Demo_*` 的 `FormationClassZone` 覆盖当前模式 `ClassConfig` **全部** ClassId（缺区→自动上阵/一键上阵留池）；Mode2 须含 `Class_DarkMage`/`Class_Guardian` 等；推图样例区锚点=`CameraFollowPath/WP_Start`（缺则 DigMapBounds.Center） | P1 | **更新**（全量 ClassId + HalfExtents `(3.85, 2)`；Ground Ensure 不变；PushMap Ensure 菜单锚定 WP_Start） |
 | D-058 | Mode2 魔法书「战士强化」：装备 `MagicBook_WarriorEnhance` 后 AutoManufacture **Step2 该书槽脉冲**仅对 `Class_BaseWarrior` / `Class_Warrior` 将主属性 Base 增加躯体该维 Σ StatBonus 的 15%（可叠；种族不过滤）；其它职业不变；写入实例至彻底死亡；Dig HUD GM 可装备 | P1 | **更新**（生效点改为 Step2 单槽脉冲；职业含枯骨战士） |
@@ -963,7 +967,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-084 | 战术阵型 TacticalFormation（方案 A）：魔法书 `GrantFormationSkill` 授予阵型技能；布阵 ≥Min 自动 snap 到 Pattern 槽位（覆盖职业区、整阵拖拽）；Defend+PushMap 虚拟中心 + `FormationSlot` + 接敌 leash；阵亡 &lt;Min 运行时解散；属性/专属技能 overlay；专表 `TacticalFormationConfig` | P1 | **完成**（方案 A；TF-01～06；样例楔阵 `Form_Wedge_01` / `MagicBook_Form_Wedge` + 平行阵 `Form_Wedge_02` / `MagicBook_Form_Wedge_02`；GM 添加士兵仅 GrantFormationSkill；手验清单 `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`；Play Mode 由负责人勾选） |
 | D-085 | 布阵战术阵型小队条（UI-030）：左侧列出已 snap 小队；点选高亮整队士兵栏成员 | P1 | **完成**（方案 A：`TacticalFormationSquadBarView` + Editor 选中态；Mode1+Mode2 Prefab） |
 | D-086 | 关卡 Stage 多选一 + 路线选择（UI-031）：运作表挂 `GameplayOptionId1..5` + 可选 `RouteMapAssetId` + Stage1 `UnlockLevelId`；子关卡表承载 Type/Config/图标/文案/Reward/UnlockNext（**不含**地图坐标）；每关地图 Prefab `LevelRouteMap_{LevelId}` 承载底图+`GameplayOptionId` 钉点；进关先开路线图；**Box 顶全量 LevelId 页签**（未解锁灰禁+Toast；切换已解锁=`TryEnterLevel`；默认已解锁末项）；有地图 Prefab 时选项钉坐标、**场景仅 Icon、悬停 Tips 按 GameplayType 分型（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标）**；**地图 Icon 三态**（Cleared Checkmark / Selectable·Running 慢闪+±10% 缩放 / Locked 变暗）；**通关返回地图：对准刚通关→停顿 0.5s→平滑至新解锁前沿**；同 Stage 多选一；**同 Stage 已通关后兄弟 Locked 变暗不可选**（快照 UiState + TrySelect 双重门闩）；通关发奖并解锁下一 Stage 选项；空 UnlockNext → 关卡胜利；壳 Prefab + 每关地图 Prefab | P0 | **更新**（同 Stage 兄弟锁定；地图 Icon 三态；LevelId 门闩；通关返回镜头；地图 Icon+Tips；方案 C 钉点；Play Mode 由负责人勾选） |
-| D-087 | Mode2 搜打撤 SearchExtract（方案 A）：子关卡 `GameplayType=SearchExtract`；独立 `SearchExtractStageModule`+Session；有序搜集点进圈倒计时+方向波次刷怪+布阵中心重定位；单点胜利无敌停刷清怪+UI-032；全灭整关 LevelFailure；每点奖励+子关卡 Reward 分离；**非** CampaignMode | P1 | TBD（规则库 SE-00～SE-09 已关；**字段工作坊已签字**；SE-01～SE-09 已落地；全灭 AbortLevel 可复现；**D-087 Demo 验收须负责人 Play Mode 勾选手验**；issues `.scratch/mode3-search-extract/`） |
+| D-087 | Mode2 搜打撤 SearchExtract（方案 A）：子关卡 `GameplayType=SearchExtract`；独立 `SearchExtractStageModule`+Session；有序搜集点进圈倒计时+方向波次刷怪+布阵中心重定位；单点胜利无敌停刷清怪+UI-032；全灭整关 LevelFailure；每点奖励+子关卡 Reward 分离；**非** CampaignMode | P1 | TBD（规则库 SE-00～SE-09 已关；**字段工作坊已签字**；SE-01～SE-09 已落地；全灭 AbortLevel 可复现；**P1 HoldFraming SE-CAM-00～03 已关**（方案 B；样例锁定初值；手验 `.scratch/search-extract-hold-camera/issues/03-tune-handcheck.md`）；**D-087 Demo 验收须负责人 Play Mode 勾选手验**；issues `.scratch/mode3-search-extract/`） |
 | D-088 | 关卡路线进度存档（方案 A）：按槽+CampaignMode 持久化已通关 `GameplayOptionId`；`TryEnterLevel` 水合 Cleared 并派生 Unlocked；通关立即写回；进行中选项不存；整关胜利保留 Cleared；删档清键 | P0 | **完成**（`LevelRouteProgressService` + Driver 水合；Play Mode 由负责人勾选） |
 | D-089 | 战斗指示器（UI-033 / 方案 A）：PushMap + SearchExtract **仅 Combat** 显示顶中敌我单位格 HUD（`y=-10`，`scale=0.75`）；`CenterBg` 内左右存活数（BestFit 26～42；敌方开场未现身前为 `?`）；简画按职业/怪物表；HP% 四色；永久死亡灰+X 0.5s 后移除重对齐；可复活怪算活着；叛变不入两侧；单行截断（不换行）；0.2s 轮询 Snapshot（不改战斗热路事件）；Defend 不接线 | P1 | TBD（issues `.scratch/combat-indicator/`） |
 
@@ -1009,7 +1013,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-052 | Mode2: after batch, clear formation; auto-deploy by `PlacementOrder` + `FormationClassZone` (separation); then enter UM | P1 | Done (AM-06 Approach A: in-zone spiral + BodyRadius; `FormationClassZone` **IsoDiamond** (same as WalkSurface; drop OBB/IsoTileYaw); batch Ids only; handcheck AM-08 / FZ-01–02) |
 | D-053 | Mode2 UM: hide manual manufacture; keep upgrade Modal + editable formation; hide ControlPower HUD; in-editor `CompleteButton` (above SoldierBar right; visible UM+Prepare; UM wires stage end); Prepare `StartBattleButton` stacked above Complete | P1 | Done (Approach C: `UpgradeManufactureStageRoot_Mode2` + `FormationEditorRoot_Mode2`; Catalog Resolve by CampaignMode; handcheck AM-08; Complete in Mode2 diffs) |
 | D-054 | Mode2 UM: "Manufacture Record" to the right of Formation opens read-only popup; last AutoManufacture batch summaries (name/race/class); empty 「本批无士兵」; next batch overwrites; survives re-enter save; Mode1 has no button | P1 | Done (Approach A: `AutoManufactureBatchRecordService` + Mode2 Modal; `UmAssetBuilder` Mode2 append / runtime Ensure) |
-| D-055 | Mode2 AutoManufacture presentation (UI-016): after batch show Step1 soldier row + 6 book slots; enter: first card slides from one pitch right of viewport center; Step2 per-soldier amplify / per-slot pulse applies that book / pulse peak syncs soldier-card VisualStyle live preview (Camera+RT; mystery portrait `UnknownSoldier_1` until baked) / after 6 slots reveal (Taunt once → loop default Idle) then row shifts left one pitch (last card stays; conveyor does not wait for Taunt); +25% speed every 3; then deploy by final ClassId → UM + auto-open Formation; 0 craft Tips + skip presentation and no auto-open; Mode1 has no UI | P1 | **Updated** (Step2 pulse peak syncs VisualStyle preview; Approach B Camera+RT) |
+| D-055 | Mode2 AutoManufacture presentation (UI-016): after batch play StepA rain of consumed body parts (ArtAssetId; 0.3s×3–5; 2D pile) → StepB per soldier magic-circle flash + 6 book pulses → mystery at pile+400px morphs and falls below circle Idle → loop → StepC deploy by final ClassId → UM + auto-open Formation; center soldier row hidden by default (kept); 0 craft Tips + skip and no auto-open; Mode1 has no UI | P1 | **Updated** (body-rain Overlay Image layer; issues `.scratch/auto-mfg-body-rain/`) |
 | D-056 | Soldier visuals: when `BodyAppearanceConfig.AppearanceId` has Art-ready bake under `Art/Characters/Appearances/{Id}/` (Controller + Idle Sprite), game Prefab `Prefabs/Defend/Warriors/{Id}.prefab` (root+`Visual`) must exist and bind Defend/UM catalogs; missing bind → no visual in formation/combat/presentation | P1 | Done (WA-01 / Approach B: `WarriorAppearancePrefabAssembler` From-Art + union catalog refresh; added `App_0_*`/`App_4_41`/`App_5_51`, extended Human/Elf/Orc `App_1_*`/`App_2_*`/`App_3_*`) |
 | D-057 | Sample `Ground_*` **and** `PushMap_Demo_*` `FormationClassZone` cover **every** current-mode `ClassConfig.ClassId` (no zone → auto/one-click deploy stays in pool); Mode2 must include `Class_DarkMage`/`Class_Guardian` etc.; PushMap sample zones anchor at `CameraFollowPath/WP_Start` (else DigMapBounds.Center) | P1 | **Updated** (full ClassId + HalfExtents `(3.85, 2)`; Ground Ensure unchanged; PushMap Ensure menu anchors WP_Start) |
 | D-058 | Mode2 MagicBook Warrior Enhance: equipped `MagicBook_WarriorEnhance` on AutoManufacture **Step2 that slot's pulse** adds 15% of body Σ StatBonus(class PrimaryStat) to Base for `Class_BaseWarrior` / `Class_Warrior` only (stackable; no race filter); other classes unchanged; baked until PermanentDeath; Dig HUD GM can equip | P1 | **Updated** (apply point → Step2 per-slot pulse; includes bone warrior) |
@@ -1042,7 +1046,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-084 | TacticalFormation (Approach A): MagicBook `GrantFormationSkill`; formation editor auto-snap to Pattern slots when deployed ≥Min (over class zones, whole-squad drag); Defend+PushMap virtual center + `FormationSlot` + engage leash; dissolve when living &lt;Min; stat/exclusive-skill overlay; table `TacticalFormationConfig` | P1 | **Done** (Approach A; TF-01–06; sample wedge `Form_Wedge_01` / `MagicBook_Form_Wedge` + parallel `Form_Wedge_02` / `MagicBook_Form_Wedge_02`; GM Add Soldier applies GrantFormationSkill only; handcheck `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`; Play Mode checkboxes for owner) |
 | D-085 | Formation tactical-squad strip (UI-030): left-edge buttons for snapped squads; click highlights whole squad on soldier bar | P1 | **Done** (Approach A: `TacticalFormationSquadBarView` + editor selection; Mode1+Mode2 Prefabs) |
 | D-086 | Level Stage multi-pick + route select (UI-031): Operation mounts `GameplayOptionId1..5` + optional `RouteMapAssetId` + Stage1 `UnlockLevelId`; SubLevel holds Type/Config/icon/copy/Reward/UnlockNext (**no** map coords); per-level map Prefab `LevelRouteMap_{LevelId}` holds bg + `GameplayOptionId` pins; enter opens route; **all LevelId tabs atop Box** (locked gray+Toast; unlocked switch=`TryEnterLevel`; default last unlocked); with map Prefab, options pin to coordinates, **Icon only on map, hover Tips by GameplayType (Dig=TipMessages; Shop/AM/UM=IconAssetId2+Description; PushMap/SE/Defend=IconAssetId2+Reward icons); **map Icon tri-state** (Cleared Checkmark / Selectable·Running slow blink+±10% scale / Locked dim)**; **clear-return map: snap just-cleared → hold 0.5s → smooth to new frontier**; pick-one per Stage; **same-Stage Cleared locks uncleared siblings (dim + TrySelect/UiState dual gate)**; clear grants reward + unlocks next-Stage options; empty UnlockNext → victory; chrome Prefab + per-level map Prefab | P0 | **Updated** (same-Stage sibling lock; map Icon tri-state; LevelId gate; clear-return camera; map Icon+Tips; Approach C pins; Play Mode checkboxes for owner) |
-| D-087 | Mode2 SearchExtract (Approach A): SubLevel `GameplayType=SearchExtract`; independent `SearchExtractStageModule`+Session; ordered gather points with zone countdown + directional wave spawns + formation-center relocate; point success invincible/stop-spawn/clear monsters + UI-032; wipe → Level failure; per-point loot separate from SubLevel Reward; **not** CampaignMode | P1 | TBD (rules SE-00–SE-09 closed; **field workshop signed**; SE-01–SE-09 landed; wipe AbortLevel reproducible; **D-087 Demo accept needs owner Play Mode handcheck**; issues `.scratch/mode3-search-extract/`) |
+| D-087 | Mode2 SearchExtract (Approach A): SubLevel `GameplayType=SearchExtract`; independent `SearchExtractStageModule`+Session; ordered gather points with zone countdown + directional wave spawns + formation-center relocate; point success invincible/stop-spawn/clear monsters + UI-032; wipe → Level failure; per-point loot separate from SubLevel Reward; **not** CampaignMode | P1 | TBD (rules SE-00–SE-09 closed; **field workshop signed**; SE-01–SE-09 landed; wipe AbortLevel reproducible; **P1 HoldFraming SE-CAM-00–03 closed** (Approach B; samples locked at initials; handcheck `.scratch/search-extract-hold-camera/issues/03-tune-handcheck.md`); **D-087 Demo accept needs owner Play Mode handcheck**; issues `.scratch/mode3-search-extract/`) |
 | D-088 | Level route progress save (Approach A): persist cleared `GameplayOptionId`s per slot+CampaignMode; `TryEnterLevel` hydrates Cleared and derives Unlocked; write on clear; no in-progress option; keep Cleared after level victory; delete slot clears keys | P0 | **Done** (`LevelRouteProgressService` + Driver hydrate; Play Mode checkboxes for owner) |
 | D-089 | Combat indicator (UI-033 / Approach A): PushMap + SearchExtract **Combat only** top-center ally/enemy unit-slot HUD (`y=-10`, `scale=0.75`); alive counts inside `CenterBg` left/right halves (BestFit 26–42; enemy `?` until first `>0` this battle); silhouettes from class/monster tables; HP% four tints; permanent-dead gray+X then remove after 0.5s and re-align; revivable monsters count as alive; Rebels excluded from both sides; single-row truncate (no wrap); 0.2s Snapshot poll (no combat hot-path events); Defend unwired | P1 | TBD (issues `.scratch/combat-indicator/`) |
 
@@ -1426,7 +1430,7 @@ Dig HUD 左上 `Warehouse` **不再**展示具体道具名 / raw Id 文本链，
 | 胜负 | Dig 阶段 **无胜 / 负**；**不**触发 `LevelFailure` |
 | 唯一结束条件 | **有效挖坟时长**倒计时归零 |
 | 归零瞬间 | 停止过程生成；**取消**所有进行中的 `DigAction`（**不**结算本次扣血）；不可再触发挖掘 |
-| 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分）。躯体材料行 `{DisplayName} Lv{BodyLevel} × 数量`（`DisplayName` 空则回退 `BodyPartId`）；精魂与非躯体材料仍 `{Id} × 数量`。Demo 面板 `SummaryRoot` **1103×796**（`UI_Kuang_09`、纯白）、`Title`/`Body` 纯黑、`Body` **920×1030**；关闭为右上「X」（`ConfirmButton`） |
+| 阶段结算 | 弹出 **DigStageSummary**（UI-011）：仅展示 **本阶段已获得** 奖励的按类型汇总；**不额外发放**任何奖励（与关卡级 `VictorySettlement` 区分）。每条奖励为格子（方图标 + 右下数量 + 下方名称）；躯体名称=`DisplayName`（空则 `BodyPartId`），精魂/非躯体名称=`Id`；**每行最多 5**（`GridLayoutGroup` FixedColumnCount）。Demo 面板 `SummaryRoot` **1103×796**（`UI_Kuang_09`、纯白）、`Title` 纯黑、`Body` **920×620**；关闭为右上「X」（`ConfirmButton`） |
 | 确认后 | 玩家点右上「X」关闭弹窗 → 进入 §3.9 下一阶段 /（若末阶段）`VictorySettlement` |
 
 **Demo GM（Dig HUD）**
@@ -1635,7 +1639,7 @@ Dig HUD top-left `Warehouse` **no longer** shows item names / raw Id text chains
 | Win/lose | Dig stage has **no win / lose**; does **not** trigger `LevelFailure` |
 | Sole end condition | **Effective Dig duration** countdown hits 0 |
 | On zero | Stop ongoing spawn; **cancel** all in-progress `DigAction`s (**no** damage resolve); no further dig triggers |
-| Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`). Body-part lines `{DisplayName} Lv{BodyLevel} × count` (empty `DisplayName` → `BodyPartId`); Spirit / non-body still `{Id} × count`. Demo panel `SummaryRoot` **1103×796** (`UI_Kuang_09`, white), `Title`/`Body` black, `Body` **920×1030**; dismiss via top-right "X" (`ConfirmButton`) |
+| Stage settlement | Show **DigStageSummary** (UI-011): aggregate **rewards already earned this stage** by type; **no extra grants** (distinct from level `VictorySettlement`). Each reward is a cell (square icon + bottom-right qty + name below); body name=`DisplayName` (empty → `BodyPartId`), Spirit/non-body name=`Id`; **max 5 per row** (`GridLayoutGroup` FixedColumnCount). Demo panel `SummaryRoot` **1103×796** (`UI_Kuang_09`, white), `Title` black, `Body` **920×620**; dismiss via top-right "X" (`ConfirmButton`) |
 | After confirm | Player taps top-right "X" → §3.9 next stage / (if last) `VictorySettlement` |
 
 **Demo GM (Dig HUD)**
@@ -3655,10 +3659,11 @@ Enter PushMap (GameplayType=PushMap OR BattleModeSelect Mode2 → §3.14)
 | 规则 | 说明 |
 |------|------|
 | 进入 | 上一阶段 Dig 经 DigStageSummary 玩家确认后，关卡驱动进入本阶段 |
-| 结束 | 算法跑完（造到不能再造 + 自动上阵）后播 **AutoManufacturePresentation**（UI-016；本批 0 兵则跳过），再 **自动**交还 §3.9；**无**玩家确认 |
+| 结束 | 算法跑完（造到不能再造 + 自动上阵）后播 **AutoManufacturePresentation**（UI-016；本批 0 兵则跳过 StepA/B 尸骸雨/复活/套书，仍挂 AM 壳层约 1s 显示 Tips），再 **自动**交还 §3.9；**无**玩家确认 |
 | 结算 | **无**独立阶段结算 |
 | 材料不足 | 进入时仓库连 1 套最低配方都没有 → 0 兵入临时仓库；仍执行「清空布阵」再进下一阶段 |
-| 0 兵 Tips | 本批造兵数 = 0（含最低配方不足、无主要手等停造且未造出任何兵）→ 屏幕中上部 Tips「无士兵可制造」，停留约 **1 秒**；**不**阻塞阶段推进 |
+| 0 兵 Tips | 本批造兵数 = 0（含最低配方不足、无主要手等停造且未造出任何兵）→ 打开 AM 壳层（背景/Dim/书槽），屏幕中上部 Tips「无士兵可制造」，停留约 **1 秒**；**不**播尸骸雨/复活/套书；**不**阻塞玩家确认（无确认钮）；然后自动交还 |
+| Demo 诊断日志 | `RunBatch` 结束（含 0 兵）打 Console：`stopReason`、按槽 Head/Torso/ArmPrimary/ArmSecondary/Leg 计数、各槽 `BodyLevel` 分布、每条 `BodyPartId` 堆叠；选料时打锚点主要手 `BodyPartId`/`BodyLevel`。**不**改变选料规则 |
 | 余料 | 造完后剩余躯体材料 **留在普通仓库**，供下次 Dig 后继续使用 |
 
 **费用屏蔽（Mode2）**
@@ -3692,10 +3697,10 @@ while 仓库满足最低配方:
 |------|------|
 | 候选池 | 仓库中 `BodySlot ∈ {Head,Torso,Arm,Leg}`；忽略翼/坐骑及 `ExtraEquipment` |
 | 近似品质 | 相对锚点 `|ΔBodyLevel| ≤ 1`；同档内排序：**更高 BodyLevel → 相同 → 低 1 级** |
-| 主要手 | `BodySlot=Arm` 且 `IsPrimaryHand=1`；按 `BodyLevel` **降序**取一件作锚点；若无 → **停造** |
-| 次要手 | `IsPrimaryHand=0` 的 Arm；先滤近似品质；优先 `ClassRestrict` 与主要手有交集；同级随机；**必须**选到，否则停造 |
-| 其余部位 | 顺序固定：**头 → 躯干 → 腿1 → 腿2**；锚点 = 主要手的 `BodyLevel` / `BodyPrimaryStat` / `RaceId`；优先级：近似品质 → `BodyPrimaryStat` 相同 → `RaceId` 相同 → 在满足近似品质的剩余中随机；满足近似但无主属性相同则在近似集内随机 |
-| 主要手 ClassRestrict 空 | 视为配置错误：**停造**并打日志（不静默跳过坏主要手以免掩盖配表问题） |
+| 主要手 | `BodySlot=Arm` 且 `IsPrimaryHand=1`；按 `BodyLevel` **降序**依次尝试作锚点（同级按 `BodyPartId`）。当前锚点无法凑齐次要手/头/躯/腿（近似品质）或职业解析失败 → **跳过该主要手（不消耗）** 并打日志，试下一档；能成套时用当时尝试中最高的一档。无可用主要手 → **停造** |
+| 次要手 | `IsPrimaryHand=0` 的 Arm；先滤近似品质；优先 `ClassRestrict` 与主要手有交集；同级随机；配不到则 **跳过当前主要手**（不是整批立刻停造） |
+| 其余部位 | 顺序固定：**头 → 躯干 → 腿1 → 腿2**；锚点 = 当前尝试主要手的 `BodyLevel` / `BodyPrimaryStat` / `RaceId`；优先级：近似品质 → `BodyPrimaryStat` 相同 → `RaceId` 相同 → 在满足近似品质的剩余中随机；满足近似但无主属性相同则在近似集内随机；配不到则跳过当前主要手 |
+| 主要手 ClassRestrict 空 | 视为该件配置错误：打 Error 后 **跳过该主要手**（不阻断更低档可成套材料）；若全部主要手皆空/不可用 → **停造** |
 
 **2. 生成职业**
 
@@ -3845,17 +3850,19 @@ Demo 样例：`MagicBook_WarriorEnhance`→`Style_WarriorGlow` P20 Add1（命中
 | 覆盖 | 下一次 AutoManufacture 批末覆盖记录；同档退出再进仍可见上一批 |
 | 删档 | 清该槽两模式 `AutoManufactureBatch` 键 |
 
-**11. 自动制造演出（阶段表现；UI-016 / D-055；方案 A + 单槽节拍套书）**
+**11. 自动制造演出（阶段表现；UI-016 / D-055；方案 A 尸骸雨+法阵复活 + 单槽节拍套书）**
 
-规则层同步跑批（选料→无书造兵→flush→批次记录；**此时不上阵**）。本批造兵数 **>0** 时挂表现 Prefab：Step2 单槽脉冲即套该书 → 全部播完再自动上阵 → 交还驱动；**0 兵**仅 Tips「无士兵可制造」，跳过演出/套书，进 UM **不**自动开布阵。
+规则层同步跑批（选料→无书造兵→flush→批次记录；**此时不上阵**）。本批造兵数 **>0** 时挂表现 Prefab：StepA 落下尸骸 → StepB 逐兵法阵闪红+单槽脉冲套书+复活落下 → 全部播完再自动上阵 → 交还驱动；**0 兵**挂 AM 壳层约 1s + Tips「无士兵可制造」，**不**播 StepA/B、**不**套书，交还后 **不**自动开布阵。
 
 | 步骤 | 规则 |
 |------|------|
-| Step1 | 画面中央横滑士兵行；每卡默认 **宽 150 × 高 200**（Prefab 手改以 `SoldierCardTemplate` 实际宽度为准）；卡中央谜底图 **`UnknownSoldier_1`**（`Art/UI/Icons`；节点 `Question` Image，`preserveAspect`）+ 其下职业名（造兵时双手职业，尚未套书）字号 **32** + 再下 `Lv.{ClassLevel}` 字号 **24**；士兵行**上方** 6 个魔法书方框（各 **120×160**）。**传送带：** 格距 `pitch` = 实际卡宽 + Content spacing；Content 左垫 `(viewportW−cardW)/2+pitch`、右垫 `(viewportW−cardW)/2`，使首/末卡都能对齐 `SoldierScroll` 视口水平中心（Prefab 行宽铺满参考分辨率时 = 画面水平中心）。进入时 scroll=0（第一张在中心右侧一格）再滑到卡 0 居中 |
-| Step2 | 以单兵为单位：该兵已在视口水平中心时播 6 书框**依次**伸缩；**缩放到峰值时**对该兵执行**仅该槽**魔法书；士兵卡立刻刷新职业名/`Lv.N`；**若 apply 后实例已烘进 VisualStyle（材质通道或放大通道），同一峰值时刻**当前聚焦士兵卡的 Camera+RT 预览 **立即** 套用 `WarriorAllIn1StyleView` + `VisualModelScale`（与 §6b 世界 Instantiate 一致；尚未烘进则仍保持谜底图）；卡上临时字「加强」；该兵 6 槽结束后：若 Step2 中已显示 live preview → **仅补播** Taunt→Idle；否则谜底图 → 揭示套书后外观（见下）；完成后若有下一张则整行向左平移一格（`pitch`），右侧下一张滑至视口水平中心；末张完成后不再平移；每完成 **3** 兵速率 × `1.25^floor(completed/3)` |
-| Step3 | 全部士兵 Step2 完成后 **先按最终 ClassId 自动上阵**，再进 `UpgradeManufacture` 并**自动打开**布阵编辑器 |
+| StepA | **落下尸骸（整批一次）：** 件数 = 本批全部士兵 `SourceItemIds`（已消耗躯体；不含仓库余料）。外观 = `BodyPartConfig.ArtAssetId`（源 `Assets/Art/UI/Dig/{ArtAssetId}.png`；运行时 `Resources/UI/Dig/{ArtAssetId}`；缺图按 `BodySlot` 回退同槽已有图，禁止空件）。Sprite 适配最长边 = `AutoMfgBodyMaxEdgePx`（样例 **49**）。从画面水平中心、屏幕外正上方落下；每 `AutoMfgBodyDropIntervalSeconds`（样例 **0.3**）随机落下 `AutoMfgBodyDropCountMin`～`Max`（样例 **3～5**）件，**总数不变**。重力 + 弱碰撞，可在 2D 维度堆叠；碰撞为**可旋转 OBB**（SAT，非 AABB）：边长 = Sprite 适配尺寸 × `AutoMfgColliderInset`（样例 **0.72**，小于外观以便斜插更紧）；落下随机转角 ±`AutoMfgSpawnAngleMaxDeg`（样例 **50**）并带角速度；**绝对 Z 转角夹紧** ±`AutoMfgBodyAngleMaxDeg`（样例 **270**，触限清角速度，禁止无限翻滚）；互撞/落地可保持斜角。对象池 + 落地 Sleep。堆地板 Y = `AutoMfgPileFloorYPx`（样例 **−300**）。堆静止后进入 StepB。法阵 `MagicCircle_1` 置于尸骸堆正下方（同 2D 演出层；**绘制层级低于躯体**）。 |
+| StepB | **逐兵循环：** 激活法阵持续快速闪红（`AutoMfgMagicCircleFlashHz`）→ 上方 6 书框左→右依次伸缩；**峰值**对该兵执行**仅该槽**魔法书（规则同现网）→ 在堆底向上 `AutoMfgReviveSpawnOffsetYPx`（样例 **400**）显示谜底 `UnknownSoldier_1`（sizeDelta 边长 `AutoMfgSoldierMaxEdgePx` 样例 **64**，`localScale`=`AutoMfgSoldierVisualScale` 样例 **8**），套书结束后变为该兵 `AppearanceId` 外观（Idle + VisualStyle，同尺寸）→ 落到落地线 `AutoMfgSoldierLandYPx`（样例 **−410**）Idle；脚下挂椭圆半透明影子（宽/高/透明度/相对 Y `AutoMfgSoldierShadowWidthPx`/`HeightPx`/`Alpha`/`OffsetYPx`，样例 **20**/**8**/**0.45**/**−40**）；已复活士兵在落地线成一行：首兵水平居中，后续按出现顺序先左后右交替外扩，中心距=`AutoMfgSoldierMaxEdgePx`×`AutoMfgSoldierVisualScale`（样例 **512**），已落地兵不重排；复活士兵与尸骸/法阵 **碰撞忽略**，仅与落地地板及其他已复活士兵碰撞 → 再对下一兵重复「闪红+书脉冲+复活」。堆不消耗、不重落。每完成 **3** 兵速率 × `1.25^floor(completed/3)`（书脉冲时长）。 |
+| StepC | 全部士兵 StepB 完成后 **先按最终 ClassId 自动上阵**，再进 `UpgradeManufacture` 并**自动打开**布阵编辑器 |
 
-**士兵卡揭示（IdleThumb；方案 B）：** Overlay Canvas 不能直接显示 `SpriteRenderer`。每张已揭示卡在画外 bay Instantiate 套书后 `AppearanceId` Prefab，俯视正交 Camera（`Euler(90,0,0)`，`DirIndex=2` 南）渲染到 RenderTexture，赋给 IdleThumb 上 `RawImage`。Step2 书槽脉冲峰值且 VisualStyle 已烘进时可 **提前** 显示该 live preview（Idle，不播 Taunt）；6 槽结束再播一遍 Creator Trigger **`Taunt`**，结束后固定循环默认 Idle（`IdleBT`；清 `UseIdle2`/`UseIdle3`/`UseIdle4`）。已烘 `VisualStyle` 与 `VisualModelScale` 按世界 Instantiation 套用。传送带 `revealHold` **不等** Taunt 结束。无 Animator → 仍采样 Idle Sprite。
+**备选士兵行（Legacy；默认隐藏）：** Prefab 内 `SoldierScroll` 传送带 + Camera+RT 揭示逻辑 **保留不删**；`AutoMfgUseLegacySoldierRow=1` 时切回旧 Step1/2（中央卡行+谜底揭示）。默认 **0** = 尸骸雨流程。
+
+**2D 演出层（方案 A）：** Overlay Canvas 保留背景/Dim/BookRow；`AmBodyRainLayer`（1920×1080 Image）叠在 Dim 之上；像素重力 + **可转 OBB（SAT，碰撞体内缩）** 弱碰撞堆叠躯体（法阵/复活仍无躯体互撞）；独立正交相机 RT 会被 Overlay 挡住。参数权威：`CombatConstantConfig` `AutoMfg*` 键（[SPEC_04 §9.20b](SPEC_04_Technical.md)）。
 
 ```
 AutoManufacture stage
@@ -3864,7 +3871,7 @@ AutoManufacture stage
        pick parts; ClassId from hands; Base=Σ StatBonus; Race default (§3.11)
        Grant DefaultSkillIds@Lv1; finalize StaticStat/Appearance; flush → WarriorPool
   → Replace AutoManufactureBatchRecord
-  → if crafted>0: play UI-016 Step1–2 (each book pulse peak → ApplyAtSlot only that book)
+  → if crafted>0: UI-016 StepA body rain → StepB (circle flash + book pulses + revive fall)
   → DeployBatch by final ClassId into FormationClassZone
   → Auto return → UpgradeManufacture (+ auto-open Formation if presentation ran)
 ```
@@ -3888,10 +3895,11 @@ Entered when Level stage `GameplayType = AutoManufacture` (Mode2 sample LevelOpe
 | Rule | Notes |
 |------|-------|
 | Enter | After Dig DigStageSummary player confirm |
-| End | When algo finishes (craft until cannot + auto-deploy) → play **AutoManufacturePresentation** (UI-016; skip if batch 0) → **automatic** return to §3.9; **no** player confirm |
+| End | When algo finishes (craft until cannot + auto-deploy) → play **AutoManufacturePresentation** (UI-016; if batch 0 skip StepA/B rain/revive/books but still mount AM shell ~1s with Tips) → **automatic** return to §3.9; **no** player confirm |
 | Settlement | **No** independent stage settlement |
 | Insufficient stock | If warehouse cannot craft even one min recipe → 0 soldiers in temp warehouse; still **clear formation** then advance |
-| Zero-craft Tips | Batch crafted count = 0 (incl. min-recipe short / no PrimaryHand stop with zero crafts) → upper-center Tips「无士兵可制造」for ~**1s**; does **not** block stage advance |
+| Zero-craft Tips | Batch crafted count = 0 (incl. min-recipe short / no PrimaryHand stop with zero crafts) → open AM shell (background/Dim/books), upper-center Tips「无士兵可制造」for ~**1s**; **no** rain/revive/book apply; then auto-advance |
+| Demo diagnostics | End of `RunBatch` (incl. 0 craft) logs `stopReason`, slot counts Head/Torso/ArmPrimary/ArmSecondary/Leg, per-slot BodyLevel histogram, each `BodyPartId` stack, and the anchor PrimaryHand id/level. **Does not** change pick rules |
 | Leftovers | Remaining body parts stay in normal Warehouse for the next Dig cycle |
 
 **Cost shield (Mode2)**
@@ -3925,10 +3933,10 @@ Clear formation → (if crafted>0) UI-016 Step2 per-slot MagicBook apply → aut
 |------|-------|
 | Pool | Warehouse `BodySlot ∈ {Head,Torso,Arm,Leg}`; ignore Wing/Mount/`ExtraEquipment` |
 | Approx quality | `|ΔBodyLevel| ≤ 1` vs anchor; within band sort **higher → same → lower-by-1** |
-| PrimaryHand | `Arm` + `IsPrimaryHand=1`; pick max `BodyLevel` as anchor; if none → **stop crafting** |
-| SecondaryHand | `IsPrimaryHand=0` Arms; filter approx; prefer ClassRestrict overlap with Primary; random among ties; **must** pick one else stop |
-| Remaining | Fixed order **Head → Torso → Leg1 → Leg2**; anchor = PrimaryHand BodyLevel / BodyPrimaryStat / RaceId; priority: approx → same BodyPrimaryStat → same RaceId → random among approx; if approx but no BodyPrimaryStat match → random in approx set |
-| Empty Primary ClassRestrict | Config error: **stop crafting** and log |
+| PrimaryHand | `Arm` + `IsPrimaryHand=1`; try as anchor in **BodyLevel descending** order (tie: `BodyPartId`). If this anchor cannot complete Secondary/Head/Torso/Legs (approx) or class resolve fails → **skip that PrimaryHand (do not consume)** and try the next; a successful kit still uses the highest completable. None usable → **stop crafting** |
+| SecondaryHand | `IsPrimaryHand=0` Arms; filter approx; prefer ClassRestrict overlap with Primary; random among ties; miss → **skip current PrimaryHand** (do not abort the whole batch yet) |
+| Remaining | Fixed order **Head → Torso → Leg1 → Leg2**; anchor = current PrimaryHand BodyLevel / BodyPrimaryStat / RaceId; priority: approx → same BodyPrimaryStat → same RaceId → random among approx; if approx but no BodyPrimaryStat match → random in approx set; miss → skip current PrimaryHand |
+| Empty Primary ClassRestrict | Config error for that part: log Error then **skip that PrimaryHand** (do not block lower completable kits); if every PrimaryHand is empty/unusable → **stop crafting** |
 
 **2. Generate Class**
 
@@ -4076,23 +4084,25 @@ Stop when remaining stock cannot satisfy min recipe.
 | Overwrite | Next AutoManufacture batch replaces the record; survives leave/re-enter same save |
 | Delete save | Clear both-mode `AutoManufactureBatch` keys for that slot |
 
-**11. AutoManufacture presentation (stage View; UI-016 / D-055; Approach A + per-slot MagicBook)**
+**11. AutoManufacture presentation (stage View; UI-016 / D-055; Approach A body-rain + circle revive + per-slot MagicBook)**
 
-Rules run the batch synchronously (pick→craft without books→flush→batch record; **no deploy yet**). When crafted **>0**, mount presentation: Step2 per-slot pulse applies that book → then deploy by final ClassId → advance; **0 craft** Tips only, skip presentation/books, UM does **not** auto-open Formation.
+Rules run the batch synchronously (pick→craft without books→flush→batch record; **no deploy yet**). When crafted **>0**, mount presentation: StepA body rain → StepB per-soldier circle flash + book pulses + revive fall → then deploy by final ClassId → advance; **0 craft** mounts AM shell ~1s + Tips「无士兵可制造」, **no** StepA/B or books, then advance **without** auto-open Formation.
 
 | Step | Rules |
 |------|-------|
-| Step1 | Center soldier row (default 150×200; Prefab hand-tune uses actual `SoldierCardTemplate` width); mystery portrait **`UnknownSoldier_1`** (`Art/UI/Icons`; node `Question` Image, `preserveAspect`) + hand ClassName 32 + `Lv.{ClassLevel}` 24 (pre-book); 6 MagicBook frames 120×160 above. **Conveyor:** pitch = actual card width + Content spacing; Content left pad `(viewportW−cardW)/2+pitch`, right pad `(viewportW−cardW)/2` so first/last cards can align to `SoldierScroll` viewport horizontal center (full-width Prefab row = screen horizontal center). Enter at scroll=0 (first card one pitch right of center) then slide to card 0 centered |
-| Step2 | Per soldier: while that card is at viewport horizontal center, pulse 6 books left→right; **at peak scale** apply **only that slot** to the focused soldier; refresh card class/`Lv.N`; **if apply baked VisualStyle (material and/or scale channel), at that same peak** refresh the focused card Camera+RT preview via `WarriorAllIn1StyleView` + `VisualModelScale` (same as §6b world Instantiate; keep mystery portrait until baked); 「加强」 label; after 6 slots: if live preview already shown in Step2 → **Taunt only**; else mystery portrait → reveal post-book appearance (below); if another card remains, shift the row left one pitch so the next card centers; last card stays; every 3 soldiers rate × `1.25^floor(completed/3)` |
-| Step3 | After all Step2 → **DeployBatch by final ClassId** → enter UM and auto-open FormationEditor |
+| StepA | **Body rain (once per batch):** count = all batch soldiers' `SourceItemIds` (consumed parts only; no warehouse leftovers). Visual = `BodyPartConfig.ArtAssetId` (source `Assets/Art/UI/Dig/{ArtAssetId}.png`; runtime `Resources/UI/Dig/{ArtAssetId}`; missing art falls back by `BodySlot`; never spawn empty). Fit max-edge = `AutoMfgBodyMaxEdgePx` (sample **49**). Drop from screen-top center; every `AutoMfgBodyDropIntervalSeconds` (sample **0.3**) drop random `AutoMfgBodyDropCountMin`–`Max` (sample **3–5**); **total unchanged**. Gravity + soft 2D collision pile; collider is a **rotatable OBB** (SAT, not AABB): edge = fitted sprite size × `AutoMfgColliderInset` (sample **0.72**, smaller than the sprite so slanted pieces nest tighter); spawn yaw ±`AutoMfgSpawnAngleMaxDeg` (sample **50**) with angular velocity; **absolute Z angle clamped** ±`AutoMfgBodyAngleMaxDeg` (sample **270**, zero ω at limit; no endless tumble); pieces may rest at slants. Pool + Sleep on settle. Pile floor Y = `AutoMfgPileFloorYPx` (sample **−300**). Place `MagicCircle_1` under the pile (**draw order below body pieces**). Enter StepB after settle. |
+| StepB | **Per soldier:** circle flashes red (`AutoMfgMagicCircleFlashHz`) → pulse 6 books left→right; **peak** applies that slot only → spawn mystery `UnknownSoldier_1` at pile-base + `AutoMfgReviveSpawnOffsetYPx` (sample **400**; sizeDelta edge `AutoMfgSoldierMaxEdgePx` sample **64**, `localScale`=`AutoMfgSoldierVisualScale` sample **8**) → morph to `AppearanceId` (Idle + VisualStyle, same size) → fall to `AutoMfgSoldierLandYPx` (sample **−410**) Idle with oval soft foot shadow (`AutoMfgSoldierShadowWidthPx`/`HeightPx`/`Alpha`/`OffsetYPx`, samples **20**/**8**/**0.45**/**−40**); landed revived soldiers form one row: first centered, later ones alternate left then right of center, pitch=`AutoMfgSoldierMaxEdgePx`×`AutoMfgSoldierVisualScale` (sample **512**), no reflow of already-landed; revived soldiers **ignore** body-part/circle collisions, collide with land floor + other revived soldiers → next soldier. Pile stays. Rate × `1.25^floor(completed/3)` every 3 soldiers. |
+| StepC | After all StepB → **DeployBatch by final ClassId** → enter UM and auto-open FormationEditor |
 
-**Card reveal (IdleThumb; Approach B):** Overlay Canvas cannot show `SpriteRenderer`. Each revealed card instantiates the post-book `AppearanceId` Prefab in an off-screen bay; a top-down ortho Camera (`Euler(90,0,0)`, `DirIndex=2` South) renders to a RenderTexture on IdleThumb `RawImage`. Step2 may **early** show that live preview (Idle, no Taunt) when a book pulse peak bakes VisualStyle; after 6 slots play Creator Trigger **`Taunt`** once, then loop default Idle (`IdleBT`; clear `UseIdle2`/`UseIdle3`/`UseIdle4`). Baked `VisualStyle` and `VisualModelScale` apply as world Instantiate. Conveyor `revealHold` does **not** wait for Taunt. No Animator → sample Idle Sprite.
+**Legacy soldier row (hidden by default):** Prefab `SoldierScroll` conveyor + Camera+RT reveal **kept**; `AutoMfgUseLegacySoldierRow=1` restores old Step1/2. Default **0** = body-rain flow.
+
+**2D presentation layer (Approach A):** Overlay keeps background/Dim/BookRow; `AmBodyRainLayer` (1920×1080 Images) above Dim; pixel-space gravity + **rotatable OBB (SAT, collider inset)** soft pile for bodies (circle/revive still ignore body-part collisions); a separate ortho camera RT is covered by Overlay. Tunables: `CombatConstantConfig` `AutoMfg*` ([SPEC_04 §9.20b](SPEC_04_Technical.md)).
 
 ```
 AutoManufacture stage
   → Clear BattleFormation
   → craft without MagicBook → flush → WarriorPool; Replace batch record
-  → if crafted>0: UI-016 Step1–2 (pulse peak → ApplyAtSlot)
+  → if crafted>0: UI-016 StepA → StepB (circle + books + revive)
   → DeployBatch by final ClassId
   → UpgradeManufacture (+ auto-open Formation if presentation ran)
 ```
@@ -4790,7 +4800,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | 地图标记 | `ObjectivePoint` + `CaptureZone`、`AirWall`、`SpawnPoint`、`EngageZone` / `WalkSurface`（作者约束同 §3.14） |
 | 士兵战斗 | 同 §3.12 WarriorCombat + MassCombatPathing + §3.18 战术阵型（虚拟中心跟当前搜集 Objective）；刷出怪物必须进入同一 MassMove Tick 与 AttackSlot 追击刷新（同 PushMap；禁止仅靠 NavMeshAgent 自主位移） |
 | 怪物死亡技能 | 同 §3.14 D-074：Session 实现 `IMonsterDeathSkillHost`，登记 `MonsterConfig.Skills`（样例 `Monster_01`=`MSkill_SelfRevive_99`）；HP≤0 可假死复活。**点清场**规则层彻底死亡，不拦截复活 |
-| 镜头 | 默认沿用 PushMap Combat `CameraFollowPath` / 正交战斗相机（[SPEC_04 §6](SPEC_04_Technical.md)） |
+| 镜头 | 正交战斗相机同 PushMap；**进圈前 / Continue 后接近** = `CameraFollowPath` 轨跟随；**点激活～GatherCountdown** = **HoldFraming**（视口包围+迟滞；见下「倒计时战斗镜头」）；**不**改 PushMap 默认轨语义（[SPEC_04 §6](SPEC_04_Technical.md)/[§9.20b](SPEC_04_Technical.md)） |
 | 战斗指示器 | 同 §3.14 UI-033 / D-089：`Combat` 显示共享 `CombatIndicatorHud`；Prepare / Ended / UI-017 / UI-032 决策期间隐藏；可复活怪算活着 |
 | 不复用 | PushMap 进圈 instant Capture、开战瞬间 `PushMapSpawnConfig`、BOSS 通关、Defend `WaveSpawnConfig` 全局剩余秒、PushMap `Shield≤0` 失败 |
 | 失败 | **仅** 搜集中忠诚兵全灭 → **整关** `LevelFailure` → UI-017 战败（返回主界面 / 重新开始；不清档） |
@@ -4838,6 +4848,23 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | 空气墙 | 路径遇 `AirWall` 停在最后可走点；**不**穿墙 |
 | 战术阵型 | 已激活阵型：虚拟中心落到当前 Objective；成员 `GoalKind=FormationSlot` |
 | 与战斗 | 重定位与遇敌 AttackSlot **并行**；PushMap 遇敌检测语义可复用 |
+
+**倒计时战斗镜头（HoldFraming；方案 B）**
+
+| 规则 | 说明 |
+|------|------|
+| 时机 | **仅**当前搜集点已激活且 `GatherCountdown` 进行中；StartBattle→进圈前 / Continue 后接近下一点 → **轨跟随**（同 PushMap `CameraFollowPath` 最大投影） |
+| 目标 | 半径内忠诚存活士兵尽量入镜；正交 Size 适中；**禁止**高频平移/拉伸（防抖） |
+| 输出 | 仅 `look-at`（世界 XZ）+ `orthographicSize`；姿态仍走 `ApplyCombatCameraPose` |
+| 钳制 | Size ∈ `[SearchExtractHoldOrthoSizeMin, Max]`（再与全局 `CameraOrthoSizeMin/Max` 取交）；look-at 距当前 **Objective** 世界 XZ ≤ `SearchExtractHoldMaxPanRadius` |
+| 采样 | 忠诚存活（`!IsRebel` 且非 `CombatDead`）且距 Objective ≤ 半径；**圈外兵允许出镜、不追**；**不**框选怪物 |
+| 入镜 | **相机视口坐标** AABB（`WorldToViewportPoint`；因 60° 倾角，**禁止**用世界 XZ 四向极值当入镜依据） |
+| 迟滞 | 外框（含边垫 + 顶 HUD 垫）越出 → **立刻**拉远/平移；全体在内框内连续满 `HoldZoomInDelaySeconds` → 才允许慢收紧；拉远快、拉近慢 |
+| 中心 | look-at = 士兵视口 AABB 反投中心与 Objective **加权**（`SearchExtractHoldObjectiveBias`；1=钉 Objective）；激活瞬间**不 Snap**，以当时机位 SmoothDamp 过渡 |
+| UI-032 | 决策期间 **冻结**最后一帧 Hold 目标（清场聚拢不突然拉近）；Continue → 关 Hold 回轨；Leave / Ended / 全灭 → Disable |
+| Manual | 拖拽仍进 Manual；「恢复跟随」在 Hold 窗口 → **HoldFraming**（非轨）；滚轮改 Size 后 Hold **不**抢回（同 PushMap） |
+| 常量 | 全部 ← Mode2 `CombatConstantConfig`（[SPEC_04 §9.20b](SPEC_04_Technical.md)）；禁止硬编码 |
+| 不做 | 改 PushMap Combat 轨跟随；框选怪物；改搜集/刷怪规则 |
 
 **单点胜利**
 
@@ -4889,14 +4916,14 @@ Enter SearchExtract (SubLevel GameplayType=SearchExtract)
 | 搜集中手动清怪掉落 | **无**额外掉落；仅倒计时胜利清场 |
 | `GatherCountdownSeconds` | 仅玩法表全局；刷怪表不加覆盖列 |
 
-**实现切片：** `.scratch/mode3-search-extract/issues/` SE-00～09；验收见 §3.8 **D-087**。
+**实现切片：** `.scratch/mode3-search-extract/issues/` SE-00～09；**P1 HoldFraming：** `.scratch/search-extract-hold-camera/` SE-CAM-00～03 **已关**（样例锁定 v0.84.27 初值）；验收见 §3.8 **D-087**。
 
 **待实现优先级（规则库；非 Demo §3.8 P0）**
 
 | 优先级 | 内容 |
 |--------|------|
 | P0 | SPEC 关闭、**配置表字段已确认**、Stage 接线、进圈倒计时、重定位、方向刷怪、单点胜利 UI、多点链、全灭失败 |
-| P1 | 倒计时 HUD polish；样例关卡手验 |
+| P1 | 倒计时 HUD polish；**HoldFraming 守点镜头**（方案 B；SE-CAM-00～03 **已关**；样例锁定初值；Play Mode 手验待负责人）；样例关卡手验 |
 | P2 | 与 PushMap 共用地图的内容管线 polish |
 
 ### English
@@ -4916,13 +4943,13 @@ Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.32](SPEC_04_Technica
 | Map markers | `ObjectivePoint` + `CaptureZone`, `AirWall`, `SpawnPoint`, `EngageZone` / `WalkSurface` |
 | Warrior combat | Same §3.12 + MassCombatPathing + §3.18 TF (virtual center follows current gather Objective); spawned monsters must join the same MassMove Tick and AttackSlot chase refresh as PushMap (no NavMeshAgent-only wander) |
 | Monster death skills | Same §3.14 D-074: Session implements `IMonsterDeathSkillHost` and registers `MonsterConfig.Skills` (sample `Monster_01`=`MSkill_SelfRevive_99`); HP≤0 may fake-death revive. **Point-clear** is true death (no SelfRevive intercept) |
-| Camera | Default PushMap Combat follow / ortho battle camera ([SPEC_04 §6](SPEC_04_Technical.md)) |
+| Camera | Ortho battle camera same as PushMap; **pre-activation / post-Continue approach** = `CameraFollowPath` rail follow; **point active～GatherCountdown** = **HoldFraming** (viewport framing + hysteresis; see Chinese「倒计时战斗镜头」); **does not** change PushMap default rail ([SPEC_04 §6](SPEC_04_Technical.md)/[§9.20b](SPEC_04_Technical.md)) |
 | Combat indicator | Same §3.14 UI-033 / D-089: show shared `CombatIndicatorHud` in `Combat`; hide during Prepare / Ended / UI-017 / UI-032 decision; revivable monsters count as alive |
 | Not reused | PushMap instant Capture, StartBattle `PushMapSpawnConfig`, Boss clear, Defend `WaveSpawnConfig`, PushMap `Shield≤0` fail |
 | Failure | **Only** all loyal dead during active gather → **whole Level** `LevelFailure` → UI-017 defeat (Return to Title / Restart; no save wipe) |
 | Shield | Demo **default:** no battle protagonist shield fail; LossOfControl/Rebel still at StartBattle |
 
-**Phases, gather chain, countdown/spawn, formation relocate, point success, failure:** same semantics as Chinese block above.
+**Phases, gather chain, countdown/spawn, formation relocate, HoldFraming camera, point success, failure:** same semantics as Chinese block above.
 
 **Config layers:** SubLevel (`GatherPointCount` + `GatherPointRewards` encoding `N:ItemId;Count|…`); `SearchExtractGameplayConfig` (global `GatherCountdownSeconds`, `StageExpReward` credited on Leave); `SearchExtractWaveSpawnConfig` (one independent recipe per row: FirstDelay from point activation, then Interval×`RepeatSpawnCount` re-spawns of the same row; `SpawnPointId` only); map Prefab ≥ N objectives. Demo authority map `SearchExtract_Lv1_01` (keeps `SearchExtract_Demo_01` as SE-02 Approach B reference copy of `PushMap_Demo_01`; **do not** rewrite the PushMap source; maps carry `FormationClassZone` for Prepare one-click; runtime bind via `DefendPrefabCatalog.Maps`).
 
@@ -4930,7 +4957,7 @@ Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.32](SPEC_04_Technica
 
 **Locked (workshop 2026-09-02):** Combat top-bar remaining seconds; UI-031 shows both point-loot summary and SubLevel `Reward` (credit still split); no manual-kill loot; countdown is gameplay-table global only.
 
-**Slices:** `.scratch/mode3-search-extract/issues/` SE-00–09; acceptance **D-087**. Excel landing = SE-01 **done**.
+**Slices:** `.scratch/mode3-search-extract/issues/` SE-00–09; **P1 HoldFraming:** `.scratch/search-extract-hold-camera/` SE-CAM-00–03 **closed** (samples locked at v0.84.27 initials); acceptance **D-087**. Excel landing = SE-01 **done**.
 
 ---
 

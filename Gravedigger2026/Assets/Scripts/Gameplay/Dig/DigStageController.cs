@@ -503,10 +503,12 @@ namespace Gravedigger2026.Gameplay.Dig
                 _cursorView.DestroySpawnedUiRing();
                 _cursorView.gameObject.SetActive(false);
             }
-            var body = _session != null ? _session.Ledger.BuildSummaryText(_configs) : "本阶段未获得奖励。";
+            var entries = _session != null
+                ? _session.Ledger.BuildSummaryEntries(_configs)
+                : Array.Empty<DigStageSummaryEntry>();
             if (_summaryView != null)
             {
-                _summaryView.Show(body, () =>
+                _summaryView.Show(entries, _configs, () =>
                 {
                     var cb = _onSummaryConfirmed;
                     _onSummaryConfirmed = null;

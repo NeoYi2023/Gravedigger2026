@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Gravedigger2026.Core.Config
 {
     /// <summary>
-    /// Stage camera + PushMap follow/zoom/intro tunables from CombatConstantConfig (SPEC_04 §9.20b).
+    /// Stage camera + PushMap follow/zoom/intro + SearchExtract HoldFraming tunables from CombatConstantConfig (SPEC_04 §9.20b).
     /// </summary>
     public readonly struct CameraPresentationConstants
     {
@@ -22,6 +22,7 @@ namespace Gravedigger2026.Core.Config
         public float DragThresholdPixels { get; }
         public float PushMapIntroSpeed { get; }
         public float PushMapIntroWaypointDwellSeconds { get; }
+        public SearchExtractHoldFramingConstants HoldFraming { get; }
 
         public CameraPresentationConstants(
             float heightY,
@@ -38,7 +39,8 @@ namespace Gravedigger2026.Core.Config
             float orthoSizeMax,
             float dragThresholdPixels,
             float pushMapIntroSpeed,
-            float pushMapIntroWaypointDwellSeconds)
+            float pushMapIntroWaypointDwellSeconds,
+            SearchExtractHoldFramingConstants holdFraming)
         {
             HeightY = heightY;
             CombatCameraPitchDegrees = combatCameraPitchDegrees;
@@ -55,6 +57,7 @@ namespace Gravedigger2026.Core.Config
             DragThresholdPixels = dragThresholdPixels;
             PushMapIntroSpeed = pushMapIntroSpeed;
             PushMapIntroWaypointDwellSeconds = pushMapIntroWaypointDwellSeconds;
+            HoldFraming = holdFraming;
         }
 
         public static CameraPresentationConstants FromRepository(ConfigCsvRepository configs)
@@ -109,7 +112,8 @@ namespace Gravedigger2026.Core.Config
                     CombatConstantKeys.Safety.PushMapCameraIntroSpeed),
                 configs.GetCombatConstantOrFallback(
                     CombatConstantKeys.PushMapCameraIntroWaypointDwellSeconds,
-                    CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds));
+                    CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds),
+                SearchExtractHoldFramingConstants.FromRepository(configs));
         }
 
         public static CameraPresentationConstants SafetyDefaults => new CameraPresentationConstants(
@@ -127,7 +131,8 @@ namespace Gravedigger2026.Core.Config
             CombatConstantKeys.Safety.CameraOrthoSizeMax,
             CombatConstantKeys.Safety.CameraDragThresholdPixels,
             CombatConstantKeys.Safety.PushMapCameraIntroSpeed,
-            CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds);
+            CombatConstantKeys.Safety.PushMapCameraIntroWaypointDwellSeconds,
+            SearchExtractHoldFramingConstants.SafetyDefaults);
 
         /// <summary>
         /// Dig / Defend / UM·Defend formation: orthographicSize = max(half) − margin (clamped ≥ OrthoSizeMin).
@@ -166,6 +171,26 @@ namespace Gravedigger2026.Core.Config
                 ? CombatCameraPitchDegrees
                 : pitchDegrees;
             return ResolveCameraPosition(lookAt, pitch);
+        }
+
+        /// <summary>
+        /// Inverse of <see cref="ResolveCombatCameraPosition"/>: ground-Y point under the camera center ray.
+        /// </summary>
+        public Vector3 ResolveCombatLookAt(Vector3 cameraPosition, float groundY, float pitchDegrees = -1f)
+        {
+            var pitch = pitchDegrees < 0f
+                ? CombatCameraPitchDegrees
+                : pitchDegrees;
+            pitch = Mathf.Clamp(pitch, 45f, 89.9f);
+            var forward = ResolveCombatCameraRotation(pitch) * Vector3.forward;
+            if (Mathf.Abs(forward.y) < 0.001f)
+            {
+                return new Vector3(cameraPosition.x, groundY, cameraPosition.z);
+            }
+
+            var t = (groundY - cameraPosition.y) / forward.y;
+            var hit = cameraPosition + forward * t;
+            return new Vector3(hit.x, groundY, hit.z);
         }
 
         /// <summary>Euler rotation for combat pitch (Y=0).</summary>
@@ -209,6 +234,143 @@ namespace Gravedigger2026.Core.Config
 
             var distanceAlongForward = HeightY / -forward.y;
             return lookAt - forward * distanceAlongForward;
+        }
+    }
+
+    /// <summary>
+    /// SearchExtract HoldFraming tunables from CombatConstantConfig (SPEC_04 §9.20b).
+    /// </summary>
+    public readonly struct SearchExtractHoldFramingConstants
+    {
+        public float OrthoSizeMin { get; }
+        public float OrthoSizeMax { get; }
+        public float MaxPanRadius { get; }
+        public float ViewportPad { get; }
+        public float TopHudPad { get; }
+        public float InnerPad { get; }
+        public float ZoomInDelaySeconds { get; }
+        public float SmoothTimeOut { get; }
+        public float SmoothTimeIn { get; }
+        public float SampleInterval { get; }
+        public float ObjectiveBias { get; }
+
+        public SearchExtractHoldFramingConstants(
+            float orthoSizeMin,
+            float orthoSizeMax,
+            float maxPanRadius,
+            float viewportPad,
+            float topHudPad,
+            float innerPad,
+            float zoomInDelaySeconds,
+            float smoothTimeOut,
+            float smoothTimeIn,
+            float sampleInterval,
+            float objectiveBias)
+        {
+            OrthoSizeMin = orthoSizeMin;
+            OrthoSizeMax = orthoSizeMax;
+            MaxPanRadius = Mathf.Max(0f, maxPanRadius);
+            ViewportPad = Mathf.Clamp(viewportPad, 0f, 0.49f);
+            TopHudPad = Mathf.Max(0f, topHudPad);
+            InnerPad = Mathf.Clamp(innerPad, 0f, 0.49f);
+            ZoomInDelaySeconds = Mathf.Max(0f, zoomInDelaySeconds);
+            SmoothTimeOut = Mathf.Max(0.01f, smoothTimeOut);
+            SmoothTimeIn = Mathf.Max(SmoothTimeOut, smoothTimeIn);
+            SampleInterval = Mathf.Max(0f, sampleInterval);
+            ObjectiveBias = Mathf.Clamp01(objectiveBias);
+        }
+
+        public static SearchExtractHoldFramingConstants FromRepository(ConfigCsvRepository configs)
+        {
+            if (configs == null)
+            {
+                return SafetyDefaults;
+            }
+
+            return new SearchExtractHoldFramingConstants(
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldOrthoSizeMin,
+                    CombatConstantKeys.Safety.SearchExtractHoldOrthoSizeMin),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldOrthoSizeMax,
+                    CombatConstantKeys.Safety.SearchExtractHoldOrthoSizeMax),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldMaxPanRadius,
+                    CombatConstantKeys.Safety.SearchExtractHoldMaxPanRadius),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldViewportPad,
+                    CombatConstantKeys.Safety.SearchExtractHoldViewportPad),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldTopHudPad,
+                    CombatConstantKeys.Safety.SearchExtractHoldTopHudPad),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldInnerPad,
+                    CombatConstantKeys.Safety.SearchExtractHoldInnerPad),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldZoomInDelaySeconds,
+                    CombatConstantKeys.Safety.SearchExtractHoldZoomInDelaySeconds),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldSmoothTimeOut,
+                    CombatConstantKeys.Safety.SearchExtractHoldSmoothTimeOut),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldSmoothTimeIn,
+                    CombatConstantKeys.Safety.SearchExtractHoldSmoothTimeIn),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldSampleInterval,
+                    CombatConstantKeys.Safety.SearchExtractHoldSampleInterval),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractHoldObjectiveBias,
+                    CombatConstantKeys.Safety.SearchExtractHoldObjectiveBias));
+        }
+
+        public static SearchExtractHoldFramingConstants SafetyDefaults => new SearchExtractHoldFramingConstants(
+            CombatConstantKeys.Safety.SearchExtractHoldOrthoSizeMin,
+            CombatConstantKeys.Safety.SearchExtractHoldOrthoSizeMax,
+            CombatConstantKeys.Safety.SearchExtractHoldMaxPanRadius,
+            CombatConstantKeys.Safety.SearchExtractHoldViewportPad,
+            CombatConstantKeys.Safety.SearchExtractHoldTopHudPad,
+            CombatConstantKeys.Safety.SearchExtractHoldInnerPad,
+            CombatConstantKeys.Safety.SearchExtractHoldZoomInDelaySeconds,
+            CombatConstantKeys.Safety.SearchExtractHoldSmoothTimeOut,
+            CombatConstantKeys.Safety.SearchExtractHoldSmoothTimeIn,
+            CombatConstantKeys.Safety.SearchExtractHoldSampleInterval,
+            CombatConstantKeys.Safety.SearchExtractHoldObjectiveBias);
+
+        public float ClampOrthoSize(float size, float globalMin, float globalMax)
+        {
+            var min = Mathf.Max(OrthoSizeMin, globalMin);
+            var max = Mathf.Min(OrthoSizeMax, globalMax);
+            if (max < min)
+            {
+                max = min;
+            }
+
+            return Mathf.Clamp(size, min, max);
+        }
+
+        public Vector3 ClampLookAt(Vector3 lookAt, Vector3 objective)
+        {
+            var flat = new Vector3(lookAt.x, objective.y, lookAt.z);
+            var origin = new Vector3(objective.x, objective.y, objective.z);
+            var dx = flat.x - origin.x;
+            var dz = flat.z - origin.z;
+            var radius = MaxPanRadius;
+            if (radius <= 0f)
+            {
+                return origin;
+            }
+
+            var sq = dx * dx + dz * dz;
+            if (sq <= radius * radius + 1e-6f)
+            {
+                return flat;
+            }
+
+            var mag = Mathf.Sqrt(sq);
+            return new Vector3(
+                origin.x + dx * (radius / mag),
+                origin.y,
+                origin.z + dz * (radius / mag));
         }
     }
 }

@@ -45,7 +45,7 @@
 | EffectParams | 魔法书效果参数 | `Key=Value` 或 `Key=Value\|…`；空=无参 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：最近一批自动制造士兵摘要（名字/种族/职业）；布阵右侧入口（UI-015 / D-054） | [§3.15](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) Mode2 差分 |
 | AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 WarriorId；下一批覆盖；PlayerPrefs 按槽+CampaignMode | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
-| AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：Step1 士兵行+书槽 → Step2 加强动画 → Step3 进 UM 自动开布阵（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 |
+| AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：默认 StepA 尸骸雨 → StepB 法阵闪红+书脉冲+复活落下 → StepC 进 UM 自动开布阵；中央士兵行备选隐藏（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 / §9.20b |
 | ShopSystem | 商店系统 | Mode2 全屏商店：关卡 `GameplayType=Shop`（Stage1）与局外 InSaveShell 左下入口共用 Prefab `ShopStageRoot`；左侧可展示已拥有装备/魔法书 ICON 并出售换精魂（D-076） | [§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopSellService | 商店出售服务 | 商店 UI 出售已拥有装备（`TryRemove`）/魔法书（`TryUnequip`），按 `ItemCatalog.SellPrice` 入账精魂 | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
@@ -96,7 +96,7 @@
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP%：>65%/30–65%/<30% → 样式1/2/3 | [§3.10](SPEC_03_GameRules.md) |
 | GraveQualityConfig | 坟墓品质定义表 | QualityId → MaxHP、DropMode、LootDrop、IconStyleHighId/MidId/LowId | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigReward | 挖掘奖励 | HP=0 时生成；飞向 Dig HUD 左上头像框，到达后入账并消失 | [§3.10](SPEC_03_GameRules.md) |
-| DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；躯体行 DisplayName+BodyLevel；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；格子图标+名称+数量，每行最多 5；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | Warehouse | 仓库 | 存档槽材料仓；不限格/时长；按类型堆叠上限 10000 | [§3.10](SPEC_03_GameRules.md) |
 | WarehouseHudStats | Dig HUD 仓库统计 | Dig HUD 三行图标统计（精魂/残骸/种族·职业主要手）；0 隐藏；Tips←LocalizedDescriptionConfig | [§3.10](SPEC_03_GameRules.md) |
 | LocalizedDescriptionConfig | 多语言描述表 | TextKey→TextZh（Demo）；TextEn 预留；DigWarehouseHoverTips；`TipMsg_*`（子关卡 Tips 类型名） | [SPEC_04 §9.34](SPEC_04_Technical.md) |
@@ -218,6 +218,8 @@
 | DungeonUnlock | 副本解锁 | 存档钩子；副本玩法 TBD | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowMode | 镜头跟随模式 | PushMap Combat：`Auto`（`CameraFollowPath` 最大投影）/ `Manual` | [§3.14](SPEC_03_GameRules.md) |
 | CameraFollowPath | 镜头跟随轨 | 地图 Prefab 虚拟推进折线；作者路点 + 相邻点世界 XZ 直线烘焙；镜头对准折线点 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| SearchExtractHoldCamera | 搜打撤守点镜头 | SearchExtract 点激活后 Combat 镜头：视口包围+迟滞；进圈前/Continue 后仍轨跟随；钳 Size/半径；SE-CAM-00～03 已关（样例锁定初值） | [§3.19](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| HoldFraming | 守点包围取景 | Hold 算法：视口 AABB、外框立刻拉远、内框滞留后慢收紧；锚点=当前 Objective；超半径允许出镜 | [§3.19](SPEC_03_GameRules.md) |
 | PreparePathPreview | 布阵路径预览 | PushMap Prepare 可选快速预览：WP_End→WP_Start 反向扫镜；默认不播 | [§3.14](SPEC_03_GameRules.md) |
 | CameraPathSlider | 路径滑动条 | PushMap Prepare：左 WP_Start / 右 WP_End，弧长均匀；拖动定位 FormationCamera | [§3.14](SPEC_03_GameRules.md) |
 | PrepareSpawnPreview | 布阵开战刷怪预览 | PushMap Prepare：开战非陷阱行 Idle 预览；开战销毁后正式重刷 | [§3.14](SPEC_03_GameRules.md) |

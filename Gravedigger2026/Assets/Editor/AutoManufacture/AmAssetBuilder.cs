@@ -18,6 +18,14 @@ namespace Gravedigger2026.Editor.AutoManufacture
         public const string BookRowPrefabPath = PrefabDir + "/BookRow.prefab";
         private const string CatalogPath = SettingsDir + "/AutoManufacturePrefabCatalog.asset";
         private const string BackgroundSpritePath = "Assets/Art/UI/Meta/Title/Title_AutoManufacture_1.png";
+        private const string DigArtSourceDir = "Assets/Art/UI/Dig";
+        private const string DigResourcesDir = "Assets/Resources/UI/Dig";
+        private const string UnknownSoldierSource = "Assets/Art/UI/Icons/UnknownSoldier_1.png";
+        private const string UnknownSoldierResources = "Assets/Resources/UI/Icons/UnknownSoldier_1.png";
+        private const string AmBodyPartPrefabPath = PrefabDir + "/AmBodyPartPiece.prefab";
+        private const string AmRevivePrefabPath = PrefabDir + "/AmReviveSoldierPiece.prefab";
+        private const string AmBodyPartResourcesPath = "Assets/Resources/Prefabs/AutoManufacture/AmBodyPartPiece.prefab";
+        private const string AmReviveResourcesPath = "Assets/Resources/Prefabs/AutoManufacture/AmReviveSoldierPiece.prefab";
         private const string RegenPrefsKey = "Gravedigger2026.AmAssets.Regen.v0790";
         private const string BookRowNestPrefsKey = "Gravedigger2026.AmAssets.BookRowNest.v08272";
         private const string BackgroundPrefsKey = "Gravedigger2026.AmAssets.Background.v08323";
@@ -179,6 +187,136 @@ namespace Gravedigger2026.Editor.AutoManufacture
         public static void EnsurePresentationBackgroundBatch()
         {
             EnsurePresentationBackground();
+        }
+
+        [MenuItem("Gravedigger2026/AutoManufacture/Copy Dig Art to Resources (UI-016)")]
+        public static void CopyDigArtToResources()
+        {
+            EnsureFolder("Assets/Resources/UI/Dig");
+            EnsureFolder("Assets/Resources/UI/Icons");
+
+            var copied = 0;
+            if (AssetDatabase.IsValidFolder(DigArtSourceDir))
+            {
+                foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { DigArtSourceDir }))
+                {
+                    var src = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!src.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var fileName = System.IO.Path.GetFileName(src);
+                    var dst = DigResourcesDir + "/" + fileName;
+                    if (AssetDatabase.CopyAsset(src, dst) || AssetDatabase.LoadAssetAtPath<Texture2D>(dst) != null)
+                    {
+                        ForceSpriteImport(dst);
+                        copied++;
+                    }
+                }
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(UnknownSoldierSource) != null)
+            {
+                AssetDatabase.CopyAsset(UnknownSoldierSource, UnknownSoldierResources);
+                ForceSpriteImport(UnknownSoldierResources);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log($"[AmAssetBuilder] Copied/forced Sprite import for {copied} Dig textures + UnknownSoldier.");
+        }
+
+        private static void ForceSpriteImport(string assetPath)
+        {
+            var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (importer == null)
+            {
+                return;
+            }
+
+            var dirty = importer.textureType != TextureImporterType.Sprite
+                        || importer.spriteImportMode != SpriteImportMode.Single
+                        || Mathf.Abs(importer.spritePixelsPerUnit - 100f) > 0.01f;
+            if (!dirty)
+            {
+                return;
+            }
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = 100f;
+            importer.mipmapEnabled = false;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
+        }
+
+        [MenuItem("Gravedigger2026/AutoManufacture/Ensure Body-Rain Prefabs (UI-016)")]
+        public static void EnsureBodyRainPrefabs()
+        {
+            EnsureFolders();
+            EnsureFolder("Assets/Resources/Prefabs/AutoManufacture");
+            SaveRuntimePrefab(AmBodyPartPiece.EnsurePrefab().gameObject, AmBodyPartPrefabPath);
+            SaveRuntimePrefab(AmReviveSoldierPiece.EnsurePrefab().gameObject, AmRevivePrefabPath);
+            CopyPrefabIfMissing(AmBodyPartPrefabPath, AmBodyPartResourcesPath);
+            CopyPrefabIfMissing(AmRevivePrefabPath, AmReviveResourcesPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[AmAssetBuilder] Ensured AmBodyPartPiece + AmReviveSoldierPiece prefabs.");
+        }
+
+        /// <summary>Batchmode: -executeMethod Gravedigger2026.Editor.AutoManufacture.AmAssetBuilder.CopyDigArtBatch</summary>
+        public static void CopyDigArtBatch()
+        {
+            CopyDigArtToResources();
+        }
+
+        private static void SaveRuntimePrefab(GameObject instance, string path)
+        {
+            if (instance == null || string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            instance.transform.SetParent(null, false);
+            PrefabUtility.SaveAsPrefabAsset(instance, path);
+            Object.DestroyImmediate(instance);
+        }
+
+        private static void CopyPrefabIfMissing(string sourcePath, string destPath)
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(destPath) != null)
+            {
+                return;
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(sourcePath) == null)
+            {
+                return;
+            }
+
+            AssetDatabase.CopyAsset(sourcePath, destPath);
+        }
+
+        private static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path))
+            {
+                return;
+            }
+
+            var parts = path.Split('/');
+            var current = parts[0];
+            for (var i = 1; i < parts.Length; i++)
+            {
+                var next = current + "/" + parts[i];
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, parts[i]);
+                }
+
+                current = next;
+            }
         }
 
         private static void EnsureBackgroundOnRoot(Transform root)

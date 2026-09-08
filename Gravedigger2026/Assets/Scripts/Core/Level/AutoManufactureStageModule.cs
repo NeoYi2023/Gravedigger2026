@@ -113,10 +113,14 @@ namespace Gravedigger2026.Core.Level
 
             if (crafted == 0)
             {
-                _booksFullyApplied = true;
-                _deployed = true;
+                Debug.LogWarning(
+                    $"[Stage:AutoManufacture] Zero craft — skip StepA/B rain/revive; show AM shell + Tips. stop={stopReason}");
                 _onNoSoldiersCraftable?.Invoke();
-                _onComplete?.Invoke();
+                if (!StartPresentation())
+                {
+                    _onComplete?.Invoke();
+                }
+
                 return;
             }
 
@@ -252,8 +256,16 @@ namespace Gravedigger2026.Core.Level
         private void HandlePresentationComplete()
         {
             FinishBooksAndDeploy(reason: "presentation-complete");
-            _presentationFlags.ArmAutoOpenFormation();
-            Debug.Log("[Stage:AutoManufacture] Presentation complete → advance + arm AutoOpenFormation");
+            if (_flushedIds.Count > 0)
+            {
+                _presentationFlags.ArmAutoOpenFormation();
+                Debug.Log("[Stage:AutoManufacture] Presentation complete → advance + arm AutoOpenFormation");
+            }
+            else
+            {
+                Debug.Log("[Stage:AutoManufacture] Zero-craft presentation complete → advance (no AutoOpenFormation)");
+            }
+
             _onComplete?.Invoke();
         }
 

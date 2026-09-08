@@ -29,6 +29,18 @@ namespace Gravedigger2026.Core.Config
         public const string PushMapCameraIntroSpeed = "PushMapCameraIntroSpeed";
         public const string PushMapCameraIntroWaypointDwellSeconds = "PushMapCameraIntroWaypointDwellSeconds";
 
+        public const string SearchExtractHoldOrthoSizeMin = "SearchExtractHoldOrthoSizeMin";
+        public const string SearchExtractHoldOrthoSizeMax = "SearchExtractHoldOrthoSizeMax";
+        public const string SearchExtractHoldMaxPanRadius = "SearchExtractHoldMaxPanRadius";
+        public const string SearchExtractHoldViewportPad = "SearchExtractHoldViewportPad";
+        public const string SearchExtractHoldTopHudPad = "SearchExtractHoldTopHudPad";
+        public const string SearchExtractHoldInnerPad = "SearchExtractHoldInnerPad";
+        public const string SearchExtractHoldZoomInDelaySeconds = "SearchExtractHoldZoomInDelaySeconds";
+        public const string SearchExtractHoldSmoothTimeOut = "SearchExtractHoldSmoothTimeOut";
+        public const string SearchExtractHoldSmoothTimeIn = "SearchExtractHoldSmoothTimeIn";
+        public const string SearchExtractHoldSampleInterval = "SearchExtractHoldSampleInterval";
+        public const string SearchExtractHoldObjectiveBias = "SearchExtractHoldObjectiveBias";
+
         public const string DigTriggerDwellSeconds = "DigTriggerDwellSeconds";
         public const string BaseDigDuration = "BaseDigDuration";
         public const string DigActionDurationFloor = "DigActionDurationFloor";
@@ -91,6 +103,29 @@ namespace Gravedigger2026.Core.Config
         public const string PushMapSpawnAbsoluteLeashFloor = "PushMapSpawnAbsoluteLeashFloor";
         public const string PushMapSpawnAbsoluteLeashBodyMul = "PushMapSpawnAbsoluteLeashBodyMul";
 
+        public const string AutoMfgBodyDropIntervalSeconds = "AutoMfgBodyDropIntervalSeconds";
+        public const string AutoMfgDropCountMin = "AutoMfgDropCountMin";
+        public const string AutoMfgDropCountMax = "AutoMfgDropCountMax";
+        public const string AutoMfgGravityScale = "AutoMfgGravityScale";
+        public const string AutoMfgBounciness = "AutoMfgBounciness";
+        public const string AutoMfgFriction = "AutoMfgFriction";
+        public const string AutoMfgColliderInset = "AutoMfgColliderInset";
+        public const string AutoMfgSpawnAngleMaxDeg = "AutoMfgSpawnAngleMaxDeg";
+        public const string AutoMfgSpawnJitterXPx = "AutoMfgSpawnJitterXPx";
+        public const string AutoMfgMagicCircleFlashHz = "AutoMfgMagicCircleFlashHz";
+        public const string AutoMfgReviveSpawnOffsetYPx = "AutoMfgReviveSpawnOffsetYPx";
+        public const string AutoMfgPileFloorYPx = "AutoMfgPileFloorYPx";
+        public const string AutoMfgSoldierLandYPx = "AutoMfgSoldierLandYPx";
+        public const string AutoMfgBodyMaxEdgePx = "AutoMfgBodyMaxEdgePx";
+        public const string AutoMfgSoldierMaxEdgePx = "AutoMfgSoldierMaxEdgePx";
+        public const string AutoMfgSoldierVisualScale = "AutoMfgSoldierVisualScale";
+        public const string AutoMfgSoldierShadowWidthPx = "AutoMfgSoldierShadowWidthPx";
+        public const string AutoMfgSoldierShadowHeightPx = "AutoMfgSoldierShadowHeightPx";
+        public const string AutoMfgSoldierShadowAlpha = "AutoMfgSoldierShadowAlpha";
+        public const string AutoMfgSoldierShadowOffsetYPx = "AutoMfgSoldierShadowOffsetYPx";
+        public const string AutoMfgBodyAngleMaxDeg = "AutoMfgBodyAngleMaxDeg";
+        public const string AutoMfgUseLegacySoldierRow = "AutoMfgUseLegacySoldierRow";
+
         /// <summary>Safety only when table key missing — not business authority.</summary>
         public static class Safety
         {
@@ -109,6 +144,17 @@ namespace Gravedigger2026.Core.Config
             public const float CameraDragThresholdPixels = 4f;
             public const float PushMapCameraIntroSpeed = 1.5f;
             public const float PushMapCameraIntroWaypointDwellSeconds = 0.5f;
+            public const float SearchExtractHoldOrthoSizeMin = 3f;
+            public const float SearchExtractHoldOrthoSizeMax = 8f;
+            public const float SearchExtractHoldMaxPanRadius = 8f;
+            public const float SearchExtractHoldViewportPad = 0.08f;
+            public const float SearchExtractHoldTopHudPad = 0.12f;
+            public const float SearchExtractHoldInnerPad = 0.18f;
+            public const float SearchExtractHoldZoomInDelaySeconds = 0.8f;
+            public const float SearchExtractHoldSmoothTimeOut = 0.2f;
+            public const float SearchExtractHoldSmoothTimeIn = 0.55f;
+            public const float SearchExtractHoldSampleInterval = 0.2f;
+            public const float SearchExtractHoldObjectiveBias = 0.65f;
             public const float DigTriggerDwellSeconds = 0.2f;
             public const float BaseDigDuration = 0.8f;
             public const float DigActionDurationFloor = 0.1f;
@@ -168,6 +214,29 @@ namespace Gravedigger2026.Core.Config
             public const float PushMapSpawnLeashSlack = 0.35f;
             public const float PushMapSpawnAbsoluteLeashFloor = 3f;
             public const float PushMapSpawnAbsoluteLeashBodyMul = 10f;
+
+            public const float AutoMfgBodyDropIntervalSeconds = 0.3f;
+            public const float AutoMfgDropCountMin = 3f;
+            public const float AutoMfgDropCountMax = 5f;
+            public const float AutoMfgGravityScale = 2f;
+            public const float AutoMfgBounciness = 0.15f;
+            public const float AutoMfgFriction = 0.4f;
+            public const float AutoMfgColliderInset = 0.72f;
+            public const float AutoMfgSpawnAngleMaxDeg = 50f;
+            public const float AutoMfgSpawnJitterXPx = 80f;
+            public const float AutoMfgMagicCircleFlashHz = 8f;
+            public const float AutoMfgReviveSpawnOffsetYPx = 400f;
+            public const float AutoMfgPileFloorYPx = -300f;
+            public const float AutoMfgSoldierLandYPx = -410f;
+            public const float AutoMfgBodyMaxEdgePx = 49f;
+            public const float AutoMfgSoldierMaxEdgePx = 64f;
+            public const float AutoMfgSoldierVisualScale = 8f;
+            public const float AutoMfgSoldierShadowWidthPx = 20f;
+            public const float AutoMfgSoldierShadowHeightPx = 8f;
+            public const float AutoMfgSoldierShadowAlpha = 0.45f;
+            public const float AutoMfgSoldierShadowOffsetYPx = -40f;
+            public const float AutoMfgBodyAngleMaxDeg = 270f;
+            public const float AutoMfgUseLegacySoldierRow = 0f;
         }
     }
 }
