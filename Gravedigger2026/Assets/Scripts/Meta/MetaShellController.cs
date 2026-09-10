@@ -796,7 +796,15 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.ShowStageInfo(null);
             }
 
-            OpenLevelSelectPanel();
+            // Create → difficulty Hub; occupied Enter → skip Hub, open UI-031 at max Cleared Stage (D-081).
+            if (isNewSave)
+            {
+                OpenLevelSelectPanel();
+            }
+            else
+            {
+                OpenRouteSelectForOccupiedEnter();
+            }
         }
 
         private void HandleCreate(int slotIndex)
@@ -1800,6 +1808,23 @@ namespace Gravedigger2026.Meta
 
         private void HandleNormalDifficultySelected()
         {
+            OpenRouteSelectWithDefaultLevel(preferMaxClearedStage: false);
+        }
+
+        /// <summary>
+        /// Occupied-slot Enter: skip DifficultySelectHost and open UI-031 (SPEC_03 §3.2 / D-081).
+        /// </summary>
+        private void OpenRouteSelectForOccupiedEnter()
+        {
+            OpenRouteSelectWithDefaultLevel(preferMaxClearedStage: true);
+        }
+
+        /// <param name="preferMaxClearedStage">
+        /// True → default LevelId = unlocked level hosting Cleared options with max StageNumber
+        /// (tie → later in unlocked list; none Cleared → last unlocked). False → last unlocked only.
+        /// </param>
+        private void OpenRouteSelectWithDefaultLevel(bool preferMaxClearedStage)
+        {
             if (!_configs.IsLoaded)
             {
                 _configs.TryLoadAll();
@@ -1825,11 +1850,93 @@ namespace Gravedigger2026.Meta
                     _toastView.Show("当前无已解锁关卡");
                 }
 
+                // Occupied enter with nothing unlockable: fall back to Hub rather than blank shell.
+                if (preferMaxClearedStage)
+                {
+                    OpenLevelSelectPanel();
+                }
+
                 return;
             }
 
-            var defaultId = unlocked[unlocked.Count - 1];
+            var defaultId = preferMaxClearedStage
+                ? ResolveLevelIdWithMaxClearedStage(unlocked)
+                : unlocked[unlocked.Count - 1];
             HandleLevelSelectPicked(defaultId, bypassUnlockGate: false);
+        }
+
+        /// <summary>
+        /// Among unlocked LevelIds, pick the one whose Cleared options reach the highest StageNumber.
+        /// Ties prefer the later entry in <paramref name="unlocked"/>; no Cleared → last unlocked.
+        /// </summary>
+        private string ResolveLevelIdWithMaxClearedStage(IReadOnlyList<string> unlocked)
+        {
+            var fallback = unlocked[unlocked.Count - 1];
+            if (_levelRouteProgress == null || _configs == null)
+            {
+                return fallback;
+            }
+
+            var bestStage = 0;
+            var bestId = fallback;
+            for (var i = 0; i < unlocked.Count; i++)
+            {
+                var levelId = unlocked[i];
+                if (string.IsNullOrEmpty(levelId))
+                {
+                    continue;
+                }
+
+                var maxStage = GetMaxClearedStageNumberForLevel(levelId);
+                if (maxStage > bestStage)
+                {
+                    bestStage = maxStage;
+                    bestId = levelId;
+                }
+                else if (maxStage == bestStage && maxStage > 0)
+                {
+                    // Same StageNumber: prefer later unlocked (further campaign progress).
+                    bestId = levelId;
+                }
+            }
+
+            return bestId;
+        }
+
+        private int GetMaxClearedStageNumberForLevel(string levelId)
+        {
+            var stages = _configs.GetStagesForLevel(levelId);
+            if (stages == null || stages.Count == 0)
+            {
+                return 0;
+            }
+
+            var maxStage = 0;
+            for (var i = 0; i < stages.Count; i++)
+            {
+                var stage = stages[i];
+                var ids = stage.GameplayOptionIds;
+                if (ids == null)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < ids.Length; j++)
+                {
+                    var oid = ids[j];
+                    if (string.IsNullOrEmpty(oid))
+                    {
+                        continue;
+                    }
+
+                    if (_levelRouteProgress.IsCleared(oid) && stage.StageNumber > maxStage)
+                    {
+                        maxStage = stage.StageNumber;
+                    }
+                }
+            }
+
+            return maxStage;
         }
 
         private void HandleLockedLevelTabClicked(string levelId)

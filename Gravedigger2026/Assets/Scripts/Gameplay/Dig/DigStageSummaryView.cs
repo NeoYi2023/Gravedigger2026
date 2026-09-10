@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Dig
 {
-    /// <summary>DigStageSummary (UI-011): icon+name+qty grid, max 5 columns.</summary>
+    /// <summary>DigStageSummary (UI-011): icon+name+qty grid on scroll Content, max 5 columns, ~3 rows visible.</summary>
     public sealed class DigStageSummaryView : MonoBehaviour
     {
         private const string EmptyMessage = "本阶段未获得奖励。";

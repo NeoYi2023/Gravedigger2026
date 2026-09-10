@@ -86,8 +86,10 @@ depends_on:
 | 5 | 倒计时战斗中观察 10s | 无明显高频抖动/拉伸（拉远快、拉近慢；采样 0.2s） | [ ] |
 | 6 | 1 兵追出半径外 | 允许出镜；镜头 **不**跟着单兵飞走 | [ ] |
 | 7 | 倒计时结束 UI-032 | 清场聚拢时镜头冻结，不突然拉近 | [ ] |
-| 8 | 点「继续搜集」 | Hold 关闭，回轨跟随下一 Objective；过渡流畅 | [ ] |
+| 8 | 点「继续搜集」 | Hold 关闭；**强制 Auto** 回轨跟随下一 Objective；`orthographicSize` 以 `CameraFollowSmoothTime` 平滑回到 `PushMapCameraOrthoSize`（不 Snap look-at）；**Lv2：** 镜头应沿 Obj1→Obj2 轨推进（非卡在 Obj1） | [ ] |
+| 8a | Continue 前拖拽进 Manual，再点「继续搜集」 | 自动回 Auto；底中「恢复跟随」按钮消失 | [ ] |
+| 8b | Continue Size 恢复途中滚轮改 Size | 取消本次 Size→PushMapOrthoSize 恢复；轨跟随仍进行 | [ ] |
 | 9 | Hold 期间拖拽再点「恢复跟随」 | 回到 HoldFraming（非轨） | [ ] |
 | 10 | Hold 期间滚轮改 Size | Hold **不**抢回该 Size | [ ] |
 
-**备注：** Agent 本片完成样例锁定 + 几何盒测 + 清单文档；Play Mode 勾选由负责人在 Editor 执行。D-087 Demo 验收仍待本表勾选。
+**备注：** Agent 本片完成样例锁定 + 几何盒测 + 清单文档；Play Mode 勾选由负责人在 Editor 执行。D-087 Demo 验收仍待本表勾选。**v0.84.43：** 步骤 8 / 8a / 8b 覆盖 Continue 回轨 + Size 恢复。

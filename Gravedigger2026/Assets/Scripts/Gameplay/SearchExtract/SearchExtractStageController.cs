@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.AutoManufacture;
@@ -36,8 +37,11 @@ namespace Gravedigger2026.Gameplay.SearchExtract
     /// SE-09: active-gather loyal wipe → UI-017 defeat → TitleMenu / Restart.
     /// v0.83.93: Combat camera follows CameraFollowPath + soldiers (PushMapCameraFollowController).
     /// SE-CAM-02: GatherCountdown HoldFraming via SetHoldFraming; UI-032 freeze; Continue back to rail.
+    /// v0.84.43: Continue ClearHoldFraming forces Auto + SmoothDamp Size→PushMapOrthoSize.
     /// v0.83.94: Combat MassMove Tick includes monsters + AttackSlot chase refresh (same as PushMap).
     /// UI-033 / D-089: shared CombatIndicator HUD in Combat; hide Prepare/Ended/UI-032/UI-017.
+    /// UI-034 / D-090: OffScreenSpawnHint on Combat real spawns when basePos off-viewport.
+    /// v0.84.40: UI-032 decision idle delay + GatherPointCount=1 Leave auto-countdown.
     /// No BattleProtagonist.
     /// </summary>
     public sealed class SearchExtractStageController : MonoBehaviour
@@ -93,6 +97,10 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private GameObject _countdownHudRoot;
         private SearchExtractDecisionPanelView _decisionPanel;
         private CombatIndicatorHudView _combatIndicatorHud;
+        private OffScreenSpawnHintView _offScreenSpawnHint;
+        private Coroutine _decisionIdleRoutine;
+        private Coroutine _decisionAutoLeaveRoutine;
+        private bool _decisionMovementHeld;
 
         public void ConfigureCatalog(DefendPrefabCatalog catalog, FormationPrefabCatalog formationCatalog = null)
         {
@@ -216,6 +224,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private void EndInternal(bool destroyWorld)
         {
             _running = false;
+            CancelDecisionPresentation(unpauseSoldiers: false);
             HideCombatIndicatorHud();
             CloseFormationEditor();
 
@@ -363,8 +372,10 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             EnsureDecisionPanel();
             HideCombatIndicatorHud();
             _cameraFollow?.FreezeHoldFraming();
+            CancelDecisionPresentation(unpauseSoldiers: false);
             _decisionPanel?.Show(info.ShowContinue, info.GatherPointOrder, info.GatherPointCount);
             RefreshCountdownHud();
+            BeginDecisionPresentation(info);
             Debug.Log(
                 $"[SearchExtractStage] UI-032 show Order={info.GatherPointOrder}/{info.GatherPointCount} " +
                 $"Continue={info.ShowContinue} HoldFraming frozen");
@@ -372,6 +383,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void HandlePointContinueRequested()
         {
+            CancelDecisionPresentation(unpauseSoldiers: true);
             _decisionPanel?.Hide();
             RefreshCountdownHud();
             _cameraFollow?.ClearHoldFraming();
@@ -379,11 +391,12 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             ShowCombatIndicatorHud();
             Debug.Log(
                 $"[SearchExtractStage] Continue → CurrentOrder={_session?.CurrentGatherOrder} " +
-                "(HoldFraming off; rail follow; re-enter zone required; CombatDead stay dead)");
+                "(HoldFraming off; rail Auto; Size→PushMapOrthoSize; re-enter zone required; CombatDead stay dead)");
         }
 
         private void HandlePointLeaveRequested()
         {
+            CancelDecisionPresentation(unpauseSoldiers: false);
             _decisionPanel?.Hide();
             HideCombatIndicatorHud();
             CreditStageExpOnLeave();
@@ -392,12 +405,168 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void HandleDecisionContinueClicked()
         {
+            CancelDecisionPresentation(unpauseSoldiers: true);
             _session?.TryContinueAfterPointSuccess();
         }
 
         private void HandleDecisionLeaveClicked()
         {
+            CancelDecisionPresentation(unpauseSoldiers: false);
             _session?.TryLeaveAfterPointSuccess();
+        }
+
+        private void BeginDecisionPresentation(SearchExtractPointDecisionInfo info)
+        {
+            var idleDelay = ResolveDecisionIdleDelaySeconds();
+            _decisionIdleRoutine = StartCoroutine(CoDecisionIdleHold(idleDelay));
+
+            if (info.GatherPointCount == 1)
+            {
+                var autoLeave = ResolveDecisionAutoLeaveSeconds();
+                _decisionAutoLeaveRoutine = StartCoroutine(CoDecisionAutoLeave(autoLeave));
+            }
+        }
+
+        private IEnumerator CoDecisionIdleHold(float delaySeconds)
+        {
+            var wait = Mathf.Max(0f, delaySeconds);
+            if (wait > 0f)
+            {
+                yield return new WaitForSeconds(wait);
+            }
+
+            _decisionIdleRoutine = null;
+            if (_session == null || !_session.IsAwaitingPointDecision)
+            {
+                yield break;
+            }
+
+            HoldDecisionSoldiersIdle();
+        }
+
+        private IEnumerator CoDecisionAutoLeave(float totalSeconds)
+        {
+            var remaining = Mathf.Max(0, Mathf.CeilToInt(totalSeconds));
+            if (remaining < 1)
+            {
+                remaining = 1;
+            }
+
+            while (remaining > 0)
+            {
+                _decisionPanel?.SetLeaveCountdownSeconds(remaining);
+                yield return new WaitForSeconds(1f);
+                remaining--;
+                if (_session == null || !_session.IsAwaitingPointDecision)
+                {
+                    _decisionAutoLeaveRoutine = null;
+                    yield break;
+                }
+            }
+
+            _decisionAutoLeaveRoutine = null;
+            _decisionPanel?.SetLeaveCountdownSeconds(null);
+            HandleDecisionLeaveClicked();
+        }
+
+        private void CancelDecisionPresentation(bool unpauseSoldiers)
+        {
+            if (_decisionIdleRoutine != null)
+            {
+                StopCoroutine(_decisionIdleRoutine);
+                _decisionIdleRoutine = null;
+            }
+
+            if (_decisionAutoLeaveRoutine != null)
+            {
+                StopCoroutine(_decisionAutoLeaveRoutine);
+                _decisionAutoLeaveRoutine = null;
+            }
+
+            _decisionPanel?.SetLeaveCountdownSeconds(null);
+
+            if (unpauseSoldiers)
+            {
+                ReleaseDecisionSoldiersHold();
+            }
+            else
+            {
+                _decisionMovementHeld = false;
+            }
+        }
+
+        private void HoldDecisionSoldiersIdle()
+        {
+            _decisionMovementHeld = true;
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var soldier = _advanceViews[i];
+                if (soldier == null || soldier.IsRebel || !soldier.IsCombatActive || soldier.MoveId == 0)
+                {
+                    continue;
+                }
+
+                _moveScheduler.SetPaused(soldier.MoveId, true);
+            }
+        }
+
+        private void ReleaseDecisionSoldiersHold()
+        {
+            if (!_decisionMovementHeld)
+            {
+                _decisionMovementHeld = false;
+                return;
+            }
+
+            _decisionMovementHeld = false;
+            if (_moveScheduler == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _advanceViews.Count; i++)
+            {
+                var soldier = _advanceViews[i];
+                if (soldier == null || soldier.IsRebel || !soldier.IsCombatActive || soldier.MoveId == 0)
+                {
+                    continue;
+                }
+
+                _moveScheduler.SetPaused(soldier.MoveId, false);
+            }
+        }
+
+        private float ResolveDecisionIdleDelaySeconds()
+        {
+            if (_configs == null)
+            {
+                return CombatConstantKeys.Safety.SearchExtractDecisionIdleDelaySeconds;
+            }
+
+            return Mathf.Max(
+                0f,
+                _configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractDecisionIdleDelaySeconds,
+                    CombatConstantKeys.Safety.SearchExtractDecisionIdleDelaySeconds));
+        }
+
+        private float ResolveDecisionAutoLeaveSeconds()
+        {
+            if (_configs == null)
+            {
+                return CombatConstantKeys.Safety.SearchExtractDecisionAutoLeaveSeconds;
+            }
+
+            return Mathf.Max(
+                0.1f,
+                _configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.SearchExtractDecisionAutoLeaveSeconds,
+                    CombatConstantKeys.Safety.SearchExtractDecisionAutoLeaveSeconds));
         }
 
         private void CreditGatherPointRewards(int gatherOrder)
@@ -486,6 +655,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void HandleLevelFailureRequested()
         {
+            CancelDecisionPresentation(unpauseSoldiers: false);
             _decisionPanel?.Hide();
             HideCombatIndicatorHud();
             DestroyCountdownHud();
@@ -530,6 +700,17 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
         }
 
+        private void EnsureOffScreenSpawnHint()
+        {
+            if (_offScreenSpawnHint != null)
+            {
+                return;
+            }
+
+            _offScreenSpawnHint = OffScreenSpawnHintRuntimeFactory.Create(transform);
+            _offScreenSpawnHint.Bind(_configs, _combatCamera);
+        }
+
         private void ShowCombatIndicatorHud()
         {
             EnsureCombatIndicatorHud();
@@ -541,6 +722,13 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
             _combatIndicatorHud.ResetBattleState();
             _combatIndicatorHud.Show();
+
+            EnsureOffScreenSpawnHint();
+            if (_offScreenSpawnHint != null)
+            {
+                _offScreenSpawnHint.Bind(_configs, _combatCamera);
+                _offScreenSpawnHint.ShowSession();
+            }
         }
 
         private void HideCombatIndicatorHud()
@@ -549,6 +737,28 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             {
                 _combatIndicatorHud.Hide();
             }
+
+            if (_offScreenSpawnHint != null)
+            {
+                _offScreenSpawnHint.HideSession();
+            }
+        }
+
+        private void TryShowOffScreenSpawnHint(Vector3 worldBasePos)
+        {
+            if (_session == null || !_session.IsCombatGameplayActive)
+            {
+                return;
+            }
+
+            EnsureOffScreenSpawnHint();
+            if (_offScreenSpawnHint == null)
+            {
+                return;
+            }
+
+            _offScreenSpawnHint.SetCombatCamera(_combatCamera);
+            _offScreenSpawnHint.TryShow(worldBasePos);
         }
 
         private void DispatchFailureReturnTitle()
@@ -898,6 +1108,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             Debug.Log(
                 $"[SearchExtractStage] Spawned {request.SpawnCount}x {request.MonsterId} at '{request.SpawnPointId}' " +
                 $"Order={request.GatherPointOrder} Wave={request.WaveIndex}.");
+
+            TryShowOffScreenSpawnHint(basePos);
         }
 
         private static GameObject CreateTempMonsterVisual(string modelId)
@@ -1522,7 +1734,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 || soldier.IsRebel
                 || !soldier.IsCombatActive
                 || _moveScheduler == null
-                || _attackSlots == null)
+                || _attackSlots == null
+                || _decisionMovementHeld)
             {
                 return;
             }
@@ -2071,6 +2284,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void DestroyDecisionPanel()
         {
+            CancelDecisionPresentation(unpauseSoldiers: false);
+
             if (_decisionPanel == null)
             {
                 return;
@@ -2191,7 +2406,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             var cameraPath = _mapInstance != null
                 ? _mapInstance.GetComponentInChildren<PushMapCameraPath>(true)
                 : null;
-            if (cameraPath != null && !cameraPath.HasBakedPath)
+            // Always refresh Bake at StartBattle so stale Prefab polylines (author WPs moved) heal.
+            if (cameraPath != null)
             {
                 if (!cameraPath.TryBake(out var bakeError))
                 {

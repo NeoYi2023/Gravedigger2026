@@ -51,7 +51,7 @@
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | LevelRouteProgress | 关卡路线进度 | 存档已通关 `GameplayOptionId` 集合；进关派生解锁；按槽+CampaignMode | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignModeSelect | 玩法模式选择 | UI-014 保留；本 Demo 新建/进入不弹出（直进 Mode2）；Mode1 入口后置（D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
-| DifficultySelectHost | 难度选择宿主 | 进档默认中心面（UI-029 / D-081）：三栏等宽同屏（各约 1/3）；悬停显示难度描述；仅普通点击进 UI-031；Hard/Hell Toast；无栏内 LevelSelect / 无 MapHost；表驱动描述/解锁/通关奖见 `DifficultyConfig`（接线后置） | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| DifficultySelectHost | 难度选择宿主 | **新建进档** / 工具「关卡」/ 关卡结束回壳中心面（UI-029 / D-081）：三栏等宽同屏（各约 1/3）；悬停显示难度描述；仅普通点击进 UI-031；Hard/Hell Toast；**进入占用档跳过**直开 UI-031（默认最大 Cleared Stage 所在已解锁 LevelId）；无栏内 LevelSelect / 无 MapHost；表驱动描述/解锁/通关奖见 `DifficultyConfig`（接线后置） | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | DifficultyConfig | 关卡难度表 | `Level_DifficultyConfig`：DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
 | DifficultyId | 难度ID | 难度表主键；运作表归属字段 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
 | UnlockRequireDifficultyId | 解锁所需难度ID | 空=初始解锁；填 DifficultyId=等通关；找不到=不可解锁 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
@@ -59,7 +59,7 @@
 | TitleMenu | 登录主界面 | Boot 首屏；顶中 GameName（Title_GameName）；主按钮双态开始/继续 → SaveSelect；设置 → UI-028；共享 TitleScreenBackground（UI-027） | [§3.2](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
-| InSaveShell | 进档壳层 | 进档后常驻壳（默认难度 Hub + 玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
+| InSaveShell | 进档壳层 | 进档后常驻壳（**新建**默认难度 Hub；**进入占用档**直开 UI-031；玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
 | ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → UI-031）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
@@ -96,7 +96,7 @@
 | GraveIconStyle | 坟墓图标样式 | 按剩余 HP%：>65%/30–65%/<30% → 样式1/2/3 | [§3.10](SPEC_03_GameRules.md) |
 | GraveQualityConfig | 坟墓品质定义表 | QualityId → MaxHP、DropMode、LootDrop、IconStyleHighId/MidId/LowId | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigReward | 挖掘奖励 | HP=0 时生成；飞向 Dig HUD 左上头像框，到达后入账并消失 | [§3.10](SPEC_03_GameRules.md) |
-| DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；格子图标+名称+数量，每行最多 5；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
+| DigStageSummary | 挖坟阶段汇总 | 时长归零后弹窗；仅汇总本阶段已获奖励；格子图标+名称+数量，每行最多 5；Body 约三行可视、超出竖滑；右上 X 确认 | [§3.10](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | Warehouse | 仓库 | 存档槽材料仓；不限格/时长；按类型堆叠上限 10000 | [§3.10](SPEC_03_GameRules.md) |
 | WarehouseHudStats | Dig HUD 仓库统计 | Dig HUD 三行图标统计（精魂/残骸/种族·职业主要手）；0 隐藏；Tips←LocalizedDescriptionConfig | [§3.10](SPEC_03_GameRules.md) |
 | LocalizedDescriptionConfig | 多语言描述表 | TextKey→TextZh（Demo）；TextEn 预留；DigWarehouseHoverTips；`TipMsg_*`（子关卡 Tips 类型名） | [SPEC_04 §9.34](SPEC_04_Technical.md) |
@@ -185,6 +185,7 @@
 | SkillCast | 士兵技能施放 | Combat 内按 SoldierSkills+SkillConfig 自动施放；PushMap `Skill_03` 占用普攻通道 3×方案 D；`Skill_01` 独立被动格挡钩子；`Skill_02` 满血 Outgoing 倍率；`Skill_04`～`Skill_12` 走 EffectKind 管线（D-073）；Mode2 提交后进 CD（仅 BaseCD>0） | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.21](SPEC_04_Technical.md) |
 | CombatSkillIcon | 战斗技能图标 | PushMap 头顶 35×35 静止 0.6s 后 +Z 上飘 0.3s；持续脚下 20×20；`Skill_03`/`Skill_01` 头顶；`Skill_02` 满血脚下+生效头顶飘；D-071 / UI-025；D-073 Handler 复用同一对事件 | [§3.12](SPEC_03_GameRules.md) SkillCast、[SPEC_04 §9.22](SPEC_04_Technical.md) |
 | CombatIndicator | 战斗指示器 | PushMap/SearchExtract Combat 顶中敌我单位格 HUD（`y=-10`/`scale=0.75`）；`CenterBg` 内左右存活数（BestFit 26～42；敌方开场未现身前 `?`）；简画+HP% 四色；死亡 0.5s 后移除；单行截断；0.2s 轮询；UI-033 / D-089 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| OffScreenSpawnHint | 离屏刷怪边缘提示 | PushMap/SearchExtract Combat 真实刷怪：`basePos` 视口外 → 屏幕边缘 `EnemyAttack_1` 闪红 2 次（0.4s）+常亮 2s、×1.3；Prepare 预览不出；UI-034 / D-090 | [§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md)/[§9.20b](SPEC_04_Technical.md) |
 | EffectKind | 技能效果种类 | `SkillEffectConfig` 登记制 PascalCase Token（对齐 MagicBook `EffectPayload`）；空=未实现；Session 禁止按 SkillId 硬分支 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21b](SPEC_04_Technical.md) |
 | CombatStatusService | 战斗状态服务 | 无敌 / 击晕 / 减速 / 灼烧 DoT 的统一 Tick + 查询；士兵与怪物分 bucket | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | SkillConfig | 技能配置表 | 士兵技能权威表；复合主键 (SkillId,SkillLevel)；名/图标/描述/SkillEffectId/`EffectImplemented`(UI-021 绿/红)/CD/失控加成；PushMap `Skill_03`/`Skill_01`/`Skill_02` 见 D-069；`Skill_04`～`Skill_12` 见 D-073 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.21](SPEC_04_Technical.md) |

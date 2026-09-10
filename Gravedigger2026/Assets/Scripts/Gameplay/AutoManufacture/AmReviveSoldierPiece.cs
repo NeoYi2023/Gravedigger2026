@@ -8,6 +8,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
     /// <summary>
     /// UI-016 StepB revive: UnknownSoldier mystery → idle sprite → fall in canvas pixels.
     /// Foot oval shadow is a child Image (SPEC_03 §3.15 / AutoMfgSoldierShadow*).
+    /// Bottom pivot: feet sit on LandY; art fit max-edge like body pieces.
     /// </summary>
     [RequireComponent(typeof(RectTransform), typeof(CanvasRenderer), typeof(Image))]
     public sealed class AmReviveSoldierPiece : MonoBehaviour
@@ -32,7 +33,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private float _shadowWidthPx = 20f;
         private float _shadowHeightPx = 8f;
         private float _shadowAlpha = 0.45f;
-        private float _shadowOffsetYPx = -40f;
+        private float _shadowOffsetYPx = -32f;
         private bool _landed;
         private bool _falling;
         private Coroutine _morphRoutine;
@@ -69,7 +70,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _image.preserveAspect = true;
             _image.color = Color.white;
             _rt.anchorMin = _rt.anchorMax = new Vector2(0.5f, 0.5f);
-            _rt.pivot = new Vector2(0.5f, 0.5f);
+            _rt.pivot = new Vector2(0.5f, 0f);
             EnsureShadow();
         }
 
@@ -97,6 +98,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _velocity = Vector2.zero;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
+            _rt.pivot = new Vector2(0.5f, 0f);
             _rt.anchoredPosition = anchoredPosition;
             _rt.localRotation = Quaternion.identity;
             _rt.localScale = Vector3.one * _visualScale;
@@ -129,12 +131,11 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _velocity.y -= _gravityPx * dt;
             _rt.anchoredPosition += _velocity * dt;
 
-            var halfH = ScaledHalfHeight();
+            // Bottom pivot: anchoredPosition.y is the feet.
             var pos = _rt.anchoredPosition;
-            var bottom = pos.y - halfH;
-            if (bottom <= _landY && _velocity.y <= LandSpeedPx)
+            if (pos.y <= _landY && _velocity.y <= LandSpeedPx)
             {
-                pos.y = _landY + halfH;
+                pos.y = _landY;
                 _rt.anchoredPosition = pos;
                 _velocity = Vector2.zero;
                 _landed = true;
@@ -171,13 +172,14 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
         private void ApplyFixedSize()
         {
-            _rt.sizeDelta = new Vector2(_sizePx, _sizePx);
+            _rt.sizeDelta = FitSize(_image != null ? _image.sprite : null, _sizePx);
             _rt.localScale = Vector3.one * _visualScale;
+            _rt.pivot = new Vector2(0.5f, 0f);
         }
 
-        private float ScaledHalfHeight()
+        private static Vector2 FitSize(Sprite sprite, float maxEdgePx)
         {
-            return _rt.sizeDelta.y * 0.5f * Mathf.Abs(_rt.localScale.y);
+            return AmBodyPartPiece.FitSize(sprite, maxEdgePx);
         }
 
         private void EnsureShadow()

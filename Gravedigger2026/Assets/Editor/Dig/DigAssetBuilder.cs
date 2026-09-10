@@ -32,7 +32,7 @@ namespace Gravedigger2026.Editor.Dig
         private const string SummaryPanelSpritePath = "Assets/Art/UI/Meta/Title/UI_Kuang_09.png";
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string IconsDir = "Assets/Art/UI/Icons";
-        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08437_summaryItemGrid";
+        private const string RegenPrefsKey = "Gravedigger2026.DigAssets.Regen.v08439_summaryScroll";
 
         private static readonly string[] MapIds =
         {
@@ -85,7 +85,8 @@ namespace Gravedigger2026.Editor.Dig
         }
 
         /// <summary>
-        /// Ensures DigSummaryItemCell Prefab exists and DigStageRoot Summary Body uses FixedColumnCount=5 grid.
+        /// Ensures DigSummaryItemCell Prefab exists and DigStageRoot Summary Body is a ~3-row vertical ScrollRect
+        /// with Content GridLayoutGroup FixedColumnCount=5 (UI-011 / v0.84.39).
         /// </summary>
         public static void EnsureSummaryItemGrid()
         {
@@ -136,39 +137,18 @@ namespace Gravedigger2026.Editor.Dig
                     return;
                 }
 
-                // Convert legacy Body Text → grid panel.
+                // Convert legacy Body Text → scroll panel.
                 var legacyText = body.GetComponent<Text>();
                 if (legacyText != null)
                 {
                     Object.DestroyImmediate(legacyText);
                 }
 
-                var bodyImg = body.GetComponent<Image>();
-                if (bodyImg == null)
-                {
-                    bodyImg = body.gameObject.AddComponent<Image>();
-                }
-
-                bodyImg.color = Color.clear;
-                bodyImg.raycastTarget = false;
-
                 var bodyRt = body.GetComponent<RectTransform>();
                 Place(bodyRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                     new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(920f, 620f));
 
-                var grid = body.GetComponent<GridLayoutGroup>();
-                if (grid == null)
-                {
-                    grid = body.gameObject.AddComponent<GridLayoutGroup>();
-                }
-
-                grid.cellSize = new Vector2(168f, 200f);
-                grid.spacing = new Vector2(12f, 12f);
-                grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
-                grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-                grid.childAlignment = TextAnchor.UpperLeft;
-                grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                grid.constraintCount = 5;
+                var contentRt = EnsureSummaryBodyScroll(body.gameObject);
 
                 var empty = summaryRoot.Find("EmptyText");
                 Text emptyText;
@@ -189,7 +169,7 @@ namespace Gravedigger2026.Editor.Dig
 
                 var sso = new SerializedObject(summaryView);
                 sso.FindProperty("_root").objectReferenceValue = summaryRoot.gameObject;
-                sso.FindProperty("_itemGrid").objectReferenceValue = bodyRt;
+                sso.FindProperty("_itemGrid").objectReferenceValue = contentRt;
                 sso.FindProperty("_itemCellPrefab").objectReferenceValue = cellView;
                 sso.FindProperty("_emptyText").objectReferenceValue = emptyText;
                 if (confirmBtn != null)
@@ -202,12 +182,92 @@ namespace Gravedigger2026.Editor.Dig
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
                 EditorPrefs.SetBool(RegenPrefsKey, true);
-                Debug.Log("[DigAssetBuilder] EnsureSummaryItemGrid done.");
+                Debug.Log("[DigAssetBuilder] EnsureSummaryItemGrid done (scroll Body).");
             }
             finally
             {
                 PrefabUtility.UnloadPrefabContents(contents);
             }
+        }
+
+        /// <summary>
+        /// UI-011: Body = ScrollRect viewport (~3 rows); Content hosts FixedColumnCount=5 grid.
+        /// </summary>
+        private static RectTransform EnsureSummaryBodyScroll(GameObject bodyGo)
+        {
+            var bodyImg = bodyGo.GetComponent<Image>();
+            if (bodyImg == null)
+            {
+                bodyImg = bodyGo.AddComponent<Image>();
+            }
+
+            bodyImg.color = Color.clear;
+            bodyImg.raycastTarget = true;
+
+            var legacyGridOnBody = bodyGo.GetComponent<GridLayoutGroup>();
+            if (legacyGridOnBody != null)
+            {
+                Object.DestroyImmediate(legacyGridOnBody);
+            }
+
+            var legacyFitterOnBody = bodyGo.GetComponent<ContentSizeFitter>();
+            if (legacyFitterOnBody != null)
+            {
+                Object.DestroyImmediate(legacyFitterOnBody);
+            }
+
+            var bodyT = bodyGo.transform;
+            for (var i = bodyT.childCount - 1; i >= 0; i--)
+            {
+                Object.DestroyImmediate(bodyT.GetChild(i).gameObject);
+            }
+
+            var scroll = bodyGo.GetComponent<ScrollRect>();
+            if (scroll == null)
+            {
+                scroll = bodyGo.AddComponent<ScrollRect>();
+            }
+
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f;
+            scroll.horizontalScrollbar = null;
+            scroll.verticalScrollbar = null;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewportGo.transform.SetParent(bodyGo.transform, false);
+            Stretch(viewportGo.GetComponent<RectTransform>());
+            var viewportImg = viewportGo.GetComponent<Image>();
+            viewportImg.color = Color.clear;
+            viewportImg.raycastTarget = true;
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(GridLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var contentRt = contentGo.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.anchoredPosition = Vector2.zero;
+            contentRt.sizeDelta = Vector2.zero;
+
+            var grid = contentGo.GetComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(168f, 200f);
+            grid.spacing = new Vector2(12f, 12f);
+            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+            grid.childAlignment = TextAnchor.UpperLeft;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 5;
+
+            var fitter = contentGo.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.content = contentRt;
+            scroll.viewport = viewportGo.GetComponent<RectTransform>();
+            return contentRt;
         }
 
         [MenuItem("Gravedigger2026/Dig/Ensure Missing Grave Prefabs + Catalog")]
@@ -937,19 +997,9 @@ namespace Gravedigger2026.Editor.Dig
                 new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(48f, 48f));
 
             var summaryBody = CreateUiPanel(summaryRoot.transform, "Body", Color.clear);
-            var bodyImg = summaryBody.GetComponent<Image>();
-            bodyImg.raycastTarget = false;
             Place(summaryBody.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f), new Vector2(0f, -110f), new Vector2(920f, 620f));
-
-            var grid = summaryBody.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(168f, 200f);
-            grid.spacing = new Vector2(12f, 12f);
-            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
-            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-            grid.childAlignment = TextAnchor.UpperLeft;
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 5;
+            var summaryContent = EnsureSummaryBodyScroll(summaryBody);
 
             var emptyText = CreateUiText(summaryRoot.transform, "EmptyText", "本阶段未获得奖励。", 32, TextAnchor.UpperCenter);
             emptyText.color = Color.black;
@@ -959,7 +1009,7 @@ namespace Gravedigger2026.Editor.Dig
             var summary = summaryRoot.AddComponent<DigStageSummaryView>();
             var sso = new SerializedObject(summary);
             sso.FindProperty("_root").objectReferenceValue = summaryRoot;
-            sso.FindProperty("_itemGrid").objectReferenceValue = summaryBody.GetComponent<RectTransform>();
+            sso.FindProperty("_itemGrid").objectReferenceValue = summaryContent;
             sso.FindProperty("_itemCellPrefab").objectReferenceValue = summaryItemCellPrefab;
             sso.FindProperty("_emptyText").objectReferenceValue = emptyText;
             sso.FindProperty("_confirmButton").objectReferenceValue = confirmBtn.GetComponent<Button>();

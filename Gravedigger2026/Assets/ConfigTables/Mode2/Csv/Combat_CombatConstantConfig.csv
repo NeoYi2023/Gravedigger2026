@@ -8,7 +8,7 @@ MaxHpStrengthMult,血量力量系数,3,MaxHP = ceil(BodyLife + Str x Mult),士�
 CameraHeightY,镜头高度,30,Top-down camera world Y above map center,俯视正交相机相对地图中心的世界Y高度；Dig/Defend/布阵/PushMap共用
 CombatCameraPitchDegrees,战斗相机倾角,85,Defend+PushMap Combat ortho Euler X (90=top-down),Defend+PushMap开战Combat正交相机Euler X（90=纯俯视；Prepare/Dig仍90）
 CameraOrthoSizeMargin,地图适配Size余量,1.5,orthoSize = max(halfExtents) - margin,Dig/Defend/布阵：正交Size=地图半幅较大边减去本余量
-PushMapCameraOrthoSize,推图开战默认Size,2,PushMap combat default orthographicSize,PushMap开战默认正交Size（异于Defend的地图适配公式）
+PushMapCameraOrthoSize,推图开战默认Size,2.3,PushMap combat default orthographicSize,PushMap开战默认正交Size（异于Defend的地图适配公式）
 PushMapPrepareOrthoSize,推图布阵默认Size,4.5,PushMap Prepare FormationCamera orthographicSize (not map-fit),PushMap Prepare 布阵 FormationCamera 正交Size（不用地图适配公式）
 CameraNearClip,镜头近裁剪面,0.1,Camera nearClipPlane,正交相机近裁剪面
 CameraFarClip,镜头远裁剪面,100,Camera farClipPlane,正交相机远裁剪面
@@ -20,8 +20,8 @@ CameraOrthoSizeMax,正交Size上限,20,Max orthographicSize clamp,PushMap滚轮�
 CameraDragThresholdPixels,拖拽启动像素阈值,4,LMB drag arm threshold in screen px,PushMap手动拖镜头：累计位移超过本像素才开始平移
 PushMapCameraIntroSpeed,推图镜头预览速度,12,PushMap StartBattle Intro rail speed world-XZ units/sec,PushMap开战镜头预览沿CameraFollowPath的世界XZ恒速（单位/秒）
 PushMapCameraIntroWaypointDwellSeconds,推图镜头预览路点停留,0.5,PushMap Intro dwell seconds at each author WP,PushMap开战镜头预览在每个作者路点（含起终点）的停留秒数
-SearchExtractHoldOrthoSizeMin,搜打撤守点Size下限,3,HoldFraming ortho Size floor (intersect CameraOrthoSizeMin),HoldFraming 正交 Size 下限（再与 CameraOrthoSizeMin 取交）
-SearchExtractHoldOrthoSizeMax,搜打撤守点Size上限,8,HoldFraming ortho Size ceiling (intersect CameraOrthoSizeMax),HoldFraming 正交 Size 上限（再与 CameraOrthoSizeMax 取交）
+SearchExtractHoldOrthoSizeMin,搜打撤守点Size下限,2.3,HoldFraming ortho Size floor (intersect CameraOrthoSizeMin),HoldFraming 正交 Size 下限（再与 CameraOrthoSizeMin 取交）
+SearchExtractHoldOrthoSizeMax,搜打撤守点Size上限,3,HoldFraming ortho Size ceiling (intersect CameraOrthoSizeMax),HoldFraming 正交 Size 上限（再与 CameraOrthoSizeMax 取交）
 SearchExtractHoldMaxPanRadius,守点中心偏移半径,8,Max look-at distance from current Objective world XZ,look-at 距当前 Objective 世界 XZ 最大半径；圈外忠诚兵允许出镜
 SearchExtractHoldViewportPad,守点视口边垫,0.08,Outer viewport pad on four sides (0-0.5),外框四边视口垫（0～0.5）
 SearchExtractHoldTopHudPad,守点顶HUD垫,0.12,Extra top pad for CountdownBar / CombatIndicator,外框顶边额外垫（CountdownBar / CombatIndicator）
@@ -31,6 +31,14 @@ SearchExtractHoldSmoothTimeOut,守点拉远平滑秒,0.2,SmoothDamp when expandi
 SearchExtractHoldSmoothTimeIn,守点拉近平滑秒,0.55,SmoothDamp when tightening; must be > Out,Size/中心拉近（收紧）SmoothDamp；须大于 Out
 SearchExtractHoldSampleInterval,守点采样间隔秒,0.2,Low-frequency viewport AABB sample interval seconds,视口 AABB 低频采样间隔
 SearchExtractHoldObjectiveBias,守点中心偏向,0.65,"look-at = lerp(soldier center, Objective, bias); 1=pin Objective","look-at = lerp(士兵中心, Objective, bias)；1=钉 Objective"
+SearchExtractDecisionIdleDelaySeconds,决策停步延迟秒,1,UI-032 show then delay before loyal MassMove pause + Idle,UI-032 弹出后忠诚兵延迟停步并 Idle（任意搜集点数）
+SearchExtractDecisionAutoLeaveSeconds,单点自动离开秒,3,Only GatherPointCount=1: LeaveButton countdown then auto-Leave,仅 GatherPointCount=1 时 LeaveButton 倒计时后自动 Leave
+OffScreenSpawnHintIntroBlinkSeconds,离屏来袭开场闪红秒,0.4,UI-034: intro red-blink window seconds,UI-034：开场闪红总时长秒
+OffScreenSpawnHintIntroBlinkCount,离屏来袭开场闪红次数,2,UI-034: red blink count inside intro window,UI-034：开场窗口内闪红次数
+OffScreenSpawnHintHoldSeconds,离屏来袭常亮秒,2,UI-034: solid white hold seconds after intro blink,UI-034：闪红后常亮秒数
+OffScreenSpawnHintDisplayScale,离屏来袭显示缩放,1.3,UI-034: icon localScale while visible,UI-034：显示期间图标 localScale
+OffScreenSpawnHintEdgeMarginPx,离屏来袭边距像素,48,UI-034: icon center margin from screen edge (ref 1920x1080 px),UI-034：图标中心距参考分辨率屏幕边的像素边距
+OffScreenSpawnHintIconSizePx,离屏来袭图标边长,72,UI-034: EnemyAttack_1 sizeDelta edge (ref 1920x1080),UI-034：EnemyAttack_1 sizeDelta 边长（参考 1920×1080）
 DigTriggerDwellSeconds,挖坟触发停留,0.2,Cursor dwell before DigAction starts,光标与可挖坟相交并停留达到本秒数后触发DigAction
 BaseDigDuration,挖坟基础时长,0.8,BaseDigDuration seconds,DigActionDuration=max(下限
 DigActionDurationFloor,挖坟最短时长,0.1,Min DigActionDuration seconds,单次挖坟最短秒数（公式地板）
@@ -93,13 +101,15 @@ AutoMfgDropCountMax,自动制造尸骸每批最多,5,Max pieces per drop batch,S
 AutoMfgGravityScale,自动制造尸骸重力,2,Rigidbody2D gravityScale for body pieces,Rigidbody2D.gravityScale
 AutoMfgBounciness,自动制造尸骸弹性,0.15,PhysicsMaterial2D bounciness,PhysicsMaterial2D.bounciness
 AutoMfgFriction,自动制造尸骸摩擦,0.4,PhysicsMaterial2D friction,PhysicsMaterial2D.friction
-AutoMfgColliderInset,自动制造尸骸碰撞内缩,0.72,OBB edge vs fitted sprite size (<1 lets slanted pieces nest),OBB 边长相对 Sprite 适配尺寸的比例（<1 使斜角更紧）
+AutoMfgColliderInset,自动制造尸骸碰撞内缩,0.45,OBB edge vs fitted sprite size (<1 lets slanted pieces nest),OBB 边长相对 Sprite 适配尺寸的比例（<1 使斜角更紧）
 AutoMfgSpawnAngleMaxDeg,自动制造尸骸落下转角,50,Max abs spawn Z yaw (deg); also scales initial angular velocity,落下随机 Z 转角绝对值上限（度）；并作初始角速度尺度
-AutoMfgSpawnJitterXPx,自动制造尸骸水平微扰,80,Random spawn X jitter in ref pixels,落点相对屏幕中心 X 微扰
+AutoMfgSpawnJitterXPx,自动制造尸骸水平微扰,40,Random spawn X jitter in ref pixels,落点相对屏幕中心 X 微扰
 AutoMfgMagicCircleFlashHz,自动制造法阵闪红频率,8,Magic circle red flash Hz during StepB,StepB 法阵红色闪烁 Hz
+AutoMfgMagicCircleYPx,自动制造法阵本地 Y,-50,MagicCircle anchoredPosition.y vs AmBodyRainLayer,MagicCircle 相对 AmBodyRainLayer 的 anchoredPosition.y
+AutoMfgBodyRainLayerYPx,自动制造尸骸雨层本地 Y,-340,AmBodyRainLayer anchoredPosition.y vs PresentationRoot,AmBodyRainLayer 相对 PresentationRoot 的 anchoredPosition.y
 AutoMfgReviveSpawnOffsetYPx,自动制造复活出生上偏移,400,Revive spawn Y offset from pile base px,问号/士兵出生相对堆底向上像素
-AutoMfgPileFloorYPx,自动制造尸骸堆地板 Y,-300,Body pile floor Y in ref pixels,2D 演出层堆地板相对屏幕中心 Y
-AutoMfgSoldierLandYPx,自动制造士兵落地 Y,-410,Revived soldier idle land Y px,复活士兵落地相对屏幕中心 Y
+AutoMfgPileFloorYPx,自动制造尸骸堆地板 Y,0,Body pile floor Y in ref pixels,2D 演出层堆地板相对屏幕中心 Y
+AutoMfgSoldierLandYPx,自动制造士兵落地 Y,300,Revived soldier idle land Y px,复活士兵落地相对屏幕中心 Y
 AutoMfgBodyMaxEdgePx,自动制造躯体适配边长,49,StepA body Image max edge px (~35% of prior 140),StepA 躯体 Image 最长边像素（约原 140 的 35%）
 AutoMfgSoldierMaxEdgePx,自动制造士兵固定边长,64,StepB mystery/soldier Image sizeDelta W/H,StepB 问号/士兵 Image sizeDelta 宽高（再 × VisualScale）
 AutoMfgSoldierShadowWidthPx,自动制造士兵影子宽,20,Oval foot-shadow width ref px,复活件脚下椭圆影子宽（参考像素）
@@ -107,5 +117,5 @@ AutoMfgSoldierShadowHeightPx,自动制造士兵影子高,8,Oval foot-shadow heig
 AutoMfgSoldierShadowAlpha,自动制造士兵影子透明度,0.45,Foot-shadow black Alpha 0-1,脚下影子黑色 Alpha（0～1）
 AutoMfgUseLegacySoldierRow,自动制造旧士兵行开关,0,1=legacy SoldierScroll conveyor,1=显示中央传送带旧流程；0=尸骸雨默认
 AutoMfgSoldierVisualScale,自动制造士兵视觉缩放,8,Revive piece localScale XYZ,复活件 localScale（XYZ）
-AutoMfgSoldierShadowOffsetYPx,自动制造士兵影子相对 Y,-40,Shadow local Y vs soldier center,影子相对士兵中心的本地 Y
+AutoMfgSoldierShadowOffsetYPx,自动制造士兵影子相对 Y,-32,Shadow local Y vs soldier feet (bottom pivot),影子相对士兵脚底（底部 pivot）的本地 Y
 AutoMfgBodyAngleMaxDeg,自动制造躯体绝对转角上限,270,Clamp body Z angle abs deg; zero omega at limit,躯体 Z 转角夹紧 ±本值；触限清角速度

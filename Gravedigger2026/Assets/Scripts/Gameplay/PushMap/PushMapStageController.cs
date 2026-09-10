@@ -35,6 +35,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// WarriorDamageSettled (white popup/flash); CombatDead → PlayDie. DemoKill retired.
     /// D-071 CombatSkillIcon: SkillIconPopup / SkillPersistChanged → WarriorSkillIconHudView.
     /// UI-033 / D-089 CombatIndicator: 0.2s snapshot HUD in Combat only (Hide Prepare/Ended/settlement).
+    /// UI-034 / D-090 OffScreenSpawnHint: edge EnemyAttack_1 when spawn basePos off-viewport (skip PreparePreview).
     /// VictorySettled → AddExperience → settlement UI (UI-017) → reward (UI-018) → LevelSelect;
     /// LevelFailure (Shield≤0 / loyal wipe) → settlement → LevelSelect; no Exp.
     /// CaptureLoot + DungeonUnlockIds on capture; LevelFailure does not credit Exp.
@@ -61,6 +62,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private GameObject _resumeFollowButtonRoot;
         private FormationBondHudView _combatBondHud;
         private CombatIndicatorHudView _combatIndicatorHud;
+        private OffScreenSpawnHintView _offScreenSpawnHint;
 
         private DefendPrefabCatalog _catalog;
         private FormationPrefabCatalog _formationCatalog;
@@ -324,6 +326,21 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 _combatIndicatorHud = null;
+            }
+
+            if (destroyWorld && _offScreenSpawnHint != null)
+            {
+                var hintCanvas = _offScreenSpawnHint.GetComponentInParent<Canvas>();
+                if (hintCanvas != null)
+                {
+                    Destroy(hintCanvas.gameObject);
+                }
+                else
+                {
+                    Destroy(_offScreenSpawnHint.gameObject);
+                }
+
+                _offScreenSpawnHint = null;
             }
 
             _objectives.Clear();
@@ -1139,6 +1156,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             Debug.Log(
                 $"[PushMapStage] Spawned {request.SpawnCount}x {request.MonsterId} at '{request.SpawnPointId}' " +
                 $"({request.Trigger}; Boss={request.IsBoss}).");
+
+            if (request.Trigger != PushMapSpawnTrigger.PreparePreview)
+            {
+                TryShowOffScreenSpawnHint(basePos);
+            }
         }
 
         private Vector3 ResolveSpawnPosition(PushMapSpawnRequest request)
@@ -2417,7 +2439,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             var cameraPath = _mapInstance != null
                 ? _mapInstance.GetComponentInChildren<PushMapCameraPath>(true)
                 : null;
-            if (cameraPath != null && !cameraPath.HasBakedPath)
+            // Always refresh Bake at StartBattle so stale Prefab polylines (author WPs moved) heal.
+            if (cameraPath != null)
             {
                 if (!cameraPath.TryBake(out var bakeError))
                 {
@@ -2487,6 +2510,17 @@ namespace Gravedigger2026.Gameplay.PushMap
             _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
         }
 
+        private void EnsureOffScreenSpawnHint()
+        {
+            if (_offScreenSpawnHint != null)
+            {
+                return;
+            }
+
+            _offScreenSpawnHint = OffScreenSpawnHintRuntimeFactory.Create(transform);
+            _offScreenSpawnHint.Bind(_configs, _pushMapCamera);
+        }
+
         private void ShowCombatIndicatorHud()
         {
             EnsureCombatIndicatorHud();
@@ -2498,6 +2532,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             _combatIndicatorHud.Bind(_session, _warriorPool, _configs);
             _combatIndicatorHud.ResetBattleState();
             _combatIndicatorHud.Show();
+
+            EnsureOffScreenSpawnHint();
+            if (_offScreenSpawnHint != null)
+            {
+                _offScreenSpawnHint.Bind(_configs, _pushMapCamera);
+                _offScreenSpawnHint.ShowSession();
+            }
         }
 
         private void HideCombatIndicatorHud()
@@ -2506,6 +2547,28 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _combatIndicatorHud.Hide();
             }
+
+            if (_offScreenSpawnHint != null)
+            {
+                _offScreenSpawnHint.HideSession();
+            }
+        }
+
+        private void TryShowOffScreenSpawnHint(Vector3 worldBasePos)
+        {
+            if (_session == null || !_session.IsCombatGameplayActive)
+            {
+                return;
+            }
+
+            EnsureOffScreenSpawnHint();
+            if (_offScreenSpawnHint == null)
+            {
+                return;
+            }
+
+            _offScreenSpawnHint.SetCombatCamera(_pushMapCamera);
+            _offScreenSpawnHint.TryShow(worldBasePos);
         }
 
         private void EnsureResumeFollowButton()

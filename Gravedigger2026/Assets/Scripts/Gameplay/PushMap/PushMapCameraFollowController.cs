@@ -17,6 +17,7 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// Scroll wheel zooms orthographicSize (forward zoom-in); clamp from CombatConstantConfig.
     /// SearchExtract HoldFraming (SE-CAM-02 / SPEC_03 §3.19): SetHoldFraming / Clear / Freeze;
     /// PushMap Stage must not call those APIs. ResumeFollow during Hold returns to Hold, not rail.
+    /// ClearHoldFraming (v0.84.43): force Auto, SmoothDamp Size to PushMapOrthoSize, no look-at Snap.
     /// Prepare path preview lives on FormationEditor (not this controller).
     /// </summary>
     public sealed class PushMapCameraFollowController : MonoBehaviour
@@ -59,6 +60,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _holdTargetSize;
         private bool _holdWantsExpand;
         private float _sizeSmoothVelocity;
+        private bool _restoreCombatOrthoSize;
 
         public Mode CurrentMode => _mode;
         public bool IsHoldFramingActive => _holdActive;
@@ -116,15 +118,23 @@ namespace Gravedigger2026.Gameplay.PushMap
             _holdUserZoomOverride = false;
             _holdHasTarget = false;
             _holdWantsExpand = false;
+            _restoreCombatOrthoSize = false;
             _sizeSmoothVelocity = 0f;
             _smoothVelocity = Vector3.zero;
             _holdSolver.Reset();
         }
 
-        /// <summary>SearchExtract-only. Drops Hold and returns Auto follow to CameraFollowPath.</summary>
+        /// <summary>
+        /// SearchExtract-only. Drops Hold, forces Auto rail follow (no look-at Snap), and
+        /// SmoothDamps orthographicSize to PushMapOrthoSize (SPEC_03 §3.19 / v0.84.43).
+        /// </summary>
         public void ClearHoldFraming()
         {
             ResetHoldState();
+            _mode = Mode.Auto;
+            _restoreCombatOrthoSize = true;
+            _sizeSmoothVelocity = 0f;
+            RefreshResumeButtonVisibility();
         }
 
         /// <summary>
@@ -148,20 +158,21 @@ namespace Gravedigger2026.Gameplay.PushMap
         public void EnableForCombat()
         {
             ResetHoldState();
+            _restoreCombatOrthoSize = false;
             _combatActive = true;
             _dragArmed = false;
             _dragAccumPixels = 0f;
-            if (_followPath != null && !_followPath.HasBakedPath)
+            if (_followPath != null)
             {
                 if (!_followPath.TryBake(out var error) && !_loggedMissingPath)
                 {
                     Debug.LogWarning(
-                        $"[PushMapCameraFollow] CameraFollowPath bake empty at StartBattle: {error}. " +
+                        $"[PushMapCameraFollow] CameraFollowPath bake failed at StartBattle: {error}. " +
                         "Falling back to closest loyal soldier.");
                     _loggedMissingPath = true;
                 }
             }
-            else if (_followPath == null && !_loggedMissingPath)
+            else if (!_loggedMissingPath)
             {
                 Debug.LogWarning(
                     "[PushMapCameraFollow] No CameraFollowPath on map. " +
@@ -178,6 +189,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _dragArmed = false;
             _mode = Mode.Auto;
             _smoothVelocity = Vector3.zero;
+            _restoreCombatOrthoSize = false;
             ResetHoldState();
             RefreshResumeButtonVisibility();
         }
@@ -239,6 +251,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                 TickHoldFraming();
                 return;
             }
+
+            TickRestoreCombatOrthoSize();
 
             if (!TryGetLookAt(out var lookAt))
             {
@@ -398,6 +412,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_holdActive)
             {
                 _holdUserZoomOverride = true;
+                _sizeSmoothVelocity = 0f;
+            }
+
+            if (_restoreCombatOrthoSize)
+            {
+                _restoreCombatOrthoSize = false;
                 _sizeSmoothVelocity = 0f;
             }
         }
@@ -599,6 +619,30 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 _holdLoyalScratch.Add(view.transform.position);
+            }
+        }
+
+        private void TickRestoreCombatOrthoSize()
+        {
+            if (!_restoreCombatOrthoSize || _camera == null)
+            {
+                return;
+            }
+
+            var target = Mathf.Clamp(
+                _presentationConstants.PushMapOrthoSize,
+                _orthoSizeMin,
+                _orthoSizeMax);
+            _camera.orthographicSize = Mathf.SmoothDamp(
+                _camera.orthographicSize,
+                target,
+                ref _sizeSmoothVelocity,
+                _followSmoothTime);
+            if (Mathf.Abs(_camera.orthographicSize - target) <= 0.01f)
+            {
+                _camera.orthographicSize = target;
+                _sizeSmoothVelocity = 0f;
+                _restoreCombatOrthoSize = false;
             }
         }
 

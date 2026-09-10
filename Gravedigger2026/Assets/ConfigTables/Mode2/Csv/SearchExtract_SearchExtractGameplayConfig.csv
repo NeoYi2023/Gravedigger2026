@@ -1,5 +1,5 @@
 GameplayConfigId,MapId,StageExpReward,GatherCountdownSeconds
 SearchExtract_01,SearchExtract_Lv1_01,0,60
-SearchExtract_02,SearchExtract_Lv1_01,0,60
+SearchExtract_02,SearchExtract_Lv2_01,0,60
 SearchExtract_03,SearchExtract_Lv1_01,0,60
-SearchExtract_04,SearchExtract_Lv1_01,0,60
+SearchExtract_04,SearchExtract_Lv2_01,0,60

@@ -60,10 +60,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 _image.color = new Color(0.85f, 0.15f, 0.15f, 0.85f);
             }
 
-            // Sit under the pile: top edge at the given floor Y.
-            rt.anchoredPosition = new Vector2(
-                anchoredPosition.x,
-                anchoredPosition.y - rt.sizeDelta.y * 0.5f);
+            // Direct layer-local position (SPEC AutoMfgMagicCircleYPx).
+            rt.anchoredPosition = anchoredPosition;
         }
 
         public void SetActiveFlash(bool active)

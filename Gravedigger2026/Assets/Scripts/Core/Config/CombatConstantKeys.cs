@@ -40,6 +40,15 @@ namespace Gravedigger2026.Core.Config
         public const string SearchExtractHoldSmoothTimeIn = "SearchExtractHoldSmoothTimeIn";
         public const string SearchExtractHoldSampleInterval = "SearchExtractHoldSampleInterval";
         public const string SearchExtractHoldObjectiveBias = "SearchExtractHoldObjectiveBias";
+        public const string SearchExtractDecisionIdleDelaySeconds = "SearchExtractDecisionIdleDelaySeconds";
+        public const string SearchExtractDecisionAutoLeaveSeconds = "SearchExtractDecisionAutoLeaveSeconds";
+
+        public const string OffScreenSpawnHintIntroBlinkSeconds = "OffScreenSpawnHintIntroBlinkSeconds";
+        public const string OffScreenSpawnHintIntroBlinkCount = "OffScreenSpawnHintIntroBlinkCount";
+        public const string OffScreenSpawnHintHoldSeconds = "OffScreenSpawnHintHoldSeconds";
+        public const string OffScreenSpawnHintDisplayScale = "OffScreenSpawnHintDisplayScale";
+        public const string OffScreenSpawnHintEdgeMarginPx = "OffScreenSpawnHintEdgeMarginPx";
+        public const string OffScreenSpawnHintIconSizePx = "OffScreenSpawnHintIconSizePx";
 
         public const string DigTriggerDwellSeconds = "DigTriggerDwellSeconds";
         public const string BaseDigDuration = "BaseDigDuration";
@@ -113,6 +122,8 @@ namespace Gravedigger2026.Core.Config
         public const string AutoMfgSpawnAngleMaxDeg = "AutoMfgSpawnAngleMaxDeg";
         public const string AutoMfgSpawnJitterXPx = "AutoMfgSpawnJitterXPx";
         public const string AutoMfgMagicCircleFlashHz = "AutoMfgMagicCircleFlashHz";
+        public const string AutoMfgMagicCircleYPx = "AutoMfgMagicCircleYPx";
+        public const string AutoMfgBodyRainLayerYPx = "AutoMfgBodyRainLayerYPx";
         public const string AutoMfgReviveSpawnOffsetYPx = "AutoMfgReviveSpawnOffsetYPx";
         public const string AutoMfgPileFloorYPx = "AutoMfgPileFloorYPx";
         public const string AutoMfgSoldierLandYPx = "AutoMfgSoldierLandYPx";
@@ -155,6 +166,14 @@ namespace Gravedigger2026.Core.Config
             public const float SearchExtractHoldSmoothTimeIn = 0.55f;
             public const float SearchExtractHoldSampleInterval = 0.2f;
             public const float SearchExtractHoldObjectiveBias = 0.65f;
+            public const float SearchExtractDecisionIdleDelaySeconds = 1f;
+            public const float SearchExtractDecisionAutoLeaveSeconds = 3f;
+            public const float OffScreenSpawnHintIntroBlinkSeconds = 0.4f;
+            public const float OffScreenSpawnHintIntroBlinkCount = 2f;
+            public const float OffScreenSpawnHintHoldSeconds = 2f;
+            public const float OffScreenSpawnHintDisplayScale = 1.3f;
+            public const float OffScreenSpawnHintEdgeMarginPx = 48f;
+            public const float OffScreenSpawnHintIconSizePx = 72f;
             public const float DigTriggerDwellSeconds = 0.2f;
             public const float BaseDigDuration = 0.8f;
             public const float DigActionDurationFloor = 0.1f;
@@ -225,6 +244,8 @@ namespace Gravedigger2026.Core.Config
             public const float AutoMfgSpawnAngleMaxDeg = 50f;
             public const float AutoMfgSpawnJitterXPx = 80f;
             public const float AutoMfgMagicCircleFlashHz = 8f;
+            public const float AutoMfgMagicCircleYPx = -50f;
+            public const float AutoMfgBodyRainLayerYPx = -340f;
             public const float AutoMfgReviveSpawnOffsetYPx = 400f;
             public const float AutoMfgPileFloorYPx = -300f;
             public const float AutoMfgSoldierLandYPx = -410f;
@@ -234,7 +255,7 @@ namespace Gravedigger2026.Core.Config
             public const float AutoMfgSoldierShadowWidthPx = 20f;
             public const float AutoMfgSoldierShadowHeightPx = 8f;
             public const float AutoMfgSoldierShadowAlpha = 0.45f;
-            public const float AutoMfgSoldierShadowOffsetYPx = -40f;
+            public const float AutoMfgSoldierShadowOffsetYPx = -32f;
             public const float AutoMfgBodyAngleMaxDeg = 270f;
             public const float AutoMfgUseLegacySoldierRow = 0f;
         }

@@ -65,6 +65,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 SetupLayer(parent);
             }
 
+            ApplyLayerLayout();
+
             if (_bodyPool == null)
             {
                 _bodyPool = new AmBodyPartPool(_layer);
@@ -298,6 +300,16 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             PlaceAboveDim(parent);
         }
 
+        private void ApplyLayerLayout()
+        {
+            if (_layer == null)
+            {
+                return;
+            }
+
+            _layer.anchoredPosition = new Vector2(0f, _constants.BodyRainLayerYPx);
+        }
+
         private void PlaceAboveDim(Transform parent)
         {
             if (parent == null)
@@ -321,15 +333,27 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
         private void EnsureMagicCircle()
         {
-            if (_magicCircle != null || _layer == null)
+            if (_layer == null)
             {
+                return;
+            }
+
+            var pos = new Vector2(0f, _constants.MagicCircleYPx);
+            if (_magicCircle != null)
+            {
+                _magicCircle.Configure(
+                    DigBodyArtLoader.LoadMagicCircle(),
+                    pos,
+                    _constants.MagicCircleFlashHz);
+                _magicCircle.SetActiveFlash(false);
+                KeepMagicCircleBehindBodies();
                 return;
             }
 
             _magicCircle = AmMagicCircleView.Create(
                 _layer,
                 DigBodyArtLoader.LoadMagicCircle(),
-                new Vector2(0f, _constants.PileFloorYPx),
+                pos,
                 _constants.MagicCircleFlashHz);
             _magicCircle.SetActiveFlash(false);
             KeepMagicCircleBehindBodies();

@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.38
-**最后更新 / Last Updated:** 2026-09-08
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**UI-016 尸骸雨+法阵复活 AM-RAIN SPEC 已关**；Demo 须另授权）  
+**文档版本 / Document Version:** v0.84.47
+**最后更新 / Last Updated:** 2026-09-09
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,15 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-09 | v0.84.47 | UI-034 调参：开场 0.4s 内闪红 2 次，再常亮 2s；显示 `localScale=1.3`；常量改 `IntroBlink*`/`HoldSeconds`/`DisplayScale`（移除 Duration/BlinkPeriod）。同步 SPEC_03/04、CONTEXT、`OffScreenSpawnHintView` |
+| 2026-09-09 | v0.84.46 | 离屏刷怪边缘提示 UI-034 / D-090（方案 A）：PushMap+SearchExtract Combat 真实刷怪时若 SpawnPoint/`basePos` 在视口外，屏幕边缘显示 `EnemyAttack_1` 闪烁 1.5s；Prepare 预览不出；常量 `OffScreenSpawnHint*`；issues `.scratch/offscreen-spawn-hint/`。同步 SPEC_03 §3.1/§3.6/§3.8/§3.14/§3.19、SPEC_04 §6/§9.20b、CONTEXT |
+| 2026-09-09 | v0.84.45 | 修搜打撤 Continue 后镜头不跟轨：`SearchExtract_Lv2_01` `CameraFollowPath` 路点/Bake 对齐 Obj1→Obj2；开战 **总是** `TryBake`（防 Prefab 过期短轨）。同步 SPEC_04 §9.32 |
+| 2026-09-09 | v0.84.44 | UI-016：`AmBodyRainLayer` Y=`AutoMfgBodyRainLayerYPx`（−340）；法阵 Y=`AutoMfgMagicCircleYPx`（−50）；复活件底部 pivot + 出生偏移 400；影子相对 Y −32。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b |
+| 2026-09-09 | v0.84.43 | 搜打撤 Continue：关 Hold 后强制 Auto 回 `CameraFollowPath`（Deadzone/SmoothTime 同推图）；`orthographicSize` 以 `CameraFollowSmoothTime` SmoothDamp 恢复 `PushMapCameraOrthoSize`（不 Snap look-at；滚轮取消恢复）。同步 SPEC_03 §3.19、SPEC_04 §9.32 |
+| 2026-09-09 | v0.84.42 | 进档分流：占用档「进入」跳过难度 Hub，直开 UI-031；默认 LevelId=已解锁关中 `LevelRouteProgress` 已通关选项的最大 StageNumber 所在关（并列取解锁列表更后者；无通关回退已解锁末项）；新建仍开 Hub。同步 SPEC_03 §3.2/§3.3/§3.5/§3.6/§3.8、SPEC_04 §6 |
+| 2026-09-09 | v0.84.41 | 搜打撤：`SearchExtract_Lv2_01` 补绑 `DefendPrefabCatalog.Maps` + `CatalogExtraMapIds`（玩法表 `SearchExtract_02/04` 已引用，缺绑导致 Begin 报错）。同步 SPEC_04 §9.32 |
+| 2026-09-09 | v0.84.40 | 搜打撤 UI-032：决策弹出后忠诚兵延迟停步 Idle；整关 `GatherPointCount=1` 时 LeaveButton 倒计时自动撤离（可手动抢先）。常量 `SearchExtractDecisionIdleDelaySeconds` / `SearchExtractDecisionAutoLeaveSeconds`。同步 SPEC_03 §3.6/§3.19、SPEC_04 §9.20b |
+| 2026-09-09 | v0.84.39 | DigStageSummary（UI-011）：`Body` **920×620** 改为竖向 `ScrollRect` 视口（约三行可视）；超出三行可上下滑动，`Content` 承载 `GridLayoutGroup`（仍每行 5）。同步 SPEC_03 §3.6/§3.10、SPEC_04 §9.12、CONTEXT、`DigStageRoot`/`DigAssetBuilder` |
 | 2026-09-08 | v0.84.38 | UI-016 StepB：影子宽/高样例 **20**/**8**；已复活士兵落地成一行（首中、后先左后右，间距=`MaxEdge`×`VisualScale`）。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b |
 | 2026-09-08 | v0.84.37 | DigStageSummary（UI-011）：获得物改为图标格子（方图标+右下数量+下方名称）；`Body` GridLayoutGroup 每行最多 5；名称仅 DisplayName（不再展示 BodyLevel）。同步 SPEC_03 §3.6/§3.10、SPEC_04 §9.12、CONTEXT、`DigStageRoot`/`DigSummaryItemCell` |
 | 2026-09-08 | v0.84.36 | UI-016：躯体绝对转角夹紧 ±`AutoMfgBodyAngleMaxDeg`（270）；士兵 size 64 + `VisualScale` 8；落地 Y −410、影子相对 Y −40；堆地板 −300；法阵始终低于躯体。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b |
@@ -503,6 +512,15 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-09 | v0.84.47 | UI-034 retune: 2 red blinks in 0.4s then solid hold 2s; display scale 1.3; constants IntroBlink*/HoldSeconds/DisplayScale (drop Duration/BlinkPeriod). Synced SPEC_03/04, CONTEXT, OffScreenSpawnHintView |
+| 2026-09-09 | v0.84.46 | Off-screen spawn edge hint UI-034 / D-090 (Approach A): PushMap+SearchExtract Combat real spawns with SpawnPoint/basePos outside viewport show EnemyAttack_1 at nearest screen edge, blink 1.5s; Prepare preview skipped; constants OffScreenSpawnHint*; issues .scratch/offscreen-spawn-hint/. Synced SPEC_03 §3.1/§3.6/§3.8/§3.14/§3.19, SPEC_04 §6/§9.20b, CONTEXT |
+| 2026-09-09 | v0.84.45 | Fix SearchExtract Continue rail stuck: rebake `SearchExtract_Lv2_01` `CameraFollowPath` Obj1→Obj2; StartBattle **always** `TryBake` (heal stale Prefab stub). Synced SPEC_04 §9.32 |
+| 2026-09-09 | v0.84.44 | UI-016: `AmBodyRainLayer` Y=`AutoMfgBodyRainLayerYPx` (−340); circle Y=`AutoMfgMagicCircleYPx` (−50); revive piece bottom pivot + spawn offset 400; shadow local Y −32. Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b |
+| 2026-09-09 | v0.84.43 | SearchExtract Continue: after ClearHold force Auto on `CameraFollowPath` (same Deadzone/SmoothTime as PushMap); SmoothDamp `orthographicSize` to `PushMapCameraOrthoSize` with `CameraFollowSmoothTime` (no look-at Snap; scroll cancels restore). Synced SPEC_03 §3.19, SPEC_04 §9.32 |
+| 2026-09-09 | v0.84.42 | Enter-shell split: occupied Enter skips difficulty Hub and opens UI-031; default LevelId = unlocked level hosting max StageNumber among Cleared route options (tie → later in unlocked list; none Cleared → last unlocked); Create still opens Hub. Synced SPEC_03 §3.2/§3.3/§3.5/§3.6/§3.8, SPEC_04 §6 |
+| 2026-09-09 | v0.84.41 | SearchExtract: bind `SearchExtract_Lv2_01` into `DefendPrefabCatalog.Maps` + `CatalogExtraMapIds` (gameplay rows `SearchExtract_02/04` already referenced it; missing bind aborted Begin). Synced SPEC_04 §9.32 |
+| 2026-09-09 | v0.84.40 | SearchExtract UI-032: loyal warriors delay-stop to Idle after decision panel; when stage `GatherPointCount=1`, LeaveButton countdown auto-Leave (manual can preempt). Constants `SearchExtractDecisionIdleDelaySeconds` / `SearchExtractDecisionAutoLeaveSeconds`. Synced SPEC_03 §3.6/§3.19, SPEC_04 §9.20b |
+| 2026-09-09 | v0.84.39 | DigStageSummary (UI-011): `Body` **920×620** becomes vertical `ScrollRect` viewport (~3 rows visible); overflow scrolls; `Content` hosts `GridLayoutGroup` (still 5/row). Synced SPEC_03 §3.6/§3.10, SPEC_04 §9.12, CONTEXT, `DigStageRoot`/`DigAssetBuilder` |
 | 2026-09-08 | v0.84.38 | UI-016 StepB: foot-shadow W/H samples **20**/**8**; landed revived soldiers form one row (first center, then left/right alternate, pitch=`MaxEdge`×`VisualScale`). Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b |
 | 2026-09-08 | v0.84.37 | DigStageSummary (UI-011): rewards as icon cells (square icon + bottom-right qty + name below); `Body` GridLayoutGroup max 5/row; name = DisplayName only (no BodyLevel). Synced SPEC_03 §3.6/§3.10, SPEC_04 §9.12, CONTEXT, `DigStageRoot`/`DigSummaryItemCell` |
 | 2026-09-08 | v0.84.36 | UI-016: clamp body Z angle ±`AutoMfgBodyAngleMaxDeg` (270); soldier size 64 + `VisualScale` 8; land Y −410, shadow local Y −40; pile floor −300; circle always under bodies. Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b |
