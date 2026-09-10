@@ -863,6 +863,10 @@ namespace Gravedigger2026.Editor.Dig
                 digMagicLayer.transform, "GmGrantEquipCommonExpButton", "装备公共经验+50", gmBtnColor);
             PlaceGmMenuButton(grantEquipCommonExpBtn.GetComponent<RectTransform>(), 1, 0);
 
+            var addFewBodyPartsBtn = CreateUiButton(
+                digMagicLayer.transform, "GmAddFewBodyPartsButton", "少量增加躯体材料", gmBtnColor);
+            PlaceGmMenuButton(addFewBodyPartsBtn.GetComponent<RectTransform>(), 1, 1);
+
             var acquireDigRingBtn = CreateUiButton(equipLayer.transform, "GmAcquireDigRingButton", "获得铁铲", gmBtnColor);
             PlaceGmMenuButton(acquireDigRingBtn.GetComponent<RectTransform>(), 0, 0);
             var spendDigRingCommonExpBtn = CreateUiButton(
@@ -947,6 +951,7 @@ namespace Gravedigger2026.Editor.Dig
                 AssetDatabase.LoadAssetAtPath<Sprite>(IconsDir + "/AssassinIcon.png");
             hso.FindProperty("_addGravesButton").objectReferenceValue = addGravesBtn.GetComponent<Button>();
             hso.FindProperty("_addBodyPartsButton").objectReferenceValue = addBodyPartsBtn.GetComponent<Button>();
+            hso.FindProperty("_addFewBodyPartsButton").objectReferenceValue = addFewBodyPartsBtn.GetComponent<Button>();
             hso.FindProperty("_acquireDigRingButton").objectReferenceValue = acquireDigRingBtn.GetComponent<Button>();
             hso.FindProperty("_grantEquipCommonExpButton").objectReferenceValue = grantEquipCommonExpBtn.GetComponent<Button>();
             hso.FindProperty("_spendDigRingCommonExpButton").objectReferenceValue = spendDigRingCommonExpBtn.GetComponent<Button>();

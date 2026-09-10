@@ -738,33 +738,51 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             yield return new WaitForSeconds(Step1HoldSeconds);
 
             var completed = 0;
+            var slotCount = Mathf.Max(1, _bookSlots.Length);
             for (var i = 0; i < _batchIds.Count; i++)
             {
                 var warriorId = _batchIds[i];
                 var speed = Mathf.Pow(SpeedStep, completed / SpeedEveryN);
                 var pulseDur = BaseBookPulseSeconds / speed;
                 var revealHold = BaseRevealHoldSeconds / speed;
+                var flashDur = pulseDur * 0.4f;
+
+                yield return _bodyRainPresentation.CoShiftLandedRowForNext();
 
                 _bodyRainPresentation.SetMagicCircleActive(true);
+                var mystery = _bodyRainPresentation.SpawnMysteryAtCircle();
+                var circleY = _bodyRainPresentation.MagicCircleYPx;
+                var landY = _bodyRainPresentation.SoldierLandYPx;
 
                 for (var b = 0; b < _bookSlots.Length; b++)
                 {
+                    var fromY = Mathf.Lerp(circleY, landY, b / (float)slotCount);
+                    var toY = Mathf.Lerp(circleY, landY, (b + 1) / (float)slotCount);
+                    if (mystery != null)
+                    {
+                        mystery.BeginRiseStep(fromY, toY, pulseDur);
+                    }
+
                     var slot = _bookSlots[b];
                     if (slot == null)
                     {
-                        _onBookPulsePeak?.Invoke(warriorId, b);
+                        yield return CoEmptySlotBeat(pulseDur, flashDur, warriorId, b, mystery);
                         continue;
                     }
 
-                    yield return CoPulseBook(slot, pulseDur, warriorId, b);
+                    yield return CoPulseBook(slot, pulseDur, warriorId, b, mystery, flashDur);
                 }
 
-                _bodyRainPresentation.SetMagicCircleActive(false);
-                yield return _bodyRainPresentation.CoReviveSoldier(
+                var idleSprite = _bodyRainPresentation.ResolveIdleSprite(
                     warriorId,
                     _warriorPool,
-                    _defendCatalog,
-                    presentationConstants.GravityScale);
+                    _defendCatalog);
+                yield return _bodyRainPresentation.CoMorphMysteryInPlace(
+                    mystery,
+                    idleSprite,
+                    0.15f / speed);
+
+                _bodyRainPresentation.SetMagicCircleActive(false);
                 yield return new WaitForSeconds(revealHold);
 
                 completed++;
@@ -899,11 +917,28 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             return Mathf.Clamp01(desired / scrollable);
         }
 
+        private IEnumerator CoEmptySlotBeat(
+            float duration,
+            float flashDuration,
+            string warriorId,
+            int slotIndex,
+            AmReviveSoldierPiece mystery)
+        {
+            var half = Mathf.Max(0.01f, duration * 0.5f);
+            yield return new WaitForSeconds(half);
+            // Peak: empty slot still applies (no-op) + mystery flash (SPEC_03 §3.15 StepB).
+            _onBookPulsePeak?.Invoke(warriorId, slotIndex);
+            mystery?.FlashMystery(flashDuration);
+            yield return new WaitForSeconds(half);
+        }
+
         private IEnumerator CoPulseBook(
             AutoMfgMagicBookSlotView slot,
             float duration,
             string warriorId,
-            int slotIndex)
+            int slotIndex,
+            AmReviveSoldierPiece mystery = null,
+            float flashDuration = 0f)
         {
             if (slot == null)
             {
@@ -924,6 +959,10 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             // Peak scale: apply only this slot's MagicBook (SPEC_03 §3.15 Step2).
             _onBookPulsePeak?.Invoke(warriorId, slotIndex);
             RefreshFocusedCardVisual(warriorId);
+            if (mystery != null && flashDuration > 0f)
+            {
+                mystery.FlashMystery(flashDuration);
+            }
 
             t = 0f;
             while (t < half)

@@ -152,6 +152,9 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             yield return new WaitForSeconds(0.45f);
         }
 
+        public float MagicCircleYPx => _constants.MagicCircleYPx;
+        public float SoldierLandYPx => _constants.SoldierLandYPx;
+
         public void SetMagicCircleActive(bool active)
         {
             if (_magicCircle != null)
@@ -160,6 +163,76 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
         }
 
+        /// <summary>Shift already-landed revived soldiers left by one pitch before the next mystery.</summary>
+        public IEnumerator CoShiftLandedRowForNext()
+        {
+            var pitch = _constants.SoldierMaxEdgePx
+                * _constants.SoldierVisualScale
+                * _constants.SoldierPitchFactor;
+            yield return CoShiftLandedRowLeft(pitch);
+        }
+
+        /// <summary>Spawn UnknownSoldier at MagicCircle center (Approach B).</summary>
+        public AmReviveSoldierPiece SpawnMysteryAtCircle()
+        {
+            var piece = RentRevivePiece();
+            var spawn = new Vector2(0f, _constants.MagicCircleYPx);
+            piece.SpawnMystery(
+                spawn,
+                _constants.SoldierLandYPx,
+                _constants.SoldierMaxEdgePx,
+                _constants.SoldierVisualScale,
+                _constants.SoldierShadowWidthPx,
+                _constants.SoldierShadowHeightPx,
+                _constants.SoldierShadowAlpha,
+                _constants.SoldierShadowOffsetYPx);
+            return piece;
+        }
+
+        public Sprite ResolveIdleSprite(
+            string warriorId,
+            WarriorPoolService warriorPool,
+            DefendPrefabCatalog defendCatalog)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || warriorPool == null
+                || !warriorPool.TryGet(warriorId, out var warrior)
+                || warrior == null)
+            {
+                return null;
+            }
+
+            if (defendCatalog != null
+                && defendCatalog.TryGetWarriorAppearance(warrior.AppearanceId, out var appearancePrefab)
+                && appearancePrefab != null)
+            {
+                return FormationBattlefieldPreview.SampleIdleSprite(appearancePrefab);
+            }
+
+            return null;
+        }
+
+        /// <summary>Morph mystery → Idle at LandY in place (no gravity fall).</summary>
+        public IEnumerator CoMorphMysteryInPlace(
+            AmReviveSoldierPiece piece,
+            Sprite idleSprite,
+            float morphHoldSeconds = 0.15f)
+        {
+            if (piece == null)
+            {
+                yield break;
+            }
+
+            piece.BeginMorphInPlace(idleSprite, morphHoldSeconds);
+            while (!piece.IsLanded)
+            {
+                yield return null;
+            }
+
+            yield return new WaitForSeconds(Mathf.Max(0.01f, morphHoldSeconds * 0.8f));
+        }
+
+        /// <summary>Legacy gravity-fall revive (unused by Approach B body-rain path).</summary>
         public IEnumerator CoReviveSoldier(
             string warriorId,
             WarriorPoolService warriorPool,
@@ -174,32 +247,9 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 yield break;
             }
 
-            Sprite idleSprite = null;
-            if (defendCatalog != null
-                && defendCatalog.TryGetWarriorAppearance(warrior.AppearanceId, out var appearancePrefab)
-                && appearancePrefab != null)
-            {
-                idleSprite = FormationBattlefieldPreview.SampleIdleSprite(appearancePrefab);
-            }
-
-            var piece = RentRevivePiece();
-            var index = _revivedSoldiers.Count - 1;
-            var pitch = _constants.SoldierMaxEdgePx * _constants.SoldierVisualScale;
-            var slot = (index + 1) / 2;
-            var sign = (index % 2 == 1) ? -1f : 1f;
-            var spawnX = index == 0 ? 0f : sign * slot * pitch;
-            var spawn = new Vector2(
-                spawnX,
-                _constants.PileFloorYPx + _constants.ReviveSpawnOffsetYPx);
-            piece.SpawnMystery(
-                spawn,
-                _constants.SoldierLandYPx,
-                _constants.SoldierMaxEdgePx,
-                _constants.SoldierVisualScale,
-                _constants.SoldierShadowWidthPx,
-                _constants.SoldierShadowHeightPx,
-                _constants.SoldierShadowAlpha,
-                _constants.SoldierShadowOffsetYPx);
+            var idleSprite = ResolveIdleSprite(warriorId, warriorPool, defendCatalog);
+            yield return CoShiftLandedRowForNext();
+            var piece = SpawnMysteryAtCircle();
             piece.BeginMorph(idleSprite, GravityPxPerUnit * Mathf.Max(0.01f, gravityScale));
 
             while (!piece.IsLanded)
@@ -208,6 +258,59 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
 
             yield return new WaitForSeconds(0.12f);
+        }
+
+        private IEnumerator CoShiftLandedRowLeft(float pitch)
+        {
+            if (pitch <= 0.01f)
+            {
+                yield break;
+            }
+
+            var movers = new List<(AmReviveSoldierPiece piece, float fromX, float toX)>();
+            for (var i = 0; i < _revivedSoldiers.Count; i++)
+            {
+                var soldier = _revivedSoldiers[i];
+                if (soldier == null || !soldier.IsLanded)
+                {
+                    continue;
+                }
+
+                var fromX = soldier.AnchoredX;
+                movers.Add((soldier, fromX, fromX - pitch));
+            }
+
+            if (movers.Count == 0)
+            {
+                yield break;
+            }
+
+            const float duration = 0.2f;
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                var u = Mathf.Clamp01(elapsed / duration);
+                for (var i = 0; i < movers.Count; i++)
+                {
+                    var m = movers[i];
+                    if (m.piece != null)
+                    {
+                        m.piece.SetAnchoredX(Mathf.Lerp(m.fromX, m.toX, u));
+                    }
+                }
+
+                yield return null;
+            }
+
+            for (var i = 0; i < movers.Count; i++)
+            {
+                var m = movers[i];
+                if (m.piece != null)
+                {
+                    m.piece.SetAnchoredX(m.toX);
+                }
+            }
         }
 
         public void Cleanup()

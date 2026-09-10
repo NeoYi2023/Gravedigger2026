@@ -161,6 +161,7 @@ namespace Gravedigger2026.Gameplay.Dig
             {
                 _hudView.AddGravesRequested += HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested += HandleGmAddBodyParts;
+                _hudView.AddFewBodyPartsRequested += HandleGmAddFewBodyParts;
                 _hudView.EquipMagicBookRequested += HandleGmEquipMagicBook;
                 _hudView.AcquireDigRingRequested += HandleGmAcquireDigRing;
                 _hudView.GrantEquipCommonExpRequested += HandleGmGrantEquipCommonExp;
@@ -565,6 +566,17 @@ namespace Gravedigger2026.Gameplay.Dig
 
             _session.DebugGrantAllBodyParts(10);
             Debug.Log("[DigStageController] GM Add Body Parts → +10 each BodyPartConfig row");
+        }
+
+        private void HandleGmAddFewBodyParts()
+        {
+            if (_session == null || !_session.IsActive || _session.IsTimeUp)
+            {
+                return;
+            }
+
+            _session.DebugGrantAllBodyParts(2);
+            Debug.Log("[DigStageController] GM Add Few Body Parts → +2 each BodyPartConfig row");
         }
 
         private List<GmMagicBookGmEntry> BuildMagicBookGmEntries()
@@ -1023,6 +1035,7 @@ namespace Gravedigger2026.Gameplay.Dig
             {
                 _hudView.AddGravesRequested -= HandleGmAddGraves;
                 _hudView.AddBodyPartsRequested -= HandleGmAddBodyParts;
+                _hudView.AddFewBodyPartsRequested -= HandleGmAddFewBodyParts;
                 _hudView.EquipMagicBookRequested -= HandleGmEquipMagicBook;
                 _hudView.AcquireDigRingRequested -= HandleGmAcquireDigRing;
                 _hudView.GrantEquipCommonExpRequested -= HandleGmGrantEquipCommonExp;

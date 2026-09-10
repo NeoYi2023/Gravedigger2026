@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.47
-**最后更新 / Last Updated:** 2026-09-09
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；Demo 须另授权）  
+**文档版本 / Document Version:** v0.84.50
+**最后更新 / Last Updated:** 2026-09-10
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,9 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-10 | v0.84.50 | UI-016 StepB：谜底 `UnknownSoldier_1` 从 `MagicCircle` 中心出现，与 6 书槽脉冲并行；每槽上升全程 1/6，峰值闪烁；第 6 槽结束脚底到 `LandY` 变兵定住（不再重力下落）；加速 `1.25^floor(n/3)` 共用。`AutoMfgReviveSpawnOffsetYPx` Demo 不再作出生 Y（键保留）。选定方案 B。同步 SPEC_03 §3.6/§3.8/§3.15、SPEC_04 §6/§9.20b |
+| 2026-09-10 | v0.84.49 | Dig HUD `GmMenuPanel`：新增「少量增加躯体材料」（`GmAddFewBodyPartsButton`）→ 全表 BodyPart 各 +2；原「增加躯体材料」仍各 +10。同步 SPEC_03 §3.10、`DigHudView`/`DigStageController`/`DigAssetBuilder` |
+| 2026-09-10 | v0.84.48 | UI-016 StepB：新复活兵居中下落；已落地兵短时 Lerp 左移让位；间距 ×`AutoMfgSoldierPitchFactor`（样例 0.5→256）；脚下影 Demo 隐藏（`ShadowAlpha=0`）。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b、常量表 |
 | 2026-09-09 | v0.84.47 | UI-034 调参：开场 0.4s 内闪红 2 次，再常亮 2s；显示 `localScale=1.3`；常量改 `IntroBlink*`/`HoldSeconds`/`DisplayScale`（移除 Duration/BlinkPeriod）。同步 SPEC_03/04、CONTEXT、`OffScreenSpawnHintView` |
 | 2026-09-09 | v0.84.46 | 离屏刷怪边缘提示 UI-034 / D-090（方案 A）：PushMap+SearchExtract Combat 真实刷怪时若 SpawnPoint/`basePos` 在视口外，屏幕边缘显示 `EnemyAttack_1` 闪烁 1.5s；Prepare 预览不出；常量 `OffScreenSpawnHint*`；issues `.scratch/offscreen-spawn-hint/`。同步 SPEC_03 §3.1/§3.6/§3.8/§3.14/§3.19、SPEC_04 §6/§9.20b、CONTEXT |
 | 2026-09-09 | v0.84.45 | 修搜打撤 Continue 后镜头不跟轨：`SearchExtract_Lv2_01` `CameraFollowPath` 路点/Bake 对齐 Obj1→Obj2；开战 **总是** `TryBake`（防 Prefab 过期短轨）。同步 SPEC_04 §9.32 |
@@ -512,6 +515,9 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-10 | v0.84.50 | UI-016 StepB: mystery `UnknownSoldier_1` spawns at `MagicCircle` center, rises in parallel with 6 book pulses (1/6 per slot + flash at peak); lands at `LandY` then morphs Idle in place (no gravity fall); shared speed `1.25^floor(n/3)`. `AutoMfgReviveSpawnOffsetYPx` no longer Demo spawn Y (key retained). Approach B. Synced SPEC_03 §3.6/§3.8/§3.15, SPEC_04 §6/§9.20b |
+| 2026-09-10 | v0.84.49 | Dig HUD `GmMenuPanel`: add "Add Few Body Parts" (`GmAddFewBodyPartsButton`) → +2 each BodyPart row; existing Add Body Parts still +10. Synced SPEC_03 §3.10, `DigHudView`/`DigStageController`/`DigAssetBuilder` |
+| 2026-09-10 | v0.84.48 | UI-016 StepB: new revived soldier falls at center; landed row lerps left to make room; pitch ×`AutoMfgSoldierPitchFactor` (sample 0.5→256); foot shadow Demo-hidden (`ShadowAlpha=0`). Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b, combat constants |
 | 2026-09-09 | v0.84.47 | UI-034 retune: 2 red blinks in 0.4s then solid hold 2s; display scale 1.3; constants IntroBlink*/HoldSeconds/DisplayScale (drop Duration/BlinkPeriod). Synced SPEC_03/04, CONTEXT, OffScreenSpawnHintView |
 | 2026-09-09 | v0.84.46 | Off-screen spawn edge hint UI-034 / D-090 (Approach A): PushMap+SearchExtract Combat real spawns with SpawnPoint/basePos outside viewport show EnemyAttack_1 at nearest screen edge, blink 1.5s; Prepare preview skipped; constants OffScreenSpawnHint*; issues .scratch/offscreen-spawn-hint/. Synced SPEC_03 §3.1/§3.6/§3.8/§3.14/§3.19, SPEC_04 §6/§9.20b, CONTEXT |
 | 2026-09-09 | v0.84.45 | Fix SearchExtract Continue rail stuck: rebake `SearchExtract_Lv2_01` `CameraFollowPath` Obj1→Obj2; StartBattle **always** `TryBake` (heal stale Prefab stub). Synced SPEC_04 §9.32 |

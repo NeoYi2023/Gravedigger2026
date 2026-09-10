@@ -114,8 +114,9 @@ AutoMfgBodyMaxEdgePx,自动制造躯体适配边长,49,StepA body Image max edge
 AutoMfgSoldierMaxEdgePx,自动制造士兵固定边长,64,StepB mystery/soldier Image sizeDelta W/H,StepB 问号/士兵 Image sizeDelta 宽高（再 × VisualScale）
 AutoMfgSoldierShadowWidthPx,自动制造士兵影子宽,20,Oval foot-shadow width ref px,复活件脚下椭圆影子宽（参考像素）
 AutoMfgSoldierShadowHeightPx,自动制造士兵影子高,8,Oval foot-shadow height ref px,复活件脚下椭圆影子高（参考像素）
-AutoMfgSoldierShadowAlpha,自动制造士兵影子透明度,0.45,Foot-shadow black Alpha 0-1,脚下影子黑色 Alpha（0～1）
+AutoMfgSoldierShadowAlpha,自动制造士兵影子透明度,0,Foot-shadow black Alpha 0-1; 0=Demo hide,脚下影子黑色 Alpha（0～1；0=Demo 隐藏）
 AutoMfgUseLegacySoldierRow,自动制造旧士兵行开关,0,1=legacy SoldierScroll conveyor,1=显示中央传送带旧流程；0=尸骸雨默认
 AutoMfgSoldierVisualScale,自动制造士兵视觉缩放,8,Revive piece localScale XYZ,复活件 localScale（XYZ）
+AutoMfgSoldierPitchFactor,自动制造士兵行间距系数,0.5,StepB row pitch = MaxEdge x VisualScale x Factor,StepB 行间距=MaxEdge×VisualScale×本值（样例0.5→256）
 AutoMfgSoldierShadowOffsetYPx,自动制造士兵影子相对 Y,-32,Shadow local Y vs soldier feet (bottom pivot),影子相对士兵脚底（底部 pivot）的本地 Y
 AutoMfgBodyAngleMaxDeg,自动制造躯体绝对转角上限,270,Clamp body Z angle abs deg; zero omega at limit,躯体 Z 转角夹紧 ±本值；触限清角速度

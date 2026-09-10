@@ -56,6 +56,7 @@ namespace Gravedigger2026.Gameplay.Dig
         [SerializeField] private Sprite _classAssassinIcon;
         [SerializeField] private Button _addGravesButton;
         [SerializeField] private Button _addBodyPartsButton;
+        [SerializeField] private Button _addFewBodyPartsButton;
         [SerializeField] private Button _acquireDigRingButton;
         [SerializeField] private Button _grantEquipCommonExpButton;
         [SerializeField] private Button _spendDigRingCommonExpButton;
@@ -82,6 +83,7 @@ namespace Gravedigger2026.Gameplay.Dig
 
         public event Action AddGravesRequested;
         public event Action AddBodyPartsRequested;
+        public event Action AddFewBodyPartsRequested;
         public event Action<string> EquipMagicBookRequested;
         public event Action AcquireDigRingRequested;
         public event Action GrantEquipCommonExpRequested;
@@ -153,6 +155,7 @@ namespace Gravedigger2026.Gameplay.Dig
             Wire(_gmToggleButton, HandleGmToggle);
             Wire(_addGravesButton, HandleAddGraves);
             Wire(_addBodyPartsButton, HandleAddBodyParts);
+            Wire(_addFewBodyPartsButton, HandleAddFewBodyParts);
             Wire(_acquireDigRingButton, HandleAcquireDigRing);
             Wire(_grantEquipCommonExpButton, HandleGrantEquipCommonExp);
             Wire(_spendDigRingCommonExpButton, HandleSpendDigRingCommonExp);
@@ -177,6 +180,7 @@ namespace Gravedigger2026.Gameplay.Dig
             Unwire(_gmToggleButton, HandleGmToggle);
             Unwire(_addGravesButton, HandleAddGraves);
             Unwire(_addBodyPartsButton, HandleAddBodyParts);
+            Unwire(_addFewBodyPartsButton, HandleAddFewBodyParts);
             Unwire(_acquireDigRingButton, HandleAcquireDigRing);
             Unwire(_grantEquipCommonExpButton, HandleGrantEquipCommonExp);
             Unwire(_spendDigRingCommonExpButton, HandleSpendDigRingCommonExp);
@@ -395,6 +399,11 @@ namespace Gravedigger2026.Gameplay.Dig
             AddBodyPartsRequested?.Invoke();
         }
 
+        private void HandleAddFewBodyParts()
+        {
+            AddFewBodyPartsRequested?.Invoke();
+        }
+
         private void HandleAcquireDigRing()
         {
             AcquireDigRingRequested?.Invoke();
@@ -607,6 +616,9 @@ namespace Gravedigger2026.Gameplay.Dig
             ReparentGmButton(
                 _digMagicLayer, ref _grantEquipCommonExpButton, "GmGrantEquipCommonExpButton",
                 "装备公共经验+50", 1, 0);
+            ReparentGmButton(
+                _digMagicLayer, ref _addFewBodyPartsButton, "GmAddFewBodyPartsButton",
+                "少量增加躯体材料", 1, 1);
 
             // Bottom layer: grant (col0) / spend (col1) pairs
             ReparentGmButton(_equipLayer, ref _acquireDigRingButton, "GmAcquireDigRingButton", "获得铁铲", 0, 0);

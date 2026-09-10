@@ -130,6 +130,7 @@ namespace Gravedigger2026.Core.Config
         public const string AutoMfgBodyMaxEdgePx = "AutoMfgBodyMaxEdgePx";
         public const string AutoMfgSoldierMaxEdgePx = "AutoMfgSoldierMaxEdgePx";
         public const string AutoMfgSoldierVisualScale = "AutoMfgSoldierVisualScale";
+        public const string AutoMfgSoldierPitchFactor = "AutoMfgSoldierPitchFactor";
         public const string AutoMfgSoldierShadowWidthPx = "AutoMfgSoldierShadowWidthPx";
         public const string AutoMfgSoldierShadowHeightPx = "AutoMfgSoldierShadowHeightPx";
         public const string AutoMfgSoldierShadowAlpha = "AutoMfgSoldierShadowAlpha";
@@ -252,9 +253,10 @@ namespace Gravedigger2026.Core.Config
             public const float AutoMfgBodyMaxEdgePx = 49f;
             public const float AutoMfgSoldierMaxEdgePx = 64f;
             public const float AutoMfgSoldierVisualScale = 8f;
+            public const float AutoMfgSoldierPitchFactor = 0.5f;
             public const float AutoMfgSoldierShadowWidthPx = 20f;
             public const float AutoMfgSoldierShadowHeightPx = 8f;
-            public const float AutoMfgSoldierShadowAlpha = 0.45f;
+            public const float AutoMfgSoldierShadowAlpha = 0f;
             public const float AutoMfgSoldierShadowOffsetYPx = -32f;
             public const float AutoMfgBodyAngleMaxDeg = 270f;
             public const float AutoMfgUseLegacySoldierRow = 0f;
