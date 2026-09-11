@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.50
-**最后更新 / Last Updated:** 2026-09-10
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；Demo 须另授权）  
+**文档版本 / Document Version:** v0.84.51
+**最后更新 / Last Updated:** 2026-09-11
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-11 | v0.84.51 | UI-016 StepB：该兵 StepA 堆中躯体（按 WarriorId）在谜底上升期间错开飞入视觉中心并闪红消失；常量 `AutoMfgBodyAbsorb*`。选定 1A+2A。同步 SPEC_03 §3.6/§3.8/§3.15、SPEC_04 §6/§9.20b、CONTEXT |
 | 2026-09-10 | v0.84.50 | UI-016 StepB：谜底 `UnknownSoldier_1` 从 `MagicCircle` 中心出现，与 6 书槽脉冲并行；每槽上升全程 1/6，峰值闪烁；第 6 槽结束脚底到 `LandY` 变兵定住（不再重力下落）；加速 `1.25^floor(n/3)` 共用。`AutoMfgReviveSpawnOffsetYPx` Demo 不再作出生 Y（键保留）。选定方案 B。同步 SPEC_03 §3.6/§3.8/§3.15、SPEC_04 §6/§9.20b |
 | 2026-09-10 | v0.84.49 | Dig HUD `GmMenuPanel`：新增「少量增加躯体材料」（`GmAddFewBodyPartsButton`）→ 全表 BodyPart 各 +2；原「增加躯体材料」仍各 +10。同步 SPEC_03 §3.10、`DigHudView`/`DigStageController`/`DigAssetBuilder` |
 | 2026-09-10 | v0.84.48 | UI-016 StepB：新复活兵居中下落；已落地兵短时 Lerp 左移让位；间距 ×`AutoMfgSoldierPitchFactor`（样例 0.5→256）；脚下影 Demo 隐藏（`ShadowAlpha=0`）。同步 SPEC_03 §3.6/§3.15、SPEC_04 §9.20b、常量表 |

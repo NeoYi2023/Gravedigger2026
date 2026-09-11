@@ -28,8 +28,12 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private float _angularVel;
         private float _airTime;
         private bool _sleeping;
+        private bool _absorbing;
+        private string _ownerWarriorId;
 
         public bool IsSleeping => _sleeping;
+        public bool IsAbsorbing => _absorbing;
+        public string OwnerWarriorId => _ownerWarriorId;
         public Vector2 AnchoredPosition => _rt != null ? _rt.anchoredPosition : Vector2.zero;
         public Vector2 Size => _rt != null ? _rt.sizeDelta : Vector2.zero;
 
@@ -74,10 +78,13 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             Vector2 anchoredPosition,
             Color fallbackColor,
             float spawnAngleMaxDeg,
-            float maxEdgePx)
+            float maxEdgePx,
+            string ownerWarriorId = null)
         {
             CacheComponents();
             _sleeping = false;
+            _absorbing = false;
+            _ownerWarriorId = ownerWarriorId;
             _airTime = 0f;
             _velocity = Vector2.zero;
             var yawCap = Mathf.Max(0f, spawnAngleMaxDeg);
@@ -104,6 +111,34 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             _image.enabled = true;
         }
 
+        /// <summary>Leave physics pile; used while flying into mystery center.</summary>
+        public void BeginAbsorb()
+        {
+            CacheComponents();
+            _absorbing = true;
+            _sleeping = true;
+            _velocity = Vector2.zero;
+            _angularVel = 0f;
+        }
+
+        public void SetAnchoredPosition(Vector2 anchoredPosition)
+        {
+            CacheComponents();
+            if (_rt != null)
+            {
+                _rt.anchoredPosition = anchoredPosition;
+            }
+        }
+
+        public void SetImageColor(Color color)
+        {
+            CacheComponents();
+            if (_image != null)
+            {
+                _image.color = color;
+            }
+        }
+
         public void TickPhysics(
             float dt,
             float gravityPx,
@@ -114,7 +149,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             float bodyAngleMaxDeg,
             System.Collections.Generic.IReadOnlyList<AmBodyPartPiece> others)
         {
-            if (_sleeping || _rt == null)
+            if (_absorbing || _sleeping || _rt == null)
             {
                 return;
             }
@@ -135,7 +170,10 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 for (var i = 0; i < others.Count; i++)
                 {
                     var other = others[i];
-                    if (other == null || other == this || !other.gameObject.activeSelf)
+                    if (other == null
+                        || other == this
+                        || !other.gameObject.activeSelf
+                        || other.IsAbsorbing)
                     {
                         continue;
                     }

@@ -34,6 +34,9 @@ namespace Gravedigger2026.Core.Config
         public float SoldierShadowAlpha { get; }
         public float SoldierShadowOffsetYPx { get; }
         public float BodyAngleMaxDeg { get; }
+        public float BodyAbsorbStaggerSeconds { get; }
+        public float BodyAbsorbFlySeconds { get; }
+        public float BodyAbsorbFlashHz { get; }
         public float UseLegacySoldierRow { get; }
 
         public AutoMfgPresentationConstants(
@@ -61,6 +64,9 @@ namespace Gravedigger2026.Core.Config
             float soldierShadowAlpha,
             float soldierShadowOffsetYPx,
             float bodyAngleMaxDeg,
+            float bodyAbsorbStaggerSeconds,
+            float bodyAbsorbFlySeconds,
+            float bodyAbsorbFlashHz,
             float useLegacySoldierRow)
         {
             BodyDropIntervalSeconds = Mathf.Max(0.01f, bodyDropIntervalSeconds);
@@ -87,6 +93,9 @@ namespace Gravedigger2026.Core.Config
             SoldierShadowAlpha = Mathf.Clamp01(soldierShadowAlpha);
             SoldierShadowOffsetYPx = soldierShadowOffsetYPx;
             BodyAngleMaxDeg = Mathf.Max(0f, bodyAngleMaxDeg);
+            BodyAbsorbStaggerSeconds = Mathf.Max(0f, bodyAbsorbStaggerSeconds);
+            BodyAbsorbFlySeconds = Mathf.Max(0.01f, bodyAbsorbFlySeconds);
+            BodyAbsorbFlashHz = Mathf.Max(0f, bodyAbsorbFlashHz);
             UseLegacySoldierRow = useLegacySoldierRow;
         }
 
@@ -171,6 +180,15 @@ namespace Gravedigger2026.Core.Config
                     CombatConstantKeys.AutoMfgBodyAngleMaxDeg,
                     CombatConstantKeys.Safety.AutoMfgBodyAngleMaxDeg),
                 configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.AutoMfgBodyAbsorbStaggerSeconds,
+                    CombatConstantKeys.Safety.AutoMfgBodyAbsorbStaggerSeconds),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.AutoMfgBodyAbsorbFlySeconds,
+                    CombatConstantKeys.Safety.AutoMfgBodyAbsorbFlySeconds),
+                configs.GetCombatConstantOrFallback(
+                    CombatConstantKeys.AutoMfgBodyAbsorbFlashHz,
+                    CombatConstantKeys.Safety.AutoMfgBodyAbsorbFlashHz),
+                configs.GetCombatConstantOrFallback(
                     CombatConstantKeys.AutoMfgUseLegacySoldierRow,
                     CombatConstantKeys.Safety.AutoMfgUseLegacySoldierRow));
         }
@@ -200,6 +218,9 @@ namespace Gravedigger2026.Core.Config
             CombatConstantKeys.Safety.AutoMfgSoldierShadowAlpha,
             CombatConstantKeys.Safety.AutoMfgSoldierShadowOffsetYPx,
             CombatConstantKeys.Safety.AutoMfgBodyAngleMaxDeg,
+            CombatConstantKeys.Safety.AutoMfgBodyAbsorbStaggerSeconds,
+            CombatConstantKeys.Safety.AutoMfgBodyAbsorbFlySeconds,
+            CombatConstantKeys.Safety.AutoMfgBodyAbsorbFlashHz,
             CombatConstantKeys.Safety.AutoMfgUseLegacySoldierRow);
 
         public Vector2 PixelsToWorld(float xPx, float yPx)
@@ -211,4 +232,3 @@ namespace Gravedigger2026.Core.Config
         public float SoldierLandWorldY => SoldierLandYPx / PixelsPerUnit;
     }
 }
-

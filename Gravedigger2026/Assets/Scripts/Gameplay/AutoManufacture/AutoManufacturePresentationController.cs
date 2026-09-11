@@ -754,6 +754,9 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 var circleY = _bodyRainPresentation.MagicCircleYPx;
                 var landY = _bodyRainPresentation.SoldierLandYPx;
 
+                var absorbCo = StartCoroutine(
+                    _bodyRainPresentation.CoAbsorbBodiesForWarrior(warriorId, mystery, speed));
+
                 for (var b = 0; b < _bookSlots.Length; b++)
                 {
                     var fromY = Mathf.Lerp(circleY, landY, b / (float)slotCount);
@@ -771,6 +774,11 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                     }
 
                     yield return CoPulseBook(slot, pulseDur, warriorId, b, mystery, flashDur);
+                }
+
+                if (absorbCo != null)
+                {
+                    yield return absorbCo;
                 }
 
                 var idleSprite = _bodyRainPresentation.ResolveIdleSprite(

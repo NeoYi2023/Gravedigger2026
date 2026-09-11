@@ -19,6 +19,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         {
             public Sprite Sprite;
             public BodySlot Slot;
+            public string WarriorId;
         }
 
         private const float RefHalfHeightPx = 540f;
@@ -27,6 +28,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
 
         private readonly List<AmBodyPartPiece> _activeBodies = new List<AmBodyPartPiece>();
         private readonly List<AmReviveSoldierPiece> _revivedSoldiers = new List<AmReviveSoldierPiece>();
+        private readonly List<Coroutine> _absorbFlyRoutines = new List<Coroutine>();
 
         private RectTransform _layer;
         private AmBodyPartPool _bodyPool;
@@ -34,6 +36,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         private AutoMfgPresentationConstants _constants;
         private float _gravityPx;
         private bool _simulate;
+        private int _absorbFliesPending;
 
         public static AmBodyRainPresentation Ensure(Transform parent, AutoMfgPresentationConstants constants)
         {
@@ -112,7 +115,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                     result.Add(new BodyDropEntry
                     {
                         Sprite = sprite,
-                        Slot = row.BodySlot
+                        Slot = row.BodySlot,
+                        WarriorId = warriorId
                     });
                 }
             }
@@ -187,6 +191,123 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 _constants.SoldierShadowAlpha,
                 _constants.SoldierShadowOffsetYPx);
             return piece;
+        }
+
+        /// <summary>
+        /// Stagger-fly this warrior's StepA pile pieces into mystery visual center (flash red; despawn).
+        /// </summary>
+        public IEnumerator CoAbsorbBodiesForWarrior(
+            string warriorId,
+            AmReviveSoldierPiece mystery,
+            float speed)
+        {
+            if (string.IsNullOrEmpty(warriorId) || mystery == null)
+            {
+                yield break;
+            }
+
+            var targets = new List<AmBodyPartPiece>();
+            for (var i = 0; i < _activeBodies.Count; i++)
+            {
+                var body = _activeBodies[i];
+                if (body == null
+                    || !body.gameObject.activeSelf
+                    || body.IsAbsorbing
+                    || body.OwnerWarriorId != warriorId)
+                {
+                    continue;
+                }
+
+                targets.Add(body);
+            }
+
+            if (targets.Count == 0)
+            {
+                yield break;
+            }
+
+            var safeSpeed = Mathf.Max(0.01f, speed);
+            var stagger = _constants.BodyAbsorbStaggerSeconds / safeSpeed;
+            var flySeconds = _constants.BodyAbsorbFlySeconds / safeSpeed;
+            var flashHz = _constants.BodyAbsorbFlashHz;
+
+            _absorbFliesPending = 0;
+            for (var i = 0; i < targets.Count; i++)
+            {
+                var body = targets[i];
+                if (body == null || body.IsAbsorbing)
+                {
+                    continue;
+                }
+
+                _absorbFliesPending++;
+                var co = StartCoroutine(CoFlyBodyIntoMystery(body, mystery, flySeconds, flashHz));
+                _absorbFlyRoutines.Add(co);
+                if (i + 1 < targets.Count && stagger > 0.0001f)
+                {
+                    yield return new WaitForSeconds(stagger);
+                }
+            }
+
+            while (_absorbFliesPending > 0)
+            {
+                yield return null;
+            }
+
+            _absorbFlyRoutines.Clear();
+        }
+
+        private IEnumerator CoFlyBodyIntoMystery(
+            AmBodyPartPiece piece,
+            AmReviveSoldierPiece mystery,
+            float flySeconds,
+            float flashHz)
+        {
+            try
+            {
+                if (piece == null)
+                {
+                    yield break;
+                }
+
+                piece.BeginAbsorb();
+                piece.transform.SetAsLastSibling();
+                if (mystery != null)
+                {
+                    mystery.transform.SetAsLastSibling();
+                }
+
+                var start = piece.AnchoredPosition;
+                var duration = Mathf.Max(0.01f, flySeconds);
+                var elapsed = 0f;
+                while (elapsed < duration)
+                {
+                    if (piece == null || !piece.gameObject.activeSelf)
+                    {
+                        yield break;
+                    }
+
+                    elapsed += Time.deltaTime;
+                    var u = Mathf.Clamp01(elapsed / duration);
+                    var s = u * u * (3f - 2f * u);
+                    var target = mystery != null ? mystery.VisualCenterAnchored : start;
+                    piece.SetAnchoredPosition(Vector2.Lerp(start, target, s));
+                    if (flashHz > 0.01f)
+                    {
+                        var flash = 0.5f + 0.5f * Mathf.Sin(elapsed * flashHz * Mathf.PI * 2f);
+                        piece.SetImageColor(Color.Lerp(Color.white, Color.red, flash));
+                    }
+
+                    yield return null;
+                }
+
+                _activeBodies.Remove(piece);
+                piece.Release();
+            }
+            finally
+            {
+                _absorbFliesPending = Mathf.Max(0, _absorbFliesPending - 1);
+            }
         }
 
         public Sprite ResolveIdleSprite(
@@ -317,6 +438,7 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
         {
             _simulate = false;
             SetMagicCircleActive(false);
+            StopAbsorbFlies();
 
             for (var i = 0; i < _activeBodies.Count; i++)
             {
@@ -345,6 +467,20 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 Destroy(_magicCircle.gameObject);
                 _magicCircle = null;
             }
+        }
+
+        private void StopAbsorbFlies()
+        {
+            for (var i = 0; i < _absorbFlyRoutines.Count; i++)
+            {
+                if (_absorbFlyRoutines[i] != null)
+                {
+                    StopCoroutine(_absorbFlyRoutines[i]);
+                }
+            }
+
+            _absorbFlyRoutines.Clear();
+            _absorbFliesPending = 0;
         }
 
         private void Update()
@@ -481,7 +617,8 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
                 new Vector2(x, y),
                 AmBodyPartPiece.FallbackColor(entry.Slot),
                 _constants.SpawnAngleMaxDeg,
-                _constants.BodyMaxEdgePx);
+                _constants.BodyMaxEdgePx,
+                entry.WarriorId);
             _activeBodies.Add(piece);
             KeepMagicCircleBehindBodies();
         }

@@ -71,6 +71,23 @@ namespace Gravedigger2026.Gameplay.AutoManufacture
             }
         }
 
+        /// <summary>Local center of the mystery sprite (bottom pivot + half height × scale).</summary>
+        public Vector2 VisualCenterAnchored
+        {
+            get
+            {
+                CacheComponents();
+                if (_rt == null)
+                {
+                    return Vector2.zero;
+                }
+
+                var pos = _rt.anchoredPosition;
+                var halfH = _rt.sizeDelta.y * _rt.localScale.y * 0.5f;
+                return new Vector2(pos.x, pos.y + halfH);
+            }
+        }
+
         public static AmReviveSoldierPiece EnsurePrefab()
         {
             var prefab = Resources.Load<GameObject>("Prefabs/AutoManufacture/AmReviveSoldierPiece");

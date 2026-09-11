@@ -136,6 +136,9 @@ namespace Gravedigger2026.Core.Config
         public const string AutoMfgSoldierShadowAlpha = "AutoMfgSoldierShadowAlpha";
         public const string AutoMfgSoldierShadowOffsetYPx = "AutoMfgSoldierShadowOffsetYPx";
         public const string AutoMfgBodyAngleMaxDeg = "AutoMfgBodyAngleMaxDeg";
+        public const string AutoMfgBodyAbsorbStaggerSeconds = "AutoMfgBodyAbsorbStaggerSeconds";
+        public const string AutoMfgBodyAbsorbFlySeconds = "AutoMfgBodyAbsorbFlySeconds";
+        public const string AutoMfgBodyAbsorbFlashHz = "AutoMfgBodyAbsorbFlashHz";
         public const string AutoMfgUseLegacySoldierRow = "AutoMfgUseLegacySoldierRow";
 
         /// <summary>Safety only when table key missing — not business authority.</summary>
@@ -259,6 +262,9 @@ namespace Gravedigger2026.Core.Config
             public const float AutoMfgSoldierShadowAlpha = 0f;
             public const float AutoMfgSoldierShadowOffsetYPx = -32f;
             public const float AutoMfgBodyAngleMaxDeg = 270f;
+            public const float AutoMfgBodyAbsorbStaggerSeconds = 0.06f;
+            public const float AutoMfgBodyAbsorbFlySeconds = 0.35f;
+            public const float AutoMfgBodyAbsorbFlashHz = 8f;
             public const float AutoMfgUseLegacySoldierRow = 0f;
         }
     }

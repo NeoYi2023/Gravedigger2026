@@ -45,7 +45,7 @@
 | EffectParams | 魔法书效果参数 | `Key=Value` 或 `Key=Value\|…`；空=无参 | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | ManufactureRecord | 制造记录 | Mode2 UM 只读弹窗：最近一批自动制造士兵摘要（名字/种族/职业）；布阵右侧入口（UI-015 / D-054） | [§3.15](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) Mode2 差分 |
 | AutoManufactureBatchRecord | 自动制造批次记录 | 存档级最近一批 WarriorId；下一批覆盖；PlayerPrefs 按槽+CampaignMode | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
-| AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：默认 StepA 尸骸雨 → StepB 法阵闪红+书脉冲+复活落下 → StepC 进 UM 自动开布阵；中央士兵行备选隐藏（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 / §9.20b |
+| AutoManufacturePresentation | 自动制造演出 | Mode2 AutoManufacture 阶段表现：默认 StepA 尸骸雨 → StepB 法阵闪红+书脉冲+谜底上升+该兵躯体飞入中心闪红消失 → StepC 进 UM 自动开布阵；中央士兵行备选隐藏（UI-016 / D-055） | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) / §13 / §9.20b |
 | ShopSystem | 商店系统 | Mode2 全屏商店：关卡 `GameplayType=Shop`（Stage1）与局外 InSaveShell 左下入口共用 Prefab `ShopStageRoot`；左侧可展示已拥有装备/魔法书 ICON 并出售换精魂（D-076） | [§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopSellService | 商店出售服务 | 商店 UI 出售已拥有装备（`TryRemove`）/魔法书（`TryUnequip`），按 `ItemCatalog.SellPrice` 入账精魂 | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §10](SPEC_04_Technical.md) |
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
