@@ -1511,6 +1511,9 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     warrior.Id,
                     _attackSlots,
                     session: _session,
+                    projectilePrefab: _catalog.ProjectilePrefab,
+                    projectileParent: _worldRoot,
+                    projectileCatalog: _catalog,
                     bodyRadius: bodyRadius,
                     facingYawFlip: facingYawFlip,
                     pushCoefficient: pushCoefficient,
@@ -1827,6 +1830,13 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
             if (inMelee)
             {
+                // Full ring: TryClaim keeps the previous target. Drop it so the
+                // in-range hold can fire at the engage monster (v0.82.57 / v0.84.53).
+                if (!claimed)
+                {
+                    _attackSlots.Release(soldier.AttackerId);
+                }
+
                 var hold = claimed
                     ? CombatReach.ChaseDestinationXZ(
                         soldier.transform.position,

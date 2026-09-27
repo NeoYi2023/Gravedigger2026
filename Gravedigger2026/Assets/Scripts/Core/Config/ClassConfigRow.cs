@@ -34,6 +34,13 @@ namespace Gravedigger2026.Core.Config
         public string CombatConvertCoeffs;
         public float AttackRange;
         public float MeleeWindupSeconds;
+        /// <summary>1-based Attack clip hold frame while ranged windup remains; ≤0 = no hold (SPEC_04 §9.9b).</summary>
+        public int RangedWindupHoldFrame;
+        /// <summary>
+        /// Weighted normal-attack bases <c>id;weight|...</c> (SPEC_04 §9.9b).
+        /// Empty → Attack1. Presentation only.
+        /// </summary>
+        public string NormalAttackAnims;
         public float RangedProjectileSpeed;
         public float RangedTimeoutSeconds;
         /// <summary>≥0; soldier MoveSpeed Base (SPEC_04 §9.9b); missing/≤0 → DefaultBaseMoveSpeed.</summary>

@@ -1703,6 +1703,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 // Monster parity (SPEC_03 §3.12 v0.82.57): already in AttackRange → hold and
                 // swing. Do not keep seeking a farther ring slot (inside-ring walk-away).
+                // Full ring: TryClaim keeps the previous target. Drop it so this hold
+                // can fire at the engage monster (v0.84.53).
+                if (!claimed)
+                {
+                    _attackSlots.Release(soldier.AttackerId);
+                }
+
                 var hold = claimed
                     ? CombatReach.ChaseDestinationXZ(
                         soldier.transform.position,

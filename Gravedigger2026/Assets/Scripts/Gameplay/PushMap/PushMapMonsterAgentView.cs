@@ -37,6 +37,16 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _retargetInterval = 1f;
         private float _retargetTimer;
         private float _attackCooldown;
+        private enum MonsterAttackPhase
+        {
+            Idle = 0,
+            Windup = 1
+        }
+
+        private MonsterAttackPhase _attackPhase = MonsterAttackPhase.Idle;
+        private float _windupRemaining;
+        private TargetKind _windupTargetKind;
+        private string _windupWarriorId;
         private NavMeshAgent _agent;
         private WarriorAnimView _anim;
         private Vector3 _lastSteerDirXZ;
@@ -321,6 +331,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _alive = false;
+            ClearRangedWindup();
             _stuckHold.Reset();
             _gait.Reset();
             ReleaseSlotClaim();
@@ -723,6 +734,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 StopMovement();
                 _scheduler?.SetPaused(_moveId, true);
+                if (_attackPhase == MonsterAttackPhase.Windup)
+                {
+                    ClearRangedWindup();
+                }
+
                 return;
             }
 
@@ -731,6 +747,14 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_retargetTimer >= _retargetInterval)
             {
                 _retargetTimer = 0f;
+            }
+
+            if (_attackPhase == MonsterAttackPhase.Windup)
+            {
+                StopMovement();
+                _scheduler?.SetPaused(_moveId, true);
+                TickRangedWindup();
+                return;
             }
 
             var targetKind = ResolveTarget(out var warriorView, out var protagonistTf);
@@ -767,6 +791,12 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             FaceTowardForAttack(targetTf.position);
 
+            if (AttackMode == AttackMode.Ranged)
+            {
+                BeginRangedWindup(targetKind, warriorView);
+                return;
+            }
+
             if (targetKind == TargetKind.Protagonist)
             {
                 _onHitProtagonist?.Invoke($"Monster:{_config.MonsterId}");
@@ -788,6 +818,111 @@ namespace Gravedigger2026.Gameplay.PushMap
             var aspd = _config.AttackSpeed * ResolveSlowAttackMul();
             var interval = aspd > 0.01f ? 1f / aspd : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
+        }
+
+        private void BeginRangedWindup(TargetKind targetKind, PushMapAdvanceView warriorView)
+        {
+            _attackPhase = MonsterAttackPhase.Windup;
+            _windupRemaining = Mathf.Max(0f, _config.MeleeWindupSeconds);
+            _windupTargetKind = targetKind;
+            _windupWarriorId = warriorView != null ? warriorView.AttackerId : null;
+            var aspd = _config.AttackSpeed * ResolveSlowAttackMul();
+            var interval = aspd > 0.01f ? 1f / aspd : 1f;
+            _attackCooldown = Mathf.Max(0.2f, interval);
+            var hold = _windupRemaining > 0f ? _config.RangedWindupHoldFrame : 0;
+            _anim?.PlayAttack(hold);
+            if (_windupRemaining <= 0f)
+            {
+                TickRangedWindup();
+            }
+        }
+
+        private void TickRangedWindup()
+        {
+            _windupRemaining -= Time.deltaTime;
+            if (_windupRemaining > 0f)
+            {
+                return;
+            }
+
+            _anim?.ReleaseAttackHold();
+            var targetKind = _windupTargetKind;
+            var warriorId = _windupWarriorId;
+            ClearRangedWindup();
+
+            if (_config == null)
+            {
+                return;
+            }
+
+            if (targetKind == TargetKind.Protagonist)
+            {
+                var tf = _protagonist;
+                if (tf != null
+                    && CombatReach.IsInAttackRange(
+                        CombatReach.DistanceXZ(transform.position, tf.position),
+                        _config.AttackRange,
+                        BodyRadius,
+                        AttackSlotService.DefaultTargetBodyRadius,
+                        CombatReach.HitConfirmSlack))
+                {
+                    _onHitProtagonist?.Invoke($"Monster:{_config.MonsterId}");
+                }
+
+                return;
+            }
+
+            if (string.IsNullOrEmpty(warriorId) || _warriorsProvider == null)
+            {
+                return;
+            }
+
+            PushMapAdvanceView warriorView = null;
+            var list = _warriorsProvider();
+            if (list != null)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    if (list[i] != null && list[i].AttackerId == warriorId)
+                    {
+                        warriorView = list[i];
+                        break;
+                    }
+                }
+            }
+
+            if (warriorView == null)
+            {
+                return;
+            }
+
+            if (!CombatReach.IsInAttackRange(
+                    CombatReach.DistanceXZ(transform.position, warriorView.transform.position),
+                    _config.AttackRange,
+                    BodyRadius,
+                    warriorView.AgentRadius,
+                    CombatReach.HitConfirmSlack))
+            {
+                return;
+            }
+
+            var applied = _onHitWarrior != null &&
+                          _onHitWarrior(_attackerId, warriorView.AttackerId, _config.AttackPower);
+            if (!applied)
+            {
+                Debug.LogWarning(
+                    $"[PushMapMonster] {_config.MonsterId} hit warrior {warriorView.AttackerId} " +
+                    "but Session did not settle (inactive / already dead).");
+            }
+        }
+
+        private void ClearRangedWindup()
+        {
+            _attackPhase = MonsterAttackPhase.Idle;
+            _windupRemaining = 0f;
+            _windupTargetKind = TargetKind.None;
+            _windupWarriorId = null;
+            _anim?.ReleaseAttackHold();
         }
 
         private void LateUpdate()

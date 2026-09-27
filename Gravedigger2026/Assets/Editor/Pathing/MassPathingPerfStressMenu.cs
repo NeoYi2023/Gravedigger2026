@@ -39,9 +39,15 @@ namespace Gravedigger2026.Editor.Pathing
         public static void RunAttackSlotCorrectness()
         {
             var error = AttackSlotCorrectnessChecks.RunAll();
+            var reachError = CombatReachCorrectnessChecks.RunAll();
+            if (reachError != null)
+            {
+                error = error == null ? reachError : error + reachError;
+            }
+
             if (error == null)
             {
-                Debug.Log("[AttackSlotCorrectnessChecks] All checks passed (MP-02 + SC-02 Surround).");
+                Debug.Log("[AttackSlotCorrectnessChecks] All checks passed (MP-02 + SC-02 Surround + chase dest).");
             }
             else
             {

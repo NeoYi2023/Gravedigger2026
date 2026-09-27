@@ -276,7 +276,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Defend 士兵近战（方案 A，D-042 近战片 + MP-06）：** `WarriorCombatMath` 按 `ClassConfig.PrimaryStat` + `CombatConvertCoeffs`（缺键回退 **`CombatConstantConfig`**）派生 `NormalAttackPower` / `AttackSpeed`。`DefendSessionService` 开战登记士兵 HP（`MaxHP=ceil(BodyLife+StaticStat(Str)×MaxHpStrengthMult)`，`RemainingHP` clamp）与刷怪登记怪物 HP；规则层确认近战 `HitConfirm`（前摇结束且目标仍存活、在 `AttackRange` 内）→ 怪 `HP -= NormalAttackPower`；怪对兵 `AttackPower` 直接扣 HP（无护甲）。`HP≤0` 无宝石 → `CombatDead`（停手）；有宝石 → 立即 PermanentDeath 标记（物资去向见 D-043）。表现：`WarriorAgentView` 仅在 EngageZone 内选最近存活怪；追击 `GoalKind=AttackSlot`（`AttackSlotService`+`MassMoveScheduler` Move）；无候选时非叛变士兵 `GoalKind=FormationHome`（返回途中继续选敌，发现目标即中断返回）；`AttackMode=Melee` 走近战前摇；`WarriorAnimView` 播移动/攻击/死亡（见 §15.5）。清场条件（刷怪行全触发 + 已刷怪全灭）→ `ClearVictoryConditionDetected` 事件/日志（**不**入账、**不**切胜利 Ended；见 D-043）。禁止运行时引用 `SmallScaleInt/`。
 
-**Defend 士兵远程弹道（方案 A，D-042 远程 / 05c2）：** 开战登记同时写入 `ClassConfig.RangedProjectileSpeed` / `RangedTimeoutSeconds`。`AttackMode=Ranged` 士兵与近战共用 EngageZone 最近选敌、`AttackSpeed` 周期与无目标时返回 `FormationHome`；进 `AttackRange` 后 Instantiate 临时 `Assets/Prefabs/Defend/Projectile.prefab`（Catalog 绑定）；开火时 `WarriorAnimView` 播普攻 Trigger。`ProjectileView` 运动学飞向锁定怪 RuntimeId：**距离 ≤ hitRadius** 视为碰撞命中 → Session `TryConfirmRangedHit` → 怪 `HP -= NormalAttackPower`；**超时**销毁且不扣血。法师/射手同远程通道（仅 `PrimaryStat` 不同）。禁止运行时引用 `SmallScaleInt/`。
+**Defend 士兵远程弹道（方案 A，D-042 远程 / 05c2）：** 开战登记同时写入 `ClassConfig.RangedProjectileSpeed` / `RangedTimeoutSeconds` / `MeleeWindupSeconds` / `RangedWindupHoldFrame`。`AttackMode=Ranged` 士兵与近战共用 EngageZone 最近选敌、`AttackSpeed` 周期与无目标时返回 `FormationHome`；进 `AttackRange` 后进入 `AttackWindup`（时长=`MeleeWindupSeconds`；`0`=立刻出手）并 `WarriorAnimView.PlayAttack`（可选 `RangedWindupHoldFrame` 1 基停顿帧）；**前摇结束**且目标仍有效才 Instantiate 临时 `Assets/Prefabs/Defend/Projectile.prefab`（Catalog 绑定）。`ProjectileView` 运动学飞向锁定怪 RuntimeId：**距离 ≤ hitRadius** 视为碰撞命中 → Session `TryConfirmRangedHit` → 怪 `HP -= NormalAttackPower`；**超时**销毁且不扣血。法师/射手同远程通道（仅 `PrimaryStat` 不同）。禁止运行时引用 `SmallScaleInt/`。
 
 **Defend 失控开战 roll 与胜负结算（方案 A，D-043）：** `ConfigCsvRepository` 加载 `Combat_LossOfControlConfig.csv`。开战瞬间按布阵 `ΣCost/Cap−1` **锁定** Degree/Tier（超额不挡开战）；`Degree>0` 时对各上阵士兵用 `FinalLossChance=clamp(0,1,TierChance+RaceBonus+ΣGemBonus+ΣSkillBonus)` 独立 roll → `IsRebel`（日志可观察）。Demo `ΣSkillBonus` = 实例 `SoldierSkills` 按烘进等级查 `SkillConfig.LossOfControlChanceBonus` 之和（无技能=0；灵魂/宝石/外置 `Skills` 并行仍 TBD，本 Demo 不加）。Rebel **不受 EngageZone 限制**，就近打存活主角/其他士兵/敌人；对主角普攻 → `Shield-=1`；对兵/怪走士兵普攻通道。清场条件满足 → `DefendPhase.Ended` + PermanentDeath 最小结算（宝石回仓、清布阵、移出池）→ `ProtagonistProgressService.AddExperience(100)`（Demo 固定阶段经验）→ `LevelOperationDriver.TryAdvanceStage`。`Shield≤0` → Ended + 同 PermanentDeath 结算 → **不**入账本阶段经验 → `AbortLevelAsFailure`（无关卡胜利结算；已有资源保留）。禁止运行时引用 `SmallScaleInt/`。
 
@@ -367,7 +367,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **Defend warrior melee (Approach A, D-042 melee slice + MP-06):** `WarriorCombatMath` derives `NormalAttackPower` / `AttackSpeed` from `ClassConfig.PrimaryStat` + `CombatConvertCoeffs` (missing keys → **`CombatConstantConfig`**). `DefendSessionService` registers warrior HP at StartBattle (`MaxHP=ceil(BodyLife+StaticStat(Str)×MaxHpStrengthMult)`, RemainingHP clamped) and monster HP on spawn; rules confirm melee `HitConfirm` (windup end + target alive + in `AttackRange`) → monster `HP -= NormalAttackPower`; monster→warrior uses `AttackPower` directly (no armor). `HP≤0` without gems → `CombatDead` (stop acting); with gems → immediate PermanentDeath mark (material fate in D-043). Presentation: `WarriorAgentView` picks nearest living monster inside EngageZone; chase via `GoalKind=AttackSlot` (`AttackSlotService`+`MassMoveScheduler` Move); when none, loyal soldiers use `GoalKind=FormationHome` (keep retargeting; abort return on new target); `AttackMode=Melee` uses windup; `WarriorAnimView` plays move/attack/death (§15.5). Clear condition (all wave rows fired + all spawned monsters dead) → `ClearVictoryConditionDetected` event/log (**no** Exp credit, **no** victory Ended; see D-043). Do not runtime-reference `SmallScaleInt/`.
 
-**Defend warrior ranged projectile (Approach A, D-042 ranged / 05c2):** StartBattle registration also stores `ClassConfig.RangedProjectileSpeed` / `RangedTimeoutSeconds`. `AttackMode=Ranged` shares EngageZone nearest targeting, `AttackSpeed` cadence, and no-target return to `FormationHome` with melee; when in `AttackRange`, Instantiate temp `Assets/Prefabs/Defend/Projectile.prefab` (Catalog-bound); fire also triggers `WarriorAnimView` attack. `ProjectileView` flies kinematically toward locked monster RuntimeId: **distance ≤ hitRadius** = collision hit → Session `TryConfirmRangedHit` → monster `HP -= NormalAttackPower`; **timeout** destroys with no damage. Mage/Archer share the same ranged channel (`PrimaryStat` only differs). Do not runtime-reference `SmallScaleInt/`.
+**Defend warrior ranged projectile (Approach A, D-042 ranged / 05c2):** StartBattle registration also stores `ClassConfig.RangedProjectileSpeed` / `RangedTimeoutSeconds` / `MeleeWindupSeconds` / `RangedWindupHoldFrame`. `AttackMode=Ranged` shares EngageZone nearest targeting, `AttackSpeed` cadence, and no-target return to `FormationHome` with melee; when in `AttackRange`, enter `AttackWindup` (duration=`MeleeWindupSeconds`; `0`=fire immediately) and `WarriorAnimView.PlayAttack` (optional 1-based `RangedWindupHoldFrame` hold); **only after windup** and while the target is still valid, Instantiate temp `Assets/Prefabs/Defend/Projectile.prefab` (Catalog-bound). `ProjectileView` flies kinematically toward locked monster RuntimeId: **distance ≤ hitRadius** = collision hit → Session `TryConfirmRangedHit` → monster `HP -= NormalAttackPower`; **timeout** destroys with no damage. Mage/Archer share the same ranged channel (`PrimaryStat` only differs). Do not runtime-reference `SmallScaleInt/`.
 
 **Defend LossOfControl StartBattle roll + win/lose settle (Approach A, D-043):** `ConfigCsvRepository` loads `Combat_LossOfControlConfig.csv`. At StartBattle lock Degree/Tier from formation `ΣCost/Cap−1` (overflow does not block StartBattle); when `Degree>0`, each deployed soldier rolls once with `FinalLossChance=clamp(0,1,TierChance+RaceBonus+ΣGemBonus+ΣSkillBonus)` → `IsRebel` (logged). Demo `ΣSkillBonus` = sum of `SkillConfig.LossOfControlChanceBonus` over instance `SoldierSkills` at baked level (none → 0; Soul/Gem/ExtraEquipment `Skills` remain TBD and are not added this Demo). Rebels **ignore EngageZone**, pick nearest living protagonist / other soldiers / enemies; normal hit on protagonist → `Shield-=1`; hits on soldiers/monsters use soldier attack channel. Clear condition → `DefendPhase.Ended` + minimal PermanentDeath (gems→warehouse, clear formation, remove pool) → `ProtagonistProgressService.AddExperience(100)` (Demo fixed stage Exp) → `LevelOperationDriver.TryAdvanceStage`. `Shield≤0` → Ended + same PermanentDeath settle → **no** stage Exp → `AbortLevelAsFailure` (no VictorySettlement; keep already-owned). Do not runtime-reference `SmallScaleInt/`.
 
@@ -1021,7 +1021,8 @@ WarriorInstance {
 | PrimaryStat | 主属性 | `enum` / `string` | `Strength` \| `Agility` \| `Intelligence`；决定普攻 `NormalAttackPower` 所用属性维（§3.12）；示例语义战士→Strength、射手→Agility、法师→Intelligence（以本字段为准，非 ClassName 硬编码） |
 | CombatConvertCoeffs | 战斗换算系数 | 见编码 | 将该职业士兵的五维 StaticStat/FinalStat 转为 `NormalAttackPower` / `AttackSpeed` / `SkillCooldown` 等战斗参数时的系数集；编码见下；缺键回退 **`CombatConstantConfig`** |
 | AttackRange | 攻击距离 | `float` | 进入攻击态距离（世界单位或项目统一距离单位） |
-| MeleeWindupSeconds | 近战前摇 | `float` | ≥ 0；秒；`AttackMode=Melee` 时用 |
+| MeleeWindupSeconds | 攻击前摇 | `float` | ≥ 0；秒；近战与远程共用 `AttackWindup` 时长；`0`=立刻出手；`AttackMode=Melee` 前摇结束 HitConfirm；`AttackMode=Ranged` 前摇结束再射弹（士兵）/ 结算（远程怪） |
+| RangedWindupHoldFrame | 远程前摇停顿帧 | `int` | ≥ 0；**1 基**（1=Attack clip 首帧）；`AttackMode=Ranged` 时：前摇未结束且播到该帧 → 冻结该帧，前摇结束再播后续；缺列/空/`≤0` → 不停顿 |
 | RangedProjectileSpeed | 远程弹速 | `float` | ≥ 0；`AttackMode=Ranged` 时用 |
 | RangedTimeoutSeconds | 远程超时 | `float` | ≥ 0；秒；超时未命中 → 未命中 |
 | BaseMoveSpeed | 基础移速 | `float` | ≥ 0；世界单位/秒；士兵 **MoveSpeed** 维的 `Base` 权威来源（§3.11）；缺/≤0 → **3.5** |
@@ -1031,6 +1032,9 @@ WarriorInstance {
 | DefaultAppearanceId | 职业默认外观 | `string` 或空 | Mode2：B 空，或亡灵改写后 A 仍空时优先用本 Id（FK → `BodyAppearanceConfig`）；空则继续种族 `IsFallback` |
 | DefaultSkillIds | 制造默认获得技能ID | 见编码 | 该职业制造完成时写入实例 `SoldierSkills` 的技能 Id 列表；空 = 无；编码见下；FK → `SkillConfig.SkillId` |
 | SilhouetteIconAssetId | 士兵简画图标 | `string` 或空 | UI-033 战斗指示器格子内简画；仅文件名；运行时 `Resources/UI/Icons/{SilhouetteIconAssetId}`；源图 `Art/UI/Icons/`；缺列/空 = 空框仍显示格子；**不**参与战斗公式 |
+| NormalAttackAnims | 普通攻击动作 | `string` | 表现层；`动作ID;权重\|动作ID;权重`（如 `Attack1;3\|Attack2;1`）；每次普攻按权重随机 1 个 Animator **基名**，播 `{基名}_{dir}`；权重须 **>0**；空/缺列/无合法段 → `Attack1`；非法段跳过 + Warning，**不**整表失败；抽中基名在当前朝向无 `{基名}_{dir}` → 本次强制 `Attack1`（不重抽）；**不**参与伤害/前摇/攻速；制造卡预览不读本列 |
+
+**`NormalAttackAnims` 编码（固定）：** `动作ID;权重|动作ID;权重|…`。段内分号分隔基名与权重；段间 `|`。空 = 固定 `Attack1`。详见 [§15.5](#155-动画映射demo-锁定)。
 
 **`CombatConvertCoeffs` 编码（固定）：** `键_数值|键_数值|…`
 
@@ -1060,6 +1064,7 @@ ClassConfig {
   CombatConvertCoeffs: "Key_Value|..."  // missing key → CombatConstantConfig
   AttackRange: number
   MeleeWindupSeconds: number
+  RangedWindupHoldFrame: int       // 1-based; <=0 = no hold; Ranged only
   RangedProjectileSpeed: number
   RangedTimeoutSeconds: number
   BaseMoveSpeed: number           // >=0; soldier MoveSpeed Base; missing/<=0 → 3.5
@@ -1069,6 +1074,7 @@ ClassConfig {
   DefaultAppearanceId: Id | ""    // Mode2 appearance fallback
   DefaultSkillIds: "SkillId|..." | ""  // grant SoldierSkills @ Lv1 after ClassId final
   SilhouetteIconAssetId: Id | ""  // UI-033 CombatIndicator; Resources/UI/Icons/{Id}; missing → empty frame
+  NormalAttackAnims: "Attack1;3|Attack2;1" | ""  // weighted bases; empty → Attack1; presentation only
 }
 ```
 
@@ -1076,7 +1082,7 @@ ClassConfig {
 
 - 制造时（Mode1）：有灵魂槽 → `SoulConfig.ClassId` → `WarriorInstance.ClassId`；无灵魂槽 → 强制 `Class_Servants`。命名与外观取实例 `ClassId` 对应行的 `ClassName`。`ClassId` 定稿后由共享 `SoldierSkillGrant` 按 `DefaultSkillIds` 授予 `SoldierSkills`（Lv1；无 `(SkillId,1)` 行 → 跳过 + Warning；重复 Id 保留首次；空列 → 空列表；Mode1 不读魔法书升技能）。制造与再造共用 `BuildWarriorFromAggregate`。
 - 制造时（Mode2 AutoManufacture）：`ClassId` 由双手 `ClassRestrict` 定稿（§3.15）；`AttackMode` 取本表；**不写** `SoulId`。`ForceClass` 后再按**最终**职业 `DefaultSkillIds` 授予，然后二次扫描 `SoldierSkillLevelAdd`。
-- 战斗派生：先查本表取 `PrimaryStat` 与 `CombatConvertCoeffs`（缺键回退常量表）；命中参数取本行 `AttackRange` 等列；**MoveSpeed** 维 `Base` 取 `BaseMoveSpeed`。**不**读 `ClassLevel` / `BaseClass` / `PromoteClass` / `SilhouetteIconAssetId`。
+- 战斗派生：先查本表取 `PrimaryStat` 与 `CombatConvertCoeffs`（缺键回退常量表）；命中参数取本行 `AttackRange` 等列；**MoveSpeed** 维 `Base` 取 `BaseMoveSpeed`。**不**读 `ClassLevel` / `BaseClass` / `PromoteClass` / `SilhouetteIconAssetId` / `NormalAttackAnims`（后者仅表现）。
 - 开战登记：`CombatConvertCoeffs.Parse(职业串, repo.GetCombatConvertCoeffDefaults())`；`MaxHP` 用常量表 `MaxHpStrengthMult`。
 - UI-016：士兵卡职业名下展示 `Lv.{ClassLevel}`。
 - UI-033：按 `SilhouetteIconAssetId` 加载简画；加载器另写内存 `TableOrder`（CSV 数据行出现序，0-based）供指示器同级稳定排序；**不**落盘为 CSV 列。
@@ -1462,11 +1468,12 @@ WaveSpawnConfig {
 | AttackPower | 怪物攻击力 | `int` 或 `float` | **仅**攻击士兵时用于伤害结算；对主角普通攻击不用本字段 |
 | AttackSpeed | 攻击速度 | `float` | 攻击频率（具体单位实现时锁定） |
 | AttackRange | 攻击距离 | `float` | 进入攻击态距离 |
-| MeleeWindupSeconds | 近战前摇 | `float` | ≥ 0；秒；`AttackMode=Melee` 时用 |
+| MeleeWindupSeconds | 攻击前摇 | `float` | ≥ 0；秒；近战与远程共用 `AttackWindup` 时长；`0`=立刻出手；`AttackMode=Melee` 前摇结束 HitConfirm；`AttackMode=Ranged` 前摇结束再射弹（士兵）/ 结算（远程怪） |
+| RangedWindupHoldFrame | 远程前摇停顿帧 | `int` | ≥ 0；**1 基**（1=Attack clip 首帧）；`AttackMode=Ranged` 时：前摇未结束且播到该帧 → 冻结该帧，前摇结束再播后续；缺列/空/`≤0` → 不停顿 |
 | RangedProjectileSpeed | 远程弹速 | `float` | ≥ 0；`AttackMode=Ranged` 时用 |
 | RangedTimeoutSeconds | 远程超时 | `float` | ≥ 0；秒；超时未命中 → 未命中 |
 | Skills | 怪物技能 | 见编码 | 技能 ID + CD 列表；技能效果列另专题；**第一版 Demo 不生效**（只打普通攻击；实现时可忽略或配空） |
-| NormalAttackAnims | 普通攻击动作调用 | `string` | 表现层；普攻 Animator **基名**池，`基名\|基名\|…`（如 `Attack1\|Attack2`）；每次 `PlayAttack` 均匀随机 1 个，播 `{基名}_{E\|W\|…}`；空 → `Attack1`；**仅怪物**（士兵仍固定 `Attack1`） |
+| NormalAttackAnims | 普通攻击动作调用 | `string` | 表现层；普攻 Animator **基名**池，`基名\|基名\|…`（如 `Attack1\|Attack2`）；每次 `PlayAttack` 均匀随机 1 个，播 `{基名}_{E\|W\|…}`；空 → `Attack1`；**仅怪物**（士兵不读本列，见 `ClassConfig.NormalAttackAnims`） |
 | WalkAnims | 走 | `string` | 表现层；走 BlendTree **状态名**池，`名\|名\|…`（如 `WalkBT`）；Bind / 复活完成各均匀随机 1 个并锁定至下次重抽；空 → `WalkBT`；走态移动时播 |
 | RunAnims | 跑 | `string` | 表现层；跑 BlendTree 状态名池（如 `RunBT`）；与走同生命周期重抽；空 → `RunBT`；跑态移动时播 |
 | LootDrop | 怪物掉落 | 见编码 | 击杀产出；编码为 `Id;Count\|Id;Count\|...`（**不是** [§9.3](#93-坟墓品质定义表-gravequalityconfig) 的 `DropMode` / `Id;Weight;Count`） |
@@ -1514,6 +1521,7 @@ MonsterConfig {
   AttackSpeed: number
   AttackRange: number
   MeleeWindupSeconds: number
+  RangedWindupHoldFrame: int       // 1-based; <=0 = no hold; Ranged only
   RangedProjectileSpeed: number
   RangedTimeoutSeconds: number
   Skills: "SkillId;Cd|SkillId;Cd|..."
@@ -2150,7 +2158,7 @@ CameraPathWaypoint { Order: int>=1 }
 - **事件：** `ObjectiveCaptured(int order)`（停刷钩子 → PM-05）；`CurrentObjectiveChanged(int newOrder)`（推进/表现）
 - **表现：** `PushMapStageController` Combat 收 `ObjectivePoint` 排序喂 Session；每秒 `Update` 探测当前圈内存活怪（默认扫描 `_monsters`：`IsAlive && CaptureZone.ContainsXZ(position)`；Rebel 不算阻挡）；探测经 `PushMapMonsterPresenceProbe`（同目录薄组件，可注入/重置验收占位）；占领日志+HUD 状态
 - **推进（MP-04 / 方案 B）：** 忠诚士兵共享 `CurrentObjective` → `FlowFieldService` 单场；`PushMapAdvanceView` 采样场方向 + `MassMoveScheduler`/`LocalDetour` 友军绕行后 `NavMeshAgent.Move`（**禁止**每兵每帧 `SetDestination(Objective)`）；进入当前 `CaptureZone` 后停跟场中心、软分离守备（`ObjectiveArriveRadius`）；圈内有存活怪**不**暂停推进（探测仅喂 `TickCapture`）；Rebel 不推进
-- **追击/交战（MP-05 / 方案 B）：** 忠诚兵遇敌检测内（中心距 ≤ `max(武器触及, 该怪 AlertRadius)`）→ `GoalKind=AttackSlot`（`AttackSlotService.TryClaim`）+ LocalDetour，停跟 Objective 场。**v0.82.57：** 已进 `AttackRange`（XZ）→ 停步挥刀；未进距 → 目的地=更近进距槽或内收点。离开后释放槽恢复 `Objective`。无空闲槽且未进距 → 保持 `Objective` 跟场（不硬暂停）。怪物追击目的地同为认领槽（非目标中心）；进距同样停步。`MassMoveScheduler.SetGoal`；槽位重算每帧 ≤50 轮转；死亡/`Release`/`ReleaseAllForTarget`
+- **追击/交战（MP-05 / 方案 B）：** 忠诚兵遇敌检测内（中心距 ≤ `max(武器触及, 该怪 AlertRadius)`）→ `GoalKind=AttackSlot`（`AttackSlotService.TryClaim`）+ LocalDetour，停跟 Objective 场。**v0.82.57：** 已进 `AttackRange`（XZ）→ 停步挥刀；未进距 → 目的地=更近进距槽或内收点。**v0.84.53：** 槽心距 + `ArriveEpsilon` 必须仍进距，否则沿槽方向内收（默认余量 0.05 小于到达阈值 0.08 时，环外侧会被判到达却不射击）；满环进距释放过期认领。离开后释放槽恢复 `Objective`。无空闲槽且未进距 → 保持 `Objective` 跟场（不硬暂停）。怪物追击目的地同为认领槽（非目标中心）；进距同样停步。`MassMoveScheduler.SetGoal`；槽位重算每帧 ≤50 轮转；死亡/`Release`/`ReleaseAllForTarget`
 - **追击卡住强制换目标（v0.84.25 / 方案 A；v0.84.26 修回归）：** `ChaseStuckRetargetTracker` 滑动窗累计卡住；武装后 `TryGetEngageMonster` / `FindNearestEngageMonster` 排除黑名单并绕过粘滞，**仅**改认领仍有空槽的次近怪；`AttackSlotService.TryClaim` 换目标先占新槽再 Release；`HasAvailableSlot` 预检。无空槽保持原认领。冷却+黑名单防 A↔B。与 StuckHold 独立
 - **Demo 击杀（命中 polish 后置）：** 忠诚兵中心距任意存活怪 ≤ `max(怪 AttackRange, 士兵 AttackRange) + ArriveEpsilon` → `NotifyKilled`；BOSS 另 `TryNotifyBossKilled`
 - **Defend 对等（MP-06 / 方案 B）：** `DefendStageController` 持有同一套 `MassMoveScheduler`+`AttackSlotService`；`WarriorAgentView` Engage 内追击→`AttackSlot`，无候选→`GoalKind=FormationHome`（直趋+LocalDetour；返回途中继续选敌即中断）；`MonsterAgentView` 追击走槽位；无全员每帧 `SetDestination`/`CalculatePath`；与 PushMap 目的地语义一致
@@ -2974,7 +2982,8 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) soldier Class / naming / PrimarySt
 | PrimaryStat | 主属性 | `enum` / `string` | `Strength` \| `Agility` \| `Intelligence`; selects dim for `NormalAttackPower` (§3.12); example semantics Warrior→Strength, Archer→Agility, Mage→Intelligence (this field wins; not ClassName hardcoding) |
 | CombatConvertCoeffs | 战斗换算系数 | encoding | Coeff set for combat derives; encoding below; missing key → **`CombatConstantConfig`** |
 | AttackRange | 攻击距离 | `float` | Distance to enter attack state |
-| MeleeWindupSeconds | 近战前摇 | `float` | ≥ 0; seconds; used when `AttackMode=Melee` |
+| MeleeWindupSeconds | 攻击前摇 | `float` | ≥ 0; seconds; shared `AttackWindup` for Melee and Ranged; `0`=fire immediately; Melee HitConfirm / Ranged fire-or-settle at windup end |
+| RangedWindupHoldFrame | 远程前摇停顿帧 | `int` | ≥ 0; **1-based** (1=first Attack clip frame); Ranged only: freeze on that frame while windup remains; missing/empty/`≤0` → no hold |
 | RangedProjectileSpeed | 远程弹速 | `float` | ≥ 0; used when `AttackMode=Ranged` |
 | RangedTimeoutSeconds | 远程超时 | `float` | ≥ 0; seconds; timeout → miss |
 | BaseMoveSpeed | 基础移速 | `float` | ≥ 0; world units/sec; authoritative **MoveSpeed** `Base` for soldiers (§3.11); missing/≤0 → **3.5** |
@@ -2984,6 +2993,9 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) soldier Class / naming / PrimarySt
 | DefaultAppearanceId | 职业默认外观 | `string` or empty | Mode2: use when B empty, or A still empty after Undead rewrite; FK → `BodyAppearanceConfig` |
 | DefaultSkillIds | 制造默认获得技能ID | encoding | Skill Ids granted into instance `SoldierSkills` at manufacture; empty = none; encoding below; FK → `SkillConfig.SkillId` |
 | SilhouetteIconAssetId | 士兵简画图标 | `string` or empty | UI-033 CombatIndicator slot silhouette; filename only; runtime `Resources/UI/Icons/{SilhouetteIconAssetId}`; art source `Art/UI/Icons/`; missing/empty → empty frame, slot still shown; **not** used in combat math |
+| NormalAttackAnims | 普通攻击动作 | `string` | Presentation; `base;weight\|base;weight` (e.g. `Attack1;3\|Attack2;1`); each normal attack picks one Animator **base** by weight and plays `{base}_{dir}`; weight must be **>0**; empty/missing/no legal segment → `Attack1`; illegal segments skip + Warning, **do not** fail the table; if the picked base has no `{base}_{dir}` for the current facing → force `Attack1` this swing (no re-roll); **not** used in damage/windup/attack speed; manufacture card preview does not read this column |
+
+**`NormalAttackAnims` encoding (fixed):** `base;weight|base;weight|…`. Semicolon splits base and weight inside a segment; `|` splits segments. Empty = fixed `Attack1`. See [§15.5](#155-动画映射demo-锁定).
 
 **`CombatConvertCoeffs` encoding (fixed):** `Key_Value|Key_Value|…`
 
@@ -3014,6 +3026,7 @@ ClassConfig {
   CombatConvertCoeffs: "Key_Value|..."  // missing key → CombatConstantConfig
   AttackRange: number
   MeleeWindupSeconds: number
+  RangedWindupHoldFrame: int       // 1-based; <=0 = no hold; Ranged only
   RangedProjectileSpeed: number
   RangedTimeoutSeconds: number
   BaseMoveSpeed: number           // >=0; soldier MoveSpeed Base; missing/<=0 → 3.5
@@ -3023,6 +3036,7 @@ ClassConfig {
   DefaultAppearanceId: Id | ""    // Mode2 appearance fallback
   DefaultSkillIds: "SkillId|..." | ""  // grant SoldierSkills @ Lv1 after ClassId final
   SilhouetteIconAssetId: Id | ""  // UI-033 CombatIndicator; Resources/UI/Icons/{Id}; missing → empty frame
+  NormalAttackAnims: "Attack1;3|Attack2;1" | ""  // weighted bases; empty → Attack1; presentation only
 }
 ```
 
@@ -3030,7 +3044,7 @@ ClassConfig {
 
 - At manufacture (Mode1): Soul slotted → `SoulConfig.ClassId` → `WarriorInstance.ClassId`; empty Soul → force `Class_Servants`. Naming / appearance use the instance `ClassId` row's `ClassName`. After `ClassId` is final, shared `SoldierSkillGrant` writes `SoldierSkills` from `DefaultSkillIds` (Lv1; missing `(SkillId,1)` → skip + Warning; duplicate Ids keep first; empty column → empty list; Mode1 ignores MagicBook skill level-up). Manufacture and remake share `BuildWarriorFromAggregate`.
 - At manufacture (Mode2 AutoManufacture): `ClassId` from hand `ClassRestrict` (§3.15); `AttackMode` from this table; **no** `SoulId`. After `ForceClass`, grant from the **final** class `DefaultSkillIds`, then second-pass `SoldierSkillLevelAdd`.
-- Combat derives: look up `PrimaryStat` and `CombatConvertCoeffs` (missing keys → constants table); hit params from `AttackRange` etc. columns; **MoveSpeed**-dim `Base` from `BaseMoveSpeed`. Do **not** read `ClassLevel` / `BaseClass` / `PromoteClass` / `SilhouetteIconAssetId`.
+- Combat derives: look up `PrimaryStat` and `CombatConvertCoeffs` (missing keys → constants table); hit params from `AttackRange` etc. columns; **MoveSpeed**-dim `Base` from `BaseMoveSpeed`. Do **not** read `ClassLevel` / `BaseClass` / `PromoteClass` / `SilhouetteIconAssetId` / `NormalAttackAnims` (the last is presentation only).
 - StartBattle: `CombatConvertCoeffs.Parse(classEncoded, repo.GetCombatConvertCoeffDefaults())`; MaxHP uses constants-table `MaxHpStrengthMult`.
 - UI-016: soldier cards show `Lv.{ClassLevel}` under class name.
 - UI-033: load silhouette via `SilhouetteIconAssetId`; loader also writes in-memory `TableOrder` (0-based CSV data-row order) for stable same-level indicator sort; **not** a CSV column.
@@ -3396,11 +3410,12 @@ Rules: [SPEC_03 §3.12](SPEC_03_GameRules.md). One row = one monster type.
 | AttackPower | 怪物攻击力 | `int` or `float` | Used **only** when attacking soldiers; not used for normal attacks on protagonist |
 | AttackSpeed | 攻击速度 | `float` | Attack rate (unit locked at implementation) |
 | AttackRange | 攻击距离 | `float` | Distance to enter attack state |
-| MeleeWindupSeconds | 近战前摇 | `float` | ≥ 0; seconds; used when `AttackMode=Melee` |
+| MeleeWindupSeconds | 攻击前摇 | `float` | ≥ 0; seconds; shared `AttackWindup` for Melee and Ranged; `0`=fire immediately; Melee HitConfirm / Ranged fire-or-settle at windup end |
+| RangedWindupHoldFrame | 远程前摇停顿帧 | `int` | ≥ 0; **1-based** (1=first Attack clip frame); Ranged only: freeze on that frame while windup remains; missing/empty/`≤0` → no hold |
 | RangedProjectileSpeed | 远程弹速 | `float` | ≥ 0; used when `AttackMode=Ranged` |
 | RangedTimeoutSeconds | 远程超时 | `float` | ≥ 0; seconds; timeout → miss |
 | Skills | 怪物技能 | see encoding | Skill Id + CD list; skill-effect columns later topic; **unused in Demo v1** (normal attacks only; ignore or leave empty at implement time) |
-| NormalAttackAnims | 普通攻击动作调用 | `string` | Presentation; normal-attack Animator **base-name** pool `base\|base\|…` (e.g. `Attack1\|Attack2`); each `PlayAttack` picks one uniformly → `{base}_{E\|W\|…}`; empty → `Attack1`; **monsters only** (soldiers stay `Attack1`) |
+| NormalAttackAnims | 普通攻击动作调用 | `string` | Presentation; normal-attack Animator **base-name** pool `base\|base\|…` (e.g. `Attack1\|Attack2`); each `PlayAttack` picks one uniformly → `{base}_{E\|W\|…}`; empty → `Attack1`; **monsters only** (soldiers do not read this column; see `ClassConfig.NormalAttackAnims`) |
 | WalkAnims | 走 | `string` | Presentation; walk BlendTree **state** pool (e.g. `WalkBT`); resampled on Bind / post-revive; empty → `WalkBT`; played during walk gait |
 | RunAnims | 跑 | `string` | Presentation; run BlendTree state pool (e.g. `RunBT`); same resample lifecycle; empty → `RunBT`; played during run gait |
 | LootDrop | 怪物掉落 | see encoding | On kill; encoding `Id;Count\|Id;Count\|...` (**not** [§9.3](#93-gravequalityconfig) `DropMode` / `Id;Weight;Count`) |
@@ -3448,6 +3463,7 @@ MonsterConfig {
   AttackSpeed: number
   AttackRange: number
   MeleeWindupSeconds: number
+  RangedWindupHoldFrame: int       // 1-based; <=0 = no hold; Ranged only
   RangedProjectileSpeed: number
   RangedTimeoutSeconds: number
   Skills: "SkillId;Cd|SkillId;Cd|..."
@@ -3923,7 +3939,7 @@ CameraPathWaypoint { Order: int>=1 }
 - **Events:** `ObjectiveCaptured(int order)` (stop-spawn hook → PM-05); `CurrentObjectiveChanged(int newOrder)`
 - **Presentation:** `PushMapStageController` collects sorted `ObjectivePoint`s; per `Update` probes living monsters in current zone (default scan `_monsters`: `IsAlive && CaptureZone.ContainsXZ`); probe via `PushMapMonsterPresenceProbe` (injectable placeholder for reset acceptance); capture logs + HUD
 - **Advance (MP-04 / Approach B):** loyal soldiers share `CurrentObjective` → one `FlowFieldService` field; `PushMapAdvanceView` samples field dir + `MassMoveScheduler`/`LocalDetour` then `NavMeshAgent.Move` (**no** per-soldier per-frame `SetDestination(Objective)`); inside current `CaptureZone` stop seeking field center and soft-separation hold (`ObjectiveArriveRadius`); living monsters in capture zone do **not** pause advance (probe feeds `TickCapture` only); Rebels do not advance
-- **Chase/engage (MP-05 / Approach B):** loyal soldiers in engage detect (center dist ≤ `max(weapon reach, that monster's AlertRadius)`) → `GoalKind=AttackSlot` (`AttackSlotService.TryClaim`) + LocalDetour, leave Objective field. **v0.82.57:** already in `AttackRange` (XZ) → hold and swing; else dest = closer in-range slot or inward close point. On clear release slot and resume `Objective`. No free slot and not in range → keep `Objective` on field (no hard pause). Monster chase destination is claimed slot (not target center); hold when in range. `MassMoveScheduler.SetGoal`; slot refresh ≤50/frame round-robin; death/`Release`/`ReleaseAllForTarget`
+- **Chase/engage (MP-05 / Approach B):** loyal soldiers in engage detect (center dist ≤ `max(weapon reach, that monster's AlertRadius)`) → `GoalKind=AttackSlot` (`AttackSlotService.TryClaim`) + LocalDetour, leave Objective field. **v0.82.57:** already in `AttackRange` (XZ) → hold and swing; else dest = closer in-range slot or inward close point. **v0.84.53:** slot distance + `ArriveEpsilon` must still be in range, else inset along the slot angle (default margin 0.05 is below arrive epsilon 0.08, so the outer shell was treated as arrived while still out of range and not firing); a full ring while in range releases a stale claim. On clear release slot and resume `Objective`. No free slot and not in range → keep `Objective` on field (no hard pause). Monster chase destination is claimed slot (not target center); hold when in range. `MassMoveScheduler.SetGoal`; slot refresh ≤50/frame round-robin; death/`Release`/`ReleaseAllForTarget`
 - **Chase-stuck force retarget (v0.84.25 / Approach A; v0.84.26 regression fix):** `ChaseStuckRetargetTracker` accumulates stuck via sliding windows; when armed, `TryGetEngageMonster` / `FindNearestEngageMonster` skip blacklist + stickiness and only retarget to an alternate with a free slot; `AttackSlotService.TryClaim` secures the new slot before Release; `HasAvailableSlot` preflight. No free slot → keep claim. Cooldown + blacklist vs A↔B. Independent of StuckHold
 - **Demo kill (hit polish deferred):** loyal center distance to any living monster ≤ `max(monster AttackRange, soldier AttackRange) + ArriveEpsilon` → `NotifyKilled`; Boss also `TryNotifyBossKilled`
 - **Defend parity (MP-06 / Approach B):** `DefendStageController` owns the same `MassMoveScheduler`+`AttackSlotService`; `WarriorAgentView` Engage chase→`AttackSlot`, no candidate→`GoalKind=FormationHome` (straight+LocalDetour; abort return on new target); `MonsterAgentView` chase uses slots; no all-units per-frame `SetDestination`/`CalculatePath`; same GoalKind semantics as PushMap
@@ -4522,6 +4538,8 @@ SearchExtractWaveSpawnConfig {
 
 **刷怪移动（v0.83.94）：** `SearchExtractStageController.TickMassCombatPathing` 须把存活非原地怪物加入 `_moveSamples`，并 round-robin 调用 `PushMapMonsterAgentView.TryRefreshChaseGoal`（同 PushMap）；走/跑 8 向由 MassMove steer 驱动。
 
+**忠诚兵远程弹道（v0.84.54）：** 部署 `PushMapAdvanceView.Bind` 必须传入 `DefendPrefabCatalog.ProjectilePrefab`、弹道父节点与 Catalog（与推图相同）。缺弹道时远程进距会停步且 `FireProjectile` 直接返回，表现为不移动、不攻击；推图不受影响。
+
 **怪物死亡技能（v0.83.99 / D-074 方案 B；v0.84.04 修复）：** `SearchExtractSessionService` 实现 `IMonsterDeathSkillHost`，与 PushMap 共用 `MonsterDeathSkillService`；刷出 `RegisterMonster` 时解析 `MonsterConfig.Skills`。**须**在 `BeginPrepare` 之后保持 `BindCombatConfigs` 有效（`BeginPrepare`→`Stop` **不得**丢掉已绑定的 `ConfigCsvRepository`，否则 Skills 静默不初始化）。点清场 `PointClear` **不**拦截复活。表现层接线同 PushMap：`SetReviveCallbacks` + 假死 `NotifyKilled(fakeDeathCorpse=true)` + 尸体砸击。
 
 #### 9.34 多语言描述表 `LocalizedDescriptionConfig`
@@ -4556,7 +4574,7 @@ Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). One row = one gameplay option (PK 
 
 ### English (SearchExtractGameplayConfig / SearchExtractWaveSpawnConfig)
 
-Rules: [SPEC_03 §3.19](SPEC_03_GameRules.md). Columns locked (workshop 2026-09-02; v0.84.00 adds `RepeatSpawnCount` + per-row independent timers). Disk: Excel `搜打撤_玩法配置表_SearchExtract_SearchExtractGameplayConfig.xlsx` / `搜打撤_刷怪波次配置表_SearchExtract_SearchExtractWaveSpawnConfig.xlsx`; CSV `SearchExtract_SearchExtractGameplayConfig.csv` / `SearchExtract_SearchExtractWaveSpawnConfig.csv`. Bake under Mode2 root. Gameplay: PK `GameplayConfigId`, `MapId` (`Ground_*` \| `PushMap_*` \| `SearchExtract_*`), `StageExpReward` (≥0, credit on Leave), `GatherCountdownSeconds` (global; no per-point override). Wave: one independent recipe per row (`WaveIndex` composite key only); `GatherPointOrder` + `SpawnPointId` + FirstDelay (from point activation) + Interval after each spawn × `RepeatSpawnCount` re-spawns + `MonsterId`/`SpawnCount`; no `WaveCount` / ClockDirection. Sample `SearchExtract_01` / `MapId=SearchExtract_Lv1_01` (keeps `SearchExtract_Demo_01` as SE-02 Approach B reference copy of `PushMap_Demo_01`; do not rewrite PushMap source; maps need Mode2 `FormationClassZone` for Prepare one-click): order 1 × 4 rows (`WaveIndex` 1..4); FirstDelay=5/10/15/20 Interval=0 Repeat=0 (~5/10/15/20s once each); `Monster_01`×10; `SP_01`–`SP_04` (must exist on current MapId). **Runtime bind:** `SearchExtractStageController` via `DefendPrefabCatalog.TryGetMap` — `Maps` + `CatalogExtraMapIds` must cover every gameplay-referenced `SearchExtract_*` MapId (incl. `SearchExtract_Demo_01`, `SearchExtract_Lv1_01`, `SearchExtract_Lv2_01`). Stop on point success. Pre-activation approach to Objective center; offset relocate after zone enter (v0.83.92). Combat camera: **pre-activation / post-Continue** follows `CameraFollowPath` + soldiers via `PushMapCameraFollowController` (v0.83.93; Deadzone/SmoothTime same as PushMap); **point active～GatherCountdown** = **HoldFraming** viewport framing + hysteresis (`SearchExtractHoldFramingSolver`; constants `SearchExtractHold*` in §9.20b; v0.84.27); UI-032 freezes; **Continue** → `ClearHoldFraming` forces Auto, no look-at Snap, SmoothDamps Size to `PushMapCameraOrthoSize` with `CameraFollowSmoothTime` (v0.84.43; no new keys; scroll cancels restore). **StartBattle always `TryBake`s** the rail (v0.84.45; heals stale Prefab `_bakedPoints`; sample `SearchExtract_Lv2_01` WP_Start→WP_S1→WP_End≈Obj1→Obj2). PushMap does **not** call Hold API. Combat MassMove Tick includes live non-stationary monsters and `TryRefreshChaseGoal` (v0.83.94). D-074 Approach B: Session implements `IMonsterDeathSkillHost` (shared with PushMap); point-clear skips SelfRevive. **v0.84.04:** `BindCombatConfigs` must remain valid after `BeginPrepare` (`BeginPrepare`→`Stop` must not drop the bound `ConfigCsvRepository`, or Skills silently fail to initialize).
+Rules: [SPEC_03 §3.19](SPEC_03_GameRules.md). Columns locked (workshop 2026-09-02; v0.84.00 adds `RepeatSpawnCount` + per-row independent timers). Disk: Excel `搜打撤_玩法配置表_SearchExtract_SearchExtractGameplayConfig.xlsx` / `搜打撤_刷怪波次配置表_SearchExtract_SearchExtractWaveSpawnConfig.xlsx`; CSV `SearchExtract_SearchExtractGameplayConfig.csv` / `SearchExtract_SearchExtractWaveSpawnConfig.csv`. Bake under Mode2 root. Gameplay: PK `GameplayConfigId`, `MapId` (`Ground_*` \| `PushMap_*` \| `SearchExtract_*`), `StageExpReward` (≥0, credit on Leave), `GatherCountdownSeconds` (global; no per-point override). Wave: one independent recipe per row (`WaveIndex` composite key only); `GatherPointOrder` + `SpawnPointId` + FirstDelay (from point activation) + Interval after each spawn × `RepeatSpawnCount` re-spawns + `MonsterId`/`SpawnCount`; no `WaveCount` / ClockDirection. Sample `SearchExtract_01` / `MapId=SearchExtract_Lv1_01` (keeps `SearchExtract_Demo_01` as SE-02 Approach B reference copy of `PushMap_Demo_01`; do not rewrite PushMap source; maps need Mode2 `FormationClassZone` for Prepare one-click): order 1 × 4 rows (`WaveIndex` 1..4); FirstDelay=5/10/15/20 Interval=0 Repeat=0 (~5/10/15/20s once each); `Monster_01`×10; `SP_01`–`SP_04` (must exist on current MapId). **Runtime bind:** `SearchExtractStageController` via `DefendPrefabCatalog.TryGetMap` — `Maps` + `CatalogExtraMapIds` must cover every gameplay-referenced `SearchExtract_*` MapId (incl. `SearchExtract_Demo_01`, `SearchExtract_Lv1_01`, `SearchExtract_Lv2_01`). Stop on point success. Pre-activation approach to Objective center; offset relocate after zone enter (v0.83.92). Combat camera: **pre-activation / post-Continue** follows `CameraFollowPath` + soldiers via `PushMapCameraFollowController` (v0.83.93; Deadzone/SmoothTime same as PushMap); **point active～GatherCountdown** = **HoldFraming** viewport framing + hysteresis (`SearchExtractHoldFramingSolver`; constants `SearchExtractHold*` in §9.20b; v0.84.27); UI-032 freezes; **Continue** → `ClearHoldFraming` forces Auto, no look-at Snap, SmoothDamps Size to `PushMapCameraOrthoSize` with `CameraFollowSmoothTime` (v0.84.43; no new keys; scroll cancels restore). **StartBattle always `TryBake`s** the rail (v0.84.45; heals stale Prefab `_bakedPoints`; sample `SearchExtract_Lv2_01` WP_Start→WP_S1→WP_End≈Obj1→Obj2). PushMap does **not** call Hold API. Combat MassMove Tick includes live non-stationary monsters and `TryRefreshChaseGoal` (v0.83.94). **v0.84.54:** loyal deploy `PushMapAdvanceView.Bind` must pass `DefendPrefabCatalog.ProjectilePrefab`, the projectile parent, and the catalog (same as PushMap). A missing prefab makes ranged units hold on entering range and skip `FireProjectile` — they neither move nor shoot; PushMap is unaffected. D-074 Approach B: Session implements `IMonsterDeathSkillHost` (shared with PushMap); point-clear skips SelfRevive. **v0.84.04:** `BindCombatConfigs` must remain valid after `BeginPrepare` (`BeginPrepare`→`Stop` must not drop the bound `ConfigCsvRepository`, or Skills silently fail to initialize).
 
 ### English (BgmConfig)
 
@@ -5143,7 +5161,7 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 | 语义 | Creator 参数（默认；View 序列化可改） | 说明 |
 |------|--------------------------------------|------|
 | 移动 | Bool `IsRun` | MassMove **steer** 超阈值 → true；停步清 locomotion Bool → Idle |
-| 普攻 | Trigger `Attack1` | 近战前摇开始 / 远程开火时触发；规则层不写动画名 |
+| 普攻 | `{基名}_{dir}` | 近战/远程前摇**开始**时：按 `ClassConfig.NormalAttackAnims` 权重抽基名并 `Play`；空/非法/当前朝向无该状态 → `Attack1`；远程 `RangedWindupHoldFrame>0` 时前摇内可停在该 1 基帧，前摇结束 `ReleaseAttackHold` 后续帧；规则层不写动画名 |
 | 死亡 | Trigger `Die` | CombatDead / PermanentDeath 后触发一次并锁存；尸体留场 |
 | 朝向 | Int `DirIndex` | **移动**跟 MassMove `LastDesired`（非 steer）；**攻击开始**朝目标一次后冻结至 Attack1 结束；零向量不改 |
 | 卡面嘲讽 | Trigger `Taunt` | UI-016 士兵卡揭示时播一遍；规则层不写动画名 |
@@ -5155,7 +5173,7 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 |------|------|
 | 普攻 | 每次 `PlayAttack` 从 `NormalAttackAnims` 均匀随机 **基名**，`Play("{基名}_{dir}")`；Trigger 回退同基名；`DirIndex` 锁至该次攻击 clip 结束 |
 | 走 / 跑 | Bind 与 PushMap `NotifyRevived`（复活完成）各从对应池均匀随机 1 个状态名并锁定；`SetMoving(true, …, useRun)`：`useRun=false` → 走（`IsWalk` + 抽中的走态）；`useRun=true` → 跑（`IsRun` + 抽中的跑态）；已在移动时步态变化允许 CrossFade |
-| 士兵 | 不注入池 → 仍 `Attack1` + `IsRun`/`RunBT` |
+| 士兵 | 不注入怪物池；普攻走 `ClassConfig.NormalAttackAnims` 加权（见上）；走跑仍 `IsRun`/`RunBT` |
 
 **八向朝向意图锁（v0.83.31 方案 B，表现层 Demo 锁定；Defend+PushMap 士兵与怪物）：** LocalDetour / SoftCollision 使瞬时 `steer` 在相邻 45° 扇区来回摆，直接量化会高频换向。约定：
 
@@ -5317,7 +5335,7 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 | Semantics | Creator param (default; View serialized) | Notes |
 |-----------|------------------------------------------|-------|
 | Move | Bool `IsRun` | true when MassMove **steer** above threshold; clear locomotion bools → Idle when stopped |
-| Attack | Trigger `Attack1` | on melee windup start / ranged fire; rules never hardcode anim names |
+| Attack | `{base}_{dir}` | on melee/ranged windup **start**: weighted pick from `ClassConfig.NormalAttackAnims` then `Play`; empty/illegal/missing facing state → `Attack1`; ranged may hold at `RangedWindupHoldFrame` (1-based) until windup ends then `ReleaseAttackHold`; rules never hardcode anim names |
 | Death | Trigger `Die` | once on CombatDead / PermanentDeath, then latched; corpse stays |
 | Facing | Int `DirIndex` | **move** follows MassMove `LastDesired` (not steer); **attack start** snaps once toward target then freezes until Attack1 ends; zero vector leaves unchanged |
 | Card taunt | Trigger `Taunt` | UI-016 card reveal plays once; rules never hardcode anim names |
@@ -5329,7 +5347,7 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 |-----------|------|
 | Attack | Each `PlayAttack` uniformly picks a **base** from `NormalAttackAnims`, `Play("{base}_{dir}")`; Trigger fallback same base; `DirIndex` locked until that attack clip ends |
 | Walk / Run | On Bind and PushMap `NotifyRevived` (post-revive), uniformly pick one state name from each pool and lock until next resample; `SetMoving(true, …, useRun)`: `useRun=false` → walk (`IsWalk` + picked walk state); `useRun=true` → run (`IsRun` + picked run state); gait change while already moving may CrossFade |
-| Soldiers | No pool inject → still `Attack1` + `IsRun`/`RunBT` |
+| Soldiers | Do not inject the monster pool; normal attacks use weighted `ClassConfig.NormalAttackAnims` (above); walk/run stay `IsRun`/`RunBT` |
 
 **8-dir facing intent lock (v0.83.31 Approach B, presentation Demo lock; Defend+PushMap soldiers and monsters):** LocalDetour / SoftCollision make instantaneous `steer` oscillate across adjacent 45° sectors; quantizing that flickers clips. Policy:
 

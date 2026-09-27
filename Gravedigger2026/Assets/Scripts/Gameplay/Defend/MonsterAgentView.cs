@@ -54,6 +54,16 @@ namespace Gravedigger2026.Gameplay.Defend
         private AttackSlotService _attackSlots;
         private int _moveId;
         private string _attackerId;
+        private enum MonsterAttackPhase
+        {
+            Idle = 0,
+            Windup = 1
+        }
+
+        private MonsterAttackPhase _attackPhase = MonsterAttackPhase.Idle;
+        private float _windupRemaining;
+        private TargetKind _windupTargetKind;
+        private string _windupWarriorId;
 
         public string MonsterId => _config != null ? _config.MonsterId : string.Empty;
         public string RuntimeId => _runtimeId;
@@ -214,6 +224,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _alive = false;
             _stuckHold.Reset();
             _gait.Reset();
+            ClearRangedWindup();
             ReleaseSlotClaim();
             _attackSlots?.ReleaseAllForTarget(_attackerId);
             if (_scheduler != null && _moveId != 0)
@@ -445,6 +456,14 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var targetKind = ResolveTarget(out var warriorView, out var protagonistTf);
+            if (_attackPhase == MonsterAttackPhase.Windup)
+            {
+                _scheduler?.SetPaused(_moveId, true);
+                StopMovement();
+                TickRangedWindup();
+                return;
+            }
+
             if (targetKind == TargetKind.None)
             {
                 return;
@@ -478,6 +497,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
             FaceTowardForAttack(targetTf.position);
 
+            if (AttackMode == AttackMode.Ranged)
+            {
+                BeginRangedWindup(targetKind, warriorView);
+                return;
+            }
+
             if (targetKind == TargetKind.Protagonist)
             {
                 _session.ApplyProtagonistNormalHit($"Monster:{_config.MonsterId}");
@@ -494,6 +519,106 @@ namespace Gravedigger2026.Gameplay.Defend
 
             var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
+        }
+
+        private void BeginRangedWindup(TargetKind targetKind, WarriorAgentView warriorView)
+        {
+            _attackPhase = MonsterAttackPhase.Windup;
+            _windupRemaining = Mathf.Max(0f, _config.MeleeWindupSeconds);
+            _windupTargetKind = targetKind;
+            _windupWarriorId = warriorView != null ? warriorView.WarriorId : null;
+            var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
+            _attackCooldown = Mathf.Max(0.2f, interval);
+            var hold = _windupRemaining > 0f ? _config.RangedWindupHoldFrame : 0;
+            _anim?.PlayAttack(hold);
+            if (_windupRemaining <= 0f)
+            {
+                TickRangedWindup();
+            }
+        }
+
+        private void TickRangedWindup()
+        {
+            _windupRemaining -= Time.deltaTime;
+            if (_windupRemaining > 0f)
+            {
+                return;
+            }
+
+            _anim?.ReleaseAttackHold();
+            var targetKind = _windupTargetKind;
+            var warriorId = _windupWarriorId;
+            ClearRangedWindup();
+
+            if (_session == null || _config == null)
+            {
+                return;
+            }
+
+            if (targetKind == TargetKind.Protagonist)
+            {
+                var tf = _protagonist;
+                if (tf != null
+                    && CombatReach.IsInAttackRange(
+                        CombatReach.DistanceXZ(transform.position, tf.position),
+                        _config.AttackRange,
+                        BodyRadius,
+                        AttackSlotService.DefaultTargetBodyRadius,
+                        CombatReach.HitConfirmSlack))
+                {
+                    _session.ApplyProtagonistNormalHit($"Monster:{_config.MonsterId}");
+                }
+
+                return;
+            }
+
+            if (string.IsNullOrEmpty(warriorId) || _warriorsProvider == null)
+            {
+                return;
+            }
+
+            WarriorAgentView warriorView = null;
+            var list = _warriorsProvider();
+            if (list != null)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    if (list[i] != null && list[i].WarriorId == warriorId)
+                    {
+                        warriorView = list[i];
+                        break;
+                    }
+                }
+            }
+
+            if (warriorView == null)
+            {
+                return;
+            }
+
+            if (!CombatReach.IsInAttackRange(
+                    CombatReach.DistanceXZ(transform.position, warriorView.transform.position),
+                    _config.AttackRange,
+                    BodyRadius,
+                    warriorView.AgentRadius,
+                    CombatReach.HitConfirmSlack))
+            {
+                return;
+            }
+
+            _session.TryApplyMonsterDamageToWarrior(
+                _runtimeId,
+                warriorView.WarriorId,
+                _config.AttackPower);
+        }
+
+        private void ClearRangedWindup()
+        {
+            _attackPhase = MonsterAttackPhase.Idle;
+            _windupRemaining = 0f;
+            _windupTargetKind = TargetKind.None;
+            _windupWarriorId = null;
+            _anim?.ReleaseAttackHold();
         }
 
         private void LateUpdate()

@@ -63,9 +63,9 @@ namespace Gravedigger2026.Gameplay.Defend
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
         private int _moveId;
-        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun ‚Ä?not NavMeshAgent.velocity (SPEC_04 ¬ß15.5).</summary>
+        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun ù?not NavMeshAgent.velocity (SPEC_04 ù15.5).</summary>
         private Vector3 _lastSteerDirXZ;
-        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 ¬ß15.5 v0.83.31).</summary>
+        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 ù15.5 v0.83.31).</summary>
         private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private readonly ChaseStuckRetargetTracker _chaseStuckRetarget = new ChaseStuckRetargetTracker();
@@ -96,7 +96,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ‚â?0/frame (SPEC_04 ¬ß9.7).</summary>
+        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ù?0/frame (SPEC_04 ù9.7).</summary>
         public float TargetRetargetInterval => _retargetInterval;
 
         public float AttackRange
@@ -224,7 +224,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _agent.radius = _bodyRadius;
             _agent.height = 0.1f;
             _agent.autoBraking = false;
-            // SPEC_04 ¬ß15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
+            // SPEC_04 ù15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
             _agent.updateRotation = false;
             _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
@@ -627,7 +627,7 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         /// <summary>
-        /// SPEC_03 ¬ß3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
+        /// SPEC_03 ù3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
         /// </summary>
         private void TickChaseStuckRetarget()
         {
@@ -752,7 +752,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             CacheDesiredDirFromScheduler();
 
-            // MassMove uses Move()+ResetPath ‚Ä?velocity‚â?; use steer like monsters (SPEC_04 ¬ß15.5).
+            // MassMove uses Move()+ResetPath ù?velocityù?; use steer like monsters (SPEC_04 ù15.5).
             var wantsMove = _attackPhase != AttackPhase.Windup
                             && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;
@@ -792,7 +792,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _anim.SetFacing(_lastDesiredDirXZ);
         }
 
-        /// <summary>SPEC_04 ¬ß15.5: distance for attack‚Üírun interrupt gate (Objective / missing ‚Ü?+‚à?.</summary>
+        /// <summary>SPEC_04 ù15.5: distance for attack?run interrupt gate (Objective / missing ù?+ù?.</summary>
         private float ResolveMoveTargetDistanceXZ()
         {
             if (_scheduler == null || _moveId == 0)
@@ -844,6 +844,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void TickLoyalRanged(DefendCombatWarriorState state)
         {
+            if (_attackPhase == AttackPhase.Windup)
+            {
+                TickWindupMonster(state);
+                return;
+            }
+
             _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
             var target = FindNearestEngageMonster();
             if (target == null || _attackStartCooldown > 0f)
@@ -857,7 +863,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            FireProjectile(state, target);
+            BeginWindup(RebelTargetKind.Monster, target.RuntimeId, state);
         }
 
         private void TickRebel(DefendCombatWarriorState state)
@@ -882,43 +888,40 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            if (kind == RebelTargetKind.Monster && state.AttackMode == AttackMode.Ranged)
-            {
-                var monster = FindMonsterByRuntimeId(targetId);
-                if (monster != null)
-                {
-                    FireProjectile(state, monster);
-                }
-
-                return;
-            }
-
             BeginWindup(kind, targetId, state);
         }
 
-        private void FireProjectile(DefendCombatWarriorState state, MonsterAgentView target)
+        private void FireProjectile(DefendCombatWarriorState state, MonsterAgentView target, bool fromWindupEnd = false)
         {
             if (_projectilePrefab == null)
             {
                 Debug.LogWarning($"[WarriorAgent] {_warriorId} Ranged but Projectile Prefab missing.");
-                _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+                if (!fromWindupEnd)
+                {
+                    _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+                }
+
                 return;
             }
 
-            _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
-            _scheduler?.SetPaused(_moveId, true);
-            ClearPathingState();
-
-            var toTarget = target.transform.position - transform.position;
-            toTarget.y = 0f;
-            if (_anim != null)
+            if (!fromWindupEnd)
             {
-                if (toTarget.sqrMagnitude > 0.0001f)
-                {
-                    _anim.ForceSetFacing(toTarget);
-                }
+                _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+                _scheduler?.SetPaused(_moveId, true);
+                ClearPathingState();
 
-                _anim.PlayAttack();
+                var toTarget = target.transform.position - transform.position;
+                toTarget.y = 0f;
+                if (_anim != null)
+                {
+                    if (toTarget.sqrMagnitude > 0.0001f)
+                    {
+                        _anim.ForceSetFacing(toTarget);
+                    }
+
+                    _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
+                    _anim.PlayAttack();
+                }
             }
 
             var parent = _projectileParent != null ? _projectileParent : transform.parent;
@@ -949,7 +952,10 @@ namespace Gravedigger2026.Gameplay.Defend
 
             TryApplyProjectileVisual(view, state.BaseClass);
 
-            _scheduler?.SetPaused(_moveId, false);
+            if (!fromWindupEnd)
+            {
+                _scheduler?.SetPaused(_moveId, false);
+            }
         }
 
         private void TryApplyProjectileVisual(ProjectileView view, BaseClassKind baseClass)
@@ -987,7 +993,11 @@ namespace Gravedigger2026.Gameplay.Defend
                     }
                 }
 
-                _anim.PlayAttack();
+                _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
+                _anim.PlayAttack(
+                    state.AttackMode == AttackMode.Ranged && state.MeleeWindupSeconds > 0f
+                        ? state.RangedWindupHoldFrame
+                        : 0);
             }
         }
 
@@ -1052,7 +1062,19 @@ namespace Gravedigger2026.Gameplay.Defend
                               target.BodyRadius,
                               CombatReach.HitConfirmSlack);
 
-            _session.TryConfirmMeleeHit(_warriorId, _windupTargetId, inRange);
+            _anim?.ReleaseAttackHold();
+            if (state.AttackMode == AttackMode.Ranged)
+            {
+                if (inRange && target != null)
+                {
+                    FireProjectile(state, target, fromWindupEnd: true);
+                }
+            }
+            else
+            {
+                _session.TryConfirmMeleeHit(_warriorId, _windupTargetId, inRange);
+            }
+
             ClearWindup();
         }
 
@@ -1064,6 +1086,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            _anim?.ReleaseAttackHold();
             switch (_windupKind)
             {
                 case RebelTargetKind.Protagonist:
@@ -1107,7 +1130,14 @@ namespace Gravedigger2026.Gameplay.Defend
                                       _bodyRadius,
                                       target.BodyRadius,
                                       CombatReach.HitConfirmSlack);
-                    if (state.AttackMode == AttackMode.Melee)
+                    if (state.AttackMode == AttackMode.Ranged)
+                    {
+                        if (inRange && target != null)
+                        {
+                            FireProjectile(state, target, fromWindupEnd: true);
+                        }
+                    }
+                    else
                     {
                         _session.TryConfirmMeleeHit(_warriorId, _windupTargetId, inRange);
                     }
@@ -1128,6 +1158,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_anim != null)
             {
+                _anim.ReleaseAttackHold();
                 _anim.SetMoving(false);
             }
         }

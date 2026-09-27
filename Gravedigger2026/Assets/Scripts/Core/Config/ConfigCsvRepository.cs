@@ -1407,6 +1407,8 @@ namespace Gravedigger2026.Core.Config
                     AttackSpeed = RequireFloat(raw, "AttackSpeed", table, rowIndex),
                     AttackRange = attackRange,
                     MeleeWindupSeconds = OptionalFloat(raw, "MeleeWindupSeconds"),
+                    RangedWindupHoldFrame = ParseOptionalNonNegInt(
+                        raw, "RangedWindupHoldFrame", table, rowIndex),
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
                     RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
                     Skills = OptionalText(raw, "Skills"),
@@ -2020,6 +2022,9 @@ namespace Gravedigger2026.Core.Config
                     CombatConvertCoeffs = OptionalText(raw, "CombatConvertCoeffs"),
                     AttackRange = OptionalFloat(raw, "AttackRange"),
                     MeleeWindupSeconds = OptionalFloat(raw, "MeleeWindupSeconds"),
+                    RangedWindupHoldFrame = ParseOptionalNonNegInt(
+                        raw, "RangedWindupHoldFrame", table, rowIndex),
+                    NormalAttackAnims = OptionalText(raw, "NormalAttackAnims"),
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
                     RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
                     BaseMoveSpeed = OptionalFloat(raw, "BaseMoveSpeed"),

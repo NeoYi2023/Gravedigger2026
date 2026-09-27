@@ -80,8 +80,13 @@ namespace Gravedigger2026.Core.Pathing
         }
 
         /// <summary>
-        /// Chase dest: claimed slot if it is closer to the target and still in AttackRange;
-        /// otherwise the in-range closing point. Prevents inside-ring units walking away.
+        /// Chase dest: claimed slot if it is closer to the target and the whole
+        /// ArriveEpsilon ball around the slot is still inside AttackRange.
+        /// A ring that is only AttackSlotMargin inside reach (sample 0.05) with a
+        /// larger ArriveEpsilon (sample 0.08) would otherwise stop on the outer
+        /// shell, out of range, with steer zeroed (v0.84.53). That case keeps the
+        /// slot angle but sits on <see cref="ClosingRadius"/>. Otherwise the
+        /// attacker-radial closing point. Prevents inside-ring units walking away.
         /// </summary>
         public static Vector2 ChaseDestinationXZ(
             Vector3 attackerPos,
@@ -95,15 +100,24 @@ namespace Gravedigger2026.Core.Pathing
             var selfDist = DistanceXZ(attackerPos, targetPos);
             var slotDist = DistanceXZ(slotPos, targetPos);
             var maxIn = MaxCenterDistance(attackRange, attackerBodyRadius, targetBodyRadius);
-            if (slotDist + 0.01f < selfDist && slotDist <= maxIn)
+            var epsilon = Mathf.Max(0f, arriveEpsilon);
+            var slotIsCloser = slotDist + 0.01f < selfDist;
+            if (slotIsCloser && slotDist + epsilon <= maxIn)
             {
                 return new Vector2(slotPos.x, slotPos.z);
             }
 
-            return ClosingPointXZ(
-                attackerPos,
-                targetPos,
-                ClosingRadius(attackRange, attackerBodyRadius, targetBodyRadius, arriveEpsilon));
+            var safeRadius = ClosingRadius(
+                attackRange,
+                attackerBodyRadius,
+                targetBodyRadius,
+                arriveEpsilon);
+            if (slotIsCloser && slotDist <= maxIn && slotDist > 1e-4f)
+            {
+                return ClosingPointXZ(slotPos, targetPos, safeRadius);
+            }
+
+            return ClosingPointXZ(attackerPos, targetPos, safeRadius);
         }
 
         /// <summary>

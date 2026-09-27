@@ -346,6 +346,8 @@ namespace Gravedigger2026.Core.Defend
                 AttackRange = (classRow != null ? Math.Max(0.2f, classRow.AttackRange) : 1.5f)
                     * WarriorVisualModelScale.Resolve(warrior),
                 MeleeWindupSeconds = classRow != null ? Math.Max(0f, classRow.MeleeWindupSeconds) : 0.3f,
+                RangedWindupHoldFrame = classRow != null ? Math.Max(0, classRow.RangedWindupHoldFrame) : 0,
+                NormalAttackAnims = classRow != null ? classRow.NormalAttackAnims ?? string.Empty : string.Empty,
                 RangedProjectileSpeed = classRow != null ? Math.Max(0.1f, classRow.RangedProjectileSpeed) : 10f,
                 RangedTimeoutSeconds = classRow != null ? Math.Max(0.1f, classRow.RangedTimeoutSeconds) : 2f,
                 HasGems = warrior.GemIds != null && warrior.GemIds.Count > 0,
@@ -911,6 +913,10 @@ namespace Gravedigger2026.Core.Defend
         public float MoveSpeed;
         public float AttackRange;
         public float MeleeWindupSeconds;
+        /// <summary>1-based; ≤0 = no hold (SPEC_04 §9.9b).</summary>
+        public int RangedWindupHoldFrame;
+        /// <summary>ClassConfig weighted attack bases; empty → Attack1 (SPEC_04 §9.9b).</summary>
+        public string NormalAttackAnims;
         public float RangedProjectileSpeed;
         public float RangedTimeoutSeconds;
         public bool HasGems;

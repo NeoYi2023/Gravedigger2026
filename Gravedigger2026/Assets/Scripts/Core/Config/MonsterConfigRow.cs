@@ -53,6 +53,8 @@ namespace Gravedigger2026.Core.Config
         public float AttackSpeed;
         public float AttackRange;
         public float MeleeWindupSeconds;
+        /// <summary>1-based Attack clip hold frame while ranged windup remains; ≤0 = no hold (SPEC_04 §9.19).</summary>
+        public int RangedWindupHoldFrame;
         public float RangedProjectileSpeed;
         public float RangedTimeoutSeconds;
         public string Skills;

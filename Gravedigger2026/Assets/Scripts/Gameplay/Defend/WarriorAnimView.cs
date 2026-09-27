@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using Gravedigger2026.Core.Config;
 using UnityEngine;
 
@@ -14,7 +15,8 @@ namespace Gravedigger2026.Gameplay.Defend
     /// SetFacing applies 8-dir hysteresis + min dwell (v0.75.21).
     /// Move facing uses MassMove LastDesired; PlayAttack freezes DirIndex until attack ends (v0.83.31).
     /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
-    /// Monsters may inject NormalAttackAnims/WalkAnims/RunAnims pools (v0.83.34); soldiers leave unset.
+    /// Monsters may inject NormalAttackAnims/WalkAnims/RunAnims pools (v0.83.34).
+    /// Soldiers use ClassConfig weighted NormalAttackAnims; missing state falls back to Attack1 (v0.84.56).
     /// Death: latch last non-null Die sprite + tiered corpse presentation (RGB/alpha) + CorpseSortingOrder=100 + disable Animator.
     /// </summary>
     public sealed class WarriorAnimView : MonoBehaviour
@@ -131,6 +133,9 @@ namespace Gravedigger2026.Gameplay.Defend
         /// <summary>When true, use MonsterConfig anim pools (SPEC_04 §15.5 v0.83.34).</summary>
         private bool _useMonsterAnimPools;
         private string[] _attackAnimPool;
+        private string _soldierAttackRaw = string.Empty;
+        private SoldierAttackWeight[] _soldierAttackWeights = System.Array.Empty<SoldierAttackWeight>();
+        private float _soldierAttackWeightSum;
         private string[] _walkAnimPool;
         private string[] _runAnimPool;
         private string _activeWalkState = WalkStateName;
@@ -138,6 +143,11 @@ namespace Gravedigger2026.Gameplay.Defend
         private string _activeAttackBase = DefaultAttackBase;
         private int _activeAttackTriggerHash;
         private bool _hasActiveAttackTrigger;
+        /// <summary>1-based hold frame armed until <see cref="ReleaseAttackHold"/> (SPEC_04 §15.5).</summary>
+        private int _rangedWindupHoldFrame;
+        private bool _attackHoldArmed;
+        private bool _attackHoldFrozen;
+        private float _attackHoldNormalized;
 
         private void Awake()
         {
@@ -151,6 +161,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private void Update()
         {
             TickAttackFacingLock();
+            TickRangedWindupHold();
 
             if (_reviving)
             {
@@ -224,6 +235,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _reviving = false;
             ResetFacingStabilizerState();
             ClearAttackFacingLock();
+            ClearRangedWindupHold(restoreSpeed: true);
             if (_animator == null)
             {
                 return;
@@ -260,6 +272,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _lastNonNullDieSprites = null;
             _reviving = false;
             ClearAttackFacingLock();
+            ClearRangedWindupHold(restoreSpeed: true);
             if (_animator == null)
             {
                 return;
@@ -291,6 +304,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _dieLatched = false;
             _facingSwitchTimer = 0f;
             ClearAttackFacingLock();
+            ClearRangedWindupHold(restoreSpeed: true);
 
             if (_animator == null)
             {
@@ -410,12 +424,120 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private string PickAttackBase()
         {
-            if (!_useMonsterAnimPools)
+            if (_useMonsterAnimPools)
+            {
+                return PickFromPool(_attackAnimPool, DefaultAttackBase);
+            }
+
+            return PickWeightedSoldierAttack();
+        }
+
+        /// <summary>
+        /// Soldier normal-attack pool from ClassConfig (SPEC_04 §9.9b / §15.5).
+        /// Empty or fully illegal → Attack1. Does not touch monster locomotion pools.
+        /// </summary>
+        public void ConfigureSoldierNormalAttackAnims(string weightedPipe)
+        {
+            var raw = weightedPipe ?? string.Empty;
+            if (string.Equals(raw, _soldierAttackRaw, System.StringComparison.Ordinal)
+                && _soldierAttackWeights != null)
+            {
+                return;
+            }
+
+            _soldierAttackRaw = raw;
+            _soldierAttackWeights = ParseWeightedAttackPool(raw);
+            _soldierAttackWeightSum = 0f;
+            for (var i = 0; i < _soldierAttackWeights.Length; i++)
+            {
+                _soldierAttackWeightSum += _soldierAttackWeights[i].Weight;
+            }
+        }
+
+        private string PickWeightedSoldierAttack()
+        {
+            if (_soldierAttackWeights == null || _soldierAttackWeights.Length == 0
+                || _soldierAttackWeightSum <= 0f)
             {
                 return DefaultAttackBase;
             }
 
-            return PickFromPool(_attackAnimPool, DefaultAttackBase);
+            if (_soldierAttackWeights.Length == 1)
+            {
+                return _soldierAttackWeights[0].Base;
+            }
+
+            var roll = Random.Range(0f, _soldierAttackWeightSum);
+            var acc = 0f;
+            for (var i = 0; i < _soldierAttackWeights.Length; i++)
+            {
+                acc += _soldierAttackWeights[i].Weight;
+                if (roll < acc)
+                {
+                    return _soldierAttackWeights[i].Base;
+                }
+            }
+
+            return _soldierAttackWeights[_soldierAttackWeights.Length - 1].Base;
+        }
+
+        private SoldierAttackWeight[] ParseWeightedAttackPool(string weightedPipe)
+        {
+            if (string.IsNullOrWhiteSpace(weightedPipe))
+            {
+                return System.Array.Empty<SoldierAttackWeight>();
+            }
+
+            var parts = weightedPipe.Split('|');
+            var list = new List<SoldierAttackWeight>(parts.Length);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var segment = parts[i] != null ? parts[i].Trim() : string.Empty;
+                if (segment.Length == 0)
+                {
+                    continue;
+                }
+
+                var semi = segment.IndexOf(';');
+                if (semi <= 0 || semi >= segment.Length - 1)
+                {
+                    Debug.LogWarning(
+                        $"[WarriorAnimView] illegal NormalAttackAnims segment '{segment}'.");
+                    continue;
+                }
+
+                var id = segment.Substring(0, semi).Trim();
+                var weightText = segment.Substring(semi + 1).Trim();
+                if (id.Length == 0
+                    || !float.TryParse(weightText, NumberStyles.Float, CultureInfo.InvariantCulture, out var weight)
+                    || weight <= 0f)
+                {
+                    Debug.LogWarning(
+                        $"[WarriorAnimView] illegal NormalAttackAnims segment '{segment}'.");
+                    continue;
+                }
+
+                list.Add(new SoldierAttackWeight { Base = id, Weight = weight });
+            }
+
+            return list.Count > 0 ? list.ToArray() : System.Array.Empty<SoldierAttackWeight>();
+        }
+
+        private bool AnimatorHasDirectionalAttack(string attackBase)
+        {
+            if (_animator == null || _animator.runtimeAnimatorController == null)
+            {
+                return false;
+            }
+
+            var stateName = ResolveAttackStateName(attackBase);
+            return _animator.HasState(0, Animator.StringToHash(stateName));
+        }
+
+        private struct SoldierAttackWeight
+        {
+            public string Base;
+            public float Weight;
         }
 
         private static string[] ParseAnimPool(string pipeSeparated, string fallback)
@@ -711,6 +833,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private void ForceEnterMoveFromAttack()
         {
             ClearAttackFacingLock();
+            ClearRangedWindupHold(restoreSpeed: true);
             ResetActiveAttackTrigger();
 
             var stateName = ResolveActiveMoveStateName();
@@ -759,14 +882,21 @@ namespace Gravedigger2026.Gameplay.Defend
             return RunStateName;
         }
 
-        public void PlayAttack()
+        /// <summary>
+        /// Play Attack clip. Optional 1-based <paramref name="rangedWindupHoldFrame"/> freezes
+        /// that frame until <see cref="ReleaseAttackHold"/> (SPEC_04 §15.5 / §3.12 ranged windup).
+        /// </summary>
+        public void PlayAttack(int rangedWindupHoldFrame = 0)
         {
             if (_dead || _reviving || _animator == null)
             {
                 return;
             }
 
-            if (!_useMonsterAnimPools && !_hasAttackTrigger)
+            var hasSoldierPool = !_useMonsterAnimPools
+                && _soldierAttackWeights != null
+                && _soldierAttackWeights.Length > 0;
+            if (!_useMonsterAnimPools && !_hasAttackTrigger && !hasSoldierPool)
             {
                 return;
             }
@@ -774,6 +904,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
+            ClearRangedWindupHold(restoreSpeed: true);
             ClearLocomotionBools();
             if (_facingDirIndex >= 0)
             {
@@ -781,10 +912,20 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             var attackBase = PickAttackBase();
+            if (!_useMonsterAnimPools
+                && attackBase != DefaultAttackBase
+                && !AnimatorHasDirectionalAttack(attackBase))
+            {
+                Debug.LogWarning(
+                    $"[WarriorAnimView] attack state '{attackBase}' missing for current facing; using {DefaultAttackBase}.");
+                attackBase = DefaultAttackBase;
+            }
+
             _activeAttackBase = attackBase;
             CacheActiveAttackTrigger(attackBase);
             ResetActiveAttackTrigger();
 
+            _animator.speed = 1f;
             _animator.Play(ResolveAttackStateName(attackBase), 0, 0f);
             FlushAnimatorParams();
             ArmAttackFacingLock();
@@ -793,6 +934,22 @@ namespace Gravedigger2026.Gameplay.Defend
                 _animator.SetTrigger(_activeAttackTriggerHash);
                 FlushAnimatorParams();
             }
+
+            if (rangedWindupHoldFrame > 0)
+            {
+                _rangedWindupHoldFrame = rangedWindupHoldFrame;
+                _attackHoldArmed = true;
+                _attackHoldFrozen = false;
+                _attackHoldNormalized = 0f;
+            }
+        }
+
+        /// <summary>
+        /// End ranged windup hold: resume Attack clip playback after frozen hold frame.
+        /// </summary>
+        public void ReleaseAttackHold()
+        {
+            ClearRangedWindupHold(restoreSpeed: true);
         }
 
         /// <summary>UI-016 card reveal: one-shot Creator Taunt (SPEC_04 §15.5).</summary>
@@ -847,6 +1004,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
             ClearAttackFacingLock();
+            ClearRangedWindupHold(restoreSpeed: false);
             _dieStartedAt = Time.time;
             _lastGoodDieNormalizedTime = 0f;
             _dieStateFullPathHash = 0;
@@ -1002,6 +1160,59 @@ namespace Gravedigger2026.Gameplay.Defend
             if (!IsPlayingAttackClip(_activeAttackBase))
             {
                 ClearAttackFacingLock();
+            }
+        }
+
+        private void TickRangedWindupHold()
+        {
+            if (!_attackHoldArmed || _attackHoldFrozen || _dead || _reviving || _animator == null)
+            {
+                return;
+            }
+
+            if (!IsPlayingAttackClip(_activeAttackBase))
+            {
+                return;
+            }
+
+            var infos = _animator.GetCurrentAnimatorClipInfo(0);
+            if (infos == null || infos.Length == 0 || infos[0].clip == null)
+            {
+                return;
+            }
+
+            var clip = infos[0].clip;
+            var frameCount = Mathf.Max(1, Mathf.RoundToInt(clip.length * clip.frameRate));
+            var holdFrame = Mathf.Clamp(_rangedWindupHoldFrame, 1, frameCount);
+            // 1-based: frame 1 → normalized 0; last frame → (N-1)/N start of last sprite.
+            _attackHoldNormalized = (holdFrame - 1) / (float)frameCount;
+
+            var state = _animator.GetCurrentAnimatorStateInfo(0);
+            var normalized = state.normalizedTime;
+            if (normalized >= 1f)
+            {
+                normalized %= 1f;
+            }
+
+            if (normalized + 0.0001f < _attackHoldNormalized)
+            {
+                return;
+            }
+
+            _animator.Play(state.fullPathHash, 0, _attackHoldNormalized);
+            _animator.speed = 0f;
+            _attackHoldFrozen = true;
+        }
+
+        private void ClearRangedWindupHold(bool restoreSpeed)
+        {
+            _attackHoldArmed = false;
+            _attackHoldFrozen = false;
+            _rangedWindupHoldFrame = 0;
+            _attackHoldNormalized = 0f;
+            if (restoreSpeed && _animator != null && !_dead && !_reviving)
+            {
+                _animator.speed = 1f;
             }
         }
 

@@ -836,6 +836,8 @@ namespace Gravedigger2026.Core.PushMap
                 AttackRange = (classRow != null ? Math.Max(0.1f, classRow.AttackRange) : 1.5f)
                     * WarriorVisualModelScale.Resolve(warrior),
                 MeleeWindupSeconds = classRow != null ? Math.Max(0f, classRow.MeleeWindupSeconds) : 0.3f,
+                RangedWindupHoldFrame = classRow != null ? Math.Max(0, classRow.RangedWindupHoldFrame) : 0,
+                NormalAttackAnims = classRow != null ? classRow.NormalAttackAnims ?? string.Empty : string.Empty,
                 RangedProjectileSpeed = classRow != null ? Math.Max(0.1f, classRow.RangedProjectileSpeed) : 10f,
                 RangedTimeoutSeconds = classRow != null ? Math.Max(0.1f, classRow.RangedTimeoutSeconds) : 2f,
                 HasGems = warrior.GemIds != null && warrior.GemIds.Count > 0,
