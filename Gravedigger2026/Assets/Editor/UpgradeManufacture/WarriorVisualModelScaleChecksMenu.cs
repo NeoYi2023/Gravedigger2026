@@ -7,7 +7,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
 {
     public static class WarriorVisualModelScaleChecksMenu
     {
-        [MenuItem("Gravedigger2026/AutoManufacture/Run Warrior VisualModelScale Correctness (D-082)")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Run Warrior VisualModelScale Correctness (D-082)（运行士兵 VisualModelScale 正确性）")]
         public static void Run()
         {
             var error = WarriorVisualModelScaleCorrectnessChecks.RunAll();

@@ -24,7 +24,7 @@ namespace Gravedigger2026.Editor.Maps
             "Assets/Art/Maps/RuleTiles"
         };
 
-        [MenuItem("Gravedigger2026/Maps/Remap PushMap_Demo_03 SSI Tiles To Art (FantasyTileset_A names)")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Remap PushMap_Demo_03 SSI Tiles To Art (FantasyTileset_A names)（将 PushMap_Demo_03 SSI 瓦片重映射到 Art）")]
         public static void RemapPushMapDemo03Menu()
         {
             RemapPushMapDemo03();

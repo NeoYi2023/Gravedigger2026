@@ -135,21 +135,21 @@ namespace Gravedigger2026.Editor.Meta
             };
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure TitleMenu (UI-027)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure TitleMenu (UI-027)（确保标题菜单）")]
         public static void EnsureTitleMenuMenu()
         {
             EnsureTitleMenuOnExistingPrefab();
             EditorPrefs.SetBool(TitleMenuRegenPrefsKey, true);
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure TitleSettingsPanel (UI-028)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure TitleSettingsPanel (UI-028)（确保标题设置面板）")]
         public static void EnsureTitleSettingsPanelMenu()
         {
             EnsureTitleSettingsPanelOnExistingPrefab();
             EditorPrefs.SetBool(TitleSettingsRegenPrefsKey, true);
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure InSaveShellPanel (UI-029)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure InSaveShellPanel (UI-029)（确保存档内壳层面板）")]
         public static void EnsureInSaveShellPanelMenu()
         {
             EnsureInSaveShellPanelOnExistingPrefab();
@@ -835,7 +835,7 @@ namespace Gravedigger2026.Editor.Meta
                 new Vector2(200f, 48f));
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure LevelSelectPanel (UI-008)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure LevelSelectPanel (UI-008)（确保关卡选择面板）")]
         public static void EnsureLevelSelectPanelMenu()
         {
             EnsureLevelSelectPanelOnExistingPrefab();
@@ -897,7 +897,7 @@ namespace Gravedigger2026.Editor.Meta
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure GmGrantListPanel (UI-019)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure GmGrantListPanel (UI-019)（确保 GM 发放列表面板）")]
         public static void EnsureGmGrantListPanelMenu()
         {
             EnsureGmGrantListPanelOnExistingPrefab();
@@ -979,7 +979,7 @@ namespace Gravedigger2026.Editor.Meta
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure GmAddSoldierPanel (UI-020)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure GmAddSoldierPanel (UI-020)（确保 GM 添加士兵面板）")]
         public static void EnsureGmAddSoldierPanelMenu()
         {
             EnsureGmAddSoldierPanelOnExistingPrefab();
@@ -1031,7 +1031,7 @@ namespace Gravedigger2026.Editor.Meta
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure InSaveEquipMagicBookPanels (UI-022/023)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure InSaveEquipMagicBookPanels (UI-022/023)（确保存档内装备与魔法书面板）")]
         public static void EnsureInSaveEquipMagicBookPanelsMenu()
         {
             EnsureInSaveEquipMagicBookPanelsOnExistingPrefab();
@@ -1149,7 +1149,7 @@ namespace Gravedigger2026.Editor.Meta
             AssetDatabase.Refresh();
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure EquipmentWarehouseList (UI-022)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure EquipmentWarehouseList (UI-022)（确保装备仓库列表）")]
         public static void EnsureEquipmentWarehouseListMenu()
         {
             EnsureEquipmentWarehouseListOnExistingPrefab();
@@ -1162,7 +1162,7 @@ namespace Gravedigger2026.Editor.Meta
             EnsureEquipmentWarehouseListMenu();
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure MagicBook BookRow (UI-023)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure MagicBook BookRow (UI-023)（确保魔法书行）")]
         public static void EnsureMagicBookBookRowMenu()
         {
             EnsureMagicBookBookRowOnExistingPrefab();
@@ -2368,7 +2368,7 @@ namespace Gravedigger2026.Editor.Meta
             return view;
         }
 
-        [MenuItem("Gravedigger2026/Meta/Ensure MagicBook DeleteButton (UI-023 / D-072)")]
+        [MenuItem("Gravedigger2026/Meta（元游戏壳）/Ensure MagicBook DeleteButton (UI-023 / D-072)（确保魔法书删除按钮）")]
         public static void EnsureMagicBookDeleteButtonMenu()
         {
             EnsureInSaveEquipMagicBookPanelsOnExistingPrefab();

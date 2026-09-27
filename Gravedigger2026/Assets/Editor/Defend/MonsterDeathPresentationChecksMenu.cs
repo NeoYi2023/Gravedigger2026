@@ -8,7 +8,7 @@ namespace Gravedigger2026.Editor.Defend
 {
     public static class MonsterDeathPresentationChecksMenu
     {
-        [MenuItem("Gravedigger2026/Combat/Run Corpse Projectile Correctness Checks (D-083)")]
+        [MenuItem("Gravedigger2026/Combat（战斗）/Run Corpse Projectile Correctness Checks (D-083)（运行尸体抛射正确性检查）")]
         public static void RunAll()
         {
             var error = CorpseProjectileCorrectnessChecks.RunAll();
@@ -22,7 +22,7 @@ namespace Gravedigger2026.Editor.Defend
             }
         }
 
-        [MenuItem("Gravedigger2026/Combat/Run Corpse Projectile Parabolic Checks")]
+        [MenuItem("Gravedigger2026/Combat（战斗）/Run Corpse Projectile Parabolic Checks（运行尸体抛射抛物线检查）")]
         public static void RunParabolic()
         {
             var error = MonsterDeathPresentationCorrectnessChecks.RunAll();
@@ -36,7 +36,7 @@ namespace Gravedigger2026.Editor.Defend
             }
         }
 
-        [MenuItem("Gravedigger2026/Combat/Run Corpse Smash Rules Checks (D-083)")]
+        [MenuItem("Gravedigger2026/Combat（战斗）/Run Corpse Smash Rules Checks (D-083)（运行尸体砸击规则检查）")]
         public static void RunSmashRules()
         {
             var error = CorpseSmashCombatCorrectnessChecks.RunAll();

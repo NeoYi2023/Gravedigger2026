@@ -52,7 +52,7 @@ namespace Gravedigger2026.Editor.Tech
             };
         }
 
-        [MenuItem("Gravedigger2026/Tech/Generate TechTree Canvas Prefab")]
+        [MenuItem("Gravedigger2026/Tech（科技树）/Generate TechTree Canvas Prefab（生成科技树画布预制体）")]
         public static void GenerateAll()
         {
             EnsureFolder("Assets/Prefabs");

@@ -61,7 +61,7 @@ namespace Gravedigger2026.Editor.Maps
         /// Rebinds Environment Tile→Sprite by name, then re-applies every FantasyTileset_A cell
         /// so Tilemap's cached TileSpriteArray matches each Tile's own sprite (palette icons).
         /// </summary>
-        [MenuItem("Gravedigger2026/Maps/Refresh FantasyTileset_A Sprite Cache")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Refresh FantasyTileset_A Sprite Cache（刷新 FantasyTileset_A Sprite 缓存）")]
         public static void RefreshFantasyTilesetASpriteCache()
         {
             var rebound = FantasyTilesetPaletteBuilder.RebindTileSpritesByName();
@@ -106,13 +106,13 @@ namespace Gravedigger2026.Editor.Maps
         /// <summary>
         /// Legacy menu alias — same as Correct FantasyTileset_A From FantasyTileset.
         /// </summary>
-        [MenuItem("Gravedigger2026/Maps/Align FantasyTileset_A Layout From SSI")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Align FantasyTileset_A Layout From SSI（按 SSI 对齐 FantasyTileset_A 布局）")]
         public static void AlignFantasyTilesetALayoutFromSsi()
         {
             CorrectFantasyTilesetAFromFantasyTileset();
         }
 
-        [MenuItem("Gravedigger2026/Maps/Correct FantasyTileset_A From FantasyTileset")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Correct FantasyTileset_A From FantasyTileset（从 FantasyTileset 校正 FantasyTileset_A）")]
         public static void CorrectFantasyTilesetAFromFantasyTilesetMenu()
         {
             CorrectFantasyTilesetAFromFantasyTileset();

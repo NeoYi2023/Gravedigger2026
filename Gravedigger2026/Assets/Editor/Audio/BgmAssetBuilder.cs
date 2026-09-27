@@ -21,7 +21,7 @@ namespace Gravedigger2026.Editor.Audio
         private const string MetaRootPath = "Assets/Prefabs/Meta/MetaShellRoot.prefab";
         private const string BootScenePath = "Assets/Scenes/Boot.unity";
 
-        [MenuItem("Gravedigger2026/Audio/Generate BGM Catalog + Wire Meta")]
+        [MenuItem("Gravedigger2026/Audio（音频）/Generate BGM Catalog + Wire Meta（生成 BGM 目录并接线 Meta）")]
         public static void GenerateAll()
         {
             EnsureCatalog();

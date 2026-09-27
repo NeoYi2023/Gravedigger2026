@@ -40,7 +40,7 @@ namespace Gravedigger2026.Editor.Shop
             };
         }
 
-        [MenuItem("Gravedigger2026/Shop/Generate Shop Prefab + Catalog")]
+        [MenuItem("Gravedigger2026/Shop（商店）/Generate Shop Prefab + Catalog（生成商店预制体与目录）")]
         public static void GenerateAll()
         {
             EnsureFolders();
@@ -73,7 +73,7 @@ namespace Gravedigger2026.Editor.Shop
         /// <summary>
         /// Surgical patch: UI-026 Background (Title_Shop_1 + AspectRatioFitter EnvelopeParent).
         /// </summary>
-        [MenuItem("Gravedigger2026/Shop/Ensure Shop Background (UI-026)")]
+        [MenuItem("Gravedigger2026/Shop（商店）/Ensure Shop Background (UI-026)（确保商店背景）")]
         public static void EnsureShopBackground()
         {
             var presentation = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);

@@ -95,7 +95,7 @@ namespace Gravedigger2026.Gameplay.Pathing
 
             GUI.Label(
                 new Rect(20f, y, w - 20f, 40f),
-                "Menu: Gravedigger2026/Pathing/Run MassPathing 200v200 Perf Stress\n" +
+                "Menu: Gravedigger2026/Pathing（寻路）/Run MassPathing 200v200 Perf Stress（运行 MassPathing 200v200 性能压测）\n" +
                 "ContextMenu on this component: Run Headless / Start Live / Clear",
                 style);
         }

@@ -82,7 +82,7 @@ namespace Gravedigger2026.Editor.Formation
             };
         }
 
-        [MenuItem("Gravedigger2026/Formation/Generate Tactical Formation Pattern Prefabs")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Generate Tactical Formation Pattern Prefabs（生成战术阵型图案预制体）")]
         public static void GenerateSamplePatterns()
         {
             EnsureFolders();

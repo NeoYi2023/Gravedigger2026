@@ -45,7 +45,7 @@ namespace Gravedigger2026.Editor.Dig
             };
         }
 
-        [MenuItem("Gravedigger2026/Dig/Bake All Grave Hit Shapes")]
+        [MenuItem("Gravedigger2026/Dig（挖掘）/Bake All Grave Hit Shapes（烘焙全部坟墓受击形状）")]
         public static void BakeAllGravesMenu()
         {
             BakeAllGraves();

@@ -88,7 +88,7 @@ namespace Gravedigger2026.Editor.Maps
             }
         }
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Tiles + Rebuild Map Tilemaps")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Tiles + Rebuild Map Tilemaps（确保瓦片并重建地图 Tilemap）")]
         public static void EnsureTilesAndForceRebuildMaps()
         {
             EnsureFolders();
@@ -106,7 +106,7 @@ namespace Gravedigger2026.Editor.Maps
         }
 
         /// <summary>Batch / menu: align WalkSurface + EngageZone + SpawnClock to IsoDiamond without force-repainting tiles.</summary>
-        [MenuItem("Gravedigger2026/Maps/Align IsoDiamond Footprints")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Align IsoDiamond Footprints（对齐等距菱形脚印）")]
         public static void AlignIsoDiamondFootprints()
         {
             for (var i = 0; i < MapIds.Length; i++)
@@ -120,7 +120,7 @@ namespace Gravedigger2026.Editor.Maps
             Debug.Log("[MapTilemapAssetBuilder] IsoDiamond WalkSurface / Engage / Spawn aligned.");
         }
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Tiles Only")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Tiles Only（仅确保瓦片）")]
         public static void MenuEnsureTilesOnly()
         {
             EnsureFolders();

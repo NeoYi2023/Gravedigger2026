@@ -44,7 +44,7 @@ namespace Gravedigger2026.Editor.Maps
             EditorApplication.delayCall += EnsureCompileGuard;
         }
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Fantasy Tileset Example Compile Guard")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Fantasy Tileset Example Compile Guard（确保 Fantasy Tileset 示例编译防护）")]
         public static void EnsureCompileGuardMenu()
         {
             EnsureCompileGuard();

@@ -78,7 +78,7 @@ namespace Gravedigger2026.Editor.Dig
             };
         }
 
-        [MenuItem("Gravedigger2026/Dig/Ensure Dig Summary Item Grid (UI-011)")]
+        [MenuItem("Gravedigger2026/Dig（挖掘）/Ensure Dig Summary Item Grid (UI-011)（确保挖掘结算物品格子）")]
         public static void EnsureSummaryItemGridMenu()
         {
             EnsureSummaryItemGrid();
@@ -270,7 +270,7 @@ namespace Gravedigger2026.Editor.Dig
             return contentRt;
         }
 
-        [MenuItem("Gravedigger2026/Dig/Ensure Missing Grave Prefabs + Catalog")]
+        [MenuItem("Gravedigger2026/Dig（挖掘）/Ensure Missing Grave Prefabs + Catalog（确保缺失坟墓预制体与目录）")]
         public static void EnsureMissingGravePrefabsMenu()
         {
             EnsureMissingGravePrefabs();
@@ -339,7 +339,7 @@ namespace Gravedigger2026.Editor.Dig
             }
         }
 
-        [MenuItem("Gravedigger2026/Dig/Generate Dig Prefabs + Catalog")]
+        [MenuItem("Gravedigger2026/Dig（挖掘）/Generate Dig Prefabs + Catalog（生成挖掘预制体与目录）")]
         public static void GenerateAll()
         {
             EnsureFolders();

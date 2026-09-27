@@ -34,7 +34,7 @@ namespace Gravedigger2026.Editor.Maps
         /// <summary>Fixed FantasyTileset_A cell for RT_WallA (do not use (-1,0); shifts SSI layout).</summary>
         public static readonly Vector3Int RtWallAPaletteSlot = new Vector3Int(30, -43, 0);
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Wall A Rule Tile (RT_WallA)（确保墙 A Rule Tile）")]
         public static void EnsureWallARuleTile()
         {
             EnsureFolder(RuleTilesDir);

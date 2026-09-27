@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.51
-**最后更新 / Last Updated:** 2026-09-11
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；Demo 须另授权）  
+**文档版本 / Document Version:** v0.84.52
+**最后更新 / Last Updated:** 2026-09-27
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；**Editor 菜单中英双语 v0.84.52**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-27 | v0.84.52 | Editor 顶栏 `Gravedigger2026` 菜单项改为 `English（中文）` 双语（二级目录+叶子；根名不变）。同步 SPEC_04 §3、各菜单路径引用与 `Assets/Editor/**` MenuItem |
 | 2026-09-11 | v0.84.51 | UI-016 StepB：该兵 StepA 堆中躯体（按 WarriorId）在谜底上升期间错开飞入视觉中心并闪红消失；常量 `AutoMfgBodyAbsorb*`。选定 1A+2A。同步 SPEC_03 §3.6/§3.8/§3.15、SPEC_04 §6/§9.20b、CONTEXT |
 | 2026-09-10 | v0.84.50 | UI-016 StepB：谜底 `UnknownSoldier_1` 从 `MagicCircle` 中心出现，与 6 书槽脉冲并行；每槽上升全程 1/6，峰值闪烁；第 6 槽结束脚底到 `LandY` 变兵定住（不再重力下落）；加速 `1.25^floor(n/3)` 共用。`AutoMfgReviveSpawnOffsetYPx` Demo 不再作出生 Y（键保留）。选定方案 B。同步 SPEC_03 §3.6/§3.8/§3.15、SPEC_04 §6/§9.20b |
 | 2026-09-10 | v0.84.49 | Dig HUD `GmMenuPanel`：新增「少量增加躯体材料」（`GmAddFewBodyPartsButton`）→ 全表 BodyPart 各 +2；原「增加躯体材料」仍各 +10。同步 SPEC_03 §3.10、`DigHudView`/`DigStageController`/`DigAssetBuilder` |
@@ -450,7 +451,7 @@
 | 2026-07-28 | v0.47.3 | 怪物 ModelId 有 Art 时组装 `Visual`（Sprite/Animator）并移除占位立方体；`MonsterModelPrefabAssembler` + DefendAssetBuilder；本片 `MonsterModel_01`…`04`；同步 SPEC_04 §15.2 / D-041 |
 | 2026-07-28 | v0.47.2 | 修复默认解锁科技未提供 `DigCursorRadius`，导致 Dig 圆圈仅显示最小尺寸且无法命中坟墓；锁定 Demo 初始 `DigDamage=25`、`DigCursorRadius=2.5`；同步 SPEC_03 §3.10 / TechEffectConfig |
 | 2026-07-28 | v0.47.1 | Defend HUD：`DefendRoot` 上 Image 关闭且不使用（无全屏遮罩）；同步 Prefab / DefendAssetBuilder / SPEC_04 §6 D-040 |
-| 2026-07-28 | v0.47.0 | Editor 打表工具方案 A：`Gravedigger2026/Config/Bake Tables`；纯 C# Open XML 解析 Excel→Csv；四段名映射 + 表头校验；全量 schema 校验后置；同步 SPEC_04 §14/§6、SPEC_03 §3.8、CONTEXT |
+| 2026-07-28 | v0.47.0 | Editor 打表工具方案 A：`Gravedigger2026/Config（配置）/Bake Tables（烘焙配置表）`；纯 C# Open XML 解析 Excel→Csv；四段名映射 + 表头校验；全量 schema 校验后置；同步 SPEC_04 §14/§6、SPEC_03 §3.8、CONTEXT |
 | 2026-07-28 | v0.46.5 | 角色 spritesheet 切片误用 NPOT 2048 宽（格宽≈136.53，应为 128）致换帧左漂：导出/Repair 强制源尺寸重切；批量修复 `Art/Characters` meta；同步 SPEC_04 §15.3 |
 | 2026-07-28 | v0.46.4 | Digger / BattleProtagonist 换 2D 烘焙整角：游戏 Prefab 根 + `Visual`（Sprite/Animator，`localEuler(90,0,0)`）；Dig 语义→`Special1`；固定 `DirIndex=2`（南）；`DigDiggerView` 驱动循环；Assembler + Builder 禁 Capsule 回退；同步 SPEC_04 §15.2/§15.5 |
 | 2026-07-28 | v0.46.3 | Dig 圆圈光标 UI Prefab：`UiDigCursorRing`（双层圆：白半透明填充 + 像素恒定描边）；`DigPrefabCatalog` 绑定；规则仍按圆半径判定；同步 SPEC_03 §3.10 / SPEC_04 §6/§9 |
@@ -516,6 +517,8 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-27 | v0.84.52 | Editor top menu `Gravedigger2026` items use bilingual `English（中文）` labels (folders + leaves; root unchanged). Synced SPEC_04 §3, menu path citations, and `Assets/Editor/**` MenuItems |
+| 2026-09-11 | v0.84.51 | UI-016 StepB: that warrior's StepA pile bodies (by WarriorId) stagger-fly into the mystery visual center during rise, flash red, and despawn; constants `AutoMfgBodyAbsorb*`. Approach 1A+2A. Synced SPEC_03 §3.6/§3.8/§3.15, SPEC_04 §6/§9.20b, CONTEXT |
 | 2026-09-10 | v0.84.50 | UI-016 StepB: mystery `UnknownSoldier_1` spawns at `MagicCircle` center, rises in parallel with 6 book pulses (1/6 per slot + flash at peak); lands at `LandY` then morphs Idle in place (no gravity fall); shared speed `1.25^floor(n/3)`. `AutoMfgReviveSpawnOffsetYPx` no longer Demo spawn Y (key retained). Approach B. Synced SPEC_03 §3.6/§3.8/§3.15, SPEC_04 §6/§9.20b |
 | 2026-09-10 | v0.84.49 | Dig HUD `GmMenuPanel`: add "Add Few Body Parts" (`GmAddFewBodyPartsButton`) → +2 each BodyPart row; existing Add Body Parts still +10. Synced SPEC_03 §3.10, `DigHudView`/`DigStageController`/`DigAssetBuilder` |
 | 2026-09-10 | v0.84.48 | UI-016 StepB: new revived soldier falls at center; landed row lerps left to make room; pitch ×`AutoMfgSoldierPitchFactor` (sample 0.5→256); foot shadow Demo-hidden (`ShadowAlpha=0`). Synced SPEC_03 §3.6/§3.15, SPEC_04 §9.20b, combat constants |
@@ -893,7 +896,7 @@
 | 2026-07-28 | v0.48.0 | Formation drag editor: UM two panels + Formation/Return; shared `FormationEditorRoot` (80×80 soldier bar, drag deploy/reposition/undeploy, ControlPower HUD); Defend Prepare reuses; `TryDeployAt`; synced SPEC_03 §3.6/§3.8/§3.11/§3.12, SPEC_04 §6, CONTEXT |
 | 2026-07-28 | v0.47.2 | Fixed default-unlocked tech missing `DigCursorRadius`, which left the Dig circle at minimum visual size and prevented grave hits; locked Demo initial `DigDamage=25` and `DigCursorRadius=2.5`; synced SPEC_03 §3.10 / TechEffectConfig |
 | 2026-07-28 | v0.47.1 | Defend HUD: disable unused `Image` on `DefendRoot` (no fullscreen overlay); synced Prefab / DefendAssetBuilder / SPEC_04 §6 D-040 |
-| 2026-07-28 | v0.47.0 | Editor Bake Tables Approach A: `Gravedigger2026/Config/Bake Tables`; pure-C# Open XML Excel→Csv; four-part name map + header check; full §9 schema validation deferred; synced SPEC_04 §14/§6, SPEC_03 §3.8, CONTEXT |
+| 2026-07-28 | v0.47.0 | Editor Bake Tables Approach A: `Gravedigger2026/Config（配置）/Bake Tables（烘焙配置表）`; pure-C# Open XML Excel→Csv; four-part name map + header check; full §9 schema validation deferred; synced SPEC_04 §14/§6, SPEC_03 §3.8, CONTEXT |
 | 2026-07-28 | v0.46.5 | Character spritesheet sliced with NPOT-padded 2048 width (~136.53 cells vs correct 128) caused leftward frame drift: export/Repair force source-size reslice; batch-fix `Art/Characters` metas; synced SPEC_04 §15.3 |
 | 2026-07-28 | v0.46.4 | Digger / BattleProtagonist → 2D baked whole characters: game Prefab root + `Visual` (Sprite/Animator, `localEuler(90,0,0)`); Dig semantics→`Special1`; fixed `DirIndex=2` (South); `DigDiggerView` loops dig; Assembler + Builders ban Capsule regen; synced SPEC_04 §15.2/§15.5 |
 | 2026-07-28 | v0.46.3 | Dig circle-cursor UI Prefab `UiDigCursorRing` (dual circle: white semi-transparent fill + fixed-pixel stroke); bound on `DigPrefabCatalog`; hit test remains circular radius; synced SPEC_03 §3.10 / SPEC_04 §6/§9 |

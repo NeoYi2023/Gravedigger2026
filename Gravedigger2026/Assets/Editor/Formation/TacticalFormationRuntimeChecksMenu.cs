@@ -8,7 +8,7 @@ namespace Gravedigger2026.Editor.Formation
         /// <summary>TF-04a/04b/05 scene-free correctness (SPEC_03 §3.18 / SPEC_04 §9.7 / §9.30).</summary>
         public static class TacticalFormationRuntimeChecksMenu
         {
-            [MenuItem("Gravedigger2026/Formation/Run Tactical Formation Runtime Correctness (TF-04a)")]
+            [MenuItem("Gravedigger2026/Formation（阵型）/Run Tactical Formation Runtime Correctness (TF-04a)（运行战术阵型运行时正确性）")]
             public static void RunAll()
             {
                 var error = TacticalFormationRuntimeCorrectnessChecks.RunAll();

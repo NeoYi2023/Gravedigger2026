@@ -58,7 +58,7 @@ namespace Gravedigger2026.Editor.PushMap
             }
         }
 
-        [MenuItem("Gravedigger2026/PushMap/Bake Camera Follow Path")]
+        [MenuItem("Gravedigger2026/PushMap（推进图）/Bake Camera Follow Path（烘焙相机跟随路径）")]
         public static void BakeSelectedOrOpenPrefabs()
         {
             var selected = Selection.GetFiltered<PushMapCameraPath>(SelectionMode.Deep);

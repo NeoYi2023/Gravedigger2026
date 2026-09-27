@@ -22,7 +22,7 @@ namespace Gravedigger2026.Editor.PushMap
         private static string SourcePrefabPath => $"{PrefabMapsDir}/{SourceMapId}.prefab";
         private static string SamplePrefabPath => $"{PrefabMapsDir}/{SampleMapId}.prefab";
 
-        [MenuItem("Gravedigger2026/PushMap/Ensure Sample Map Prefab")]
+        [MenuItem("Gravedigger2026/PushMap（推进图）/Ensure Sample Map Prefab（确保样例地图预制体）")]
         public static void EnsureSampleMapPrefabMenu()
         {
             if (EnsureSampleMapPrefab())

@@ -358,7 +358,7 @@ namespace Gravedigger2026.Meta
             if (_titleMenuView == null)
             {
                 Debug.LogWarning(
-                    "[MetaShell] TitleMenuView missing — run menu Gravedigger2026/Meta/Ensure TitleMenu (UI-027). Falling back to SaveSelect.");
+                    "[MetaShell] TitleMenuView missing — run menu Gravedigger2026/Meta（元游戏壳）/Ensure TitleMenu (UI-027)（确保标题菜单）. Falling back to SaveSelect.");
                 ShowSaveSelect();
                 return;
             }
@@ -719,7 +719,7 @@ namespace Gravedigger2026.Meta
             {
                 Debug.LogWarning(
                     "[MetaShell] TitleSettingsPanel was missing — created runtime fallback. " +
-                    "Run menu Gravedigger2026/Meta/Ensure TitleSettingsPanel (UI-028) to bake Prefab.");
+                    "Run menu Gravedigger2026/Meta（元游戏壳）/Ensure TitleSettingsPanel (UI-028)（确保标题设置面板） to bake Prefab.");
             }
         }
 

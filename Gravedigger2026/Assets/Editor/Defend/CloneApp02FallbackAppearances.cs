@@ -20,7 +20,7 @@ namespace Gravedigger2026.Editor.Defend
         private const string DefendCatalogPath = "Assets/Settings/Defend/DefendPrefabCatalog.asset";
         private const string UmCatalogPath = "Assets/Settings/UpgradeManufacture/UpgradeManufacturePrefabCatalog.asset";
         private const string AppearanceCsv = "Manufacture_BodyAppearanceConfig.csv";
-        private const string MenuPath = "Gravedigger2026/Defend/Clone App_02 Fallbacks App_90-99";
+        private const string MenuPath = "Gravedigger2026/Defend（防守）/Clone App_02 Fallbacks App_90-99（克隆 App_02 回退外观 App_90-99）";
 
         [MenuItem(MenuPath)]
         public static void CloneAndRefreshCatalogs()

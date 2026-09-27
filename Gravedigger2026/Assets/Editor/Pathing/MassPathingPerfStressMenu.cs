@@ -9,7 +9,7 @@ namespace Gravedigger2026.Editor.Pathing
     /// <summary>MP-07 Debug menu: repeatable 200v200 move-logic Stopwatch (SPEC_04 §9.7).</summary>
     public static class MassPathingPerfStressMenu
     {
-        [MenuItem("Gravedigger2026/Pathing/Run MassPathing 200v200 Perf Stress")]
+        [MenuItem("Gravedigger2026/Pathing（寻路）/Run MassPathing 200v200 Perf Stress（运行 MassPathing 200v200 性能压测）")]
         public static void Run200v200()
         {
             var result = MassPathingPerfStress.Run();
@@ -22,7 +22,7 @@ namespace Gravedigger2026.Editor.Pathing
                 "OK");
         }
 
-        [MenuItem("Gravedigger2026/Pathing/Run MassPathing 200v200 SoftCollision Compare (SC-04)")]
+        [MenuItem("Gravedigger2026/Pathing（寻路）/Run MassPathing 200v200 SoftCollision Compare (SC-04)（运行 MassPathing 200v200 软碰撞对比）")]
         public static void RunSoftCollisionCompare()
         {
             var compare = MassPathingPerfStress.RunSoftCollisionCompare();
@@ -35,7 +35,7 @@ namespace Gravedigger2026.Editor.Pathing
                 "OK");
         }
 
-        [MenuItem("Gravedigger2026/Pathing/Run AttackSlot Correctness Checks (incl. SC-02 Surround)")]
+        [MenuItem("Gravedigger2026/Pathing（寻路）/Run AttackSlot Correctness Checks (incl. SC-02 Surround)（运行 AttackSlot 正确性检查）")]
         public static void RunAttackSlotCorrectness()
         {
             var error = AttackSlotCorrectnessChecks.RunAll();
@@ -49,7 +49,7 @@ namespace Gravedigger2026.Editor.Pathing
             }
         }
 
-        [MenuItem("Gravedigger2026/Pathing/Run SoftCollision Wire Correctness Checks (SC-03)")]
+        [MenuItem("Gravedigger2026/Pathing（寻路）/Run SoftCollision Wire Correctness Checks (SC-03)（运行软碰撞接线正确性检查）")]
         public static void RunSoftCollisionWireCorrectness()
         {
             var error = SoftCollisionWireCorrectnessChecks.RunAll();
@@ -63,7 +63,7 @@ namespace Gravedigger2026.Editor.Pathing
             }
         }
 
-        [MenuItem("Gravedigger2026/Pathing/Create MassPathingPerfStressView (scene)")]
+        [MenuItem("Gravedigger2026/Pathing（寻路）/Create MassPathingPerfStressView (scene)（创建 MassPathingPerfStressView 场景对象）")]
         public static void CreateStressViewInScene()
         {
             var go = new GameObject("MassPathingPerfStress");

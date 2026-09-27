@@ -52,7 +52,7 @@ namespace Gravedigger2026.Editor.Formation
             };
         }
 
-        [MenuItem("Gravedigger2026/Formation/Generate FormationEditor Prefab + Catalog")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Generate FormationEditor Prefab + Catalog（生成阵型编辑器预制体与目录）")]
         public static void GenerateAll()
         {
             EnsureFolders();
@@ -82,7 +82,7 @@ namespace Gravedigger2026.Editor.Formation
                 "[FormationAssetBuilder] Generated FormationEditorRoot (Mode1+Mode2) + Catalog and wired MetaShellRoot.");
         }
 
-        [MenuItem("Gravedigger2026/Formation/Patch Return Button Bottom-Right (D-064)")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Patch Return Button Bottom-Right (D-064)（修补返回按钮至右下）")]
         public static void PatchReturnButtonBottomRightMenu()
         {
             PatchReturnButtonBottomRight();
@@ -151,7 +151,7 @@ namespace Gravedigger2026.Editor.Formation
             return AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path);
         }
 
-        [MenuItem("Gravedigger2026/Formation/Patch Mode2 Path Preview Controls")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Patch Mode2 Path Preview Controls（修补 Mode2 路径预览控件）")]
         public static void PatchMode2PathPreviewControlsMenu()
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) == null)
@@ -170,7 +170,7 @@ namespace Gravedigger2026.Editor.Formation
             Debug.Log("[FormationAssetBuilder] Patched Mode2 QuickPreview + CameraPathSlider.");
         }
 
-        [MenuItem("Gravedigger2026/Formation/Patch Mode2 Soldier Hover Tooltip (D-065)")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Patch Mode2 Soldier Hover Tooltip (D-065)（修补 Mode2 士兵悬停提示）")]
         public static void PatchMode2SoldierHoverTooltipMenu()
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootMode2Path) == null)
@@ -188,7 +188,7 @@ namespace Gravedigger2026.Editor.Formation
             Debug.Log("[FormationAssetBuilder] Patched Mode2 SoldierHoverTooltip (D-065).");
         }
 
-        [MenuItem("Gravedigger2026/Formation/Patch Formation Bond HUD")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Patch Formation Bond HUD（修补阵型羁绊 HUD）")]
         public static void PatchFormationBondHudMenu()
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null)
@@ -219,7 +219,7 @@ namespace Gravedigger2026.Editor.Formation
             Debug.Log("[FormationAssetBuilder] Patched Formation Bond HUD.");
         }
 
-        [MenuItem("Gravedigger2026/Formation/Patch Tactical Formation Squad Bar (UI-030)")]
+        [MenuItem("Gravedigger2026/Formation（阵型）/Patch Tactical Formation Squad Bar (UI-030)（修补战术阵型小队条）")]
         public static void PatchTacticalFormationSquadBarMenu()
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>(EditorRootPath) == null)

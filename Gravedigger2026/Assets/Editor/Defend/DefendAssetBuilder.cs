@@ -140,7 +140,7 @@ namespace Gravedigger2026.Editor.Defend
             };
         }
 
-        [MenuItem("Gravedigger2026/Defend/Generate Defend Prefabs + Catalog")]
+        [MenuItem("Gravedigger2026/Defend（防守）/Generate Defend Prefabs + Catalog（生成防守预制体与目录）")]
         public static void GenerateAll()
         {
             EnsureFolders();
@@ -246,7 +246,7 @@ namespace Gravedigger2026.Editor.Defend
         /// Does not call GenerateAll; does not rewrite EngageZone / spawn points.
         /// SearchExtract sample map zones: <see cref="EnsureFormationClassZonesOnSearchExtractSample"/>.
         /// </summary>
-        [MenuItem("Gravedigger2026/Defend/Ensure Formation Class Zones on Maps")]
+        [MenuItem("Gravedigger2026/Defend（防守）/Ensure Formation Class Zones on Maps（确保地图阵型职业区）")]
         public static void EnsureFormationClassZonesOnMaps()
         {
             for (var i = 0; i < MapIds.Length; i++)
@@ -273,7 +273,7 @@ namespace Gravedigger2026.Editor.Defend
         /// SearchExtract_Demo_01 FormationClassZone sync (SPEC_03 §3.19 / D-074 Prepare one-click).
         /// Does not rewrite PushMap_Demo_01.
         /// </summary>
-        [MenuItem("Gravedigger2026/SearchExtract/Ensure Formation Class Zones on Sample Map")]
+        [MenuItem("Gravedigger2026/SearchExtract（搜刮撤离）/Ensure Formation Class Zones on Sample Map（确保样例地图阵型职业区）")]
         public static void EnsureFormationClassZonesOnSearchExtractSample()
         {
             var path = $"{PrefabMapsDir}/SearchExtract_Demo_01.prefab";
@@ -304,7 +304,7 @@ namespace Gravedigger2026.Editor.Defend
         /// PushMap_Demo_01/02/03 FormationClassZone sync (SPEC_03 D-057/D-074 Approach B).
         /// Anchor = CameraFollowPath/WP_Start world XZ (else DigMapBounds.Center).
         /// </summary>
-        [MenuItem("Gravedigger2026/PushMap/Ensure Formation Class Zones on Sample Maps")]
+        [MenuItem("Gravedigger2026/PushMap（推进图）/Ensure Formation Class Zones on Sample Maps（确保样例地图阵型职业区）")]
         public static void EnsureFormationClassZonesOnPushMapSamples()
         {
             var ensured = 0;

@@ -21,7 +21,7 @@ namespace Gravedigger2026.Editor.PushMap
             "PushMap_Demo_03"
         };
 
-        [MenuItem("Gravedigger2026/PushMap/Ensure Catalog Map Binding")]
+        [MenuItem("Gravedigger2026/PushMap（推进图）/Ensure Catalog Map Binding（确保目录地图绑定）")]
         public static void EnsureCatalogMapBindingMenu()
         {
             if (EnsureCatalogMapBinding())

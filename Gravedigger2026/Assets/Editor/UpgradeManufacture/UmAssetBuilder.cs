@@ -50,7 +50,7 @@ namespace Gravedigger2026.Editor.UpgradeManufacture
             };
         }
 
-        [MenuItem("Gravedigger2026/UpgradeManufacture/Generate UM Prefabs + Catalog")]
+        [MenuItem("Gravedigger2026/UpgradeManufacture（升级制造）/Generate UM Prefabs + Catalog（生成升级制造预制体与目录）")]
         public static void GenerateAll()
         {
             EnsureFolders();

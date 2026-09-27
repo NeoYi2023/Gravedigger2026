@@ -58,7 +58,7 @@ namespace Gravedigger2026.Editor.Maps
             }
         }
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Map Edge Fog")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Map Edge Fog（确保地图边缘雾）")]
         public static void MenuEnsure()
         {
             EnsureMapEdgeFogOnAllMaps();

@@ -16,8 +16,8 @@ namespace Gravedigger2026.Editor.Config
     /// </summary>
     public static class ConfigTableBaker
     {
-        private const string MenuPath = "Gravedigger2026/Config/Bake Tables";
-        private const string MenuPathMode2 = "Gravedigger2026/Config/Bake Mode2 Tables";
+        private const string MenuPath = "Gravedigger2026/Config（配置）/Bake Tables（烘焙配置表）";
+        private const string MenuPathMode2 = "Gravedigger2026/Config（配置）/Bake Mode2 Tables（烘焙 Mode2 配置表）";
         private const string LogPrefix = "[ConfigTableBaker]";
         private const int MaxHeaderScanRows = 3;
 

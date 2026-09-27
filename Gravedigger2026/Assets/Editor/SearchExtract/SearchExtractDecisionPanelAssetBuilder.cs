@@ -11,7 +11,7 @@ namespace Gravedigger2026.EditorTools.SearchExtract
         private const string PrefabPath = "Assets/Prefabs/SearchExtract/SearchExtractDecisionPanel.prefab";
         private const string ResourcesPrefabPath =
             "Assets/Resources/UI/SearchExtract/SearchExtractDecisionPanel.prefab";
-        private const string MenuPath = "Gravedigger2026/SearchExtract/Ensure DecisionPanel Prefab (UI-032)";
+        private const string MenuPath = "Gravedigger2026/SearchExtract（搜刮撤离）/Ensure DecisionPanel Prefab (UI-032)（确保决策面板预制体）";
 
         [MenuItem(MenuPath)]
         public static void EnsurePrefab()

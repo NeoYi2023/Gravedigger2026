@@ -67,7 +67,7 @@ namespace Gravedigger2026.Editor.AutoManufacture
             };
         }
 
-        [MenuItem("Gravedigger2026/AutoManufacture/Generate Presentation Prefab + Catalog")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Generate Presentation Prefab + Catalog（生成演出预制体与目录）")]
         public static void GenerateAll()
         {
             EnsureFolders();
@@ -100,7 +100,7 @@ namespace Gravedigger2026.Editor.AutoManufacture
             Debug.Log("[AmAssetBuilder] Generated AutoManufacturePresentationRoot + Catalog + BookRow.");
         }
 
-        [MenuItem("Gravedigger2026/AutoManufacture/Generate BookRow Prefab (UI-023)")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Generate BookRow Prefab (UI-023)（生成魔法书行预制体）")]
         public static GameObject EnsureBookRowPrefab()
         {
             EnsureFolders();
@@ -113,7 +113,7 @@ namespace Gravedigger2026.Editor.AutoManufacture
             return SaveBookRowPrefab();
         }
 
-        [MenuItem("Gravedigger2026/AutoManufacture/Nest BookRow into Presentation Root")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Nest BookRow into Presentation Root（将 BookRow 嵌套进演出根）")]
         public static void NestBookRowIntoExistingPresentation()
         {
             var bookRowPrefab = EnsureBookRowPrefab();
@@ -150,7 +150,7 @@ namespace Gravedigger2026.Editor.AutoManufacture
         /// Surgical patch: UI-016 Background (Title_AutoManufacture_1 + AspectRatioFitter EnvelopeParent).
         /// Does not regenerate the whole presentation Prefab.
         /// </summary>
-        [MenuItem("Gravedigger2026/AutoManufacture/Ensure Presentation Background (UI-016)")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Ensure Presentation Background (UI-016)（确保演出背景）")]
         public static void EnsurePresentationBackground()
         {
             var presentation = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
@@ -189,7 +189,7 @@ namespace Gravedigger2026.Editor.AutoManufacture
             EnsurePresentationBackground();
         }
 
-        [MenuItem("Gravedigger2026/AutoManufacture/Copy Dig Art to Resources (UI-016)")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Copy Dig Art to Resources (UI-016)（复制挖掘美术到 Resources）")]
         public static void CopyDigArtToResources()
         {
             EnsureFolder("Assets/Resources/UI/Dig");
@@ -251,7 +251,7 @@ namespace Gravedigger2026.Editor.AutoManufacture
             importer.SaveAndReimport();
         }
 
-        [MenuItem("Gravedigger2026/AutoManufacture/Ensure Body-Rain Prefabs (UI-016)")]
+        [MenuItem("Gravedigger2026/AutoManufacture（自动制造）/Ensure Body-Rain Prefabs (UI-016)（确保尸骸雨预制体）")]
         public static void EnsureBodyRainPrefabs()
         {
             EnsureFolders();

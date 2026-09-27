@@ -17,8 +17,8 @@ namespace Gravedigger2026.EditorTools.Level
     {
         private const string PrefabDir = "Assets/Prefabs/Level";
         private const string ResourcesPrefabDir = "Assets/Resources/Prefabs/Level";
-        private const string EnsureMenuPath = "Gravedigger2026/Level/Ensure LevelRouteMap Prefabs (UI-031)";
-        private const string SyncMenuPath = "Gravedigger2026/Level/Sync LevelRouteMap Pins (UI-031)";
+        private const string EnsureMenuPath = "Gravedigger2026/Level（关卡）/Ensure LevelRouteMap Prefabs (UI-031)（确保关卡路线地图预制体）";
+        private const string SyncMenuPath = "Gravedigger2026/Level（关卡）/Sync LevelRouteMap Pins (UI-031)（同步关卡路线地图钉点）";
         private const string ResourcesMapDir = "Assets/Resources/UI/SubLevelMaps";
         private const string LogPrefix = "[LevelRouteMap]";
         private const string BackgroundName = "Background";

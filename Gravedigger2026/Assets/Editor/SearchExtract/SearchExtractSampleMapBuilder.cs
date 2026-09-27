@@ -26,7 +26,7 @@ namespace Gravedigger2026.Editor.SearchExtract
         private static string SourcePrefabPath => $"{PrefabMapsDir}/{SourceMapId}.prefab";
         private static string SamplePrefabPath => $"{PrefabMapsDir}/{SampleMapId}.prefab";
 
-        [MenuItem("Gravedigger2026/SearchExtract/Ensure Sample Map Prefab")]
+        [MenuItem("Gravedigger2026/SearchExtract（搜刮撤离）/Ensure Sample Map Prefab（确保样例地图预制体）")]
         public static void EnsureSampleMapPrefabMenu()
         {
             if (EnsureSampleMapPrefab())
@@ -35,7 +35,7 @@ namespace Gravedigger2026.Editor.SearchExtract
             }
         }
 
-        [MenuItem("Gravedigger2026/SearchExtract/Validate Sample Map AirWalls")]
+        [MenuItem("Gravedigger2026/SearchExtract（搜刮撤离）/Validate Sample Map AirWalls（校验样例地图空气墙）")]
         public static void ValidateSampleMapAirWallsMenu()
         {
             if (ValidateSampleMapAirWalls(logPass: true))

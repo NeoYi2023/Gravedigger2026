@@ -51,7 +51,7 @@ namespace Gravedigger2026.Editor.Maps
             }
         }
 
-        [MenuItem("Gravedigger2026/Maps/Rebuild FantasyTileset Palette")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Rebuild FantasyTileset Palette（重建 FantasyTileset 调色板）")]
         public static void RebuildFantasyTilesetPalette()
         {
             if (!AssetDatabase.IsValidFolder(TilesDir))
@@ -149,7 +149,7 @@ namespace Gravedigger2026.Editor.Maps
         /// Binds each <c>Environment/Tiles/*.asset</c> sprite to the same-named sprite under
         /// <c>Environment/Sprites</c> (e.g. Stone A12_E → Stone A12_E).
         /// </summary>
-        [MenuItem("Gravedigger2026/Maps/Rebind Environment Tile Sprites By Name")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Rebind Environment Tile Sprites By Name（按名称重绑环境瓦片 Sprite）")]
         public static void RebindEnvironmentTileSpritesByNameMenu()
         {
             var fixedCount = RebindTileSpritesByName();

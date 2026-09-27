@@ -7,7 +7,7 @@ namespace Gravedigger2026.Editor.Defend
 {
     public static class MonsterModelIdFieldChecksMenu
     {
-        [MenuItem("Gravedigger2026/Config/Run Monster ModelId Field Correctness Checks")]
+        [MenuItem("Gravedigger2026/Config（配置）/Run Monster ModelId Field Correctness Checks（运行怪物 ModelId 字段正确性检查）")]
         public static void RunAll()
         {
             var error = MonsterModelIdFieldCorrectnessChecks.RunAll();

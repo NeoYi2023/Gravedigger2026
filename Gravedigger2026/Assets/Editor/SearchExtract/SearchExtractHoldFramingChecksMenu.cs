@@ -10,7 +10,7 @@ namespace Gravedigger2026.EditorTools.SearchExtract
         /// <summary>SE-CAM-01/03 scene-free HoldFraming solver + table-key + sample-range checks.</summary>
         public static class SearchExtractHoldFramingChecksMenu
         {
-            private const string MenuPath = "Gravedigger2026/SearchExtract/Run HoldFraming Solver Checks (SE-CAM-01)";
+            private const string MenuPath = "Gravedigger2026/SearchExtract（搜刮撤离）/Run HoldFraming Solver Checks (SE-CAM-01)（运行 HoldFraming 求解器检查）";
 
         [MenuItem(MenuPath)]
         public static void Run()

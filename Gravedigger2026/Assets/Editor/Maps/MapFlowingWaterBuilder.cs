@@ -73,13 +73,13 @@ namespace Gravedigger2026.Editor.Maps
             }
         }
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Flowing Water Layers (preserve paint)")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Flowing Water Layers (preserve paint)（确保流水层并保留绘制）")]
         public static void MenuEnsurePreservePaint()
         {
             EnsureFlowingWaterOnAllMaps(forceRepaint: false);
         }
 
-        [MenuItem("Gravedigger2026/Maps/Ensure Flowing Water Layers (force Demo pond)")]
+        [MenuItem("Gravedigger2026/Maps（地图）/Ensure Flowing Water Layers (force Demo pond)（确保流水层并强制 Demo 池塘）")]
         public static void MenuEnsureForceDemoPond()
         {
             EnsureFlowingWaterOnAllMaps(forceRepaint: true);

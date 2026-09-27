@@ -13,9 +13,9 @@ namespace Gravedigger2026.EditorTools.Level
         private const string PrefabPath = "Assets/Prefabs/Level/LevelRouteSelectRoot.prefab";
         private const string TipsPrefabPath = "Assets/Prefabs/Level/OptionHoverTips.prefab";
         private const string TipsResourcesPrefabPath = "Assets/Resources/Prefabs/Level/OptionHoverTips.prefab";
-        private const string MenuPath = "Gravedigger2026/Level/Ensure LevelRouteSelectRoot Prefab (UI-031)";
-        private const string TipsMenuPath = "Gravedigger2026/Level/Ensure OptionHoverTips Prefab (UI-031)";
-        private const string MapMenuPath = "Gravedigger2026/Level/Ensure Route Map Resources (UI-031)";
+        private const string MenuPath = "Gravedigger2026/Level（关卡）/Ensure LevelRouteSelectRoot Prefab (UI-031)（确保关卡路线选择根预制体）";
+        private const string TipsMenuPath = "Gravedigger2026/Level（关卡）/Ensure OptionHoverTips Prefab (UI-031)（确保选项悬停 Tips 预制体）";
+        private const string MapMenuPath = "Gravedigger2026/Level（关卡）/Ensure Route Map Resources (UI-031)（确保路线地图 Resources）";
         private const string ArtMapDir = "Assets/Art/UI/SubLevelMaps";
         private const string ResourcesMapDir = "Assets/Resources/UI/SubLevelMaps";
         private const string ArtIconsDir = "Assets/Art/UI/Icons";
