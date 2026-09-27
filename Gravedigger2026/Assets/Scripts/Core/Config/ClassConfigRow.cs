@@ -11,7 +11,7 @@ namespace Gravedigger2026.Core.Config
         public const float DefaultChaseMoveSpeedMult = 1f;
 
         /// <summary>Soldier base move speed when ClassConfig.BaseMoveSpeed missing/≤0 (SPEC_04 §9.9b).</summary>
-        public const float DefaultBaseMoveSpeed = 3.5f;
+        public const float DefaultBaseMoveSpeed = 2f;
 
         /// <summary>Retired; knockback uses CombatConstantConfig (SPEC_04 §15.5). Kept for load compat.</summary>
         public const float DefaultDeathKnockbackMult = 1f;

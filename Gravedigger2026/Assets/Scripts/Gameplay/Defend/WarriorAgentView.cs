@@ -258,7 +258,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     taskLabel = gameObject.AddComponent<WarriorTaskDebugLabelView>();
                 }
 
-                taskLabel.Bind(_scheduler, _moveId);
+                taskLabel.Bind(_scheduler, _moveId, resolveMoveSpeed: ResolveEffectiveMoveSpeed);
             }
 
             EnsureFootCircle();
@@ -759,7 +759,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_attackPhase != AttackPhase.Windup)
             {
-                _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
+                _anim.SetMoving(
+                    moving,
+                    ResolveMoveTargetDistanceXZ(),
+                    locomotionPlaybackRate: WarriorAnimView.ResolveMovePlaybackRate(
+                        ResolveEffectiveMoveSpeed(),
+                        WarriorAnimView.SoldierMoveAnimReferenceSpeed));
             }
 
             if (moving)
@@ -920,7 +925,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     }
 
                     _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
-                    _anim.PlayAttack();
+                    _anim.PlayAttack(0, state.AttackSpeed);
                 }
             }
 
@@ -997,7 +1002,8 @@ namespace Gravedigger2026.Gameplay.Defend
                 _anim.PlayAttack(
                     state.AttackMode == AttackMode.Ranged && state.MeleeWindupSeconds > 0f
                         ? state.RangedWindupHoldFrame
-                        : 0);
+                        : 0,
+                    state.AttackSpeed);
             }
         }
 

@@ -812,8 +812,8 @@ DefendGameplayConfig {
 - **与现网 Demo 过渡：** MP 切片落地前，现有单 Agent NavMesh 行为仍可运行；切片验收后推进/追击须切到本契约；不得回退为全员 HighQuality RVO 作为规模方案
 - **士兵任务 Debug 标签（方案 A）：**
   - 路径：`Assets/Scripts/Gameplay/Pathing/WarriorTaskDebugLabelView.cs` + `WarriorTaskLabelSettings`（静态开关，**默认 `Enabled=false`**）
-  - 表现：士兵脚下运行时 `TextMesh`（俯视可读，`Euler(90,0,0)`）；localPos `(0, 0.02, -0.38)`；`Font Size=12`（`characterSize=0.12`）；只读 `MassMoveScheduler.TryGetGoal` → 中文简标：`Objective`→推进、`FormationHome`→回阵、`AttackSlot`→追击、`ChaseAnchor`→追击锚、**`FormationSlot`→阵型**（D-084）
-  - 接线：`WarriorAgentView`（Defend）与 `PushMapAdvanceView`（PushMap）在 `Bind` 时 Ensure 组件
+  - 表现：士兵脚下运行时 `TextMesh`（俯视可读，`Euler(90,0,0)`）；localPos `(0, 0.02, -0.38)`；`Font Size=12`（`characterSize=0.12`）；只读 `MassMoveScheduler.TryGetGoal` → 中文简标：`Objective`→推进、`FormationHome`→回阵、`AttackSlot`→追击、`ChaseAnchor`→追击锚、**`FormationSlot`→阵型**（D-084）；简标后接 **`(有效移速)`**（与 View 位移同口径，含 `ChaseMoveSpeedMult` 等；格式 `0.##`）；PushMap 可另附技能 CD 后缀
+  - 接线：`WarriorAgentView`（Defend）与 `PushMapAdvanceView`（PushMap / SearchExtract）在 `Bind` 时 Ensure 组件并传入当前有效移速
   - 开关：进档壳 Debug 按钮切换 `WarriorTaskLabelSettings.Enabled`（可运行时克隆既有 Debug 按钮，缺省 Prefab 槽亦可）
   - **不做：** 攻击前摇/开火等细态；怪物标签；正式 UI Prefab / 本地化 Key
 - **友军脚下圈 AllyFootCircle（v0.75.33）：**
@@ -2372,7 +2372,7 @@ MagicBookConfig {
 - 装配闸门（规则）：槽未满；若目标书 `IsUnique=1` 且已装备同 Id → 拒绝；**Demo**：表行缺失时仍允许写入以便空表手验持久化（打 Warning；按可叠处理）
 - AutoManufacture：**造兵时不套书**（默认定种族 + 授予双手职业 `DefaultSkillIds`）。UI-016 Step2 每槽脉冲峰值：`ApplyEquippedBookAtSlot(warrior, slotIndex)` 仅执行该槽 Token（`RaceWeightPick` / `StatMul` / `ForceClass` / `SoldierSkillLevelAdd`；`ForceClass` 命中 Clear 后重授技能；其它未实现空 apply + 日志）；每槽后 `RefinalizeInstance`；全部完成后按最终 ClassId 上阵。演出失败/`Exit`：`ApplyRemainingSlots`。取消「定稿前探测还原」与「技能二次扫描」
 - **实现：** `SpecialEquipSlotsService`（`TryEquip` + `TrySwap` + `TryUnequip` + `Changed`）+ `SoldierManufactureMagicBookHook.ApplyEquippedBookAtSlot` / `ApplyRemainingSlots`；`AutoManufacturePresentationController` 脉冲峰值回调并订阅 `Changed` 刷新共享 `BookRow.prefab`；`MagicBookSlotsPanelView` 弹窗删除（D-072）；`AutoManufactureStageModule` Deploy 延后；MetaShell 进档绑定；手验 Tools「增加魔法书」+ UI-023 拖拽/删除
-- **Combat StatMul：** `CombatMagicBookStatMul.Aggregate`（读 6 槽）→ `DefendSessionService` / `PushMapSessionService.TryRegisterWarrior` 开战登记时乘到 BodyLife / StaticStat 三维后再派生 HP/Atk/ASPD/CD；`DefendStageModule` 注入 `SpecialEquipSlotsService`
+- **Combat StatMul：** `CombatMagicBookStatMul.Aggregate`（读 6 槽）→ `DefendSessionService` / `PushMapSessionService` / `SearchExtractSessionService.TryRegisterWarrior` 开战登记时乘到 BodyLife / StaticStat 三维后再派生 HP/Atk/ASPD/CD；再与该兵战术阵型成员锁合成 `CombatStatMulBuff`。搜打撤须在 `PushMapAdvanceView.Bind` **之前**登记，位移基速取登记后的 `MoveSpeed`（v0.84.60）。`DefendStageModule` 注入 `SpecialEquipSlotsService`
 
 #### 9.25 主角装备配置表 `ProtagonistEquipmentConfig`
 
@@ -2799,8 +2799,8 @@ DefendGameplayConfig {
 - **Transition:** until MP slices land, current single-Agent NavMesh may run; after acceptance, advance/chase must follow this contract — do not keep full HighQuality RVO as the scale solution
 - **Soldier task Debug label (Approach A):**
   - Paths: `Assets/Scripts/Gameplay/Pathing/WarriorTaskDebugLabelView.cs` + `WarriorTaskLabelSettings` (static toggle, **default `Enabled=false`**)
-  - Presentation: runtime `TextMesh` under soldier feet (top-down readable, `Euler(90,0,0)`); localPos `(0, 0.02, -0.38)`; `Font Size=12` (`characterSize=0.12`); read-only `MassMoveScheduler.TryGetGoal` → ZH short labels: `Objective`→推进, `FormationHome`→回阵, `AttackSlot`→追击, `ChaseAnchor`→追击锚, **`FormationSlot`→阵型** (D-084)
-  - Wire: `WarriorAgentView` (Defend) and `PushMapAdvanceView` (PushMap) Ensure the component on `Bind`
+  - Presentation: runtime `TextMesh` under soldier feet (top-down readable, `Euler(90,0,0)`); localPos `(0, 0.02, -0.38)`; `Font Size=12` (`characterSize=0.12`); read-only `MassMoveScheduler.TryGetGoal` → ZH short labels: `Objective`→推进, `FormationHome`→回阵, `AttackSlot`→追击, `ChaseAnchor`→追击锚, **`FormationSlot`→阵型** (D-084); append **`(effective move speed)`** (same value as View displacement, incl. `ChaseMoveSpeedMult`; format `0.##`); PushMap may also append skill-CD suffix
+  - Wire: `WarriorAgentView` (Defend) and `PushMapAdvanceView` (PushMap / SearchExtract) Ensure the component on `Bind` and pass current effective move speed
   - Toggle: InSaveShell Debug button flips `WarriorTaskLabelSettings.Enabled` (may runtime-clone an existing Debug button if Prefab slot missing)
   - **Out:** attack windup/fire detail; monster labels; formal UI Prefab / i18n keys
 - **AllyFootCircle (v0.75.33):** path `AllyFootCircleView.cs`; localPos `(0,-0.05,-0.2)`; rotation X=**-30**; fill α=**160/255**; Order In Layer=`50`; `WarriorAnimView` skips batch sortingOrder/corpse darken
@@ -4141,7 +4141,7 @@ MagicBookConfig {
 - Equip gate: free slot; reject if book `IsUnique=1` and same Id already equipped; **Demo**: missing config row still allows write for empty-table persistence handcheck (Warning; treat as stackable)
 - AutoManufacture: **no MagicBook at craft** (default race + hand-class `DefaultSkillIds`). UI-016 Step2 pulse peak: `ApplyEquippedBookAtSlot(warrior, slotIndex)` for that slot only (`RaceWeightPick` / `StatMul` / `ForceClass` / `SoldierSkillLevelAdd`; `ForceClass` hit Clear+re-grant skills; unimplemented empty apply + log); then `RefinalizeInstance`; deploy by final ClassId after all soldiers. Fail/`Exit`: `ApplyRemainingSlots`. Dropped pre-finalize Restore probe and skill second pass
 - **Impl:** `SpecialEquipSlotsService` (`TryEquip` + `TrySwap` + `TryUnequip` + `Changed`) + `SoldierManufactureMagicBookHook.ApplyEquippedBookAtSlot` / `ApplyRemainingSlots`; `AutoManufacturePresentationController` pulse-peak callback and `Changed` refresh of shared `BookRow.prefab`; `MagicBookSlotsPanelView` popup delete (D-072); `AutoManufactureStageModule` deferred Deploy; MetaShell bind; hand-check Tools Grant MagicBook + UI-023 drag/delete
-- **Combat StatMul:** `CombatMagicBookStatMul.Aggregate` (6 slots) → `DefendSessionService` / `PushMapSessionService.TryRegisterWarrior` multiplies BodyLife / StaticStat dims before HP/Atk/ASPD/CD derives at StartBattle registration; `DefendStageModule` injects `SpecialEquipSlotsService`
+- **Combat StatMul:** `CombatMagicBookStatMul.Aggregate` (6 slots) → `DefendSessionService` / `PushMapSessionService` / `SearchExtractSessionService.TryRegisterWarrior` multiplies BodyLife / StaticStat dims before HP/Atk/ASPD/CD derives at StartBattle registration, then combines with that soldier's tactical-formation member lock into `CombatStatMulBuff`. SearchExtract must register **before** `PushMapAdvanceView.Bind`; base move speed is the registered `MoveSpeed` (v0.84.60). `DefendStageModule` injects `SpecialEquipSlotsService`
 
 #### 9.25 ProtagonistEquipmentConfig
 
@@ -4496,6 +4496,8 @@ SearchExtractGameplayConfig {
 
 **开战移动（v0.83.92）：** 未激活前全队 `FormationHome` 接近当前 Objective 中心；进圈激活后切 SE-05 阵型偏移 relocate（与倒计时/刷怪并行）。
 
+**开战属性（v0.84.60）：** `DeployCombatUnits` 在 `PushMapAdvanceView.Bind` 之前 `TryRegisterWarrior`。登记乘上与推图相同的 `CombatStatMulBuff`（主角战斗魔法书 × 该兵战术阵型成员锁）。`Bind` 的位移基速取登记后的 `MoveSpeed`。阵型 overlay 撤除时 `TryRefreshCombatDerivedStats` 并 `SetBaseMoveSpeed`。阵心仍为 `Hold`。
+
 #### 9.33 搜打撤刷怪波次配置表 `SearchExtractWaveSpawnConfig`
 
 规则语义：[SPEC_03 §3.19](SPEC_03_GameRules.md)。一行 = 某搜集点 **一条独立刷怪配方**（**一行一配方**；`WaveIndex` 仅为同点复合键，**不**表示链式串行）。
@@ -4574,7 +4576,7 @@ Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). One row = one gameplay option (PK 
 
 ### English (SearchExtractGameplayConfig / SearchExtractWaveSpawnConfig)
 
-Rules: [SPEC_03 §3.19](SPEC_03_GameRules.md). Columns locked (workshop 2026-09-02; v0.84.00 adds `RepeatSpawnCount` + per-row independent timers). Disk: Excel `搜打撤_玩法配置表_SearchExtract_SearchExtractGameplayConfig.xlsx` / `搜打撤_刷怪波次配置表_SearchExtract_SearchExtractWaveSpawnConfig.xlsx`; CSV `SearchExtract_SearchExtractGameplayConfig.csv` / `SearchExtract_SearchExtractWaveSpawnConfig.csv`. Bake under Mode2 root. Gameplay: PK `GameplayConfigId`, `MapId` (`Ground_*` \| `PushMap_*` \| `SearchExtract_*`), `StageExpReward` (≥0, credit on Leave), `GatherCountdownSeconds` (global; no per-point override). Wave: one independent recipe per row (`WaveIndex` composite key only); `GatherPointOrder` + `SpawnPointId` + FirstDelay (from point activation) + Interval after each spawn × `RepeatSpawnCount` re-spawns + `MonsterId`/`SpawnCount`; no `WaveCount` / ClockDirection. Sample `SearchExtract_01` / `MapId=SearchExtract_Lv1_01` (keeps `SearchExtract_Demo_01` as SE-02 Approach B reference copy of `PushMap_Demo_01`; do not rewrite PushMap source; maps need Mode2 `FormationClassZone` for Prepare one-click): order 1 × 4 rows (`WaveIndex` 1..4); FirstDelay=5/10/15/20 Interval=0 Repeat=0 (~5/10/15/20s once each); `Monster_01`×10; `SP_01`–`SP_04` (must exist on current MapId). **Runtime bind:** `SearchExtractStageController` via `DefendPrefabCatalog.TryGetMap` — `Maps` + `CatalogExtraMapIds` must cover every gameplay-referenced `SearchExtract_*` MapId (incl. `SearchExtract_Demo_01`, `SearchExtract_Lv1_01`, `SearchExtract_Lv2_01`). Stop on point success. Pre-activation approach to Objective center; offset relocate after zone enter (v0.83.92). Combat camera: **pre-activation / post-Continue** follows `CameraFollowPath` + soldiers via `PushMapCameraFollowController` (v0.83.93; Deadzone/SmoothTime same as PushMap); **point active～GatherCountdown** = **HoldFraming** viewport framing + hysteresis (`SearchExtractHoldFramingSolver`; constants `SearchExtractHold*` in §9.20b; v0.84.27); UI-032 freezes; **Continue** → `ClearHoldFraming` forces Auto, no look-at Snap, SmoothDamps Size to `PushMapCameraOrthoSize` with `CameraFollowSmoothTime` (v0.84.43; no new keys; scroll cancels restore). **StartBattle always `TryBake`s** the rail (v0.84.45; heals stale Prefab `_bakedPoints`; sample `SearchExtract_Lv2_01` WP_Start→WP_S1→WP_End≈Obj1→Obj2). PushMap does **not** call Hold API. Combat MassMove Tick includes live non-stationary monsters and `TryRefreshChaseGoal` (v0.83.94). **v0.84.54:** loyal deploy `PushMapAdvanceView.Bind` must pass `DefendPrefabCatalog.ProjectilePrefab`, the projectile parent, and the catalog (same as PushMap). A missing prefab makes ranged units hold on entering range and skip `FireProjectile` — they neither move nor shoot; PushMap is unaffected. D-074 Approach B: Session implements `IMonsterDeathSkillHost` (shared with PushMap); point-clear skips SelfRevive. **v0.84.04:** `BindCombatConfigs` must remain valid after `BeginPrepare` (`BeginPrepare`→`Stop` must not drop the bound `ConfigCsvRepository`, or Skills silently fail to initialize).
+Rules: [SPEC_03 §3.19](SPEC_03_GameRules.md). Columns locked (workshop 2026-09-02; v0.84.00 adds `RepeatSpawnCount` + per-row independent timers). Disk: Excel `搜打撤_玩法配置表_SearchExtract_SearchExtractGameplayConfig.xlsx` / `搜打撤_刷怪波次配置表_SearchExtract_SearchExtractWaveSpawnConfig.xlsx`; CSV `SearchExtract_SearchExtractGameplayConfig.csv` / `SearchExtract_SearchExtractWaveSpawnConfig.csv`. Bake under Mode2 root. Gameplay: PK `GameplayConfigId`, `MapId` (`Ground_*` \| `PushMap_*` \| `SearchExtract_*`), `StageExpReward` (≥0, credit on Leave), `GatherCountdownSeconds` (global; no per-point override). Wave: one independent recipe per row (`WaveIndex` composite key only); `GatherPointOrder` + `SpawnPointId` + FirstDelay (from point activation) + Interval after each spawn × `RepeatSpawnCount` re-spawns + `MonsterId`/`SpawnCount`; no `WaveCount` / ClockDirection. Sample `SearchExtract_01` / `MapId=SearchExtract_Lv1_01` (keeps `SearchExtract_Demo_01` as SE-02 Approach B reference copy of `PushMap_Demo_01`; do not rewrite PushMap source; maps need Mode2 `FormationClassZone` for Prepare one-click): order 1 × 4 rows (`WaveIndex` 1..4); FirstDelay=5/10/15/20 Interval=0 Repeat=0 (~5/10/15/20s once each); `Monster_01`×10; `SP_01`–`SP_04` (must exist on current MapId). **Runtime bind:** `SearchExtractStageController` via `DefendPrefabCatalog.TryGetMap` — `Maps` + `CatalogExtraMapIds` must cover every gameplay-referenced `SearchExtract_*` MapId (incl. `SearchExtract_Demo_01`, `SearchExtract_Lv1_01`, `SearchExtract_Lv2_01`). Stop on point success. Pre-activation approach to Objective center; offset relocate after zone enter (v0.83.92). Combat camera: **pre-activation / post-Continue** follows `CameraFollowPath` + soldiers via `PushMapCameraFollowController` (v0.83.93; Deadzone/SmoothTime same as PushMap); **point active～GatherCountdown** = **HoldFraming** viewport framing + hysteresis (`SearchExtractHoldFramingSolver`; constants `SearchExtractHold*` in §9.20b; v0.84.27); UI-032 freezes; **Continue** → `ClearHoldFraming` forces Auto, no look-at Snap, SmoothDamps Size to `PushMapCameraOrthoSize` with `CameraFollowSmoothTime` (v0.84.43; no new keys; scroll cancels restore). **StartBattle always `TryBake`s** the rail (v0.84.45; heals stale Prefab `_bakedPoints`; sample `SearchExtract_Lv2_01` WP_Start→WP_S1→WP_End≈Obj1→Obj2). PushMap does **not** call Hold API. Combat MassMove Tick includes live non-stationary monsters and `TryRefreshChaseGoal` (v0.83.94). **v0.84.54:** loyal deploy `PushMapAdvanceView.Bind` must pass `DefendPrefabCatalog.ProjectilePrefab`, the projectile parent, and the catalog (same as PushMap). **v0.84.60:** `DeployCombatUnits` calls `TryRegisterWarrior` before `Bind`, with the same magic-book × tactical-formation `CombatStatMulBuff` as PushMap; base move speed is the registered `MoveSpeed`. Overlay removal refreshes derived stats and `SetBaseMoveSpeed`. Formation center stays `Hold`. A missing prefab makes ranged units hold on entering range and skip `FireProjectile` — they neither move nor shoot; PushMap is unaffected. D-074 Approach B: Session implements `IMonsterDeathSkillHost` (shared with PushMap); point-clear skips SelfRevive. **v0.84.04:** `BindCombatConfigs` must remain valid after `BeginPrepare` (`BeginPrepare`→`Stop` must not drop the bound `ConfigCsvRepository`, or Skills silently fail to initialize).
 
 ### English (BgmConfig)
 
@@ -5175,6 +5177,24 @@ Creator 默认导出含 Idle / Walk / Run / Attack* / Special1 / Die 等。挖�
 | 走 / 跑 | Bind 与 PushMap `NotifyRevived`（复活完成）各从对应池均匀随机 1 个状态名并锁定；`SetMoving(true, …, useRun)`：`useRun=false` → 走（`IsWalk` + 抽中的走态）；`useRun=true` → 跑（`IsRun` + 抽中的跑态）；已在移动时步态变化允许 CrossFade |
 | 士兵 | 不注入怪物池；普攻走 `ClassConfig.NormalAttackAnims` 加权（见上）；走跑仍 `IsRun`/`RunBT` |
 
+**移动播放速率（v0.84.57 方案 A，表现层 Demo 锁定；Defend+PushMap+SearchExtract）：** 规则位移不变。进入实际移动表现（已切到走/跑，而非近距只写 Bool、攻击 clip 仍在播）时：
+
+`animator.speed = clamp(有效移速 / 标称速度, 0.5, 2)`
+
+| 单位 | 标称速度 | 有效移速 |
+|------|----------|----------|
+| 士兵 | **3.5** | 现有有效移速（含 `ChaseMoveSpeedMult`） |
+| 怪物走 | **0.5** | `gaitSpeed(MoveSpeed) × Aggro 倍率 × 减速` |
+| 怪物跑 | **1.0** | `gaitSpeed(RunSpeed) × Aggro 倍率 × 减速` |
+
+标称对齐当前表默认走/跑与士兵 `BaseMoveSpeed`，倍率 1 且速度等于标称时播放速率为 1。停步且本次移动曾接管播放速率 → 恢复 **1**。死亡锁存、复活倒放、远程停帧（`animator.speed = 0`）优先，移动倍率不得覆盖。不改 Animator Controller。
+
+**攻击播放速率（v0.84.58 方案 A，表现层 Demo 锁定；Defend+PushMap+SearchExtract）：** 每次 `PlayAttack` 采样一次当前攻击 clip 长度（秒）并锁存到该次动作结束：
+
+`animator.speed = clamp(clipLength × 有效攻速, 0.5, 2)`
+
+有效攻速由调用方传入，等于该次攻击**开始间隔**已使用的值（士兵 `AttackSpeed`；PushMap/SearchExtract 怪 `AttackSpeed × 攻速减速`，只乘一次；Defend 怪无减速通道，乘数为 1）。未传有效攻速（≤0）或当帧采不到 clip → 速率 **1**；Trigger 回退则下一帧补采一次后锁存，不每帧重算。制造界面预览攻击不传有效攻速，速率保持 **1**。远程停帧仍在到达 `RangedWindupHoldFrame` 后把速度打到 **0**；前摇计时仍是 `MeleeWindupSeconds`，不随动画倍率伸缩；解除停帧时恢复该次 `attackRate`（不写死 1）。攻击 clip 结束且移动通道未接管 → 恢复 **1**。`PlayDie` 开始时丢掉攻击速率，死亡锁存仍把速度打到 0。远距移动打断攻击后由移动倍率覆盖。不改 HitConfirm 与 `1/AttackSpeed` 间隔（怪物近战仍先结算再播动作）。不改 Animator Controller。
+
 **八向朝向意图锁（v0.83.31 方案 B，表现层 Demo 锁定；Defend+PushMap 士兵与怪物）：** LocalDetour / SoftCollision 使瞬时 `steer` 在相邻 45° 扇区来回摆，直接量化会高频换向。约定：
 
 | 状态 | `DirIndex` 来源 |
@@ -5348,6 +5368,24 @@ Creator exports Idle / Walk / Run / Attack* / Special1 / Die, etc. Dig loop has 
 | Attack | Each `PlayAttack` uniformly picks a **base** from `NormalAttackAnims`, `Play("{base}_{dir}")`; Trigger fallback same base; `DirIndex` locked until that attack clip ends |
 | Walk / Run | On Bind and PushMap `NotifyRevived` (post-revive), uniformly pick one state name from each pool and lock until next resample; `SetMoving(true, …, useRun)`: `useRun=false` → walk (`IsWalk` + picked walk state); `useRun=true` → run (`IsRun` + picked run state); gait change while already moving may CrossFade |
 | Soldiers | Do not inject the monster pool; normal attacks use weighted `ClassConfig.NormalAttackAnims` (above); walk/run stay `IsRun`/`RunBT` |
+
+**Move playback rate (v0.84.57 Approach A, presentation Demo lock; Defend+PushMap+SearchExtract):** Rules displacement unchanged. While the move presentation is actually showing walk/run (not a near-target Bool-only nudge that leaves the attack clip playing):
+
+`animator.speed = clamp(effectiveSpeed / referenceSpeed, 0.5, 2)`
+
+| Unit | Reference speed | Effective speed |
+|------|-----------------|-----------------|
+| Soldier | **3.5** | Existing effective speed (includes `ChaseMoveSpeedMult`) |
+| Monster walk | **0.5** | `gaitSpeed(MoveSpeed) × Aggro mult × slow` |
+| Monster run | **1.0** | `gaitSpeed(RunSpeed) × Aggro mult × slow` |
+
+References match current table default walk/run and soldier `BaseMoveSpeed`, so rate is 1 when mult is 1 and speed equals the reference. Stopping after this channel owned playback restores **1**. Death latch, revive reverse-play, and ranged hold (`animator.speed = 0`) outrank it; the move rate must not overwrite them. Do not edit Animator Controllers.
+
+**Attack playback rate (v0.84.58 Approach A, presentation Demo lock; Defend+PushMap+SearchExtract):** Each `PlayAttack` samples the current attack clip length (seconds) once and locks it until that swing ends:
+
+`animator.speed = clamp(clipLength × effectiveAttackSpeed, 0.5, 2)`
+
+The caller passes effective attack speed equal to the value already used for that swing's **start interval** (soldiers: `AttackSpeed`; PushMap/SearchExtract monsters: `AttackSpeed × attack slow`, multiplied once; Defend monsters have no slow channel, multiplier **1**). Missing effective speed (≤0) or an unreadable clip this frame → rate **1**; a Trigger fallback samples once on the next frame and then locks (no per-frame resample). Manufacture preview attacks omit effective speed and stay at **1**. Ranged hold still sets speed to **0** after reaching `RangedWindupHoldFrame`; windup timing stays `MeleeWindupSeconds` and does not scale with the anim rate; releasing the hold restores that swing's `attackRate` (not a hardcoded 1). When the attack clip ends and locomotion does not own playback → restore **1**. `PlayDie` drops the attack rate at start; the death latch still sets speed to 0. A far-move interrupt still lets the move rate overwrite. HitConfirm and the `1/AttackSpeed` interval are unchanged (monster melee still settles before the swing). Do not edit Animator Controllers.
 
 **8-dir facing intent lock (v0.83.31 Approach B, presentation Demo lock; Defend+PushMap soldiers and monsters):** LocalDetour / SoftCollision make instantaneous `steer` oscillate across adjacent 45° sectors; quantizing that flickers clips. Policy:
 

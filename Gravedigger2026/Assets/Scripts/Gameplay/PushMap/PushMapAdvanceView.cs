@@ -223,7 +223,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 taskLabel = gameObject.AddComponent<WarriorTaskDebugLabelView>();
             }
 
-            taskLabel.Bind(_scheduler, _moveId, FormatSkillCdSuffix);
+            taskLabel.Bind(_scheduler, _moveId, FormatSkillCdSuffix, ResolveEffectiveMoveSpeed);
 
             _anim = GetComponent<WarriorAnimView>();
             if (_anim == null)
@@ -849,7 +849,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     ? state.RangedWindupHoldFrame
                     : 0;
                 _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
-                _anim.PlayAttack(hold);
+                _anim.PlayAttack(hold, state.AttackSpeed);
             }
         }
 
@@ -941,7 +941,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 {
                     FaceTarget(target.transform.position);
                     _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
-                    _anim.PlayAttack();
+                    _anim.PlayAttack(0, state.AttackSpeed);
                 }
             }
 
@@ -1202,7 +1202,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             // MassMove uses Move()+ResetPath ?velocity?; use steer like monsters (SPEC_04 15.5).
             var wantsMove = !inWindup && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;
-            _anim.SetMoving(moving, ResolveMoveTargetDistanceXZ());
+            _anim.SetMoving(
+                moving,
+                ResolveMoveTargetDistanceXZ(),
+                locomotionPlaybackRate: WarriorAnimView.ResolveMovePlaybackRate(
+                    ResolveEffectiveMoveSpeed(),
+                    WarriorAnimView.SoldierMoveAnimReferenceSpeed));
 
             if (moving)
             {

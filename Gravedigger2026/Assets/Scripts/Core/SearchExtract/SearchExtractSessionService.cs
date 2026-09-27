@@ -599,6 +599,16 @@ namespace Gravedigger2026.Core.SearchExtract
             out DefendCombatWarriorState state,
             out string error)
         {
+            return TryRegisterWarrior(warrior, classRow, CombatStatMulBuff.Identity, out state, out error);
+        }
+
+        public bool TryRegisterWarrior(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            CombatStatMulBuff combatBuff,
+            out DefendCombatWarriorState state,
+            out string error)
+        {
             state = null;
             error = null;
             if (!IsCombatGameplayActive)
@@ -625,6 +635,8 @@ namespace Gravedigger2026.Core.SearchExtract
             var bodyLife = warrior.BodyLife > 0f
                 ? warrior.BodyLife
                 : WarriorStatMath.ComputeBodyLife(warrior.BaseStats, warrior.EquipStats);
+            bodyLife = combatBuff.ApplyToBodyLife(bodyLife);
+            combatBuff.ApplyToBattleStats(ref battleStats);
             var coeffDefaults = _configs != null
                 ? _configs.GetCombatConvertCoeffDefaults()
                 : CombatConvertCoeffs.SafetyDefaults;
@@ -681,9 +693,33 @@ namespace Gravedigger2026.Core.SearchExtract
             _warriors[warrior.Id] = state;
             RememberWarriorRegisterOrder(warrior.Id);
             warrior.RemainingHP = state.RemainingHp;
+            var buffLog = combatBuff.IsIdentity ? string.Empty : $" CombatBuff={combatBuff}";
             Debug.Log(
                 $"[SearchExtractSession] RegisterWarrior {state.WarriorId} HP={state.RemainingHp:0}/{state.MaxHp} " +
-                $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##}");
+                $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##} Mov={state.MoveSpeed:0.##}" +
+                buffLog);
+            return true;
+        }
+
+        public bool TryRefreshCombatDerivedStats(
+            WarriorInstance warrior,
+            ClassConfigRow classRow,
+            CombatStatMulBuff combatBuff)
+        {
+            if (warrior == null
+                || string.IsNullOrEmpty(warrior.Id)
+                || !_warriors.TryGetValue(warrior.Id, out var state)
+                || state == null)
+            {
+                return false;
+            }
+
+            WarriorCombatDerivedStats.Refresh(state, warrior, classRow, combatBuff, _configs);
+            warrior.RemainingHP = state.RemainingHp;
+            Debug.Log(
+                $"[SearchExtractSession] RefreshCombatStats {state.WarriorId} HP={state.RemainingHp:0}/{state.MaxHp} " +
+                $"Atk={state.NormalAttackPower:0.##} ASPD={state.AttackSpeed:0.##} Mov={state.MoveSpeed:0.##} " +
+                $"CombatBuff={combatBuff}");
             return true;
         }
 

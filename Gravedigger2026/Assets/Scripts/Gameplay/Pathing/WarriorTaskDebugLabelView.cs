@@ -5,7 +5,8 @@ using UnityEngine;
 namespace Gravedigger2026.Gameplay.Pathing
 {
     /// <summary>
-    /// Runtime TextMesh under soldier feet showing current GoalKind (SPEC_04 §9.7 Debug).
+    /// Runtime TextMesh under soldier feet showing current GoalKind + effective move speed
+    /// (SPEC_04 §9.7 Debug).
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class WarriorTaskDebugLabelView : MonoBehaviour
@@ -14,6 +15,7 @@ namespace Gravedigger2026.Gameplay.Pathing
         private const float FootOffsetZ = -0.38f;
         private const float CharacterSize = 0.12f;
         private const int FontSize = 12;
+        private const float MoveSpeedDirtyEpsilon = 0.0001f;
 
         private MassMoveScheduler _scheduler;
         private int _moveId;
@@ -25,13 +27,21 @@ namespace Gravedigger2026.Gameplay.Pathing
 
         private Func<string> _extraText;
         private string _lastExtra;
+        private Func<float> _resolveMoveSpeed;
+        private float _lastMoveSpeed = float.NaN;
 
-        public void Bind(MassMoveScheduler scheduler, int moveId, Func<string> extraText = null)
+        public void Bind(
+            MassMoveScheduler scheduler,
+            int moveId,
+            Func<string> extraText = null,
+            Func<float> resolveMoveSpeed = null)
         {
             _scheduler = scheduler;
             _moveId = moveId;
             _extraText = extraText;
+            _resolveMoveSpeed = resolveMoveSpeed;
             _lastExtra = null;
+            _lastMoveSpeed = float.NaN;
             EnsureLabel();
             ApplyVisibility(WarriorTaskLabelSettings.Enabled);
             RefreshText(force: true);
@@ -133,13 +143,23 @@ namespace Gravedigger2026.Gameplay.Pathing
                 {
                     _textMesh.text = string.Empty;
                     _hasLastKind = false;
+                    _lastMoveSpeed = float.NaN;
                 }
 
                 return;
             }
 
             var extra = _extraText != null ? _extraText() : null;
-            if (!force && _hasLastKind && kind == _lastKind && extra == _lastExtra)
+            var hasSpeed = _resolveMoveSpeed != null;
+            var speed = hasSpeed ? _resolveMoveSpeed() : 0f;
+            var speedDirty = hasSpeed
+                && (float.IsNaN(_lastMoveSpeed)
+                    || Mathf.Abs(speed - _lastMoveSpeed) > MoveSpeedDirtyEpsilon);
+            if (!force
+                && _hasLastKind
+                && kind == _lastKind
+                && extra == _lastExtra
+                && !speedDirty)
             {
                 return;
             }
@@ -147,7 +167,13 @@ namespace Gravedigger2026.Gameplay.Pathing
             _lastKind = kind;
             _hasLastKind = true;
             _lastExtra = extra;
+            _lastMoveSpeed = hasSpeed ? speed : float.NaN;
             var label = ToZhLabel(kind);
+            if (hasSpeed)
+            {
+                label += $"({speed:0.##})";
+            }
+
             if (!string.IsNullOrEmpty(extra))
             {
                 label += extra;

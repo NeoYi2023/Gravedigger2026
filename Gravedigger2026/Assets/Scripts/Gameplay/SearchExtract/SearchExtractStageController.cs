@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.AutoManufacture;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
@@ -83,6 +84,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
         private TacticalFormationRuntimeService _tacticalRuntime;
+        private CombatStatMulBuff _combatMagicBookBuff = CombatStatMulBuff.Identity;
+        private List<TacticalFormationCombatLock> _tacticalCombatLocks;
         private readonly List<ObjectivePoint> _objectives = new List<ObjectivePoint>();
         private readonly Dictionary<string, SpawnPoint> _spawnPointsById =
             new Dictionary<string, SpawnPoint>(StringComparer.Ordinal);
@@ -327,6 +330,11 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _navMeshInstance = DefendNavMeshBaker.Bake(_mapCenter, _mapHalfExtents, airWallBoxes);
             EnsurePathingServices();
             ClearMassCombatPathing();
+
+            _tacticalCombatLocks = tacticalLocks;
+            _combatMagicBookBuff = _specialEquipSlots != null && _configs != null
+                ? CombatMagicBookStatMul.Aggregate(_specialEquipSlots, _configs)
+                : CombatStatMulBuff.Identity;
 
             DeployCombatUnits();
             SnapshotFormationRelocate();
@@ -1341,12 +1349,54 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void HandleTacticalFormationMemberLost(string warriorId, TacticalFormationMemberLostReason reason)
         {
-            if (_tacticalRuntime == null)
+            if (_tacticalRuntime == null
+                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change))
             {
                 return;
             }
 
-            _tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out _);
+            var removed = change.OverlayRemovedWarriorIds;
+            for (var i = 0; i < removed.Length; i++)
+            {
+                UnapplyTacticalFormationOverlay(removed[i]);
+            }
+        }
+
+        private void UnapplyTacticalFormationOverlay(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _warriorPool == null
+                || !_warriorPool.TryGet(warriorId, out var warrior)
+                || warrior == null
+                || _session == null)
+            {
+                return;
+            }
+
+            if (!_session.IsWarriorCombatActive(warriorId))
+            {
+                return;
+            }
+
+            ClassConfigRow classRow = null;
+            if (_configs != null)
+            {
+                _configs.TryGetClass(warrior.ClassId, out classRow);
+            }
+            _session.TryRefreshCombatDerivedStats(warrior, classRow, _combatMagicBookBuff);
+            var view = FindAdvanceView(warriorId);
+            if (view != null && _session.TryGetWarrior(warriorId, out var state) && state != null)
+            {
+                view.SetBaseMoveSpeed(state.MoveSpeed);
+            }
+        }
+
+        private CombatStatMulBuff ResolveCombatRegisterBuff(string warriorId)
+        {
+            return TacticalFormationStatOverlay.CombineWithMemberLocks(
+                _combatMagicBookBuff,
+                _tacticalCombatLocks,
+                warriorId);
         }
 
         private void SpawnDamagePopup(Vector3 worldPos, float damage, DamagePopupStyle style)
@@ -1482,6 +1532,20 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
                 bodyRadius *= WarriorVisualModelScale.Resolve(warrior);
 
+                if (_session != null &&
+                    !_session.TryRegisterWarrior(
+                        warrior,
+                        classRow,
+                        ResolveCombatRegisterBuff(warrior.Id),
+                        out _,
+                        out var regError))
+                {
+                    Debug.LogWarning(
+                        $"[SearchExtractStage] RegisterWarrior '{warrior.Id}' failed: {regError}");
+                    Destroy(go);
+                    continue;
+                }
+
                 var moveSpeed = 1.5f;
                 if (_session != null
                     && _session.TryGetWarrior(warrior.Id, out var combatState)
@@ -1519,16 +1583,6 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     pushCoefficient: pushCoefficient,
                     repulsionScale: repulsionScale,
                     chaseMoveSpeedMult: chaseMult);
-
-                if (_session != null)
-                {
-                    _session.TryRegisterWarrior(warrior, classRow, out _, out var regError);
-                    if (!string.IsNullOrEmpty(regError))
-                    {
-                        Debug.LogWarning(
-                            $"[SearchExtractStage] RegisterWarrior '{warrior.Id}' failed: {regError}");
-                    }
-                }
 
                 var hold = new Vector2(worldPos.x, worldPos.z);
                 _moveScheduler.SetGoal(advance.MoveId, GoalKind.FormationHome, hold);

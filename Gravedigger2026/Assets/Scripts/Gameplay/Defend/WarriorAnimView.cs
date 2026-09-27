@@ -17,6 +17,8 @@ namespace Gravedigger2026.Gameplay.Defend
     /// Optional FacingYawFlip applies (dirIndex+4)%8 before write.
     /// Monsters may inject NormalAttackAnims/WalkAnims/RunAnims pools (v0.83.34).
     /// Soldiers use ClassConfig weighted NormalAttackAnims; missing state falls back to Attack1 (v0.84.56).
+    /// Move playback rate = clamp(effectiveSpeed / reference, 0.5, 2) while locomotion owns the animator (v0.84.57).
+    /// Attack playback rate = clamp(clipLength * effectiveAttackSpeed, 0.5, 2) for one swing (v0.84.58).
     /// Death: latch last non-null Die sprite + tiered corpse presentation (RGB/alpha) + CorpseSortingOrder=100 + disable Animator.
     /// </summary>
     public sealed class WarriorAnimView : MonoBehaviour
@@ -64,6 +66,27 @@ namespace Gravedigger2026.Gameplay.Defend
         /// exceeds this (near-target nudges must not chop Attack1).
         /// </summary>
         public const float AttackInterruptMinMoveTargetDistance = 0.4f;
+
+        /// <summary>SPEC_04 §15.5 v0.84.57: locomotion animator.speed clamp.</summary>
+        public const float MovePlaybackRateMin = 0.5f;
+
+        /// <summary>SPEC_04 §15.5 v0.84.57: locomotion animator.speed clamp.</summary>
+        public const float MovePlaybackRateMax = 2f;
+
+        /// <summary>SPEC_04 §15.5: soldier move clip reference speed (current BaseMoveSpeed).</summary>
+        public const float SoldierMoveAnimReferenceSpeed = 0.25f;
+
+        /// <summary>SPEC_04 §15.5: monster walk clip reference speed (current MoveSpeed).</summary>
+        public const float MonsterWalkAnimReferenceSpeed = 0.25f;
+
+        /// <summary>SPEC_04 §15.5: monster run clip reference speed (current RunSpeed).</summary>
+        public const float MonsterRunAnimReferenceSpeed = 0.1f;
+
+        /// <summary>SPEC_04 §15.5 v0.84.58: attack animator.speed clamp.</summary>
+        public const float AttackPlaybackRateMin = 0.5f;
+
+        /// <summary>SPEC_04 §15.5 v0.84.58: attack animator.speed clamp.</summary>
+        public const float AttackPlaybackRateMax = 2f;
 
         /// <summary>SPEC_04 §15.5: grace so Attack1 clip can enter after Play/Trigger.</summary>
         private const float AttackFacingLockGraceSeconds = 0.08f;
@@ -113,6 +136,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _dieLatched;
         private bool _enteredDieClip;
         private bool _moving;
+        private bool _locomotionOwnsPlayback;
         /// <summary>Monster gait: true=run anim, false=walk (SPEC_04 §15.5 v0.83.35).</summary>
         private bool _usingRun;
         /// <summary>True after a force Attack→move this move bout; cleared when near or stop.</summary>
@@ -148,6 +172,11 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _attackHoldArmed;
         private bool _attackHoldFrozen;
         private float _attackHoldNormalized;
+        /// <summary>Locked attack animator.speed for the current swing (SPEC_04 §15.5 v0.84.58).</summary>
+        private float _attackPlaybackRate = 1f;
+        private bool _attackOwnsPlayback;
+        private bool _attackRatePending;
+        private float _pendingAttacksPerSecond;
 
         private void Awake()
         {
@@ -160,6 +189,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void Update()
         {
+            TickPendingAttackPlaybackRate();
             TickAttackFacingLock();
             TickRangedWindupHold();
 
@@ -228,6 +258,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
+            _locomotionOwnsPlayback = false;
             _dieStartedAt = 0f;
             _lastGoodDieNormalizedTime = 0f;
             _dieStateFullPathHash = 0;
@@ -235,6 +266,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _reviving = false;
             ResetFacingStabilizerState();
             ClearAttackFacingLock();
+            ClearAttackPlaybackOwnership();
             ClearRangedWindupHold(restoreSpeed: true);
             if (_animator == null)
             {
@@ -266,12 +298,14 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
+            _locomotionOwnsPlayback = false;
             _dieStartedAt = 0f;
             _lastGoodDieNormalizedTime = 0f;
             _dieStateFullPathHash = 0;
             _lastNonNullDieSprites = null;
             _reviving = false;
             ClearAttackFacingLock();
+            ClearAttackPlaybackOwnership();
             ClearRangedWindupHold(restoreSpeed: true);
             if (_animator == null)
             {
@@ -753,7 +787,14 @@ namespace Gravedigger2026.Gameplay.Defend
         /// <see cref="AttackInterruptMinMoveTargetDistance"/>. Default +∞ (treat as far).
         /// </param>
         /// <param name="useRun">Monster pools only: true=run gait; false=walk. Ignored for soldiers.</param>
-        public void SetMoving(bool moving, float moveTargetDistanceXZ = float.PositiveInfinity, bool useRun = false)
+        /// <param name="locomotionPlaybackRate">
+        /// Effective speed / gait reference (SPEC_04 §15.5). Applied only once locomotion owns playback.
+        /// </param>
+        public void SetMoving(
+            bool moving,
+            float moveTargetDistanceXZ = float.PositiveInfinity,
+            bool useRun = false,
+            float locomotionPlaybackRate = 1f)
         {
             if (_dead || _reviving || _animator == null)
             {
@@ -772,29 +813,35 @@ namespace Gravedigger2026.Gameplay.Defend
                         {
                             ForceEnterMoveFromAttack();
                             _forceInterruptedWhileMoving = true;
+                            _locomotionOwnsPlayback = true;
                         }
                         else
                         {
                             var stateName = ResolveActiveMoveStateName();
                             _animator.CrossFade(stateName, 0.1f, 0, 0f);
                             ApplyMovingLocomotionBoolsOnly();
+                            _locomotionOwnsPlayback = true;
                         }
-
-                        return;
                     }
-
-                    // Already moving: if distance just crossed the gate, still force-interrupt once.
-                    if (forceInterrupt)
+                    else if (forceInterrupt)
                     {
+                        // Already moving: if distance just crossed the gate, still force-interrupt once.
                         if (!_forceInterruptedWhileMoving)
                         {
                             ForceEnterMoveFromAttack();
                             _forceInterruptedWhileMoving = true;
                         }
+
+                        _locomotionOwnsPlayback = true;
                     }
                     else
                     {
                         _forceInterruptedWhileMoving = false;
+                    }
+
+                    if (_locomotionOwnsPlayback)
+                    {
+                        ApplyLocomotionPlaybackRate(locomotionPlaybackRate);
                     }
 
                     return;
@@ -808,11 +855,14 @@ namespace Gravedigger2026.Gameplay.Defend
                     // locomotion Bool alone cannot cut mid-attack — force move state when far enough.
                     ForceEnterMoveFromAttack();
                     _forceInterruptedWhileMoving = true;
+                    _locomotionOwnsPlayback = true;
+                    ApplyLocomotionPlaybackRate(locomotionPlaybackRate);
                 }
                 else
                 {
                     // Near target: write move Bool without CrossFade (does not chop Attack).
                     _forceInterruptedWhileMoving = false;
+                    _locomotionOwnsPlayback = false;
                     ApplyMovingLocomotionBoolsOnly();
                 }
 
@@ -824,15 +874,67 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            var ownedPlayback = _locomotionOwnsPlayback;
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
+            _locomotionOwnsPlayback = false;
             ClearLocomotionBools();
+            if (ownedPlayback)
+            {
+                RestoreNonCombatPlaybackRate();
+            }
+        }
+
+        /// <summary>SPEC_04 §15.5 v0.84.58: clamp(clipLength × attacksPerSecond, 0.5, 2). Non-positive inputs → 1.</summary>
+        public static float ResolveAttackPlaybackRate(float clipLengthSeconds, float attacksPerSecond)
+        {
+            if (clipLengthSeconds <= 0.0001f || attacksPerSecond <= 0.0001f)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp(
+                clipLengthSeconds * attacksPerSecond,
+                AttackPlaybackRateMin,
+                AttackPlaybackRateMax);
+        }
+
+        /// <summary>SPEC_04 §15.5: clamp(effective / reference, 0.5, 2). Reference ≤ 0 → 1.</summary>
+        public static float ResolveMovePlaybackRate(float effectiveSpeed, float referenceSpeed)
+        {
+            if (referenceSpeed <= 0.0001f)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp(effectiveSpeed / referenceSpeed, MovePlaybackRateMin, MovePlaybackRateMax);
+        }
+
+        private void ApplyLocomotionPlaybackRate(float rate)
+        {
+            if (_animator == null || _dead || _reviving || _attackHoldArmed || _dieLatched || _attackOwnsPlayback)
+            {
+                return;
+            }
+
+            _animator.speed = Mathf.Clamp(rate, MovePlaybackRateMin, MovePlaybackRateMax);
+        }
+
+        private void RestoreNonCombatPlaybackRate()
+        {
+            if (_animator == null || _dead || _reviving || _attackHoldArmed || _dieLatched || _attackOwnsPlayback)
+            {
+                return;
+            }
+
+            _animator.speed = 1f;
         }
 
         private void ForceEnterMoveFromAttack()
         {
             ClearAttackFacingLock();
+            ClearAttackPlaybackOwnership();
             ClearRangedWindupHold(restoreSpeed: true);
             ResetActiveAttackTrigger();
 
@@ -885,8 +987,10 @@ namespace Gravedigger2026.Gameplay.Defend
         /// <summary>
         /// Play Attack clip. Optional 1-based <paramref name="rangedWindupHoldFrame"/> freezes
         /// that frame until <see cref="ReleaseAttackHold"/> (SPEC_04 §15.5 / §3.12 ranged windup).
+        /// <paramref name="attacksPerSecond"/> is the effective speed already used for this swing's
+        /// start interval; ≤0 keeps playback at 1 (manufacture preview).
         /// </summary>
-        public void PlayAttack(int rangedWindupHoldFrame = 0)
+        public void PlayAttack(int rangedWindupHoldFrame = 0, float attacksPerSecond = 0f)
         {
             if (_dead || _reviving || _animator == null)
             {
@@ -904,7 +1008,9 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
-            ClearRangedWindupHold(restoreSpeed: true);
+            _locomotionOwnsPlayback = false;
+            ClearAttackPlaybackOwnership();
+            ClearRangedWindupHold(restoreSpeed: false);
             ClearLocomotionBools();
             if (_facingDirIndex >= 0)
             {
@@ -927,12 +1033,24 @@ namespace Gravedigger2026.Gameplay.Defend
 
             _animator.speed = 1f;
             _animator.Play(ResolveAttackStateName(attackBase), 0, 0f);
+            _animator.Update(0f);
             FlushAnimatorParams();
             ArmAttackFacingLock();
             if (!IsPlayingAttackClip(attackBase) && _hasActiveAttackTrigger)
             {
                 _animator.SetTrigger(_activeAttackTriggerHash);
                 FlushAnimatorParams();
+                _animator.Update(0f);
+            }
+
+            if (attacksPerSecond > 0.0001f && TrySampleAttackClipLength(out var clipLength))
+            {
+                LockAttackPlaybackRate(clipLength, attacksPerSecond);
+            }
+            else if (attacksPerSecond > 0.0001f)
+            {
+                _pendingAttacksPerSecond = attacksPerSecond;
+                _attackRatePending = true;
             }
 
             if (rangedWindupHoldFrame > 0)
@@ -963,6 +1081,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
+            _locomotionOwnsPlayback = false;
             ClearLocomotionBools();
             _animator.ResetTrigger(_tauntTriggerHash);
             _animator.SetTrigger(_tauntTriggerHash);
@@ -1003,7 +1122,9 @@ namespace Gravedigger2026.Gameplay.Defend
             _moving = false;
             _usingRun = false;
             _forceInterruptedWhileMoving = false;
+            _locomotionOwnsPlayback = false;
             ClearAttackFacingLock();
+            ClearAttackPlaybackOwnership();
             ClearRangedWindupHold(restoreSpeed: false);
             _dieStartedAt = Time.time;
             _lastGoodDieNormalizedTime = 0f;
@@ -1015,6 +1136,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            _animator.speed = 1f;
             ClearLocomotionBools();
             if (_hasAttackTrigger)
             {
@@ -1160,6 +1282,10 @@ namespace Gravedigger2026.Gameplay.Defend
             if (!IsPlayingAttackClip(_activeAttackBase))
             {
                 ClearAttackFacingLock();
+                if (!_attackHoldFrozen)
+                {
+                    EndAttackPlaybackIfOwned();
+                }
             }
         }
 
@@ -1210,10 +1336,86 @@ namespace Gravedigger2026.Gameplay.Defend
             _attackHoldFrozen = false;
             _rangedWindupHoldFrame = 0;
             _attackHoldNormalized = 0f;
-            if (restoreSpeed && _animator != null && !_dead && !_reviving)
+            if (restoreSpeed && _animator != null && !_dead && !_reviving && !_dieLatched)
             {
-                _animator.speed = 1f;
+                _animator.speed = _attackOwnsPlayback ? _attackPlaybackRate : 1f;
             }
+        }
+
+        /// <summary>One deferred sample when Play/Trigger has not entered the attack clip yet.</summary>
+        private void TickPendingAttackPlaybackRate()
+        {
+            if (!_attackRatePending || _dead || _reviving || _animator == null)
+            {
+                return;
+            }
+
+            _attackRatePending = false;
+            var attacksPerSecond = _pendingAttacksPerSecond;
+            _pendingAttacksPerSecond = 0f;
+            if (attacksPerSecond <= 0.0001f || !TrySampleAttackClipLength(out var clipLength))
+            {
+                return;
+            }
+
+            LockAttackPlaybackRate(clipLength, attacksPerSecond);
+        }
+
+        private void LockAttackPlaybackRate(float clipLengthSeconds, float attacksPerSecond)
+        {
+            _attackPlaybackRate = ResolveAttackPlaybackRate(clipLengthSeconds, attacksPerSecond);
+            _attackOwnsPlayback = true;
+            _attackRatePending = false;
+            _pendingAttacksPerSecond = 0f;
+            if (_animator == null || _dead || _reviving || _dieLatched || _attackHoldFrozen)
+            {
+                return;
+            }
+
+            _animator.speed = _attackPlaybackRate;
+        }
+
+        private void ClearAttackPlaybackOwnership()
+        {
+            _attackOwnsPlayback = false;
+            _attackRatePending = false;
+            _pendingAttacksPerSecond = 0f;
+            _attackPlaybackRate = 1f;
+        }
+
+        private void EndAttackPlaybackIfOwned()
+        {
+            if (!_attackOwnsPlayback && !_attackRatePending)
+            {
+                return;
+            }
+
+            ClearAttackPlaybackOwnership();
+            if (_animator == null || _dead || _reviving || _locomotionOwnsPlayback || _dieLatched || _attackHoldFrozen)
+            {
+                return;
+            }
+
+            _animator.speed = 1f;
+        }
+
+        private bool TrySampleAttackClipLength(out float clipLengthSeconds)
+        {
+            clipLengthSeconds = 0f;
+            if (_animator == null)
+            {
+                return false;
+            }
+
+            var infos = _animator.GetCurrentAnimatorClipInfo(0);
+            var prefix = string.IsNullOrEmpty(_activeAttackBase) ? DefaultAttackBase : _activeAttackBase;
+            if (!ClipNameStartsWith(infos, prefix))
+            {
+                return false;
+            }
+
+            clipLengthSeconds = infos[0].clip.length;
+            return clipLengthSeconds > 0.0001f;
         }
 
         private void TickDieLatch()

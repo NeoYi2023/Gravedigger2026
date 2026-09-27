@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.56
+**文档版本 / Document Version:** v0.84.60
 **最后更新 / Last Updated:** 2026-09-27
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；**Editor 菜单中英双语 v0.84.52**；**远程追击停在射程外 v0.84.53**；**搜打撤远程弹道未接线 v0.84.54**；**远程前摇+停顿帧 v0.84.55**；**士兵普攻按职业权重选动作 v0.84.56**；Demo 须另授权）  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；**Editor 菜单中英双语 v0.84.52**；**远程追击停在射程外 v0.84.53**；**搜打撤远程弹道未接线 v0.84.54**；**远程前摇+停顿帧 v0.84.55**；**士兵普攻按职业权重选动作 v0.84.56**；**移动动画播放速率 v0.84.57**；**攻击动画播放速率 v0.84.58**；**士兵任务标签附有效移速 v0.84.59**；**搜打撤开战属性登记对齐推图 v0.84.60**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,10 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-27 | v0.84.60 | 搜打撤开战登记对齐推图：`DeployCombatUnits` 在 `Bind` 前 `TryRegisterWarrior`，并乘上与推图相同的魔法书 × 战术阵型 `CombatStatMulBuff`；位移基速取登记后的 `MoveSpeed`。阵型 overlay 撤除时刷新派生属性并 `SetBaseMoveSpeed`。阵心仍为 `Hold`。同步 SPEC_04 §9.24 / §9.32 |
+| 2026-09-27 | v0.84.59 | 士兵任务 Debug 标签：`GoalKind` 简标后附 `(有效移速)`（与位移同口径；Defend / PushMap / SearchExtract）。同步 SPEC_03 §3.6、SPEC_04 §9.7 |
+| 2026-09-27 | v0.84.58 | 攻击动画播放速率（方案 A）：每次 `PlayAttack` 采样 clip 长度，`animator.speed = clamp(clipLength×有效攻速, 0.5, 2)`；有效攻速=该次间隔所用值（怪含攻速减速，只乘一次）；远程停帧解除恢复该倍率；制造预览保持 1。不改 HitConfirm 与 `1/AttackSpeed`。同步 SPEC_03 §3.12、SPEC_04 §15.5、CONTEXT |
+| 2026-09-27 | v0.84.57 | 移动动画播放速率（方案 A，第 1 片）：移动中 `animator.speed = clamp(有效移速/标称, 0.5, 2)`（士兵 3.5；怪走 0.5 / 跑 1.0）；停步恢复 1；死亡/复活/远程停帧优先。不改位移与 HitConfirm。攻击速率后置。同步 SPEC_03 §3.12、SPEC_04 §15.5、CONTEXT |
 | 2026-09-27 | v0.84.56 | 士兵普攻按职业权重选动作：`ClassConfig.NormalAttackAnims`（`动作ID;权重\|…`）；每次普攻加权随机基名播 `{基名}_{dir}`；空/非法/当前朝向无状态 → `Attack1`。同步 SPEC_03 §3.12、SPEC_04 §9.9b/§9.19/§15.5、CONTEXT |
 | 2026-09-27 | v0.84.55 | 远程攻击前摇+停顿帧（方案 A）：`MeleeWindupSeconds` 共用近战/远程 `AttackWindup`；新列 `RangedWindupHoldFrame`（1 基；≤0 不停顿）；远程兵前摇结束再射弹；远程怪前摇结束再结算（无弹道）；`WarriorAnimView` 帧冻结。同步 SPEC_03 §3.12、SPEC_04 §6/§9.9b/§9.19/§15.5、CONTEXT |
 | 2026-09-27 | v0.84.54 | 修搜打撤远程不攻击、放大射程后也不移动：`DeployCombatUnits` 的 `PushMapAdvanceView.Bind` 未传 `ProjectilePrefab`（推图有传）。进距停步后 `FireProjectile` 因预制体为空直接返回。同步 SPEC_04 §9.32 |
@@ -521,6 +525,10 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-27 | v0.84.60 | SearchExtract StartBattle registration matches PushMap: `DeployCombatUnits` calls `TryRegisterWarrior` before `Bind`, applying the same magic-book × tactical-formation `CombatStatMulBuff`. Base move speed is the registered `MoveSpeed`. Overlay removal refreshes derived stats and `SetBaseMoveSpeed`. Formation center stays `Hold`. Synced SPEC_04 §9.24 / §9.32 |
+| 2026-09-27 | v0.84.59 | Soldier task Debug label: append `(effective move speed)` after `GoalKind` short label (same value as displacement; Defend / PushMap / SearchExtract). Synced SPEC_03 §3.6, SPEC_04 §9.7 |
+| 2026-09-27 | v0.84.58 | Attack anim playback rate (Approach A): each `PlayAttack` samples clip length, `animator.speed = clamp(clipLength×effectiveAttackSpeed, 0.5, 2)`; effective speed is the value already used for that swing's interval (monster attack slow multiplied once); ranged-hold release restores that rate; manufacture preview stays at 1. HitConfirm and `1/AttackSpeed` unchanged. Synced SPEC_03 §3.12, SPEC_04 §15.5, CONTEXT |
+| 2026-09-27 | v0.84.57 | Move anim playback rate (Approach A, slice 1): while moving, `animator.speed = clamp(effectiveSpeed/reference, 0.5, 2)` (soldiers 3.5; monster walk 0.5 / run 1.0); stop restores 1; death/revive/ranged hold outrank it. Displacement and HitConfirm unchanged. Attack rate deferred. Synced SPEC_03 §3.12, SPEC_04 §15.5, CONTEXT |
 | 2026-09-27 | v0.84.56 | Soldier normal attacks pick a clip by class weight: `ClassConfig.NormalAttackAnims` (`base;weight\|…`); each swing weighted-random base → `{base}_{dir}`; empty/illegal/missing facing state → `Attack1`. Synced SPEC_03 §3.12, SPEC_04 §9.9b/§9.19/§15.5, CONTEXT |
 | 2026-09-27 | v0.84.55 | Ranged attack windup + hold frame (Approach A): `MeleeWindupSeconds` shared Melee/Ranged `AttackWindup`; new `RangedWindupHoldFrame` (1-based; ≤0 no hold); ranged soldiers fire after windup; ranged monsters settle damage after windup (no projectile); `WarriorAnimView` freezes hold frame. Synced SPEC_03 §3.12, SPEC_04 §6/§9.9b/§9.19/§15.5, CONTEXT |
 | 2026-09-27 | v0.84.54 | Fix SearchExtract ranged units not attacking, and not moving once AttackRange is enlarged: `DeployCombatUnits` `PushMapAdvanceView.Bind` omitted `ProjectilePrefab` (PushMap passes it). After the in-range hold, `FireProjectile` returns immediately because the prefab is null. Synced SPEC_04 §9.32 |

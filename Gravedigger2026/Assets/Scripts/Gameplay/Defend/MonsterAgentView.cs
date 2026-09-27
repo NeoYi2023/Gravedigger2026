@@ -515,7 +515,7 @@ namespace Gravedigger2026.Gameplay.Defend
                     _config.AttackPower);
             }
 
-            _anim?.PlayAttack();
+            _anim?.PlayAttack(0, _config.AttackSpeed);
 
             var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
@@ -530,7 +530,7 @@ namespace Gravedigger2026.Gameplay.Defend
             var interval = _config.AttackSpeed > 0.01f ? 1f / _config.AttackSpeed : 1f;
             _attackCooldown = Mathf.Max(0.2f, interval);
             var hold = _windupRemaining > 0f ? _config.RangedWindupHoldFrame : 0;
-            _anim?.PlayAttack(hold);
+            _anim?.PlayAttack(hold, _config.AttackSpeed);
             if (_windupRemaining <= 0f)
             {
                 TickRangedWindup();
@@ -759,7 +759,16 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
-            _anim.SetMoving(isLocomoting, ResolveMoveTargetDistanceXZ(), _gait.IsRun);
+            var moveReference = _gait.IsRun
+                ? WarriorAnimView.MonsterRunAnimReferenceSpeed
+                : WarriorAnimView.MonsterWalkAnimReferenceSpeed;
+            _anim.SetMoving(
+                isLocomoting,
+                ResolveMoveTargetDistanceXZ(),
+                _gait.IsRun,
+                WarriorAnimView.ResolveMovePlaybackRate(
+                    ResolveEffectiveMoveSpeed(_gait.IsRun),
+                    moveReference));
             if (isLocomoting)
             {
                 ApplyMoveFacing();
