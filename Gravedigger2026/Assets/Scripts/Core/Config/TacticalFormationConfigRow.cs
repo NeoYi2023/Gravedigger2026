@@ -8,6 +8,8 @@ namespace Gravedigger2026.Core.Config
     public sealed class TacticalFormationConfigRow
     {
         public string FormationId;
+        /// <summary>Composite PK part. ≥ 1.</summary>
+        public int FormationLevel;
         public string DisplayName;
         public string IconAssetId;
         public string Description;

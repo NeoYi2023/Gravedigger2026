@@ -418,7 +418,7 @@ namespace Gravedigger2026.Editor.Formation
             }
         }
 
-        /// <summary>Left-edge active tactical-squad icon buttons (SPEC_03 UI-030 / D-085).</summary>
+        /// <summary>Left-edge tactical catalog create buttons (SPEC_03 UI-030 / D-093).</summary>
         private static void EnsureTacticalFormationSquadBar(Transform canvas, FormationEditorController controller)
         {
             if (canvas == null)

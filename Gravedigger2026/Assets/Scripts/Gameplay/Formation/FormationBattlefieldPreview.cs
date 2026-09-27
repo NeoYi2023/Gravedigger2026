@@ -16,6 +16,8 @@ namespace Gravedigger2026.Gameplay.Formation
         private const int FixedDirIndex = 2;
         /// <summary>SPEC_04 §15.2 — above GroundTilemap (order 0).</summary>
         private const int SpriteSortingOrder = 200;
+        private const int OverheadSortingOrder = 260;
+        private const string OverheadChildName = "TacticalFormationOverhead";
 
         private static readonly string[] LocomotionBools =
         {
@@ -25,6 +27,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
         private readonly Dictionary<string, GameObject> _previews = new Dictionary<string, GameObject>(StringComparer.Ordinal);
         private readonly Dictionary<string, Collider> _colliders = new Dictionary<string, Collider>(StringComparer.Ordinal);
+        private static Sprite _fallbackOverhead;
 
         private DefendPrefabCatalog _catalog;
         private Transform _parent;
@@ -145,6 +148,78 @@ namespace Gravedigger2026.Gameplay.Formation
 
             _previews.Clear();
             _colliders.Clear();
+        }
+
+        /// <summary>
+        /// Formation-preview only. Icons are children of the stand-in puppets and are not combat units.
+        /// </summary>
+        public void SetGroupOverheadIcon(IReadOnlyList<string> memberIds, Sprite icon)
+        {
+            ClearGroupOverheadIcons();
+            if (memberIds == null)
+            {
+                return;
+            }
+
+            var sprite = icon != null ? icon : FallbackOverheadSprite();
+            for (var i = 0; i < memberIds.Count; i++)
+            {
+                var id = memberIds[i];
+                if (string.IsNullOrEmpty(id) || !_previews.TryGetValue(id, out var go) || go == null)
+                {
+                    continue;
+                }
+
+                var child = new GameObject(OverheadChildName);
+                child.transform.SetParent(go.transform, false);
+                child.transform.localPosition = new Vector3(0f, 0.15f, 0.55f);
+                child.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                child.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
+                var renderer = child.AddComponent<SpriteRenderer>();
+                renderer.sprite = sprite;
+                renderer.sortingOrder = OverheadSortingOrder;
+            }
+        }
+
+        public void ClearGroupOverheadIcons()
+        {
+            foreach (var kv in _previews)
+            {
+                if (kv.Value == null)
+                {
+                    continue;
+                }
+
+                var root = kv.Value.transform;
+                for (var i = root.childCount - 1; i >= 0; i--)
+                {
+                    var child = root.GetChild(i);
+                    if (child.name == OverheadChildName)
+                    {
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+        }
+
+        private static Sprite FallbackOverheadSprite()
+        {
+            if (_fallbackOverhead != null)
+            {
+                return _fallbackOverhead;
+            }
+
+            var tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+            var pixels = new Color[16];
+            for (var i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = new Color(0.85f, 0.9f, 1f, 0.95f);
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply();
+            _fallbackOverhead = Sprite.Create(tex, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);
+            return _fallbackOverhead;
         }
 
         /// <summary>

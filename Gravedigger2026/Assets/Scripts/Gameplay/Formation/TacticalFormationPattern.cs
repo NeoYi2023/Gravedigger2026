@@ -84,7 +84,31 @@ namespace Gravedigger2026.Gameplay.Formation
                 return Vector3.zero;
             }
 
-            var local = slots[index].localPosition;
+            return ToGroundLocalXz(slots[index]);
+        }
+
+        /// <summary>
+        /// Ground plane is XZ. RectTransform slots parented to a non-Canvas Transform
+        /// keep lateral offset in anchoredPosition while the asset localPosition.x stays 0
+        /// (SPEC_04 §9.30).
+        /// </summary>
+        private static Vector3 ToGroundLocalXz(Transform slot)
+        {
+            var local = slot.localPosition;
+            if (slot is RectTransform rect)
+            {
+                var anchored = rect.anchoredPosition;
+                if (Mathf.Approximately(local.x, 0f) && !Mathf.Approximately(anchored.x, 0f))
+                {
+                    local.x = anchored.x;
+                }
+
+                if (Mathf.Approximately(local.z, 0f) && !Mathf.Approximately(anchored.y, 0f))
+                {
+                    local.z = anchored.y;
+                }
+            }
+
             local.y = 0f;
             return local;
         }

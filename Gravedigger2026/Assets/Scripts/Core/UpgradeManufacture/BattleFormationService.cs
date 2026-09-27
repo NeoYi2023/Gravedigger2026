@@ -14,6 +14,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public const float DefaultNudgeStep = 1f;
 
         private readonly List<BattleFormationEntry> _entries = new List<BattleFormationEntry>();
+        private readonly List<TacticalFormationGroupSaveEntry> _groups =
+            new List<TacticalFormationGroupSaveEntry>();
         private readonly WarriorPoolService _pool;
         private int _slotIndex = -1;
         private CampaignMode _campaignMode = CampaignMode.Mode1;
@@ -27,6 +29,12 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public int BoundSlotIndex => _slotIndex;
         public CampaignMode BoundCampaignMode => _campaignMode;
         public IReadOnlyList<BattleFormationEntry> Entries => _entries;
+
+        /// <summary>
+        /// Manual tactical groups persisted with this formation (SPEC_03 §3.18 / TFG-02).
+        /// Empty when the save has no <c>Groups</c> field. Not inferred from positions.
+        /// </summary>
+        public IReadOnlyList<TacticalFormationGroupSaveEntry> Groups => _groups;
 
         public event Action Changed;
 
@@ -47,6 +55,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 _slotIndex = slotIndex;
                 _campaignMode = campaignMode;
                 _entries.Clear();
+                _groups.Clear();
 
                 var key = FormationKey(slotIndex, campaignMode);
                 var raw = PlayerPrefs.GetString(key, string.Empty);
@@ -66,30 +75,9 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 if (!string.IsNullOrEmpty(raw))
                 {
                     var data = JsonUtility.FromJson<BattleFormationSaveData>(raw);
-                    if (data?.Entries != null)
+                    if (ImportSaveData(data))
                     {
-                        for (var i = 0; i < data.Entries.Length; i++)
-                        {
-                            var e = data.Entries[i];
-                            if (e == null || string.IsNullOrEmpty(e.WarriorId))
-                            {
-                                continue;
-                            }
-
-                            if (!_pool.TryGet(e.WarriorId, out _))
-                            {
-                                droppedOrphans = true;
-                                continue;
-                            }
-
-                            _entries.Add(new BattleFormationEntry
-                            {
-                                WarriorId = e.WarriorId,
-                                PositionX = e.PositionX,
-                                PositionZ = e.PositionZ,
-                                RemainingHP = e.RemainingHP
-                            });
-                        }
+                        droppedOrphans = true;
                     }
                 }
 
@@ -125,6 +113,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             try
             {
                 _entries.Clear();
+                _groups.Clear();
             }
             finally
             {
@@ -137,8 +126,142 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         public void Clear()
         {
             _entries.Clear();
+            _groups.Clear();
             PersistIfBound();
             Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// Replace entries and groups from a DTO. Null <see cref="BattleFormationSaveData.Groups"/>
+        /// (old JSON) loads as no groups. Does not infer groups from positions.
+        /// Returns true when a row or member was dropped.
+        /// </summary>
+        public bool ImportSaveData(BattleFormationSaveData data)
+        {
+            _entries.Clear();
+            _groups.Clear();
+            if (data == null)
+            {
+                return false;
+            }
+
+            var dropped = false;
+            if (data.Entries != null)
+            {
+                for (var i = 0; i < data.Entries.Length; i++)
+                {
+                    var e = data.Entries[i];
+                    if (e == null || string.IsNullOrEmpty(e.WarriorId))
+                    {
+                        continue;
+                    }
+
+                    if (!_pool.TryGet(e.WarriorId, out _))
+                    {
+                        dropped = true;
+                        continue;
+                    }
+
+                    _entries.Add(new BattleFormationEntry
+                    {
+                        WarriorId = e.WarriorId,
+                        PositionX = e.PositionX,
+                        PositionZ = e.PositionZ,
+                        RemainingHP = e.RemainingHP
+                    });
+                }
+            }
+
+            if (data.Groups != null)
+            {
+                var seenMembers = new HashSet<string>(StringComparer.Ordinal);
+                var seenGroups = new HashSet<string>(StringComparer.Ordinal);
+                for (var i = 0; i < data.Groups.Length; i++)
+                {
+                    var g = data.Groups[i];
+                    if (g == null
+                        || string.IsNullOrEmpty(g.GroupInstanceId)
+                        || string.IsNullOrEmpty(g.FormationId))
+                    {
+                        dropped = true;
+                        continue;
+                    }
+
+                    if (!seenGroups.Add(g.GroupInstanceId))
+                    {
+                        dropped = true;
+                        continue;
+                    }
+
+                    var source = g.MemberIds;
+                    var kept = new List<string>(source != null ? source.Length : 0);
+                    if (source != null)
+                    {
+                        for (var m = 0; m < source.Length; m++)
+                        {
+                            var id = source[m];
+                            if (string.IsNullOrEmpty(id) || !seenMembers.Add(id))
+                            {
+                                dropped = true;
+                                continue;
+                            }
+
+                            if (!_pool.TryGet(id, out _))
+                            {
+                                dropped = true;
+                                seenMembers.Remove(id);
+                                continue;
+                            }
+
+                            kept.Add(id);
+                        }
+                    }
+
+                    if (kept.Count == 0)
+                    {
+                        dropped = true;
+                        continue;
+                    }
+
+                    if (source == null || kept.Count != source.Length)
+                    {
+                        dropped = true;
+                    }
+
+                    _groups.Add(new TacticalFormationGroupSaveEntry
+                    {
+                        GroupInstanceId = g.GroupInstanceId,
+                        FormationId = g.FormationId,
+                        MemberIds = kept.ToArray(),
+                        FacingYawDegrees = g.FacingYawDegrees
+                    });
+                }
+            }
+
+            return dropped;
+        }
+
+        /// <summary>
+        /// Replace the persisted group list. Does not move soldiers and does not raise <see cref="Changed"/>.
+        /// </summary>
+        public void ReplaceTacticalGroups(IReadOnlyList<TacticalFormationGroupSaveEntry> groups)
+        {
+            _groups.Clear();
+            if (groups != null)
+            {
+                for (var i = 0; i < groups.Count; i++)
+                {
+                    var g = groups[i];
+                    if (g == null || string.IsNullOrEmpty(g.GroupInstanceId))
+                    {
+                        continue;
+                    }
+
+                    _groups.Add(CloneGroup(g));
+                }
+            }
+
+            PersistIfBound();
         }
 
         public static void DeleteSlotData(int slotIndex)
@@ -383,7 +506,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
 
             var data = new BattleFormationSaveData
             {
-                Entries = new BattleFormationSaveEntry[_entries.Count]
+                Entries = new BattleFormationSaveEntry[_entries.Count],
+                Groups = new TacticalFormationGroupSaveEntry[_groups.Count]
             };
 
             for (var i = 0; i < _entries.Count; i++)
@@ -396,6 +520,11 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                     PositionZ = e.PositionZ,
                     RemainingHP = e.RemainingHP
                 };
+            }
+
+            for (var i = 0; i < _groups.Count; i++)
+            {
+                data.Groups[i] = CloneGroup(_groups[i]);
             }
 
             PlayerPrefs.SetString(FormationKey(_slotIndex, _campaignMode), JsonUtility.ToJson(data));
@@ -423,6 +552,20 @@ namespace Gravedigger2026.Core.UpgradeManufacture
         private bool TryFindWarrior(string warriorId, out WarriorInstance warrior)
         {
             return _pool.TryGet(warriorId, out warrior);
+        }
+
+        private static TacticalFormationGroupSaveEntry CloneGroup(TacticalFormationGroupSaveEntry source)
+        {
+            var members = source.MemberIds ?? Array.Empty<string>();
+            var copy = new string[members.Length];
+            Array.Copy(members, copy, members.Length);
+            return new TacticalFormationGroupSaveEntry
+            {
+                GroupInstanceId = source.GroupInstanceId,
+                FormationId = source.FormationId,
+                MemberIds = copy,
+                FacingYawDegrees = source.FacingYawDegrees
+            };
         }
 
         private static string FormationKey(int slotIndex, CampaignMode mode)

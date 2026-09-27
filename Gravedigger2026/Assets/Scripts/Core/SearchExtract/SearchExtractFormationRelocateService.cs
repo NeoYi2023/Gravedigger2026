@@ -20,6 +20,13 @@ namespace Gravedigger2026.Core.SearchExtract
         public bool HasSnapshot => _snapshotReady;
         public bool IsRelocateActive => _relocateActive;
 
+        /// <summary>StartBattle centroid of deployed world XZ. Shared with tactical centers.</summary>
+        public bool TryGetDeployAnchorWorldXZ(out Vector2 anchorWorldXZ)
+        {
+            anchorWorldXZ = _deployAnchorCenter;
+            return _snapshotReady;
+        }
+
         public void Clear()
         {
             _offsetByWarriorId.Clear();

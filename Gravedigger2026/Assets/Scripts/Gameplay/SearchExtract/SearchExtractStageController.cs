@@ -31,7 +31,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
     /// StartBattle ≥1 deploys soldiers, bakes NavMesh+AirWall. SE-04: zone activation + gather countdown HUD.
     /// Pre-activation: FormationHome approach to current Objective (v0.83.92).
     /// D-074: monster death skills via IMonsterDeathSkillHost (shared with PushMap).
-    /// SE-05: MassMove FormationHome relocate around Objective + tactical virtual center snap.
+    /// SE-05: MassMove FormationHome relocate around Objective. Countdown shifts each tactical center by the army-centroid offset.
     /// SE-06: directional wave spawn after gather activation; PushMapMonsterAgentView + BodyRadius spread.
     /// SE-07: point success → invincible + clear monsters + UI-032 decision panel.
     /// SE-08: point loot via RewardGrantService; Continue advances order + relocate; Leave → StageExp + UI-017 → TryAdvanceStage.
@@ -804,7 +804,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             _formationRelocate.ActivateRelocate(center);
-            _tacticalRuntime?.SnapAllCentersTo(center);
+            PlaceTacticalCentersAtObjective(center);
             RefreshRelocateGoals(center);
             Debug.Log($"[SearchExtractStage] Relocate ({reason}) center={center}");
         }
@@ -1350,15 +1350,21 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private void HandleTacticalFormationMemberLost(string warriorId, TacticalFormationMemberLostReason reason)
         {
             if (_tacticalRuntime == null
-                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change))
+                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change, _configs))
             {
                 return;
             }
 
-            var removed = change.OverlayRemovedWarriorIds;
+            var removed = change.OverlayRemovedWarriorIds ?? Array.Empty<string>();
             for (var i = 0; i < removed.Length; i++)
             {
                 UnapplyTacticalFormationOverlay(removed[i]);
+            }
+
+            var refreshed = change.OverlayRefreshedWarriorIds ?? Array.Empty<string>();
+            for (var i = 0; i < refreshed.Length; i++)
+            {
+                ReapplyTacticalFormationOverlay(refreshed[i]);
             }
         }
 
@@ -1384,6 +1390,42 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 _configs.TryGetClass(warrior.ClassId, out classRow);
             }
             _session.TryRefreshCombatDerivedStats(warrior, classRow, _combatMagicBookBuff);
+            ApplyAdvanceMoveSpeed(warriorId);
+        }
+
+        private void ReapplyTacticalFormationOverlay(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _warriorPool == null
+                || !_warriorPool.TryGet(warriorId, out var warrior)
+                || warrior == null
+                || _session == null
+                || !_session.IsWarriorCombatActive(warriorId))
+            {
+                return;
+            }
+
+            var formation = CombatStatMulBuff.Identity;
+            if (_tacticalRuntime != null && _tacticalRuntime.TryGetStatMul(warriorId, out var mul))
+            {
+                formation = mul;
+            }
+
+            ClassConfigRow classRow = null;
+            if (_configs != null)
+            {
+                _configs.TryGetClass(warrior.ClassId, out classRow);
+            }
+
+            _session.TryRefreshCombatDerivedStats(
+                warrior,
+                classRow,
+                _combatMagicBookBuff.Multiply(formation));
+            ApplyAdvanceMoveSpeed(warriorId);
+        }
+
+        private void ApplyAdvanceMoveSpeed(string warriorId)
+        {
             var view = FindAdvanceView(warriorId);
             if (view != null && _session.TryGetWarrior(warriorId, out var state) && state != null)
             {
@@ -1743,8 +1785,27 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 && _session.IsFormationRelocateActive
                 && TryGetCurrentObjectiveCenter(out var center))
             {
-                _tacticalRuntime.SnapAllCentersTo(center);
+                PlaceTacticalCentersAtObjective(center);
             }
+        }
+
+        /// <summary>
+        /// Keep each group's offset from the StartBattle army centroid when the
+        /// centroid is mapped onto the current gather point (SPEC_03 §3.19).
+        /// </summary>
+        private void PlaceTacticalCentersAtObjective(Vector2 objectiveWorldXZ)
+        {
+            if (_tacticalRuntime == null
+                || _tacticalRuntime.SquadCount == 0
+                || !_formationRelocate.TryGetDeployAnchorWorldXZ(out var anchor))
+            {
+                return;
+            }
+
+            _tacticalRuntime.PlaceCentersPreservingLayout(
+                objectiveWorldXZ,
+                anchor,
+                new Vector2(_mapCenter.x, _mapCenter.z));
         }
 
         private void TickAttackSlotGoals()
@@ -2109,6 +2170,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _tacticalRuntime ??= new TacticalFormationRuntimeService();
             var speed = ResolveRepresentativeMoveSpeed(locks);
             _tacticalRuntime.OnStartBattle(locks, TacticalFormationCenterMode.Hold, speed);
+            _tacticalRuntime.AssignRepresentativeMoveSpeeds(ResolveMemberMoveSpeed);
         }
 
         private float ResolveRepresentativeMoveSpeed(List<TacticalFormationCombatLock> locks)
@@ -2142,6 +2204,19 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             return 3.5f;
+        }
+
+        private float ResolveMemberMoveSpeed(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _session == null
+                || !_session.TryGetWarrior(warriorId, out var state)
+                || state == null)
+            {
+                return 0f;
+            }
+
+            return state.MoveSpeed;
         }
 
         private void EnsureCountdownHud()

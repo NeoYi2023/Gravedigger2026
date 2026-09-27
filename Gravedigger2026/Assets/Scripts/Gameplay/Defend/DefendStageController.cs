@@ -1230,6 +1230,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _tacticalRuntime ??= new TacticalFormationRuntimeService();
             var speed = ResolveRepresentativeMoveSpeed(locks);
             _tacticalRuntime.OnStartBattle(locks, centerMode, speed);
+            _tacticalRuntime.AssignRepresentativeMoveSpeeds(ResolveMemberMoveSpeed);
         }
 
         private CombatStatMulBuff ResolveCombatRegisterBuff(string warriorId)
@@ -1269,19 +1270,27 @@ namespace Gravedigger2026.Gameplay.Defend
             TacticalFormationMemberLostReason reason)
         {
             if (_tacticalRuntime == null
-                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change))
+                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change, _configs))
             {
                 return;
             }
 
-            var removed = change.OverlayRemovedWarriorIds;
+            var removed = change.OverlayRemovedWarriorIds ?? Array.Empty<string>();
+            var rebelTrigger = reason == TacticalFormationMemberLostReason.Rebel;
             for (var i = 0; i < removed.Length; i++)
             {
                 UnapplyTacticalFormationOverlay(removed[i]);
-                if (change.SquadDissolved)
+                if (change.SquadDissolved
+                    && !(rebelTrigger && string.Equals(removed[i], warriorId, StringComparison.Ordinal)))
                 {
                     ApplyDefendDissolveFallback(removed[i]);
                 }
+            }
+
+            var refreshed = change.OverlayRefreshedWarriorIds ?? Array.Empty<string>();
+            for (var i = 0; i < refreshed.Length; i++)
+            {
+                ReapplyTacticalFormationOverlay(refreshed[i]);
             }
         }
 
@@ -1303,13 +1312,44 @@ namespace Gravedigger2026.Gameplay.Defend
 
             _configs.TryGetClass(warrior.ClassId, out var classRow);
             _session.TryRefreshCombatDerivedStats(warrior, classRow, _combatMagicBookBuff);
+            RefreshDefendMoveSpeed(warriorId);
+        }
+
+        private void ReapplyTacticalFormationOverlay(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _warriorPool == null
+                || !_warriorPool.TryGet(warriorId, out var warrior)
+                || warrior == null
+                || _session == null
+                || !_session.IsWarriorCombatActive(warriorId))
+            {
+                return;
+            }
+
+            var formation = CombatStatMulBuff.Identity;
+            if (_tacticalRuntime != null && _tacticalRuntime.TryGetStatMul(warriorId, out var mul))
+            {
+                formation = mul;
+            }
+
+            _configs.TryGetClass(warrior.ClassId, out var classRow);
+            _session.TryRefreshCombatDerivedStats(
+                warrior,
+                classRow,
+                _combatMagicBookBuff.Multiply(formation));
+            RefreshDefendMoveSpeed(warriorId);
+        }
+
+        private void RefreshDefendMoveSpeed(string warriorId)
+        {
             for (var i = 0; i < _warriorAgents.Count; i++)
             {
                 var view = _warriorAgents[i];
                 if (view != null && string.Equals(view.WarriorId, warriorId, StringComparison.Ordinal))
                 {
                     view.RefreshMoveSpeedFromSession();
-                    break;
+                    return;
                 }
             }
         }
@@ -1374,6 +1414,19 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             return 0f;
+        }
+
+        private float ResolveMemberMoveSpeed(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _session == null
+                || !_session.TryGetWarrior(warriorId, out var state)
+                || state == null)
+            {
+                return 0f;
+            }
+
+            return state.MoveSpeed;
         }
 
         private void TickTacticalFormationCenter()

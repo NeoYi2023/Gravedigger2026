@@ -45,6 +45,21 @@ namespace Gravedigger2026.Core.UpgradeManufacture
     public sealed class BattleFormationSaveData
     {
         public BattleFormationSaveEntry[] Entries = Array.Empty<BattleFormationSaveEntry>();
+
+        /// <summary>
+        /// Manual tactical groups (SPEC_03 §3.18 / TFG-02). Missing on old JSON → null = no groups.
+        /// Level and center are not stored.
+        /// </summary>
+        public TacticalFormationGroupSaveEntry[] Groups;
+    }
+
+    [Serializable]
+    public sealed class TacticalFormationGroupSaveEntry
+    {
+        public string GroupInstanceId;
+        public string FormationId;
+        public string[] MemberIds = Array.Empty<string>();
+        public float FacingYawDegrees;
     }
 
     [Serializable]

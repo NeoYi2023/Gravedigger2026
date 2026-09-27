@@ -27,15 +27,18 @@ namespace Gravedigger2026.Core.TacticalFormation
         public readonly bool SquadDissolved;
         public readonly string FormationId;
         public readonly string[] OverlayRemovedWarriorIds;
+        public readonly string[] OverlayRefreshedWarriorIds;
 
         public TacticalFormationMemberLostResult(
             bool squadDissolved,
             string formationId,
-            string[] overlayRemovedWarriorIds)
+            string[] overlayRemovedWarriorIds,
+            string[] overlayRefreshedWarriorIds = null)
         {
             SquadDissolved = squadDissolved;
             FormationId = formationId;
             OverlayRemovedWarriorIds = overlayRemovedWarriorIds ?? Array.Empty<string>();
+            OverlayRefreshedWarriorIds = overlayRefreshedWarriorIds ?? Array.Empty<string>();
         }
     }
 
@@ -54,6 +57,8 @@ namespace Gravedigger2026.Core.TacticalFormation
         public readonly CombatStatMulBuff StatMul;
         public readonly string[] ExclusiveSkillIds;
         public readonly string[] ExclusiveSkillEffectIds;
+        public readonly string GroupInstanceId;
+        public readonly int[] MemberClassLevels;
 
         public TacticalFormationCombatLock(
             string formationId,
@@ -86,7 +91,9 @@ namespace Gravedigger2026.Core.TacticalFormation
             int minMemberCount,
             CombatStatMulBuff statMul,
             string[] exclusiveSkillIds,
-            string[] exclusiveSkillEffectIds)
+            string[] exclusiveSkillEffectIds,
+            string groupInstanceId = null,
+            int[] memberClassLevels = null)
         {
             FormationId = formationId;
             MemberIds = memberIds ?? Array.Empty<string>();
@@ -98,6 +105,8 @@ namespace Gravedigger2026.Core.TacticalFormation
             StatMul = statMul;
             ExclusiveSkillIds = exclusiveSkillIds ?? Array.Empty<string>();
             ExclusiveSkillEffectIds = exclusiveSkillEffectIds ?? Array.Empty<string>();
+            GroupInstanceId = groupInstanceId ?? string.Empty;
+            MemberClassLevels = memberClassLevels;
         }
     }
 
@@ -117,6 +126,7 @@ namespace Gravedigger2026.Core.TacticalFormation
             new List<TacticalFormationSquadSnapshot>(8);
 
         private readonly List<string> _lostScratch = new List<string>(8);
+        private readonly List<string> _refreshScratch = new List<string>(8);
 
         private TacticalFormationCenterMode _centerMode = TacticalFormationCenterMode.Hold;
         private float _representativeMoveSpeed;
@@ -131,6 +141,7 @@ namespace Gravedigger2026.Core.TacticalFormation
             _memberIndex.Clear();
             _layoutScratch.Clear();
             _lostScratch.Clear();
+            _refreshScratch.Clear();
             _centerMode = TacticalFormationCenterMode.Hold;
             _representativeMoveSpeed = 0f;
         }
@@ -167,22 +178,44 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         public void Tick(float dt, Vector2 flowFieldDirXZ)
         {
-            if (dt <= 0f || _squads.Count == 0)
+            TickSquads(dt, flowFieldDirXZ, null);
+        }
+
+        /// <summary>
+        /// Each group samples FlowField at its own center (PushMap). Defend / SearchExtract keep Hold.
+        /// </summary>
+        public void Tick(float dt, Func<Vector2, Vector2> sampleDirAtCenter)
+        {
+            TickSquads(dt, default, sampleDirAtCenter);
+        }
+
+        /// <summary>
+        /// First living member MoveSpeed per group. Squads with no speed keep the service-wide fallback.
+        /// </summary>
+        public void AssignRepresentativeMoveSpeeds(Func<string, float> moveSpeedOf)
+        {
+            if (moveSpeedOf == null)
             {
                 return;
             }
 
             foreach (var kv in _squads)
             {
-                kv.Value.Tick(dt, _centerMode, _representativeMoveSpeed, flowFieldDirXZ);
+                kv.Value?.AssignRepresentativeMoveSpeed(moveSpeedOf);
             }
         }
 
         /// <summary>
-        /// SearchExtract gather Objective is the formation center (SPEC_03 §3.19 / SE-05).
+        /// SearchExtract gather countdown: shift each locked center so the StartBattle
+        /// army centroid lands on the objective. Repeated calls use the original lock
+        /// center and do not accumulate (SPEC_03 §3.19).
         /// </summary>
-        public void SnapAllCentersTo(Vector2 objectiveCenterXZ)
+        public void PlaceCentersPreservingLayout(
+            Vector2 objectiveWorldXZ,
+            Vector2 deployAnchorWorldXZ,
+            Vector2 mapCenterXZ)
         {
+            var delta = objectiveWorldXZ - deployAnchorWorldXZ;
             foreach (var kv in _squads)
             {
                 var squad = kv.Value;
@@ -191,7 +224,8 @@ namespace Gravedigger2026.Core.TacticalFormation
                     continue;
                 }
 
-                squad.CenterXZ = objectiveCenterXZ;
+                var originWorld = mapCenterXZ + squad.OriginCenterMapRel;
+                squad.CenterXZ = originWorld + delta;
             }
         }
 
@@ -245,21 +279,24 @@ namespace Gravedigger2026.Core.TacticalFormation
         public bool TryNotifyMemberLost(
             string warriorId,
             TacticalFormationMemberLostReason reason,
-            out TacticalFormationMemberLostResult result)
+            out TacticalFormationMemberLostResult result,
+            ConfigCsvRepository configs = null)
         {
             result = default;
             if (string.IsNullOrEmpty(warriorId)
                 || !_memberIndex.TryGetValue(warriorId, out var memberRef)
-                || !_squads.TryGetValue(memberRef.FormationId, out var squad)
+                || !_squads.TryGetValue(memberRef.GroupKey, out var squad)
                 || squad == null)
             {
                 return false;
             }
 
+            var hadOverlay = squad.OverlayActive;
             _memberIndex.Remove(warriorId);
             squad.RemoveActive(warriorId);
 
             _lostScratch.Clear();
+            _refreshScratch.Clear();
             var dissolved = false;
             if (squad.ActiveMemberCount < squad.MinMemberCount)
             {
@@ -270,24 +307,32 @@ namespace Gravedigger2026.Core.TacticalFormation
                 }
 
                 squad.OverlayActive = false;
-                _squads.Remove(squad.FormationId);
+                _squads.Remove(squad.GroupKey);
                 dissolved = true;
                 Debug.Log(
-                    $"[TacticalFormation] Dissolve {squad.FormationId} remaining={_lostScratch.Count} " +
-                    $"< Min={squad.MinMemberCount} trigger={warriorId} reason={reason}");
+                    $"[TacticalFormation] Dissolve group={squad.GroupKey} formation={squad.FormationId} " +
+                    $"remaining={_lostScratch.Count} < Min={squad.MinMemberCount} trigger={warriorId} reason={reason}");
             }
-            else if (reason == TacticalFormationMemberLostReason.Rebel && squad.OverlayActive)
+            else if (squad.TrySwapOverlay(configs, out var changed) && changed)
+            {
+                squad.CollectActive(_refreshScratch);
+            }
+
+            if (reason == TacticalFormationMemberLostReason.Rebel && hadOverlay)
             {
                 _lostScratch.Add(warriorId);
                 Debug.Log(
-                    $"[TacticalFormation] Rebel leave {warriorId} formation={squad.FormationId} " +
-                    $"living={squad.ActiveMemberCount}");
+                    $"[TacticalFormation] Rebel leave {warriorId} group={squad.GroupKey} " +
+                    $"formation={squad.FormationId} living={squad.ActiveMemberCount}");
             }
 
             var removed = _lostScratch.Count == 0
                 ? Array.Empty<string>()
                 : _lostScratch.ToArray();
-            result = new TacticalFormationMemberLostResult(dissolved, squad.FormationId, removed);
+            var refreshed = _refreshScratch.Count == 0
+                ? Array.Empty<string>()
+                : _refreshScratch.ToArray();
+            result = new TacticalFormationMemberLostResult(dissolved, squad.FormationId, removed, refreshed);
             return true;
         }
 
@@ -470,11 +515,34 @@ namespace Gravedigger2026.Core.TacticalFormation
 
                 var ids = new string[take];
                 var locals = new Vector2[take];
+                var classLevels = new int[take];
+                var sourceLevels = squad.MemberClassLevels;
                 for (var s = 0; s < take; s++)
                 {
                     ids[s] = members[s];
                     var local = slots[s];
                     locals[s] = new Vector2(local.x, local.z);
+                    if (sourceLevels != null && s < sourceLevels.Length)
+                    {
+                        classLevels[s] = sourceLevels[s];
+                    }
+                }
+
+                var matched = squad.MatchedLevelRow;
+                var statMul = CombatStatMulBuff.Identity;
+                var exclusiveSkills = Array.Empty<string>();
+                var exclusiveEffects = Array.Empty<string>();
+                if (matched == null)
+                {
+                    Debug.LogWarning(
+                        $"[TacticalFormationRuntime] Group '{squad.GroupInstanceId}' FormationId '{squad.FormationId}' " +
+                        $"computed level {squad.ComputedLevel} has no FormationLevel row — lock with empty stats.");
+                }
+                else
+                {
+                    statMul = TacticalFormationStatOverlay.Parse(matched.StatModifiers, squad.FormationId);
+                    exclusiveSkills = matched.ExclusiveSkillIds ?? Array.Empty<string>();
+                    exclusiveEffects = matched.ExclusiveSkillEffectIds ?? Array.Empty<string>();
                 }
 
                 result.Add(new TacticalFormationCombatLock(
@@ -485,9 +553,11 @@ namespace Gravedigger2026.Core.TacticalFormation
                     new Vector2(squad.CenterX, squad.CenterZ),
                     squad.FacingYawDegrees,
                     row.MinMemberCount,
-                    TacticalFormationStatOverlay.Parse(row.StatModifiers, squad.FormationId),
-                    row.ExclusiveSkillIds,
-                    row.ExclusiveSkillEffectIds));
+                    statMul,
+                    exclusiveSkills,
+                    exclusiveEffects,
+                    squad.GroupInstanceId,
+                    classLevels));
             }
 
             return result;
@@ -510,19 +580,29 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return;
             }
 
-            if (_squads.ContainsKey(lockData.FormationId))
+            var groupKey = string.IsNullOrEmpty(lockData.GroupInstanceId)
+                ? lockData.FormationId
+                : lockData.GroupInstanceId;
+            if (string.IsNullOrEmpty(groupKey))
+            {
+                return;
+            }
+
+            if (_squads.ContainsKey(groupKey))
             {
                 Debug.LogWarning(
-                    $"[TacticalFormationRuntime] Duplicate FormationId '{lockData.FormationId}' — Demo max 1 instance, skip.");
+                    $"[TacticalFormationRuntime] Duplicate group '{groupKey}' — skip.");
                 return;
             }
 
             var ids = new string[take];
             var locals = new Vector2[take];
+            var classLevels = lockData.MemberClassLevels;
             Array.Copy(lockData.MemberIds, ids, take);
             Array.Copy(lockData.SlotLocalXZ, locals, take);
 
             var squad = new CombatSquad(
+                groupKey,
                 lockData.FormationId,
                 ids,
                 locals,
@@ -532,8 +612,9 @@ namespace Gravedigger2026.Core.TacticalFormation
                 lockData.MinMemberCount,
                 lockData.StatMul,
                 lockData.ExclusiveSkillIds,
-                lockData.ExclusiveSkillEffectIds);
-            _squads[lockData.FormationId] = squad;
+                lockData.ExclusiveSkillEffectIds,
+                classLevels);
+            _squads[groupKey] = squad;
 
             for (var i = 0; i < take; i++)
             {
@@ -550,16 +631,39 @@ namespace Gravedigger2026.Core.TacticalFormation
                     continue;
                 }
 
-                _memberIndex[id] = new MemberRef(lockData.FormationId, i);
+                _memberIndex[id] = new MemberRef(groupKey, i);
                 squad.AddActive(id);
             }
 
             if (squad.OverlayActive)
             {
                 Debug.Log(
-                    $"[TacticalFormation] Overlay ON {lockData.FormationId} members={squad.ActiveMemberCount} " +
-                    $"Stat={lockData.StatMul} Skills={lockData.ExclusiveSkillIds.Length} " +
-                    $"Effects={lockData.ExclusiveSkillEffectIds.Length}");
+                    $"[TacticalFormation] Overlay ON group={groupKey} formation={lockData.FormationId} " +
+                    $"members={squad.ActiveMemberCount} Stat={lockData.StatMul} " +
+                    $"Skills={lockData.ExclusiveSkillIds.Length} Effects={lockData.ExclusiveSkillEffectIds.Length}");
+            }
+        }
+
+        private void TickSquads(float dt, Vector2 uniformDir, Func<Vector2, Vector2> sampleDirAtCenter)
+        {
+            if (dt <= 0f || _squads.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var kv in _squads)
+            {
+                var squad = kv.Value;
+                if (squad == null)
+                {
+                    continue;
+                }
+
+                var dir = sampleDirAtCenter != null ? sampleDirAtCenter(squad.CenterXZ) : uniformDir;
+                var speed = squad.RepresentativeMoveSpeed > 0.01f
+                    ? squad.RepresentativeMoveSpeed
+                    : _representativeMoveSpeed;
+                squad.Tick(dt, _centerMode, speed, dir);
             }
         }
 
@@ -569,7 +673,7 @@ namespace Gravedigger2026.Core.TacticalFormation
             slotIndex = -1;
             if (string.IsNullOrEmpty(warriorId)
                 || !_memberIndex.TryGetValue(warriorId, out var memberRef)
-                || !_squads.TryGetValue(memberRef.FormationId, out squad)
+                || !_squads.TryGetValue(memberRef.GroupKey, out squad)
                 || squad == null)
             {
                 return false;
@@ -581,36 +685,48 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         private readonly struct MemberRef
         {
-            public readonly string FormationId;
+            public readonly string GroupKey;
             public readonly int SlotIndex;
 
-            public MemberRef(string formationId, int slotIndex)
+            public MemberRef(string groupKey, int slotIndex)
             {
-                FormationId = formationId;
+                GroupKey = groupKey;
                 SlotIndex = slotIndex;
             }
         }
 
         private sealed class CombatSquad
         {
+            public readonly string GroupKey;
             public readonly string FormationId;
             public readonly string[] MemberIds;
             public readonly Vector2[] SlotLocalXZ;
             public readonly TacticalFormationMoveParams MoveParams;
             public readonly int MinMemberCount;
-            public readonly CombatStatMulBuff StatMul;
-            public readonly string[] ExclusiveSkillIds;
-            public readonly string[] ExclusiveSkillEffectIds;
+            public CombatStatMulBuff StatMul;
+            public string[] ExclusiveSkillIds;
+            public string[] ExclusiveSkillEffectIds;
             public Vector2 CenterXZ;
+
+            /// <summary>Combat-lock center in map-relative XZ. Never updated by relocate.</summary>
+            public readonly Vector2 OriginCenterMapRel;
+
             public float FacingYawDegrees;
+            public float RepresentativeMoveSpeed;
             public bool OverlayActive = true;
 
             private readonly HashSet<string> _activeMembers =
                 new HashSet<string>(StringComparer.Ordinal);
 
+            private readonly Dictionary<string, int> _classLevelByMember =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+
+            private readonly bool _hasClassLevels;
+
             public int ActiveMemberCount => _activeMembers.Count;
 
             public CombatSquad(
+                string groupKey,
                 string formationId,
                 string[] memberIds,
                 Vector2[] slotLocalXZ,
@@ -620,18 +736,148 @@ namespace Gravedigger2026.Core.TacticalFormation
                 int minMemberCount,
                 CombatStatMulBuff statMul,
                 string[] exclusiveSkillIds,
-                string[] exclusiveSkillEffectIds)
+                string[] exclusiveSkillEffectIds,
+                int[] memberClassLevels)
             {
+                GroupKey = groupKey;
                 FormationId = formationId;
                 MemberIds = memberIds;
                 SlotLocalXZ = slotLocalXZ;
                 MoveParams = moveParams;
                 CenterXZ = centerXZ;
+                OriginCenterMapRel = centerXZ;
                 FacingYawDegrees = facingYawDegrees;
                 MinMemberCount = minMemberCount < 1 ? 1 : minMemberCount;
                 StatMul = statMul;
                 ExclusiveSkillIds = exclusiveSkillIds ?? Array.Empty<string>();
                 ExclusiveSkillEffectIds = exclusiveSkillEffectIds ?? Array.Empty<string>();
+                _hasClassLevels = memberClassLevels != null;
+                if (!_hasClassLevels || memberIds == null)
+                {
+                    return;
+                }
+
+                var n = Math.Min(memberIds.Length, memberClassLevels.Length);
+                for (var i = 0; i < n; i++)
+                {
+                    var id = memberIds[i];
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        _classLevelByMember[id] = memberClassLevels[i];
+                    }
+                }
+            }
+
+            public void AssignRepresentativeMoveSpeed(Func<string, float> moveSpeedOf)
+            {
+                RepresentativeMoveSpeed = 0f;
+                if (moveSpeedOf == null || MemberIds == null)
+                {
+                    return;
+                }
+
+                for (var i = 0; i < MemberIds.Length; i++)
+                {
+                    var id = MemberIds[i];
+                    if (string.IsNullOrEmpty(id) || !_activeMembers.Contains(id))
+                    {
+                        continue;
+                    }
+
+                    var speed = moveSpeedOf(id);
+                    if (speed > 0.01f)
+                    {
+                        RepresentativeMoveSpeed = speed;
+                        return;
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Recompute Floor(mean ClassLevel) of living members and swap the level-row overlay.
+            /// No class levels or configs → leave the locked row (legacy single-squad locks).
+            /// </summary>
+            public bool TrySwapOverlay(ConfigCsvRepository configs, out bool changed)
+            {
+                changed = false;
+                if (!_hasClassLevels || configs == null || !configs.IsLoaded)
+                {
+                    return false;
+                }
+
+                var sum = 0;
+                var count = 0;
+                foreach (var id in _activeMembers)
+                {
+                    count++;
+                    if (_classLevelByMember.TryGetValue(id, out var level))
+                    {
+                        sum += level;
+                    }
+                }
+
+                var computed = count > 0 ? sum / count : 0;
+                var nextStat = CombatStatMulBuff.Identity;
+                var nextSkills = Array.Empty<string>();
+                var nextEffects = Array.Empty<string>();
+                if (!configs.TryGetTacticalFormationForComputedLevel(FormationId, computed, out var row)
+                    || row == null)
+                {
+                    Debug.LogWarning(
+                        $"[TacticalFormation] Group '{GroupKey}' FormationId '{FormationId}' " +
+                        $"computed level {computed} has no FormationLevel row — stats empty.");
+                }
+                else
+                {
+                    nextStat = TacticalFormationStatOverlay.Parse(row.StatModifiers, FormationId);
+                    nextSkills = row.ExclusiveSkillIds ?? Array.Empty<string>();
+                    nextEffects = row.ExclusiveSkillEffectIds ?? Array.Empty<string>();
+                }
+
+                changed = !SameStat(StatMul, nextStat)
+                          || !SameIds(ExclusiveSkillIds, nextSkills)
+                          || !SameIds(ExclusiveSkillEffectIds, nextEffects);
+                if (!changed)
+                {
+                    return true;
+                }
+
+                StatMul = nextStat;
+                ExclusiveSkillIds = nextSkills;
+                ExclusiveSkillEffectIds = nextEffects;
+                Debug.Log(
+                    $"[TacticalFormation] Overlay swap group={GroupKey} formation={FormationId} " +
+                    $"level={computed} living={count} Stat={nextStat}");
+                return true;
+            }
+
+            private static bool SameStat(CombatStatMulBuff a, CombatStatMulBuff b)
+            {
+                return Mathf.Approximately(a.MaxHpBodyLifeMul, b.MaxHpBodyLifeMul)
+                       && Mathf.Approximately(a.StrengthMul, b.StrengthMul)
+                       && Mathf.Approximately(a.AgilityMul, b.AgilityMul)
+                       && Mathf.Approximately(a.IntelligenceMul, b.IntelligenceMul)
+                       && Mathf.Approximately(a.MoveSpeedMul, b.MoveSpeedMul);
+            }
+
+            private static bool SameIds(string[] a, string[] b)
+            {
+                a ??= Array.Empty<string>();
+                b ??= Array.Empty<string>();
+                if (a.Length != b.Length)
+                {
+                    return false;
+                }
+
+                for (var i = 0; i < a.Length; i++)
+                {
+                    if (!string.Equals(a[i], b[i], StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
             public void AddActive(string warriorId)

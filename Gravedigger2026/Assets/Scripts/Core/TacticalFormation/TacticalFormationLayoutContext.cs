@@ -14,16 +14,42 @@ namespace Gravedigger2026.Core.TacticalFormation
         public readonly float FacingTargetRelX;
         public readonly float FacingTargetRelZ;
 
+        /// <summary>
+        /// Map-relative center used when a new group has no deployed members
+        /// (view-center ground point). SPEC_03 §3.18 / UI-030.
+        /// </summary>
+        public readonly bool HasFallbackCenter;
+        public readonly float FallbackCenterRelX;
+        public readonly float FallbackCenterRelZ;
+
         public TacticalFormationLayoutContext(
             IReadOnlyList<FormationClassZoneSnapshot> zones,
             bool hasFacingTarget,
             float facingTargetRelX,
-            float facingTargetRelZ)
+            float facingTargetRelZ,
+            bool hasFallbackCenter = false,
+            float fallbackCenterRelX = 0f,
+            float fallbackCenterRelZ = 0f)
         {
             Zones = zones;
             HasFacingTarget = hasFacingTarget;
             FacingTargetRelX = facingTargetRelX;
             FacingTargetRelZ = facingTargetRelZ;
+            HasFallbackCenter = hasFallbackCenter;
+            FallbackCenterRelX = fallbackCenterRelX;
+            FallbackCenterRelZ = fallbackCenterRelZ;
+        }
+
+        public TacticalFormationLayoutContext WithFallbackCenter(float relX, float relZ)
+        {
+            return new TacticalFormationLayoutContext(
+                Zones,
+                HasFacingTarget,
+                FacingTargetRelX,
+                FacingTargetRelZ,
+                true,
+                relX,
+                relZ);
         }
 
         public static TacticalFormationLayoutContext DefaultPlusZ(

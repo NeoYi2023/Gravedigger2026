@@ -8,8 +8,8 @@ using UnityEngine;
 namespace Gravedigger2026.Core.TacticalFormation
 {
     /// <summary>
-    /// Prepare tactical-formation layout: group by FormationId, snap ≥Min, revert &lt;Min (SPEC_03 §3.18 / TF-03).
-    /// Session membership is in-memory only (not saved); reconstructed on each Evaluate.
+    /// Prepare tactical-formation groups (SPEC_03 §3.18 / TFG-02).
+    /// Membership lives on <see cref="BattleFormationService"/>; this session cache is rebuilt by <see cref="Restore"/>.
     /// </summary>
     public sealed class TacticalFormationLayoutService
     {
@@ -18,8 +18,8 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         private const float PositionEpsilon = 0.0001f;
 
-        private readonly Dictionary<string, TacticalFormationSquadSnapshot> _squads =
-            new Dictionary<string, TacticalFormationSquadSnapshot>(StringComparer.Ordinal);
+        private readonly List<TacticalFormationSquadSnapshot> _squads =
+            new List<TacticalFormationSquadSnapshot>(4);
 
         private readonly List<BattleFormationService.PositionWrite> _writes =
             new List<BattleFormationService.PositionWrite>(16);
@@ -27,6 +27,17 @@ namespace Gravedigger2026.Core.TacticalFormation
         private readonly List<string> _idScratch = new List<string>(16);
         private readonly List<FormationZoneSpiralSearch.Footprint> _occupiedScratch =
             new List<FormationZoneSpiralSearch.Footprint>(32);
+
+        private readonly HashSet<string> _groupedScratch = new HashSet<string>(StringComparer.Ordinal);
+        private readonly List<TacticalFormationMemberQuery.EligibleMember> _eligibleScratch =
+            new List<TacticalFormationMemberQuery.EligibleMember>(16);
+
+        private readonly List<string> _barScratch = new List<string>(16);
+        private readonly List<string> _memberScratch = new List<string>(16);
+        private readonly List<string> _newDeployScratch = new List<string>(16);
+
+        private readonly List<TacticalFormationSquadSnapshot> _disbandScratch =
+            new List<TacticalFormationSquadSnapshot>(4);
 
         public bool TryGetSquadByMember(string warriorId, out TacticalFormationSquadSnapshot squad)
         {
@@ -36,9 +47,9 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return false;
             }
 
-            foreach (var kv in _squads)
+            for (var i = 0; i < _squads.Count; i++)
             {
-                var s = kv.Value;
+                var s = _squads[i];
                 if (s != null && s.Contains(warriorId))
                 {
                     squad = s;
@@ -63,17 +74,407 @@ namespace Gravedigger2026.Core.TacticalFormation
             }
 
             into.Clear();
-            foreach (var kv in _squads)
+            for (var i = 0; i < _squads.Count; i++)
             {
-                if (kv.Value != null)
+                if (_squads[i] != null)
                 {
-                    into.Add(kv.Value);
+                    into.Add(_squads[i]);
                 }
             }
         }
 
         /// <summary>
-        /// Translate whole squad by map-relative delta. Keeps offsets and facing. Does not re-Evaluate.
+        /// Rebuild session snapshots from the formation save. Does not snap and does not create groups.
+        /// Center is the member centroid. Level is recomputed.
+        /// </summary>
+        public void Restore(
+            BattleFormationService formation,
+            WarriorPoolService pool,
+            ConfigCsvRepository configs)
+        {
+            _squads.Clear();
+            if (formation == null)
+            {
+                return;
+            }
+
+            var saved = formation.Groups;
+            if (saved == null)
+            {
+                return;
+            }
+
+            var seenMembers = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < saved.Count; i++)
+            {
+                var record = saved[i];
+                if (record == null
+                    || string.IsNullOrEmpty(record.GroupInstanceId)
+                    || string.IsNullOrEmpty(record.FormationId)
+                    || record.MemberIds == null
+                    || record.MemberIds.Length == 0)
+                {
+                    continue;
+                }
+
+                _idScratch.Clear();
+                for (var m = 0; m < record.MemberIds.Length; m++)
+                {
+                    var id = record.MemberIds[m];
+                    if (string.IsNullOrEmpty(id) || !seenMembers.Add(id))
+                    {
+                        continue;
+                    }
+
+                    if (!formation.TryGetEntry(id, out _))
+                    {
+                        seenMembers.Remove(id);
+                        continue;
+                    }
+
+                    _idScratch.Add(id);
+                }
+
+                if (_idScratch.Count == 0)
+                {
+                    continue;
+                }
+
+                var members = _idScratch.ToArray();
+                var squad = new TacticalFormationSquadSnapshot
+                {
+                    GroupInstanceId = record.GroupInstanceId,
+                    FormationId = record.FormationId,
+                    MemberIds = members,
+                    FacingYawDegrees = record.FacingYawDegrees
+                };
+                RecomputeCenter(squad, formation);
+                ApplyLevel(squad, pool, configs);
+                _squads.Add(squad);
+            }
+        }
+
+        /// <summary>
+        /// Create one group for <paramref name="formationId"/>.
+        /// Deployed matches fill first; undeployed SoldierBar matches fill the rest.
+        /// Fails without moving anyone when the taken count stays below Min.
+        /// </summary>
+        public bool TryCreateGroup(
+            string formationId,
+            BattleFormationService formation,
+            WarriorPoolService pool,
+            ConfigCsvRepository configs,
+            ITacticalFormationPatternLookup patterns,
+            TacticalFormationLayoutContext context)
+        {
+            if (formation == null || pool == null || configs == null || !configs.IsLoaded
+                || string.IsNullOrEmpty(formationId))
+            {
+                return false;
+            }
+
+            if (!configs.TryGetTacticalFormation(formationId, out var row) || row == null)
+            {
+                Debug.LogWarning(
+                    $"[TacticalFormationLayout] FormationId '{formationId}' missing TacticalFormationConfig — create failed.");
+                return false;
+            }
+
+            if (patterns == null
+                || !patterns.TryGetSlotLocalXZ(row.PrefabId, out var slots)
+                || slots == null
+                || slots.Length == 0)
+            {
+                Debug.LogWarning(
+                    $"[TacticalFormationLayout] PrefabId '{row.PrefabId}' for {formationId} missing Pattern slots — create failed.");
+                return false;
+            }
+
+            FillGroupedIds(formation);
+            TacticalFormationMemberQuery.CollectEligible(
+                formationId,
+                formation,
+                pool,
+                configs,
+                _groupedScratch,
+                _eligibleScratch);
+
+            var min = Mathf.Max(1, row.MinMemberCount);
+            var cap = row.MaxMemberCount < min ? min : row.MaxMemberCount;
+            var slotLimit = Mathf.Min(cap, slots.Length);
+            if (slotLimit < min)
+            {
+                Debug.LogWarning(
+                    $"[TacticalFormationLayout] {formationId} slots={slots.Length} < MinMemberCount={min} — create failed.");
+                return false;
+            }
+
+            var deployedTake = Mathf.Min(_eligibleScratch.Count, slotLimit);
+            var barNeed = slotLimit - deployedTake;
+            _barScratch.Clear();
+            if (barNeed > 0)
+            {
+                TacticalFormationMemberQuery.CollectUndeployed(
+                    formationId,
+                    formation,
+                    pool,
+                    configs,
+                    _groupedScratch,
+                    _barScratch);
+                if (_barScratch.Count > barNeed)
+                {
+                    _barScratch.RemoveRange(barNeed, _barScratch.Count - barNeed);
+                }
+            }
+
+            if (deployedTake + _barScratch.Count < min)
+            {
+                return false;
+            }
+
+            float cx;
+            float cz;
+            if (deployedTake > 0)
+            {
+                cx = 0f;
+                cz = 0f;
+                for (var m = 0; m < deployedTake; m++)
+                {
+                    cx += _eligibleScratch[m].Entry.PositionX;
+                    cz += _eligibleScratch[m].Entry.PositionZ;
+                }
+
+                cx /= deployedTake;
+                cz /= deployedTake;
+            }
+            else if (context.HasFallbackCenter)
+            {
+                cx = context.FallbackCenterRelX;
+                cz = context.FallbackCenterRelZ;
+            }
+            else
+            {
+                return false;
+            }
+
+            _memberScratch.Clear();
+            for (var i = 0; i < deployedTake; i++)
+            {
+                _memberScratch.Add(_eligibleScratch[i].WarriorId);
+            }
+
+            for (var i = 0; i < _barScratch.Count; i++)
+            {
+                _memberScratch.Add(_barScratch[i]);
+            }
+
+            var yaw = ResolveCreateYaw(cx, cz, context);
+            FillSlotWrites(_memberScratch, slots, cx, cz, yaw);
+
+            _newDeployScratch.Clear();
+            var barFailed = false;
+            for (var i = deployedTake; i < _memberScratch.Count; i++)
+            {
+                var write = _writes[i];
+                if (!formation.TryDeployAt(write.WarriorId, write.X, write.Z, out _))
+                {
+                    barFailed = true;
+                    break;
+                }
+
+                _newDeployScratch.Add(write.WarriorId);
+            }
+
+            if (barFailed)
+            {
+                for (var i = 0; i < _newDeployScratch.Count; i++)
+                {
+                    formation.TryUndeploy(_newDeployScratch[i], out _);
+                }
+
+                _newDeployScratch.Clear();
+                if (deployedTake < min)
+                {
+                    return false;
+                }
+
+                if (_memberScratch.Count > deployedTake)
+                {
+                    _memberScratch.RemoveRange(deployedTake, _memberScratch.Count - deployedTake);
+                }
+
+                FillSlotWrites(_memberScratch, slots, cx, cz, yaw);
+            }
+
+            formation.ApplyPositionBatch(_writes);
+            var snappedIds = _memberScratch.ToArray();
+            var squad = new TacticalFormationSquadSnapshot
+            {
+                GroupInstanceId = Guid.NewGuid().ToString("N"),
+                FormationId = formationId,
+                MemberIds = snappedIds,
+                CenterX = cx,
+                CenterZ = cz,
+                FacingYawDegrees = yaw
+            };
+            ApplyLevel(squad, pool, configs);
+            _squads.Add(squad);
+            PersistGroups(formation);
+            Debug.Log(
+                $"[TacticalFormationLayout] Create {squad.GroupInstanceId} {formationId} members={snappedIds.Length} " +
+                $"level={squad.ComputedLevel} center=({cx:0.###},{cz:0.###}) yaw={yaw:0.#}");
+            return true;
+        }
+
+        private static float ResolveCreateYaw(float cx, float cz, TacticalFormationLayoutContext context)
+        {
+            if (!context.HasFacingTarget)
+            {
+                return 0f;
+            }
+
+            var dx = context.FacingTargetRelX - cx;
+            var dz = context.FacingTargetRelZ - cz;
+            if (dx * dx + dz * dz <= 0.0001f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
+        }
+
+        private void FillSlotWrites(
+            List<string> ids,
+            Vector3[] slots,
+            float cx,
+            float cz,
+            float yaw)
+        {
+            _writes.Clear();
+            var rot = Quaternion.Euler(0f, yaw, 0f);
+            var count = ids.Count;
+            for (var s = 0; s < count; s++)
+            {
+                var local = slots[s];
+                local.y = 0f;
+                var world = rot * local;
+                _writes.Add(new BattleFormationService.PositionWrite(
+                    ids[s],
+                    cx + world.x,
+                    cz + world.z));
+            }
+        }
+
+        /// <summary>Return members to class-zone spirals and delete the group.</summary>
+        public bool TryDisbandGroup(
+            string groupInstanceId,
+            BattleFormationService formation,
+            WarriorPoolService pool,
+            ConfigCsvRepository configs,
+            TacticalFormationLayoutContext context)
+        {
+            if (formation == null || string.IsNullOrEmpty(groupInstanceId))
+            {
+                return false;
+            }
+
+            TacticalFormationSquadSnapshot squad = null;
+            for (var i = 0; i < _squads.Count; i++)
+            {
+                if (string.Equals(_squads[i].GroupInstanceId, groupInstanceId, StringComparison.Ordinal))
+                {
+                    squad = _squads[i];
+                    _squads.RemoveAt(i);
+                    break;
+                }
+            }
+
+            if (squad == null)
+            {
+                return false;
+            }
+
+            PersistGroups(formation);
+            RevertSquad(formation, pool, configs, context.Zones, squad);
+            return true;
+        }
+
+        /// <summary>
+        /// Drop members who are no longer deployed. Remaining below Min disbands that group only.
+        /// Does not pull newly deployed soldiers in, and does not re-slot survivors.
+        /// </summary>
+        public void PruneGroups(
+            BattleFormationService formation,
+            WarriorPoolService pool,
+            ConfigCsvRepository configs,
+            TacticalFormationLayoutContext context)
+        {
+            if (formation == null || pool == null || configs == null)
+            {
+                return;
+            }
+
+            var changed = false;
+            _disbandScratch.Clear();
+            for (var i = _squads.Count - 1; i >= 0; i--)
+            {
+                var squad = _squads[i];
+                if (squad?.MemberIds == null)
+                {
+                    _squads.RemoveAt(i);
+                    changed = true;
+                    continue;
+                }
+
+                _idScratch.Clear();
+                for (var m = 0; m < squad.MemberIds.Length; m++)
+                {
+                    var id = squad.MemberIds[m];
+                    if (!string.IsNullOrEmpty(id) && formation.TryGetEntry(id, out _))
+                    {
+                        _idScratch.Add(id);
+                    }
+                }
+
+                var min = ResolveMin(configs, squad.FormationId);
+                if (_idScratch.Count < min)
+                {
+                    _squads.RemoveAt(i);
+                    changed = true;
+                    if (_idScratch.Count > 0)
+                    {
+                        squad.MemberIds = _idScratch.ToArray();
+                        _disbandScratch.Add(squad);
+                    }
+
+                    continue;
+                }
+
+                if (_idScratch.Count == squad.MemberIds.Length)
+                {
+                    continue;
+                }
+
+                squad.MemberIds = _idScratch.ToArray();
+                RecomputeCenter(squad, formation);
+                ApplyLevel(squad, pool, configs);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                PersistGroups(formation);
+            }
+
+            var zones = context.Zones;
+            for (var i = 0; i < _disbandScratch.Count; i++)
+            {
+                RevertSquad(formation, pool, configs, zones, _disbandScratch[i]);
+            }
+        }
+
+        /// <summary>
+        /// Translate whole squad by map-relative delta. Keeps offsets and facing.
         /// </summary>
         public bool TryApplySquadCenterDelta(
             BattleFormationService formation,
@@ -123,8 +524,8 @@ namespace Gravedigger2026.Core.TacticalFormation
         }
 
         /// <summary>
-        /// Rotate whole squad about its center by delta yaw (degrees). Updates FacingYawDegrees.
-        /// Does not re-Evaluate. SPEC_03 §3.18 / D-092.
+        /// Rotate whole squad about its center by delta yaw (degrees). Updates FacingYawDegrees and the save.
+        /// SPEC_03 §3.18 / D-092. Key is the member's <c>GroupInstanceId</c>.
         /// </summary>
         public bool TryApplySquadYawDelta(
             BattleFormationService formation,
@@ -167,280 +568,179 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return false;
             }
 
-            formation.ApplyPositionBatch(_writes);
             squad.FacingYawDegrees += deltaYawDegrees;
+            formation.ApplyPositionBatch(_writes);
+            PersistGroups(formation);
             return true;
         }
 
-        public void EvaluateAndApply(
-            BattleFormationService formation,
-            WarriorPoolService pool,
-            ConfigCsvRepository configs,
-            ITacticalFormationPatternLookup patterns,
-            TacticalFormationLayoutContext context)
+        private void FillGroupedIds(BattleFormationService formation)
         {
-            if (formation == null || pool == null || configs == null || !configs.IsLoaded)
+            _groupedScratch.Clear();
+            for (var i = 0; i < _squads.Count; i++)
+            {
+                var members = _squads[i]?.MemberIds;
+                if (members == null)
+                {
+                    continue;
+                }
+
+                for (var m = 0; m < members.Length; m++)
+                {
+                    if (!string.IsNullOrEmpty(members[m]))
+                    {
+                        _groupedScratch.Add(members[m]);
+                    }
+                }
+            }
+
+            var saved = formation != null ? formation.Groups : null;
+            if (saved == null)
             {
                 return;
             }
 
-            var groups = GroupDeployed(formation, pool, configs);
-            var previous = CopySquads();
-            var next = new Dictionary<string, TacticalFormationSquadSnapshot>(StringComparer.Ordinal);
-
-            CollectFormationIds(groups, previous, _idScratch);
-            _idScratch.Sort(StringComparer.Ordinal);
-
-            for (var i = 0; i < _idScratch.Count; i++)
+            for (var i = 0; i < saved.Count; i++)
             {
-                var formationId = _idScratch[i];
-                groups.TryGetValue(formationId, out var members);
-                var count = members != null ? members.Count : 0;
-
-                if (!configs.TryGetTacticalFormation(formationId, out var row) || row == null)
+                var members = saved[i]?.MemberIds;
+                if (members == null)
                 {
-                    Debug.LogWarning(
-                        $"[TacticalFormationLayout] FormationId '{formationId}' missing TacticalFormationConfig — skip.");
                     continue;
                 }
 
-                var min = Mathf.Max(1, row.MinMemberCount);
-                if (count < min)
+                for (var m = 0; m < members.Length; m++)
                 {
-                    if (previous.TryGetValue(formationId, out var oldSquad) && oldSquad != null)
+                    if (!string.IsNullOrEmpty(members[m]))
                     {
-                        RevertSquad(formation, pool, configs, context.Zones, oldSquad);
-                    }
-
-                    continue;
-                }
-
-                if (patterns == null || !patterns.TryGetSlotLocalXZ(row.PrefabId, out var slots) || slots == null
-                    || slots.Length == 0)
-                {
-                    Debug.LogWarning(
-                        $"[TacticalFormationLayout] PrefabId '{row.PrefabId}' for {formationId} missing Pattern slots — skip snap.");
-                    if (previous.TryGetValue(formationId, out var missingPrefabSquad) && missingPrefabSquad != null)
-                    {
-                        RevertSquad(formation, pool, configs, context.Zones, missingPrefabSquad);
-                    }
-
-                    continue;
-                }
-
-                members.Sort(CompareDeployOrder);
-                var cap = row.MaxMemberCount < min ? min : row.MaxMemberCount;
-                var take = Mathf.Min(count, cap, slots.Length);
-                if (take < min)
-                {
-                    Debug.LogWarning(
-                        $"[TacticalFormationLayout] {formationId} slots={slots.Length} < MinMemberCount={min} — skip snap.");
-                    if (previous.TryGetValue(formationId, out var oldSquad) && oldSquad != null)
-                    {
-                        RevertSquad(formation, pool, configs, context.Zones, oldSquad);
-                    }
-
-                    continue;
-                }
-
-                var cx = 0f;
-                var cz = 0f;
-                for (var m = 0; m < take; m++)
-                {
-                    cx += members[m].Entry.PositionX;
-                    cz += members[m].Entry.PositionZ;
-                }
-
-                cx /= take;
-                cz /= take;
-
-                // D-092: keep player / prior facing when this FormationId was already active.
-                float yaw;
-                if (previous.TryGetValue(formationId, out var priorSquad) && priorSquad != null)
-                {
-                    yaw = priorSquad.FacingYawDegrees;
-                }
-                else
-                {
-                    yaw = 0f;
-                    if (context.HasFacingTarget)
-                    {
-                        var dx = context.FacingTargetRelX - cx;
-                        var dz = context.FacingTargetRelZ - cz;
-                        if (dx * dx + dz * dz > 0.0001f)
-                        {
-                            yaw = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
-                        }
+                        _groupedScratch.Add(members[m]);
                     }
                 }
-
-                var rot = Quaternion.Euler(0f, yaw, 0f);
-                _writes.Clear();
-                var snappedIds = new string[take];
-                for (var s = 0; s < take; s++)
-                {
-                    var local = slots[s];
-                    local.y = 0f;
-                    var world = rot * local;
-                    var id = members[s].WarriorId;
-                    snappedIds[s] = id;
-                    _writes.Add(new BattleFormationService.PositionWrite(
-                        id,
-                        cx + world.x,
-                        cz + world.z));
-                }
-
-                formation.ApplyPositionBatch(_writes);
-                next[formationId] = new TacticalFormationSquadSnapshot
-                {
-                    FormationId = formationId,
-                    MemberIds = snappedIds,
-                    CenterX = cx,
-                    CenterZ = cz,
-                    FacingYawDegrees = yaw
-                };
-                Debug.Log(
-                    $"[TacticalFormationLayout] Snap {formationId} members={take} " +
-                    $"center=({cx:0.###},{cz:0.###}) yaw={yaw:0.#}");
-            }
-
-            _squads.Clear();
-            foreach (var kv in next)
-            {
-                _squads[kv.Key] = kv.Value;
             }
         }
 
-        private Dictionary<string, TacticalFormationSquadSnapshot> CopySquads()
+        private void PersistGroups(BattleFormationService formation)
         {
-            var copy = new Dictionary<string, TacticalFormationSquadSnapshot>(
-                _squads.Count,
-                StringComparer.Ordinal);
-            foreach (var kv in _squads)
+            if (formation == null)
             {
-                copy[kv.Key] = kv.Value;
+                return;
             }
 
-            return copy;
+            var records = new List<TacticalFormationGroupSaveEntry>(_squads.Count);
+            for (var i = 0; i < _squads.Count; i++)
+            {
+                var squad = _squads[i];
+                if (squad == null || string.IsNullOrEmpty(squad.GroupInstanceId))
+                {
+                    continue;
+                }
+
+                var members = squad.MemberIds ?? Array.Empty<string>();
+                var copy = new string[members.Length];
+                Array.Copy(members, copy, members.Length);
+                records.Add(new TacticalFormationGroupSaveEntry
+                {
+                    GroupInstanceId = squad.GroupInstanceId,
+                    FormationId = squad.FormationId,
+                    MemberIds = copy,
+                    FacingYawDegrees = squad.FacingYawDegrees
+                });
+            }
+
+            formation.ReplaceTacticalGroups(records);
         }
 
-        private static void CollectFormationIds(
-            Dictionary<string, List<Candidate>> groups,
-            Dictionary<string, TacticalFormationSquadSnapshot> previous,
-            List<string> into)
+        private static int ResolveMin(ConfigCsvRepository configs, string formationId)
         {
-            into.Clear();
-            foreach (var kv in groups)
+            if (configs != null
+                && configs.TryGetTacticalFormation(formationId, out var row)
+                && row != null)
             {
-                if (!string.IsNullOrEmpty(kv.Key) && !into.Contains(kv.Key))
-                {
-                    into.Add(kv.Key);
-                }
+                return Mathf.Max(1, row.MinMemberCount);
             }
 
-            foreach (var kv in previous)
-            {
-                if (!string.IsNullOrEmpty(kv.Key) && !into.Contains(kv.Key))
-                {
-                    into.Add(kv.Key);
-                }
-            }
+            return 1;
         }
 
-        private static Dictionary<string, List<Candidate>> GroupDeployed(
-            BattleFormationService formation,
+        private static void RecomputeCenter(TacticalFormationSquadSnapshot squad, BattleFormationService formation)
+        {
+            if (squad?.MemberIds == null || squad.MemberIds.Length == 0 || formation == null)
+            {
+                return;
+            }
+
+            var cx = 0f;
+            var cz = 0f;
+            var n = 0;
+            for (var i = 0; i < squad.MemberIds.Length; i++)
+            {
+                if (!formation.TryGetEntry(squad.MemberIds[i], out var entry) || entry == null)
+                {
+                    continue;
+                }
+
+                cx += entry.PositionX;
+                cz += entry.PositionZ;
+                n++;
+            }
+
+            if (n <= 0)
+            {
+                return;
+            }
+
+            squad.CenterX = cx / n;
+            squad.CenterZ = cz / n;
+        }
+
+        private static void ApplyLevel(
+            TacticalFormationSquadSnapshot squad,
             WarriorPoolService pool,
             ConfigCsvRepository configs)
         {
-            var groups = new Dictionary<string, List<Candidate>>(StringComparer.Ordinal);
-            var entries = formation.Entries;
-            for (var i = 0; i < entries.Count; i++)
+            if (squad == null)
             {
-                var entry = entries[i];
-                if (entry == null || string.IsNullOrEmpty(entry.WarriorId))
+                return;
+            }
+
+            var members = squad.MemberIds ?? Array.Empty<string>();
+            var levels = new int[members.Length];
+            var sum = 0;
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (pool == null || !pool.TryGet(members[i], out var warrior) || warrior == null)
                 {
                     continue;
                 }
 
-                if (!pool.TryGet(entry.WarriorId, out var warrior) || warrior == null)
+                if (configs != null
+                    && !string.IsNullOrEmpty(warrior.ClassId)
+                    && configs.TryGetClass(warrior.ClassId, out var classRow)
+                    && classRow != null)
                 {
-                    continue;
+                    levels[i] = classRow.ClassLevel;
+                    sum += classRow.ClassLevel;
                 }
-
-                var formationId = ResolveFormationId(warrior, configs);
-                if (string.IsNullOrEmpty(formationId))
-                {
-                    continue;
-                }
-
-                if (!groups.TryGetValue(formationId, out var list))
-                {
-                    list = new List<Candidate>(4);
-                    groups[formationId] = list;
-                }
-
-                list.Add(new Candidate(entry.WarriorId, i, entry));
             }
 
-            return groups;
-        }
+            squad.MemberClassLevels = levels;
 
-        internal static string ResolveFormationId(WarriorInstance warrior, ConfigCsvRepository configs)
-        {
-            if (warrior?.SoldierSkills == null || configs == null)
+            var count = members.Length;
+            squad.ComputedLevel = count > 0 ? sum / count : 0;
+            squad.MatchedLevelRow = null;
+            if (configs == null
+                || !configs.TryGetTacticalFormationForComputedLevel(
+                    squad.FormationId,
+                    squad.ComputedLevel,
+                    out var levelRow)
+                || levelRow == null)
             {
-                return null;
+                Debug.LogWarning(
+                    $"[TacticalFormationLayout] Group '{squad.GroupInstanceId}' FormationId '{squad.FormationId}' " +
+                    $"computed level {squad.ComputedLevel} has no FormationLevel row — stats empty.");
+                return;
             }
 
-            for (var i = 0; i < warrior.SoldierSkills.Count; i++)
-            {
-                var skill = warrior.SoldierSkills[i];
-                if (skill == null || string.IsNullOrEmpty(skill.SkillId))
-                {
-                    continue;
-                }
-
-                if (!TryResolveSkillRow(configs, skill.SkillId, skill.SkillLevel, out var row) || row == null)
-                {
-                    continue;
-                }
-
-                if (!string.IsNullOrEmpty(row.FormationId))
-                {
-                    return row.FormationId;
-                }
-            }
-
-            return null;
-        }
-
-        private static bool TryResolveSkillRow(
-            ConfigCsvRepository configs,
-            string skillId,
-            int skillLevel,
-            out SkillConfigRow row)
-        {
-            var level = skillLevel < 1 ? 1 : skillLevel;
-            if (configs.TryGetSkill(skillId, level, out row) && row != null)
-            {
-                return true;
-            }
-
-            if (configs.TryGetSkillLevelRange(skillId, out var min, out _)
-                && configs.TryGetSkill(skillId, min, out row)
-                && row != null)
-            {
-                return true;
-            }
-
-            row = null;
-            return false;
-        }
-
-        private static int CompareDeployOrder(Candidate a, Candidate b)
-        {
-            var byIndex = a.DeployIndex.CompareTo(b.DeployIndex);
-            return byIndex != 0 ? byIndex : string.CompareOrdinal(a.WarriorId, b.WarriorId);
+            squad.MatchedLevelRow = levelRow;
         }
 
         private void RevertSquad(
@@ -563,20 +863,6 @@ namespace Gravedigger2026.Core.TacticalFormation
             }
 
             return BodyAppearanceConfigRow.DefaultBodyRadius * scale;
-        }
-
-        private readonly struct Candidate
-        {
-            public readonly string WarriorId;
-            public readonly int DeployIndex;
-            public readonly BattleFormationEntry Entry;
-
-            public Candidate(string warriorId, int deployIndex, BattleFormationEntry entry)
-            {
-                WarriorId = warriorId;
-                DeployIndex = deployIndex;
-                Entry = entry;
-            }
         }
     }
 }

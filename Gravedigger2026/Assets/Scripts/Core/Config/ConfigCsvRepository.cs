@@ -91,9 +91,7 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, List<FormationBondConfigRow>>(StringComparer.Ordinal);
         private readonly Dictionary<string, BondActivationCondition> _bondConditionByBondKey =
             new Dictionary<string, BondActivationCondition>(StringComparer.Ordinal);
-        private readonly Dictionary<string, TacticalFormationConfigRow> _tacticalFormationById =
-            new Dictionary<string, TacticalFormationConfigRow>(StringComparer.Ordinal);
-        private readonly List<TacticalFormationConfigRow> _tacticalFormationRows = new List<TacticalFormationConfigRow>();
+        private readonly TacticalFormationConfigIndex _tacticalFormations = new TacticalFormationConfigIndex();
 
         private readonly Dictionary<string, ShopPoolConfigRow> _shopPoolById =
             new Dictionary<string, ShopPoolConfigRow>(StringComparer.Ordinal);
@@ -177,8 +175,7 @@ namespace Gravedigger2026.Core.Config
             _formationBondRows.Clear();
             _formationBondRowsByBondId.Clear();
             _bondConditionByBondKey.Clear();
-            _tacticalFormationById.Clear();
-            _tacticalFormationRows.Clear();
+            _tacticalFormations.Clear();
 
             _shopPoolById.Clear();
             _shopPoolRows.Clear();
@@ -246,7 +243,7 @@ namespace Gravedigger2026.Core.Config
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormationById.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}, LocalizedText={_localizedTextByKey.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormations.Rows.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}, LocalizedText={_localizedTextByKey.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -657,7 +654,10 @@ namespace Gravedigger2026.Core.Config
             return _bondConditionByBondKey.TryGetValue(key, out condition);
         }
 
-        /// <summary>PK lookup (SPEC_04 §9.30): FormationId.</summary>
+        /// <summary>
+        /// Identity lookup (SPEC_04 §9.30): lowest FormationLevel row for this FormationId.
+        /// GrantFormationSkill uses this and does not pass a level.
+        /// </summary>
         public bool TryGetTacticalFormation(string formationId, out TacticalFormationConfigRow row)
         {
             row = null;
@@ -666,12 +666,36 @@ namespace Gravedigger2026.Core.Config
                 return false;
             }
 
-            return _tacticalFormationById.TryGetValue(formationId, out row);
+            return _tacticalFormations.TryGetIdentity(formationId, out row);
+        }
+
+        /// <summary>
+        /// Greatest FormationLevel of <paramref name="formationId"/> that is ≤ <paramref name="computedLevel"/>.
+        /// False when no such row exists.
+        /// </summary>
+        public bool TryGetTacticalFormationForComputedLevel(
+            string formationId,
+            int computedLevel,
+            out TacticalFormationConfigRow row)
+        {
+            row = null;
+            if (string.IsNullOrEmpty(formationId))
+            {
+                return false;
+            }
+
+            return _tacticalFormations.TryGetForComputedLevel(formationId, computedLevel, out row);
+        }
+
+        /// <summary>Distinct FormationId values in first-seen table order.</summary>
+        public IReadOnlyList<string> GetTacticalFormationIds()
+        {
+            return _tacticalFormations.FormationIds;
         }
 
         public IReadOnlyList<TacticalFormationConfigRow> GetAllTacticalFormationRows()
         {
-            return _tacticalFormationRows;
+            return _tacticalFormations.Rows;
         }
 
         public bool TryGetMagicBook(string magicBookId, out MagicBookConfigRow row)
@@ -2278,10 +2302,12 @@ namespace Gravedigger2026.Core.Config
                 var raw = rows[i];
                 var rowIndex = i + 2;
                 var formationId = SimpleCsv.Require(raw, "FormationId", table, rowIndex);
-                if (_tacticalFormationById.ContainsKey(formationId))
+                var levelText = SimpleCsv.Require(raw, "FormationLevel", table, rowIndex);
+                if (!int.TryParse(levelText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var formationLevel)
+                    || formationLevel < 1)
                 {
                     throw new InvalidOperationException(
-                        $"{table} row {rowIndex}: duplicate FormationId '{formationId}'.");
+                        $"{table} row {rowIndex}: illegal FormationLevel '{levelText}' (expect ≥ 1).");
                 }
 
                 var minCount = ParseRequiredPositiveInt(raw, "MinMemberCount", table, rowIndex);
@@ -2299,6 +2325,7 @@ namespace Gravedigger2026.Core.Config
                 var row = new TacticalFormationConfigRow
                 {
                     FormationId = formationId,
+                    FormationLevel = formationLevel,
                     DisplayName = OptionalText(raw, "DisplayName"),
                     IconAssetId = OptionalText(raw, "IconAssetId"),
                     Description = OptionalText(raw, "Description"),
@@ -2311,8 +2338,14 @@ namespace Gravedigger2026.Core.Config
                     ExclusiveSkillEffectIds = exclusiveEffectIds
                 };
 
-                _tacticalFormationById[formationId] = row;
-                _tacticalFormationRows.Add(row);
+                try
+                {
+                    _tacticalFormations.Add(row);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new InvalidOperationException($"{table} row {rowIndex}: {ex.Message}", ex);
+                }
 
                 if (string.IsNullOrEmpty(formationSkillId)
                     || !_skillLevelRangeById.ContainsKey(formationSkillId))
@@ -2343,6 +2376,7 @@ namespace Gravedigger2026.Core.Config
                 }
             }
 
+            _tacticalFormations.Seal();
             WarnTacticalFormationBondEffectOverlap();
 
             foreach (var pair in _skillByKey)
@@ -2353,7 +2387,7 @@ namespace Gravedigger2026.Core.Config
                     continue;
                 }
 
-                if (!_tacticalFormationById.TryGetValue(skillRow.FormationId, out var formation)
+                if (!_tacticalFormations.TryGetIdentity(skillRow.FormationId, out var formation)
                     || formation == null)
                 {
                     Debug.LogWarning(
@@ -2385,9 +2419,10 @@ namespace Gravedigger2026.Core.Config
                 }
             }
 
-            for (var i = 0; i < _tacticalFormationRows.Count; i++)
+            var formationRows = _tacticalFormations.Rows;
+            for (var i = 0; i < formationRows.Count; i++)
             {
-                var row = _tacticalFormationRows[i];
+                var row = formationRows[i];
                 if (row == null)
                 {
                     continue;

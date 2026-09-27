@@ -123,7 +123,7 @@ namespace Gravedigger2026.Meta
             _autoManufacture = new AutoManufactureService(
                 _configs, _warehouse, _tempWarriorWarehouse, _warriorPool, magicBookHook);
             var autoDeploy = new AutoFormationDeployService(
-                _configs, _warriorPool, _formation, _formationPrefabCatalog);
+                _configs, _warriorPool, _formation);
             _autoDeploy = autoDeploy;
             _gmSoldierGrant = new GmSoldierGrantService(_configs, _warriorPool, _autoDeploy, magicBookHook);
             _levelDriver = new LevelOperationDriver(_configs, _gameplayState);

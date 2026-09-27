@@ -27,13 +27,15 @@
 | BookRow | 魔法书槽行 | 6×BookSlot 共享 Prefab；AM 演出与魔法书弹窗嵌套同一份 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment；Dig 事件型样例 `Equip_Explosives`（D-077）、`Equip_Elctr`（D-078）、`Equip_ReviveShovel`（D-091） | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
 | FormationBond | 阵容羁绊 | 上阵士兵属性统计激活的战斗增益；同 BondId 多等级互斥；Buff→SkillEffectConfig | [§3.17](SPEC_03_GameRules.md)、[SPEC_04 §9.26](SPEC_04_Technical.md) |
-| TacticalFormation | 战术阵型 | 同阵型技能士兵组成可移动空间编队；虚拟中心+槽位+leash；与 BattleFormation/FormationBond 并行 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
-| TacticalFormationRuntime | 战术阵型运行时 | Combat 虚拟中心纯数据 + 成员 FormationSlot + leash；PushMap/Defend Stage 分流；激活态 Stat/ExclusiveSkill overlay；不进 SoftCollision | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| TacticalFormation | 战术阵型 | 手动把持有阵型技能的已上阵士兵建成空间编队；同阵型可多组；每组虚拟中心+槽位+leash | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
+| TacticalFormationGroup | 战术阵型组 | 一次按钮点击的一组；GroupInstanceId 唯一；一人一组；跟布阵存档走 | [§3.18](SPEC_03_GameRules.md) |
+| FormationLevel | 阵型等级 | 表复合主键之一；等于组内 ClassLevel 平均向下取整，再向下就近取表行 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
+| TacticalFormationRuntime | 战术阵型运行时 | 每组一个 Combat 虚拟中心 + FormationSlot + leash；死亡后仍达最小人数则重算等级 overlay | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | FormationSkill | 阵型技能 | 魔法书 GrantFormationSkill 授予的标记技能；SkillConfig.FormationId FK 战术阵型表 | [§3.18](SPEC_03_GameRules.md) |
 | GrantFormationSkill | 授予阵型技能 | MagicBook EffectPayload Token；Mode2 制造 Step2 写入 SoldierSkills | [SPEC_04 §9.24](SPEC_04_Technical.md) |
 | FormationSlot | 阵型槽位 | Pattern Prefab 相对中心站位；战斗 GoalKind=FormationSlot | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | FormationLeash | 阵型拴绳 | 接敌时成员距中心最大半径；AttackSlot 投影回圆周 | [§3.18](SPEC_03_GameRules.md) |
-| TacticalFormationConfig | 战术阵型配置表 | FormationId→技能/人数/Prefab/属性与专属技能 overlay | [SPEC_04 §9.30](SPEC_04_Technical.md) |
+| TacticalFormationConfig | 战术阵型配置表 | 复合主键 (FormationId, FormationLevel)；同 Id 几何字段一致，属性按等级行 | [SPEC_04 §9.30](SPEC_04_Technical.md) |
 | BondBuff | 羁绊Buff | FormationBondConfig.BondBuff FK→SkillEffectConfig；本 Demo 片仅配置与 UI | [§3.17](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentConfig | 主角装备配置表 | EquipId+EquipLevel → 名/图标/升下一级经验/转化经验/生效域/效果/描述 | [SPEC_04 §9.25](SPEC_04_Technical.md) |

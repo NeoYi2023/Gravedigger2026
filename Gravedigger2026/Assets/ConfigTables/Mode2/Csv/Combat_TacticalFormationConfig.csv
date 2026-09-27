@@ -1,3 +1,11 @@
-FormationId,DisplayName,IconAssetId,Description,FormationSkillId,MinMemberCount,MaxMemberCount,PrefabId,StatModifiers,ExclusiveSkillIds,ExclusiveSkillEffectIds
-Form_Wedge_01,楔阵,Form_Wedge_01,拥有楔阵技能的已上阵士兵可组成楔形编队（标记技能，不驱动战斗）,Skill_Form_Wedge,3,5,FormationPattern_Wedge_01,Stat=Strength|Mul=1.15,,
-Form_Wedge_02,平行阵,Form_Wedge_02,拥有平行阵技能的已上阵士兵可组成两排平行编队（标记技能，不驱动战斗）,Skill_Form_Wedge_02,3,10,FormationPattern_Wedge_02,Stat=Strength|Mul=1.15,,
+FormationId,FormationLevel,DisplayName,IconAssetId,Description,FormationSkillId,MinMemberCount,MaxMemberCount,PrefabId,StatModifiers,ExclusiveSkillIds,ExclusiveSkillEffectIds
+Form_Wedge_01,1,楔阵,Form_Wedge_01,拥有楔阵技能的已上阵士兵可组成楔形编队（标记技能，不驱动战斗）,Skill_Form_Wedge,3,6,FormationPattern_Wedge_01,Stat=Strength|Mul=1.15,,
+Form_Wedge_01,2,楔阵,Form_Wedge_01,拥有楔阵技能的已上阵士兵可组成楔形编队（标记技能，不驱动战斗）,Skill_Form_Wedge,3,6,FormationPattern_Wedge_01,Stat=Strength|Mul=1.2,,
+Form_Wedge_01,3,楔阵,Form_Wedge_01,拥有楔阵技能的已上阵士兵可组成楔形编队（标记技能，不驱动战斗）,Skill_Form_Wedge,3,6,FormationPattern_Wedge_01,Stat=Strength|Mul=1.25,,
+Form_Wedge_01,4,楔阵,Form_Wedge_01,拥有楔阵技能的已上阵士兵可组成楔形编队（标记技能，不驱动战斗）,Skill_Form_Wedge,3,6,FormationPattern_Wedge_01,Stat=Strength|Mul=1.30,,
+Form_Wedge_01,5,楔阵,Form_Wedge_01,拥有楔阵技能的已上阵士兵可组成楔形编队（标记技能，不驱动战斗）,Skill_Form_Wedge,3,6,FormationPattern_Wedge_01,Stat=Strength|Mul=1.35,,
+Form_Wedge_02,1,平行阵,Form_Wedge_02,拥有平行阵技能的已上阵士兵可组成两排平行编队（标记技能，不驱动战斗）,Skill_Form_Wedge_02,3,6,FormationPattern_Wedge_02,Stat=Strength|Mul=1.15,,
+Form_Wedge_02,2,平行阵,Form_Wedge_02,拥有平行阵技能的已上阵士兵可组成两排平行编队（标记技能，不驱动战斗）,Skill_Form_Wedge_02,3,6,FormationPattern_Wedge_02,Stat=Strength|Mul=1.2,,
+Form_Wedge_02,3,平行阵,Form_Wedge_02,拥有平行阵技能的已上阵士兵可组成两排平行编队（标记技能，不驱动战斗）,Skill_Form_Wedge_02,3,6,FormationPattern_Wedge_02,Stat=Strength|Mul=1.25,,
+Form_Wedge_02,4,平行阵,Form_Wedge_02,拥有平行阵技能的已上阵士兵可组成两排平行编队（标记技能，不驱动战斗）,Skill_Form_Wedge_02,3,6,FormationPattern_Wedge_02,Stat=Strength|Mul=1.30,,
+Form_Wedge_02,5,平行阵,Form_Wedge_02,拥有平行阵技能的已上阵士兵可组成两排平行编队（标记技能，不驱动战斗）,Skill_Form_Wedge_02,3,6,FormationPattern_Wedge_02,Stat=Strength|Mul=1.35,,

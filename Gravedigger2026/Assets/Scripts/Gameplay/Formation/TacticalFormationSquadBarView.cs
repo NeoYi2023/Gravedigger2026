@@ -1,21 +1,20 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
-using Gravedigger2026.Core.TacticalFormation;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Gravedigger2026.Gameplay.Formation
 {
     /// <summary>
-    /// Left-edge vertical buttons for active Prepare tactical squads (SPEC_03 UI-030 / D-085).
+    /// Left-edge catalog buttons, one per distinct FormationId (SPEC_03 UI-030 / D-093).
+    /// Click tries to create a group; the bar does not select.
     /// </summary>
     public sealed class TacticalFormationSquadBarView : MonoBehaviour
     {
         private const float ButtonSize = 56f;
 
         private static readonly Color NormalColor = new Color(0.22f, 0.28f, 0.38f, 0.95f);
-        private static readonly Color SelectedColor = new Color(0.55f, 0.72f, 0.95f, 1f);
         private static readonly Color MissingIconColor = new Color(0.35f, 0.42f, 0.55f, 0.95f);
 
         [SerializeField] private RectTransform _buttonColumn;
@@ -23,11 +22,9 @@ namespace Gravedigger2026.Gameplay.Formation
 
         private readonly List<GameObject> _buttonInstances = new List<GameObject>(4);
         private readonly List<string> _formationIds = new List<string>(4);
-        private readonly List<Image> _buttonBackgrounds = new List<Image>(4);
 
         private ConfigCsvRepository _configs;
-        private string _selectedFormationId;
-        private Action<string> _onSquadClicked;
+        private Action<string> _onFormationClicked;
 
         public void Configure(RectTransform buttonColumn, GameObject root = null)
         {
@@ -35,78 +32,46 @@ namespace Gravedigger2026.Gameplay.Formation
             _root = root != null ? root : gameObject;
         }
 
-        public void SetClickHandler(Action<string> onSquadClicked)
+        public void SetClickHandler(Action<string> onFormationClicked)
         {
-            _onSquadClicked = onSquadClicked;
+            _onFormationClicked = onFormationClicked;
         }
 
-        public void Refresh(
-            IReadOnlyList<TacticalFormationSquadSnapshot> squads,
-            ConfigCsvRepository configs)
+        /// <summary>
+        /// Show one button per catalog id. Duplicate ids are skipped.
+        /// The strip stays visible when no groups exist, as long as the catalog is non-empty.
+        /// </summary>
+        public void Refresh(IReadOnlyList<string> formationIds, ConfigCsvRepository configs)
         {
             _configs = configs;
             ClearButtons();
 
-            var hasAny = squads != null && squads.Count > 0;
-            if (_root != null)
+            var count = formationIds != null ? formationIds.Count : 0;
+            if (count == 0 || _buttonColumn == null)
             {
-                _root.SetActive(hasAny);
-            }
+                if (_root != null)
+                {
+                    _root.SetActive(false);
+                }
 
-            if (!hasAny || _buttonColumn == null)
-            {
-                _selectedFormationId = null;
                 return;
             }
 
-            var selectionStillValid = false;
-            for (var i = 0; i < squads.Count; i++)
+            for (var i = 0; i < count; i++)
             {
-                var squad = squads[i];
-                if (squad == null || string.IsNullOrEmpty(squad.FormationId))
+                var formationId = formationIds[i];
+                if (string.IsNullOrEmpty(formationId) || ContainsFormationId(formationId))
                 {
                     continue;
                 }
 
-                CreateButton(squad.FormationId);
-                if (string.Equals(squad.FormationId, _selectedFormationId, StringComparison.Ordinal))
-                {
-                    selectionStillValid = true;
-                }
+                CreateButton(formationId);
             }
 
-            if (!selectionStillValid)
+            if (_root != null)
             {
-                _selectedFormationId = null;
+                _root.SetActive(_formationIds.Count > 0);
             }
-
-            ApplySelectedVisuals();
-        }
-
-        public void SetSelectedFormationId(string formationId)
-        {
-            _selectedFormationId = formationId;
-            ApplySelectedVisuals();
-        }
-
-        public string SelectedFormationId => _selectedFormationId;
-
-        public bool ContainsFormationId(string formationId)
-        {
-            if (string.IsNullOrEmpty(formationId))
-            {
-                return false;
-            }
-
-            for (var i = 0; i < _formationIds.Count; i++)
-            {
-                if (string.Equals(_formationIds[i], formationId, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private void CreateButton(string formationId)
@@ -118,7 +83,7 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             var go = new GameObject(
-                $"SquadBtn_{formationId}",
+                $"CatalogBtn_{formationId}",
                 typeof(RectTransform),
                 typeof(Image),
                 typeof(Button),
@@ -176,26 +141,23 @@ namespace Gravedigger2026.Gameplay.Formation
             var capturedId = formationId;
             var button = go.GetComponent<Button>();
             button.targetGraphic = bg;
-            button.onClick.AddListener(() => _onSquadClicked?.Invoke(capturedId));
+            button.onClick.AddListener(() => _onFormationClicked?.Invoke(capturedId));
 
             _buttonInstances.Add(go);
             _formationIds.Add(formationId);
-            _buttonBackgrounds.Add(bg);
         }
 
-        private void ApplySelectedVisuals()
+        private bool ContainsFormationId(string formationId)
         {
-            for (var i = 0; i < _buttonBackgrounds.Count; i++)
+            for (var i = 0; i < _formationIds.Count; i++)
             {
-                var bg = _buttonBackgrounds[i];
-                if (bg == null)
+                if (string.Equals(_formationIds[i], formationId, StringComparison.Ordinal))
                 {
-                    continue;
+                    return true;
                 }
-
-                var selected = string.Equals(_formationIds[i], _selectedFormationId, StringComparison.Ordinal);
-                bg.color = selected ? SelectedColor : NormalColor;
             }
+
+            return false;
         }
 
         private void ClearButtons()
@@ -210,13 +172,12 @@ namespace Gravedigger2026.Gameplay.Formation
 
             _buttonInstances.Clear();
             _formationIds.Clear();
-            _buttonBackgrounds.Clear();
         }
 
         private void OnDestroy()
         {
             ClearButtons();
-            _onSquadClicked = null;
+            _onFormationClicked = null;
         }
 
         private static void Stretch(RectTransform rt, float inset)

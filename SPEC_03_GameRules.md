@@ -154,7 +154,9 @@
 | BattleFormation | 战斗布阵 | 安排士兵上阵；持久化士兵 ID、位置、剩余血量；可在 §3.11 与 Defend / PushMap `Prepare` 编辑同一套数据（§3.11、§3.12、§3.14）。 |
 | FormationBond | 阵容羁绊 | 按上阵士兵属性统计激活的战斗增益；同 `BondId` 多等级互斥；Buff FK `SkillEffectConfig`（§3.17）。**勿与** §3.18 战术阵型混淆。 |
 | BondActivationCondition | 羁绊激活条件 | `FormationBondConfig.ActivationCondition` 结构化 DSL；首版四类计数条件（§3.17）。 |
-| TacticalFormation | 战术阵型 | 拥有相同「阵型技能」的士兵在布阵/战斗中组成可移动空间编队；虚拟中心 + 槽位 + leash；与 `BattleFormation`（上阵名单）、`FormationBond`（属性计数 Buff）**并行**（§3.18）。 |
+| TacticalFormation | 战术阵型 | 拥有阵型技能的士兵经左缘按钮**手动**建成空间编队（已上阵优先，不足时从士兵栏未上阵补人并上阵）；同 `FormationId` 可多组，每组独立虚拟中心 + 槽位 + leash；与 `BattleFormation`（上阵名单）、`FormationBond`（属性计数 Buff）**并行**（§3.18 / D-093）。 |
+| TacticalFormationGroup | 战术阵型组 | 一次按钮点击产生的一组；`GroupInstanceId` 唯一；成员同时只属于一个组；等级由组内 `ClassLevel` 平均向下取整（§3.18 / D-093）。 |
+| FormationLevel | 阵型等级 | `TacticalFormationConfig` 复合主键之一；不由玩家点选；查属性时取 ≤ 计算等级的最大表等级（§3.18 / D-093）。 |
 | FormationSkill | 阵型技能 | 魔法书 `GrantFormationSkill` 授予、写入实例 `SoldierSkills` 的标记技能；`SkillConfig.FormationId` FK → `TacticalFormationConfig`（§3.18）。 |
 | FormationSlot | 阵型槽位 | 战术阵型 Prefab 内相对中心的士兵站位；战斗中 `GoalKind=FormationSlot` 趋近「中心+旋转偏移」（§3.18）。 |
 | FormationLeash | 阵型拴绳 | 接敌时成员相对阵型中心的最大允许半径；超出则 AttackSlot 目的地投影回圆周（§3.18）。 |
@@ -380,7 +382,9 @@
 | BattleFormation | 战斗布阵 | Assign soldiers to battlefield; persists soldier Id, position, remaining HP; editable in §3.11 and Defend / PushMap `Prepare` on the same dataset (§3.11, §3.12, §3.14). |
 | FormationBond | 阵容羁绊 | Combat buff activated by deployed-soldier stat counts; same `BondId` levels mutually exclusive; Buff FK `SkillEffectConfig` (§3.17). **Distinct from** §3.18 TacticalFormation. |
 | BondActivationCondition | 羁绊激活条件 | Structured DSL on `FormationBondConfig.ActivationCondition`; v1 four count kinds (§3.17). |
-| TacticalFormation | 战术阵型 | Deployed soldiers with the same Formation Skill form a movable spatial squad; virtual center + slots + leash; **parallel** to `BattleFormation` (deploy list) and `FormationBond` (stat-count buffs) (§3.18). |
+| TacticalFormation | 战术阵型 | Soldiers with a Formation Skill are **manually** grouped from the left-edge button (deployed first; shortfall filled from the undeployed SoldierBar); the same `FormationId` may have many groups, each with its own virtual center + slots + leash; **parallel** to `BattleFormation` and `FormationBond` (§3.18 / D-093). |
+| TacticalFormationGroup | 战术阵型组 | One button click creates one group; `GroupInstanceId` is unique; a soldier belongs to at most one group; level = floor of members' mean `ClassLevel` (§3.18 / D-093). |
+| FormationLevel | 阵型等级 | Composite-key part of `TacticalFormationConfig`; not player-picked; stat lookup uses the greatest table level ≤ the computed level (§3.18 / D-093). |
 | FormationSkill | 阵型技能 | Marker skill granted by MagicBook `GrantFormationSkill` into instance `SoldierSkills`; `SkillConfig.FormationId` FK → `TacticalFormationConfig` (§3.18). |
 | FormationSlot | 阵型槽位 | Soldier offset from formation center authored on the pattern Prefab; in combat `GoalKind=FormationSlot` seeks center + rotated offset (§3.18). |
 | FormationLeash | 阵型拴绳 | Max allowed radius from formation center while engaging; AttackSlot destinations clamped to the circle (§3.18). |
@@ -835,7 +839,8 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-027 | 登录主界面 | 已定义（Demo） | Prefab `TitleMenuPanel`（`MetaCanvas` 子级）；共享 `TitleScreenBackground`（Sprite 源 `Art/UI/Meta/Title/`）；顶中游戏名 Image `GameName`（`Title_GameName.png`）；主按钮双态（开始/继续）→ SaveSelect；**设置 → UI-028**；读取存档/开发者介绍 → Tips「还未制作」；右下版本 Text；Title BGM 随机 |
 | UI-028 | 登录设置面板 | 已定义（Demo） | Prefab `TitleSettingsPanel`（`MetaCanvas` 子级；对齐 UI-008：全屏遮罩 + 中框 + 关闭；`sortingOrder` ≥ 100）；页签首期仅 **「显示」**：分辨率列表（`Screen.resolutions` 按宽×高去重降序，文案 `1920 × 1080`）+ 显示模式三选一（窗口 / 无边框全屏 / 独占全屏）；点 **「应用」** 才 `Screen.SetResolution` 并写机台级 PlayerPrefs（关闭不提交草稿）；Boot 读盘应用；**不**挂科技树；与 UI-007 分离 |
 | UI-029 | 难度选择宿主 | 已定义（Demo） | Prefab 内 `DifficultySelectHost`（`InSaveShellPanel` 中心面）；三栏等宽**同屏**（各约 1/3）；悬停显示难度描述（Demo 写死；表 `Description` 接线后置）；**仅普通**点击 → UI-031；困难/地狱 Toast；无栏内 UI-008；无 MapHost；难度不改玩法；**新建进档** / 工具「关卡」/ 关卡结束回壳默认打开；**进入占用档跳过**直开 UI-031；独立壳 Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`；验收 D-081；难度解锁/通关奖规则见 §3.9（接线后置） |
-| UI-030 | 战术阵型小队条 | 已定义（Demo） | 共享 `FormationEditorRoot` / `_Mode2`：`FormationCanvas` **左缘**竖排已激活战术阵型小队按钮（`TacticalFormationSquadBarView`；数据=`TacticalFormationLayoutService.CollectActiveSquads`）；每小队独立按钮；图标=`Resources/UI/Formations/{IconAssetId}`（缺图空框+短 DisplayName）；点击 → 选中该 `FormationId`，士兵栏**仅**高亮该小队成员（未选中时仍按已上阵高亮）；不改相机、不改变整阵拖拽语义；&lt;Min 解散后按钮消失并清选中；Mode1/Mode2 均有；验收 §3.8 D-085 |
+| UI-030 | 战术阵型目录条 | 已定义（Demo） | 共享 `FormationEditorRoot` / `_Mode2`：`FormationCanvas` **左缘**竖排阵型目录按钮（`TacticalFormationSquadBarView`；数据=表内去重 `FormationId`，同阵型各 `FormationLevel` **共用 1 个按钮**）；常显，不随已建组出现或消失；图标=`Resources/UI/Formations/{IconAssetId}`（缺图空框+短 DisplayName）；点击 → **尝试新建一组**：未入任何组且技能中带有该 `FormationId` 的士兵，**已上阵优先**，不足 `min(MaxMemberCount, 槽位数)` 时按士兵库顺序从士兵栏**未上阵**补人并上阵（合计 ≥`MinMemberCount` 才 snap；不足 Min 不动坐标、不上阵）。阵心 = 本次纳入的已上阵成员质心；一个已上阵都没有时 = 镜头画面中心地面点（无效则失败且不动）。**不再**用按钮选中小队。选中、头顶图标与解散见 UI-035。Mode1/Mode2 均有；验收 §3.8 D-093（D-085 的点选高亮改由卡牌驱动） |
+| UI-035 | 战术阵型组卡牌 | 已定义（Demo） | `FormationEditorRoot` 与 `_Mode2` **顶中**横向卡牌条（视觉规格以 Mode2 为准；Mode1 复用同一组件，否则无法选中/解散）：一组一张；视口最多同时看见 **8** 张，超出可左右滑动；卡面含图标、名称、阵型等级、人数；点击进入选中：士兵栏**仅**高亮该组成员，布阵预览里组成员头顶显示该阵型图标（**不**进战斗）；**选中卡下方**出现「解散」（成员退回职业区并删除该组）。验收 §3.8 D-093 |
 | UI-031 | 关卡路线选择 | 已定义（Demo） | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab`（壳层；**`Box` 全屏 stretch**；**`MapScroll` 竖向铺满与屏幕同高、宽 1920 水平居中**（地图内容展示宽仍 **1450**、在视口内水平居中；Stage 回退 `StageScroll` 仍铺满）；**`Title` / `LevelTabBar` 叠在地图之上**，不占 MapScroll 顶边留白）；进关后 / 选项通关后显示；**Box 顶部 LevelId 页签**（去重列表；页签 Label / `Box/Title` 显示运作表 `LevelName`，空则回退 `LevelId`；默认末项；切换=`TryEnterLevel`）；有 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab` 时：Box 内竖滑该关地图（展示宽 **1450**、高按底图比例；底图源 `Art/UI/SubLevelMaps/`，运行时 `Resources/UI/SubLevelMaps/`，`RouteMapAssetId` 仍表驱动文件名）；选项中心钉在地图 Prefab 内子节点名=`GameplayOptionId` 的 `anchoredPosition`（底图左下角原点、Y 向上）；**打开/切页签后竖滑初始 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 StageNumber，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部）；**选项通关返回地图模式时**：`JustClearedOptionId` 非空 → 先瞬时对准刚通关钉点，停顿 **0.5s**，再约 **0.5s** 平滑滚向当前「最新已解锁」前沿（只动 Y）；缺刚通关钉则直接对准前沿；**只动 Y、X 不变**；**地图模式场景仅显示 Icon**（约 80×80）；**悬停**独立 Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab`（嵌套于壳层 `Box`；运行时 SerializeField，禁止代码拼装）按 GameplayType 分型展示（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标行；均含 Title）；缺钉 Warning、图标仍生成于 `(0,0)`；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版**自下而上** Stage 行 + 横向**完整选项卡**；运行时仍 Instantiate 选项节点（地图 Prefab 只提供底图+钉点 Transform）；**SearchExtract** 另展示点奖励摘要与子关卡 `Reward` **分离显示**；按 `UnlockNextOptionIds` 画相邻 Stage 连线；状态：锁定 / 可点 / 已通关；**地图模式 Icon 三态（仅地图模式；Stage 行仍用卡片底色）**：Cleared=正常色+Icon 下方内侧 Checkmark（源 `Art/UI/Icons/Checkmark.png`，运行时 `Resources/UI/Icons/Checkmark`）；Selectable/Running=慢速 alpha 闪烁+缩放 0.9↔1.1（周期约 1.6s）；Locked=Icon RGB×0.4 变暗；点击可选项 → `TrySelectGameplayOption`；验收 D-086 |
 | UI-032 | 搜打撤单点决策 | 已定义（规则库 / SearchExtract） | 单搜集点倒计时结束且仍有忠诚存活时弹出；底中「继续搜集」「离开」；最后一点仅「离开」；弹出后忠诚兵延迟 `SearchExtractDecisionIdleDelaySeconds`（默认 1s）停步并 Idle；**仅当**本关 `GatherPointCount=1` 时 LeaveButton 文案倒计时 `SearchExtractDecisionAutoLeaveSeconds`（默认 3s）后自动 Leave（可手动抢先）；Continue → 解除无敌、推进下一 `ObjectiveOrder`；Leave → 子关卡通关（`TryAdvanceStage` 或 §3.9 通关链）；验收 D-087 |
 | UI-033 | 战斗指示器 | 已定义（Demo / PushMap + SearchExtract） | Combat 顶中 HUD（锚点 `(0.5,1)`，`anchoredPosition.y=-10`，根 `localScale=0.75`，参考分辨率 1920×1080）：中央 `HPPK_UI_1`（`CenterBg`）**子节点**左右半区=敌我**当前存活数**（字号 BestFit 26～42）；敌方本场尚未出现过 `>0` 且当前为 0 时显示 **`?`**，一旦现身过则后续含清零均显示数字；左侧我方格 `HPPK_UI_2`（右对齐靠中心）、右侧敌方格 `HPPK_UI_3`（左对齐靠中心）；简画图标来自 `ClassConfig` / `MonsterConfig` 的 `SilhouetteIconAssetId`（`Resources/UI/Icons/{Id}`）；HP% 着色 ≥66% 绿 / 33%～66% 橙 / ≤33% 红 / 永久死亡灰+`HPPK_UI_4`（0.5s 后移除并重对齐）；单行超出半屏可用宽则**截断**（不显示第 2～N 行）；低频 0.2s 轮询；Prepare/Ended/结算弹窗期间隐藏；Defend **无**；验收 D-089 |
@@ -874,7 +879,8 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-027 | Title / login menu | Defined (Demo) | Prefab `TitleMenuPanel` under `MetaCanvas`; shared `TitleScreenBackground` (sprites under `Art/UI/Meta/Title/`); top-center game-name Image `GameName` (`Title_GameName.png`); primary dual-state (Start/Continue) → SaveSelect; **Settings → UI-028**; Load save / Credits → Tips「还未制作」; bottom-right version Text; random Title BGM |
 | UI-028 | Title settings panel | Defined (Demo) | Prefab `TitleSettingsPanel` under `MetaCanvas` (align UI-008: full-screen dim + center box + close; `sortingOrder` ≥ 100); first tab **Display** only: resolution list (`Screen.resolutions` dedupe by WxH descending, label `1920 × 1080`) + window mode tri-state (Windowed / Borderless / Exclusive); **Apply** commits `Screen.SetResolution` + machine-level PlayerPrefs (Close discards draft); Boot applies saved; **no** TechTree; separate from UI-007 |
 | UI-029 | Difficulty select host | Defined (Demo) | `DifficultySelectHost` inside `InSaveShellPanel`; equal-width **same-screen** columns (~1/3 each); hover shows difficulty description (Demo hardcoded; table `Description` wiring deferred); **Normal only** click → UI-031; Hard/Hell Toast; no in-column UI-008; no MapHost; no gameplay number change; **Create enter** / Tools Level / LevelEnded default open; **Enter occupied skips** → UI-031; standalone Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`; accept D-081; unlock/clear-reward rules in §3.9 (wiring deferred) |
-| UI-030 | Tactical formation squad strip | Defined (Demo) | Shared `FormationEditorRoot` / `_Mode2`: left-edge vertical buttons for active tactical squads (`TacticalFormationSquadBarView`; data=`TacticalFormationLayoutService.CollectActiveSquads`); one button per squad; icon=`Resources/UI/Formations/{IconAssetId}` (missing → empty frame + short DisplayName); click selects `FormationId` and highlights **only** that squad’s members on the soldier bar (otherwise highlight = deployed); no camera focus; whole-squad drag unchanged; button removed and selection cleared when &lt;Min; Mode1+Mode2; accept §3.8 D-085 |
+| UI-030 | Tactical formation catalog strip | Defined (Demo) | Shared `FormationEditorRoot` / `_Mode2`: left-edge vertical **catalog** buttons (`TacticalFormationSquadBarView`; data = distinct `FormationId` rows; all `FormationLevel`s of one formation **share 1 button**); always visible, not tied to existing groups; icon=`Resources/UI/Formations/{IconAssetId}` (missing → empty frame + short DisplayName); click **tries to create one new group** from soldiers in no group whose skills include that `FormationId`: **deployed first**, then undeployed SoldierBar soldiers in pool order until `min(MaxMemberCount, slot count)` (snap only if the total ≥`MinMemberCount`; below Min does not move or deploy). Center = centroid of the deployed members taken this click; if none are deployed, the ground point at the view center (invalid → fail, no moves). Buttons **no longer select** a squad. Selection, overhead icons, and disband are UI-035. Mode1+Mode2; accept §3.8 D-093 (D-085 soldier-bar highlight moves to the card) |
+| UI-035 | Tactical formation group cards | Defined (Demo) | Top-center horizontal card strip on `FormationEditorRoot` and `_Mode2` (visual spec authored for Mode2; Mode1 mounts the same component, otherwise Mode1 cannot select or disband): one card per group; viewport shows at most **8** cards, horizontal scroll both ways when more; card shows icon, name, formation level, member count; click selects that group: soldier bar highlights **only** its members, and formation-preview puppets show that formation’s icon overhead (**not** in combat); **Disband** appears under the selected card (members return to class zones and the group is removed). Accept §3.8 D-093 |
 | UI-031 | Level route select | Defined (Demo) | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab` (chrome; **`Box` stretch fullscreen**; **`MapScroll` height matches screen, width 1920, horizontally centered** (map content still display width **1450**, centered in viewport; Stage fallback `StageScroll` still stretch-full); **`Title` / `LevelTabBar` overlay the map**, no top inset reserved for chrome); shown after enter Level / after option clear; **LevelId tabs atop Box** (distinct list; tab Label / `Box/Title` show Operation `LevelName`, empty→`LevelId`; default last; switch=`TryEnterLevel`); with `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`: vertical-scroll that map (display width **1450**, height by bg aspect; art source `Art/UI/SubLevelMaps/`, runtime `Resources/UI/SubLevelMaps/`; `RouteMapAssetId` still names the file); option centers pinned to child nodes named `GameplayOptionId` (`anchoredPosition`; map bottom-left origin, Y up); **on open / tab switch, initial scroll Y centers the latest unlocked pin** (prefer max StageNumber among Selectable/Running, else Cleared; same Stage → max pin Y; else bottom); **on clear-return in map mode**: non-empty `JustClearedOptionId` → snap to just-cleared pin, hold **0.5s**, then ~**0.5s** smooth scroll to current latest-unlocked frontier (Y only); missing cleared pin → frontier directly; **Y only, X unchanged**; **map mode shows Icon only** (~80×80); **hover** standalone Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab` (nested under chrome `Box`; runtime SerializeField only — no code-built hierarchy) by GameplayType (Dig=TipMessages; Shop/AM/UM=IconAssetId2+Description; PushMap/SE/Defend=IconAssetId2+Reward icons; Title always); missing pin → Warning, icon at `(0,0)`; without map Prefab (or no `RouteMapAssetId`) → bottom-up Stage rows + horizontal **full cards**; runtime still Instantiates option nodes (map Prefab = bg + pin Transforms only); **SearchExtract** dual summaries; edges from `UnlockNextOptionIds`; states locked / selectable / cleared; **map-mode Icon visuals (map mode only; Stage rows keep card tint)**: Cleared=normal + bottom-inner Checkmark (art `Art/UI/Icons/Checkmark.png`, runtime `Resources/UI/Icons/Checkmark`); Selectable/Running=slow alpha blink + scale 0.9↔1.1 (~1.6s period); Locked=Icon RGB×0.4 dim; click → `TrySelectGameplayOption`; accept D-086 |
 | UI-032 | SearchExtract point decision | Defined (rules library / SearchExtract) | After gather countdown ends with ≥1 living loyal: bottom-center **Continue Gather** / **Leave**; last point shows **Leave** only; after show, loyals delay `SearchExtractDecisionIdleDelaySeconds` (default 1s) then stop + Idle; **only if** stage `GatherPointCount=1`, LeaveButton label countdown `SearchExtractDecisionAutoLeaveSeconds` (default 3s) then auto-Leave (manual Leave may preempt); Continue → drop invincibility, advance next `ObjectiveOrder`; Leave → SubLevel clear (§3.9 chain); accept D-087 |
 | UI-033 | Combat indicator | Defined (Demo / PushMap + SearchExtract) | Combat top-center HUD (anchor `(0.5,1)`, `anchoredPosition.y=-10`, root `localScale=0.75`, ref 1920×1080): center `HPPK_UI_1` (`CenterBg`) **child** left/right-half = **current alive counts** (BestFit font 26–42); enemy shows **`?`** while this battle has never seen `EnemyAliveCount>0` and current is 0, then always numeric (incl. 0); left ally slots `HPPK_UI_2` (right-align toward center), right enemy slots `HPPK_UI_3` (left-align toward center); silhouettes from `ClassConfig` / `MonsterConfig` `SilhouetteIconAssetId` (`Resources/UI/Icons/{Id}`); HP% tint ≥66% green / 33%–66% orange / ≤33% red / permanent-dead gray+`HPPK_UI_4` (remove after 0.5s and re-align); one row exceeding half-screen usable width → **truncate** (do not show rows 2…N); 0.2s poll; hide in Prepare/Ended/settlement; Defend **none**; accept D-089 |
@@ -974,15 +980,16 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-081 | 进档难度 Hub（UI-029）：**新建**进档打开三栏等宽**同屏**（各约 1/3）；悬停显示难度描述；**仅普通**点击 → UI-031（默认已解锁末项 LevelId）。**进入占用档**跳过 Hub，直开 UI-031：默认 LevelId=已解锁关中 Cleared 选项最大 StageNumber 所在关（并列取解锁列表更后者；无通关 → 已解锁末项）；地图竖滑滚到最新已解锁前沿。困难/地狱可悬停、点击 Toast；无栏内 LevelSelect；无 MapHost；左下/右上按钮位置不变；`InSaveShellPanel` 独立 Prefab。**旁注：** `DifficultyConfig` 表驱动解锁/描述/通关奖已入 SPEC，Demo Hub 接线后置 | P0 | **更新**（占用档直进路线；方案 C Hub 仅新建/工具关卡） |
 | D-082 | Mode2 魔法书 Token **命中**附带体型放大：`VisualModelScale` ×`WarriorVisualModelScalePerHit`（样例 1.15，可叠）后夹 `WarriorVisualModelScaleMax`（样例 3）；可与 `Style_ScaleModel` 通道同次再 ×`VisualIntensityAdd`；`BodyRadius`/`AttackRange` 仍 ×k；空 `VisualStyleId` 命中也放大；存档→布阵/Defend/PushMap | P1 | **完成**（选定方案：命中步进 + Style_ScaleModel 并存夹紧；Correctness 菜单 `Run Warrior VisualModelScale Correctness (D-082)`） |
 | D-083 | 怪物尸体投射（抛物线击飞+砸击合一）：`distance≥DeathDie2KnockbackThreshold` 时飞行扫掠+落地砸其它存活怪；`OutgoingDamage×DeathCorpseSmashDamageMul`；同目标只结算一次；砸死不连锁；`MonsterCombatDead` 亦飞砸后 Delay→倒放；Defend+PushMap | P1 | **完成**（方案 A：Session `TryApplyCorpseSmashDamage` + View 抛物线/扫掠；Correctness 菜单 `Run Corpse Projectile Correctness Checks (D-083)`；issues `.scratch/corpse-projectile/`） |
-| D-084 | 战术阵型 TacticalFormation（方案 A）：魔法书 `GrantFormationSkill` 授予阵型技能；布阵 ≥Min 自动 snap 到 Pattern 槽位（覆盖职业区、整阵拖拽）；Defend+PushMap 虚拟中心 + `FormationSlot` + 接敌 leash；阵亡 &lt;Min 运行时解散；属性/专属技能 overlay；专表 `TacticalFormationConfig` | P1 | **完成**（方案 A；TF-01～06；样例楔阵 `Form_Wedge_01` / `MagicBook_Form_Wedge` + 平行阵 `Form_Wedge_02` / `MagicBook_Form_Wedge_02`；GM 添加士兵仅 GrantFormationSkill；手验清单 `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`；Play Mode 由负责人勾选） |
-| D-085 | 布阵战术阵型小队条（UI-030）：左侧列出已 snap 小队；点选高亮整队士兵栏成员 | P1 | **完成**（方案 A：`TacticalFormationSquadBarView` + Editor 选中态；Mode1+Mode2 Prefab） |
+| D-084 | 战术阵型 TacticalFormation（方案 A）：魔法书 `GrantFormationSkill` 授予阵型技能；Pattern 槽位 + 整阵拖拽；Defend+PushMap 虚拟中心 + `FormationSlot` + 接敌 leash；阵亡 &lt;Min 运行时解散；属性/专属技能 overlay；专表 `TacticalFormationConfig`。**成员关系**（自动、每种最多 1 组）由 **D-093** 修订 | P1 | **完成**（方案 A；TF-01～06；框架已落地。自动单实例组阵见 D-093，规则已锁、编码未做） |
+| D-085 | 布阵战术阵型小队条（UI-030）：原为左侧已 snap 小队点选高亮。**D-093** 改为阵型目录创建按钮；高亮改由 UI-035 卡牌驱动 | P1 | **完成**（原方案 A 已接线；行为以 D-093 / UI-030 / UI-035 为准） |
 | D-086 | 关卡 Stage 多选一 + 路线选择（UI-031）：运作表挂 `GameplayOptionId1..5` + 可选 `RouteMapAssetId` + Stage1 `UnlockLevelId`；子关卡表承载 Type/Config/图标/文案/Reward/UnlockNext（**不含**地图坐标）；每关地图 Prefab `LevelRouteMap_{LevelId}` 承载底图+`GameplayOptionId` 钉点；进关先开路线图；**Box 顶全量 LevelId 页签**（未解锁灰禁+Toast；切换已解锁=`TryEnterLevel`；默认已解锁末项）；有地图 Prefab 时选项钉坐标、**场景仅 Icon、悬停 Tips 按 GameplayType 分型（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标）**；**地图 Icon 三态**（Cleared Checkmark / Selectable·Running 慢闪+±10% 缩放 / Locked 变暗）；**通关返回地图：对准刚通关→停顿 0.5s→平滑至新解锁前沿**；同 Stage 多选一；**同 Stage 已通关后兄弟 Locked 变暗不可选**（快照 UiState + TrySelect 双重门闩）；通关发奖并解锁下一 Stage 选项；空 UnlockNext → 关卡胜利；壳 Prefab + 每关地图 Prefab | P0 | **更新**（同 Stage 兄弟锁定；地图 Icon 三态；LevelId 门闩；通关返回镜头；地图 Icon+Tips；方案 C 钉点；Play Mode 由负责人勾选） |
 | D-087 | Mode2 搜打撤 SearchExtract（方案 A）：子关卡 `GameplayType=SearchExtract`；独立 `SearchExtractStageModule`+Session；有序搜集点进圈倒计时+方向波次刷怪+布阵中心重定位；单点胜利无敌停刷清怪+UI-032；全灭整关 LevelFailure；每点奖励+子关卡 Reward 分离；**非** CampaignMode | P1 | TBD（规则库 SE-00～SE-09 已关；**字段工作坊已签字**；SE-01～SE-09 已落地；全灭 AbortLevel 可复现；**P1 HoldFraming SE-CAM-00～03 已关**（方案 B；样例锁定初值；手验 `.scratch/search-extract-hold-camera/issues/03-tune-handcheck.md`）；**D-087 Demo 验收须负责人 Play Mode 勾选手验**；issues `.scratch/mode3-search-extract/`） |
 | D-088 | 关卡路线进度存档（方案 A）：按槽+CampaignMode 持久化已通关 `GameplayOptionId`；`TryEnterLevel` 水合 Cleared 并派生 Unlocked；通关立即写回；进行中选项不存；整关胜利保留 Cleared；删档清键 | P0 | **完成**（`LevelRouteProgressService` + Driver 水合；Play Mode 由负责人勾选） |
 | D-089 | 战斗指示器（UI-033 / 方案 A）：PushMap + SearchExtract **仅 Combat** 显示顶中敌我单位格 HUD（`y=-10`，`scale=0.75`）；`CenterBg` 内左右存活数（BestFit 26～42；敌方开场未现身前为 `?`）；简画按职业/怪物表；HP% 四色；永久死亡灰+X 0.5s 后移除重对齐；可复活怪算活着；叛变不入两侧；单行截断（不换行）；0.2s 轮询 Snapshot（不改战斗热路事件）；Defend 不接线 | P1 | TBD（issues `.scratch/combat-indicator/`） |
 | D-090 | 离屏刷怪边缘提示（UI-034 / 方案 A）：PushMap + SearchExtract **仅 Combat 真实刷怪**；判定=该组 `basePos` 视口外；边缘 `EnemyAttack_1` 开场闪红 2 次（0.4s）后常亮 2s、放大 1.3；Prepare 预览不出；同帧多组独立；离 Combat 清理；Defend 不接线 | P1 | TBD（issues `.scratch/offscreen-spawn-hint/`） |
 | D-091 | 主角装备「复活铲」`Equip_ReviveShovel`（Mode2）：5 级表行 + 玩家 DigAction 清坟按级 20/40/60/80/100% 掷 `DigOnGraveClear`；复用引雷主要手扫描→入士兵池 + `DigLightningPreviewSec_2` 预览（**不**播闪电、**不**跳过掉落）；爆炸/引雷清坟不触发；Dig HUD GM 发放 | P1 | **完成**（方案 A：`DigReviveShovelEffectConfig` + `DigSessionService`） |
-| D-092 | 布阵战术阵型旋转与滚轮缩放（方案 A）：整阵左键按住/拖动时 `Q`/`E` 绕阵心即时 ±15°；已激活小队再评估保留玩家朝向；布阵滚轮缩放步进/夹限同 Combat（`CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`）；指针在士兵栏等 UI 上忽略 | P1 | **完成**（方案 A：`TryApplySquadYawDelta` + `FormationEditorController`） |
+| D-092 | 布阵战术阵型旋转与滚轮缩放（方案 A）：整阵左键按住/拖动时 `Q`/`E` 绕阵心即时 ±15°；已有组再裁剪时保留玩家朝向；布阵滚轮缩放步进/夹限同 Combat（`CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`）；指针在士兵栏等 UI 上忽略 | P1 | **完成**（方案 A：`TryApplySquadYawDelta` + `FormationEditorController`） |
+| D-093 | 战术阵型多组与等级：左缘按钮手动建组（同 `FormationId` 可多组；一人一组；不满 Max 也可建）；等级=`Floor(组内 ClassLevel 平均)`，属性取 ≤ 该值的最大 `FormationLevel` 行；组写入布阵存档；顶中卡牌（最多 8 张可见、左右滑）选中后头顶图标 + 卡下解散；战斗每组独立虚拟中心，死亡后仍 ≥Min 则重算等级。不再自动成组。目录按钮已上阵不足时从士兵栏未上阵补人；搜打撤倒计时各组阵心相对全体上阵质心平移到采集点 | P1 | TBD（TFG-01～05 已编码；待验收） |
 
 **Demo 范围外（仍排除）：**
 
@@ -1056,15 +1063,16 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-081 | Enter-shell difficulty Hub (UI-029): **Create** opens equal-width **same-screen** columns (~1/3 each); hover description; **Normal only** → UI-031 (default last unlocked LevelId). **Enter occupied** skips Hub → UI-031: default LevelId = unlocked level hosting Cleared options with max StageNumber (tie → later in unlocked list; none Cleared → last unlocked); map scrolls to latest unlocked frontier. Hard/Hell hover OK, click Toast; no in-column LevelSelect; no MapHost; chrome unchanged; standalone `InSaveShellPanel` Prefab. **Note:** `DifficultyConfig` unlock/description/clear-reward rules are in SPEC; Demo Hub wiring deferred | P0 | **Updated** (occupied enter opens route; Approach C Hub for Create / Tools Level) |
 | D-082 | Mode2 MagicBook token **hit** appends body scale: `VisualModelScale` ×`WarriorVisualModelScalePerHit` (sample 1.15, stackable) then clamp `WarriorVisualModelScaleMax` (sample 3); same hit may also ×`VisualIntensityAdd` via `Style_ScaleModel`; `BodyRadius`/`AttackRange` still ×k; empty `VisualStyleId` hit still scales; persist → formation/Defend/PushMap | P1 | **Done** (chosen: hit step + Style_ScaleModel coexist + clamp; menu `Run Warrior VisualModelScale Correctness (D-082)`) |
 | D-083 | Monster corpse projectile (parabolic knockback + smash unified): when `distance≥DeathDie2KnockbackThreshold`, flight sweep + landing smash other living monsters; `OutgoingDamage×DeathCorpseSmashDamageMul`; once per target; smash kills no chain; `MonsterCombatDead` also flies/smashes then Delay→reverse revive; Defend+PushMap | P1 | **Done** (Approach A: Session `TryApplyCorpseSmashDamage` + View parabolic/sweep; menu `Run Corpse Projectile Correctness Checks (D-083)`; issues `.scratch/corpse-projectile/`) |
-| D-084 | TacticalFormation (Approach A): MagicBook `GrantFormationSkill`; formation editor auto-snap to Pattern slots when deployed ≥Min (over class zones, whole-squad drag); Defend+PushMap virtual center + `FormationSlot` + engage leash; dissolve when living &lt;Min; stat/exclusive-skill overlay; table `TacticalFormationConfig` | P1 | **Done** (Approach A; TF-01–06; sample wedge `Form_Wedge_01` / `MagicBook_Form_Wedge` + parallel `Form_Wedge_02` / `MagicBook_Form_Wedge_02`; GM Add Soldier applies GrantFormationSkill only; handcheck `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`; Play Mode checkboxes for owner) |
-| D-085 | Formation tactical-squad strip (UI-030): left-edge buttons for snapped squads; click highlights whole squad on soldier bar | P1 | **Done** (Approach A: `TacticalFormationSquadBarView` + editor selection; Mode1+Mode2 Prefabs) |
+| D-084 | TacticalFormation (Approach A): MagicBook `GrantFormationSkill`; Pattern slots + whole-squad drag; Defend+PushMap virtual center + `FormationSlot` + engage leash; dissolve when living &lt;Min; stat/exclusive-skill overlay; table `TacticalFormationConfig`. **Membership** (auto, max one group per formation) is revised by **D-093** | P1 | **Done** (Approach A; TF-01–06; framework landed. Auto single-instance grouping → D-093, rules locked, not coded) |
+| D-085 | Formation tactical-squad strip (UI-030): originally left-edge snapped-squad select + soldier-bar highlight. **D-093** turns it into a catalog create button; highlight moves to UI-035 cards | P1 | **Done** (original Approach A wired; behavior follows D-093 / UI-030 / UI-035) |
 | D-086 | Level Stage multi-pick + route select (UI-031): Operation mounts `GameplayOptionId1..5` + optional `RouteMapAssetId` + Stage1 `UnlockLevelId`; SubLevel holds Type/Config/icon/copy/Reward/UnlockNext (**no** map coords); per-level map Prefab `LevelRouteMap_{LevelId}` holds bg + `GameplayOptionId` pins; enter opens route; **all LevelId tabs atop Box** (locked gray+Toast; unlocked switch=`TryEnterLevel`; default last unlocked); with map Prefab, options pin to coordinates, **Icon only on map, hover Tips by GameplayType (Dig=TipMessages; Shop/AM/UM=IconAssetId2+Description; PushMap/SE/Defend=IconAssetId2+Reward icons); **map Icon tri-state** (Cleared Checkmark / Selectable·Running slow blink+±10% scale / Locked dim)**; **clear-return map: snap just-cleared → hold 0.5s → smooth to new frontier**; pick-one per Stage; **same-Stage Cleared locks uncleared siblings (dim + TrySelect/UiState dual gate)**; clear grants reward + unlocks next-Stage options; empty UnlockNext → victory; chrome Prefab + per-level map Prefab | P0 | **Updated** (same-Stage sibling lock; map Icon tri-state; LevelId gate; clear-return camera; map Icon+Tips; Approach C pins; Play Mode checkboxes for owner) |
 | D-087 | Mode2 SearchExtract (Approach A): SubLevel `GameplayType=SearchExtract`; independent `SearchExtractStageModule`+Session; ordered gather points with zone countdown + directional wave spawns + formation-center relocate; point success invincible/stop-spawn/clear monsters + UI-032; wipe → Level failure; per-point loot separate from SubLevel Reward; **not** CampaignMode | P1 | TBD (rules SE-00–SE-09 closed; **field workshop signed**; SE-01–SE-09 landed; wipe AbortLevel reproducible; **P1 HoldFraming SE-CAM-00–03 closed** (Approach B; samples locked at initials; handcheck `.scratch/search-extract-hold-camera/issues/03-tune-handcheck.md`); **D-087 Demo accept needs owner Play Mode handcheck**; issues `.scratch/mode3-search-extract/`) |
 | D-088 | Level route progress save (Approach A): persist cleared `GameplayOptionId`s per slot+CampaignMode; `TryEnterLevel` hydrates Cleared and derives Unlocked; write on clear; no in-progress option; keep Cleared after level victory; delete slot clears keys | P0 | **Done** (`LevelRouteProgressService` + Driver hydrate; Play Mode checkboxes for owner) |
 | D-089 | Combat indicator (UI-033 / Approach A): PushMap + SearchExtract **Combat only** top-center ally/enemy unit-slot HUD (`y=-10`, `scale=0.75`); alive counts inside `CenterBg` left/right halves (BestFit 26–42; enemy `?` until first `>0` this battle); silhouettes from class/monster tables; HP% four tints; permanent-dead gray+X then remove after 0.5s and re-align; revivable monsters count as alive; Rebels excluded from both sides; single-row truncate (no wrap); 0.2s Snapshot poll (no combat hot-path events); Defend unwired | P1 | TBD (issues `.scratch/combat-indicator/`) |
 | D-090 | Off-screen spawn edge hint (UI-034 / Approach A): PushMap + SearchExtract **Combat real spawns only**; gate = group `basePos` outside viewport; edge `EnemyAttack_1` 2 red blinks in 0.4s then hold 2s at scale 1.3; Prepare preview skipped; multi-group independent; clear on leave Combat; Defend unwired | P1 | TBD (issues `.scratch/offscreen-spawn-hint/`) |
 | D-091 | ProtagonistEquipment Revive Shovel `Equip_ReviveShovel` (Mode2): 5-level rows + player DigAction grave-clear roll `DigOnGraveClear` 20/40/60/80/100% by level; reuse Lightning primary-hand scan → WarriorPool + `DigLightningPreviewSec_2` preview (**no** bolt VFX, **no** loot skip); blast/lightning clears do not trigger; Dig HUD GM grant | P1 | **Done** (Approach A: `DigReviveShovelEffectConfig` + `DigSessionService`) |
-| D-092 | Formation tactical-squad rotate + scroll zoom (Approach A): while LMB holding/dragging a squad, `Q`/`E` instantly rotate ±15° about center; re-Evaluate keeps player facing for already-active squads; formation scroll zoom step/clamp same as Combat (`CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`); ignore when pointer over soldier bar / blocking UI | P1 | **Done** (Approach A: `TryApplySquadYawDelta` + `FormationEditorController`) |
+| D-092 | Formation tactical-squad rotate + scroll zoom (Approach A): while LMB holding/dragging a squad, `Q`/`E` instantly rotate ±15° about center; prune of an existing group keeps player facing; formation scroll zoom step/clamp same as Combat (`CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`); ignore when pointer over soldier bar / blocking UI | P1 | **Done** (Approach A: `TryApplySquadYawDelta` + `FormationEditorController`) |
+| D-093 | Tactical formation multi-group + level: left-edge button manually creates a group (many groups per `FormationId`; one group per soldier; partial Max allowed); level=`Floor(mean ClassLevel)`; stats from the greatest `FormationLevel` row ≤ that value; groups persist with the battle-formation save; top-center cards (at most 8 visible, scroll both ways) select a group → overhead icon + Disband under the card; combat gives each group its own virtual center and recomputes level after a death while still ≥Min. No auto-grouping. Catalog click fills a shortfall from undeployed SoldierBar soldiers; SearchExtract countdown shifts each group center by its offset from the army centroid onto the gather point | P1 | TBD (TFG-01–05 coded; pending playtest) |
 
 **Out of Demo scope (still excluded):**
 
@@ -1995,7 +2003,8 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | 控制力 HUD | 画面左上角显示 `ΣControlPowerCost / ControlPowerCap` |
 | 离开 | UM：「返回」关编辑器回主屏；Defend：「开战」（UI-009，≥1）关编辑器进 Combat |
 | Mode2 完成钮 | 仅 `FormationEditorRoot_Mode2`：`SoldierBar` 上方右侧 `CompleteButton`（UM/Prepare **均显示**）；其**正上方**叠放 `StartBattleButton`（Prepare 开战）；UM 宿主点击 Complete = 关编辑器并触发与主屏相同的阶段结束；Mode1 Prefab **无** Complete 钮 |
-| 战术阵型小队条 | **UI-030：** 左缘竖排已 snap 战术阵型小队图标按钮；点选高亮整队士兵栏成员（见 §3.18 / D-085） |
+| 战术阵型目录条 | **UI-030：** 左缘竖排阵型目录按钮；点击尝试新建一组（见 §3.18 / D-093） |
+| 战术阵型组卡牌 | **UI-035：** 顶中已建组卡牌；点选高亮士兵栏并在预览头顶显示阵型图标；选中卡下解散（见 §3.18 / D-093） |
 | 阵型旋转 / 镜头 | 已激活整阵左键按住/拖动时 `Q`/`E` ±15°（§3.18 / D-092）；编辑器内滚轮缩放同 Combat 相机常量 |
 | 准备态可做 | 调整位置、上下阵（从已有士兵实例池选入/撤下）；**不可**在 Prepare 制造新士兵 |
 | 与防守关系 | `Prepare` 加载并允许改写布阵；开战瞬间按**当前**布阵部署（见 §3.12） |
@@ -2343,7 +2352,8 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | ControlPower HUD | Top-left: `ΣControlPowerCost / ControlPowerCap` |
 | Leave | UM: Return closes editor; Defend: StartBattle (UI-009, ≥1) closes editor → Combat |
 | Mode2 Complete | `FormationEditorRoot_Mode2` only: `CompleteButton` above `SoldierBar` (right); `StartBattleButton` stacked **directly above** it (Prepare StartBattle); **Complete visible in UM and Prepare**; UM host click Complete = close editor + same stage end as main Complete; Mode1 Prefab has **no** Complete button |
-| Tactical squad strip | **UI-030:** left-edge icon buttons for snapped tactical squads; click highlights whole squad on soldier bar (§3.18 / D-085) |
+| Tactical catalog strip | **UI-030:** left-edge catalog buttons; click tries to create one group (§3.18 / D-093) |
+| Tactical group cards | **UI-035:** top-center cards for existing groups; select highlights the soldier bar and shows the formation icon overhead on the preview; Disband under the selected card (§3.18 / D-093) |
 | Squad rotate / camera | While LMB holding/dragging an active squad: `Q`/`E` ±15° (§3.18 / D-092); editor scroll zoom uses Combat camera constants |
 | Prepare may | Positions + deploy/undeploy from instance pool; **no** manufacture |
 | Defend link | StartBattle deploys from **current** formation |
@@ -2533,7 +2543,7 @@ UpgradeManufacture stage
 | 共享目标 → FlowField | PushMap **全队共 `CurrentObjective`**（及同类「多人同一世界点」）：构建/采样 **一条** 流向该点的 FlowField；同目标单位只读场向量 + 本地绕行，**禁止**每人独立全图 A*。进入该目标 `CaptureZone` 后 **停跟场趋近中心**，改 LocalDetour 软分离守备（见 §3.14「到达」） |
 | 追击/攻击 → AttackSlot | 目标为敌人（或可攻击实体）时：`DesiredDestination` = 认领的 **AttackSlot**（见下），非目标中心 |
 | FormationHome | Defend 无 Engage 候选时：目的地=`FormationHome`；**MP-06 已接线** — `MassMoveScheduler.SetGoal(FormationHome)` 直趋 + LocalDetour（人多聚类短命场后置） |
-| FormationSlot | **§3.18 战术阵型（D-084）：** 已激活阵型成员：目的地 = 虚拟中心 + 朝向旋转后的 Pattern 槽位本地偏移；接敌时 AttackSlot 目的地 **leash 钳制** 在中心 `LeashRadius` 内；中心 PushMap 跟 FlowField / Defend 守组阵点 |
+| FormationSlot | **§3.18 战术阵型（D-084 / D-093）：** 已入组的成员：目的地 = **该组**虚拟中心 + 朝向旋转后的 Pattern 槽位本地偏移；接敌时 AttackSlot 目的地 **leash 钳制** 在该组中心 `LeashRadius` 内；每组中心独立（PushMap 跟 FlowField / Defend 守该组组阵点） |
 | 与遇敌暂停关系 | PushMap：**MP-05 已接线** — 忠诚兵进入遇敌检测（中心距存活怪 ≤ **`max(武器触及, 该怪 AlertRadius)`**；武器触及 = `max(怪 AttackRange, 士兵 AttackRange) + 怪BodyRadius + 士兵BodyRadius + ArriveEpsilon`；`AlertRadius` 缺省=该怪 `AttackRange`）时改 `GoalKind=AttackSlot`（认领槽 + LocalDetour），**停跟** Objective FlowField；离开后释放槽并恢复 `GoalKind=Objective`。无空闲槽时**不**硬暂停：保持 `GoalKind=Objective` 继续跟场/绕行。**不是**全图 EngageZone 选敌（以免放弃占领去追远处怪）。命中仍须进入 `AttackRange`（方案 D）；见 §3.14 |
 | 规则/表现分离 | 规则层：目标 ID + `GoalKind`（+ 可选 AttackRange）；**移动服务**（可纯 C# + 表现桥）：FlowField / AttackSlot / LocalDetour / 分帧预算；View 只应用位移与动画 |
 
@@ -2947,7 +2957,7 @@ Applies to **soldier and monster** combat movement in Defend / PushMap (PushMap 
 | Shared goal → FlowField | PushMap **shared `CurrentObjective`** (and similar many-to-one world points): build/sample **one** FlowField toward that point; same-goal units read field vectors + local detour — **no** per-unit full-map A*. Once inside that objective's `CaptureZone`, **stop seeking the goal cell center** and hold via LocalDetour soft separation (see §3.14 Arrive) |
 | Chase/attack → AttackSlot | When target is an enemy (attackable entity): `DesiredDestination` = claimed **AttackSlot**, not entity center |
 | FormationHome | Defend with no Engage candidate: goal=`FormationHome`; **MP-06 wired** — `MassMoveScheduler.SetGoal(FormationHome)` straight-line + LocalDetour (clustered short-lived fields deferred) |
-| FormationSlot | **§3.18 TacticalFormation (D-084):** active formation members: destination = virtual center + pattern slot offset rotated by facing; engage AttackSlot destinations **leash-clamped** within center `LeashRadius`; center follows FlowField (PushMap) or holds deploy point (Defend) |
+| FormationSlot | **§3.18 TacticalFormation (D-084 / D-093):** grouped members: destination = **that group's** virtual center + pattern slot offset rotated by facing; engage AttackSlot destinations **leash-clamped** within that group's `LeashRadius`; each group has its own center (PushMap FlowField / Defend holds that group's deploy point) |
 | Vs engage pause | PushMap: **MP-05 wired** — loyal soldiers entering engage detect (center dist to a living monster ≤ **`max(weapon reach, that monster's AlertRadius)`**; weapon reach = `max(monster AttackRange, soldier AttackRange) + monsterBody + soldierBody + ArriveEpsilon`; missing `AlertRadius` defaults to that monster's `AttackRange`) switch to `GoalKind=AttackSlot` (claim slot + LocalDetour) and **leave** Objective FlowField; on clear, release slot and resume `GoalKind=Objective`. If no free slot: **do not** hard-pause — keep `GoalKind=Objective` and continue field/detour. **Not** map-wide EngageZone targeting (would abandon Capture to chase distant enemies). Hits still require `AttackRange` (scheme D); see §3.14 |
 | Rules / presentation | Rules: target id + `GoalKind` (+ optional AttackRange); **move service** (pure C# + view bridge): FlowField / AttackSlot / LocalDetour / frame budget; View only applies motion/anim |
 
@@ -3435,7 +3445,7 @@ Level-up (Defend Exp path) → TechPointsReward → spendable balance for learn
 | 规则 | 说明 |
 |------|------|
 | 顺序 | 按 `ObjectiveOrder` 升序；开战后当前目标 = 最小未占领 Order |
-| 士兵推进 | **全队共当前目标**：所有忠诚士兵以 `CurrentObjective` 为共享目的地；移动走 **FlowField**（§3.12 MassCombatPathing 方案 B）；可途中被 EngageZone 内敌人打断选敌（改 AttackSlot）；无候选则继续采样流向当前目标的场。**§3.18 战术阵型（D-084）：** 已激活阵型的成员改由**虚拟中心**跟 FlowField，成员 `GoalKind=FormationSlot` 跟槽位；未入阵/已解散成员仍走上句语义 |
+| 士兵推进 | **全队共当前目标**：所有忠诚士兵以 `CurrentObjective` 为共享目的地；移动走 **FlowField**（§3.12 MassCombatPathing 方案 B）；可途中被 EngageZone 内敌人打断选敌（改 AttackSlot）；无候选则继续采样流向当前目标的场。**§3.18（D-084 / D-093）：** 已入组的成员改由**该组虚拟中心**跟 FlowField，成员 `GoalKind=FormationSlot`；未入组/已解散成员仍走上句语义 |
 | 推进与占领 | 占领仅看「是否到达」；圈内有存活怪物 **不**阻止占领，也 **不**单独暂停推进（遇敌改 AttackSlot 见下） |
 | Demo 遇敌暂停推进 | 完整 §3.12 WarriorCombat 接入前：忠诚兵中心距任一存活怪 ≤ `max(AttackRange, 怪BodyRadius+士兵BodyRadius)` 时 **暂停推进**（停跟场、清本地速度；勿依赖全开 RVO）；离开后恢复采样 FlowField。正式 Engage 选敌后改 `GoalKind=AttackSlot`；命中仍后置完整 WarriorCombat |
 | FlowField 重建 | `CurrentObjective` 切换、开战 Bake（含 AirWall 不可走）、可走面变更 → 重建指向新目标的场；同目标单位共享一场 |
@@ -3598,7 +3608,7 @@ Entered when Level stage `GameplayType = PushMap`. May also be entered via Defen
 | Rule | Notes |
 |------|-------|
 | Order | Ascending `ObjectiveOrder`; current = min uncaptured |
-| Advance | **Shared current objective** for all loyal soldiers; movement via **FlowField** (§3.12 MassCombatPathing Approach B); may interrupt for EngageZone enemies (`AttackSlot`); if none, keep sampling field toward current objective. **§3.18 TacticalFormation (D-084):** active-formation members use a **virtual center** on FlowField and member `GoalKind=FormationSlot`; non-members / dissolved still use the sentence above |
+| Advance | **Shared current objective** for all loyal soldiers; movement via **FlowField** (§3.12 MassCombatPathing Approach B); may interrupt for EngageZone enemies (`AttackSlot`); if none, keep sampling field toward current objective. **§3.18 (D-084 / D-093):** grouped members use **that group's virtual center** on FlowField and `GoalKind=FormationSlot`; non-members / dissolved still use the sentence above |
 | Advance vs Capture | Capture depends only on **arrive**; living monsters in zone do **not** block Capture and do **not** alone pause advance (engage → AttackSlot below) |
 | Demo engage pause | Until full §3.12 WarriorCombat is wired: loyal soldiers **pause advance** when center distance to any living monster ≤ `max(AttackRange, monsterBodyRadius+soldierBodyRadius)` (stop following field / clear local velocity; do not rely on full RVO); resume FlowField sampling when clear. Formal Engage → `GoalKind=AttackSlot`; hits still deferred to full WarriorCombat |
 | FlowField rebuild | On `CurrentObjective` change, StartBattle bake (incl. AirWall non-walkable), or walkable change → rebuild field toward new goal; same-goal units share one field |
@@ -4476,7 +4486,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 
 ### 简体中文
 
-**状态：规则已锁定（方案 A：虚拟阵型单元 + 布阵组阵覆盖职业区）；TF-01～TF-06 已落地（D-084 **完成**；手验清单 `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`）。**
+**状态：D-084 框架已落地（虚拟中心 + Pattern + leash + overlay）。D-093 修订成员关系：手动建组、同阵型多组、等级查表、顶中卡牌、按组战斗（TFG-01～05 已编码；待验收）。**
 
 Mode1 / Mode2 **共用机制**；配置表按 `CampaignMode` 各自 CSV 根（[SPEC_04 §14.5](SPEC_04_Technical.md)）。表结构见 [SPEC_04 §9.30](SPEC_04_Technical.md)。**勿与** §3.11/§3.12 `BattleFormation`（上阵坐标持久化）、§3.17 `FormationBond`（属性计数 Buff、无空间站位）混淆。
 
@@ -4484,7 +4494,7 @@ Mode1 / Mode2 **共用机制**；配置表按 `CampaignMode` 各自 CSV 根（[S
 
 | 概念 | 说明 |
 |------|------|
-| 战术阵型 | 拥有相同「阵型技能」的**已上阵**士兵在 Prepare 自动 snap 为空间编队；Combat 以**虚拟中心**移动，成员保持 Pattern 相对站位 |
+| 战术阵型 | 拥有阵型技能的士兵经左缘按钮手动建成空间编队（已上阵优先，不足时从士兵栏未上阵补人并上阵）；同 `FormationId` 可多组；Combat 每组一个**虚拟中心**，成员保持 Pattern 相对站位 |
 | 阵型技能 | 魔法书 Token `GrantFormationSkill`（Mode2 制造 Step2 单槽脉冲）写入实例 `SoldierSkills`；`SkillConfig.FormationId` 指向 `TacticalFormationConfig` |
 | 虚拟中心 | 规则层纯数据移动体（可选无 Visual 锚；**不**登记为 `MassMoveScheduler` agent，避免 SoftCollision 幽灵体）；PushMap 由 RuntimeService 沿 FlowField 方向积分；Defend 守组阵时中心点 |
 | 与 Follow 关系 | **不是**粘随主角 / BMH `ArmyRadius`；是独立 `GoalKind=FormationSlot` + 中心驱动（修订 §3.12 B+「不做 Follow」口径） |
@@ -4494,7 +4504,7 @@ Mode1 / Mode2 **共用机制**；配置表按 `CampaignMode` 各自 CSV 根（[S
 | 规则 | 说明 |
 |------|------|
 | Token | `EffectPayload=GrantFormationSkill`；`EffectPhase=SoldierManufacture`；登记见 [SPEC_04 §9.24](SPEC_04_Technical.md) |
-| 参数 | **必填** `FormationId`（FK → `TacticalFormationConfig`）；**可选** `ClassId` / `RaceId` / `BaseClass` / `Chance`（过滤语义对齐 `ForceClass` / `StatMul`） |
+| 参数 | **必填** `FormationId`（阵型身份，**不是**某一 `FormationLevel` 行）；**可选** `ClassId` / `RaceId` / `BaseClass` / `Chance`（过滤语义对齐 `ForceClass` / `StatMul`） |
 | 命中 | 向实例 `SoldierSkills` **追加**该阵型 `FormationSkillId`@Lv1（已有同 `SkillId` 不重复；等级可用 `SoldierSkillLevelAdd` 二次扫描） |
 | 未命中 | 空 apply + 日志；不授予技能、不参与组阵 |
 | Mode1 | 手动制造本 Demo **不跑**本 Token（与其它制造书一致）。**例外：** Tools GM「添加士兵」（D-064）在已装备该书时 **仅**应用 `GrantFormationSkill`（不跑其它制造 Token；便于 Mode1 Defend 手验） |
@@ -4503,67 +4513,76 @@ Mode1 / Mode2 **共用机制**；配置表按 `CampaignMode` 各自 CSV 根（[S
 
 | 层 | 职责 |
 |----|------|
-| `TacticalFormationConfig`（§9.30） | `FormationId`、展示、`FormationSkillId`、`MinMemberCount` / `MaxMemberCount`、`PrefabId`、`StatModifiers`、`ExclusiveSkillIds` |
+| `TacticalFormationConfig`（§9.30） | 复合主键 `(FormationId, FormationLevel)`；同 Id 各行的展示、`FormationSkillId`、人数、`PrefabId` 必须一致；`StatModifiers` 与专属技能列按等级行走 |
 | Pattern Prefab `Assets/Prefabs/Formation/Patterns/{PrefabId}.prefab` | 根 = **中心**；根 forward = **朝向**（XZ）；子节点 `Slot_*` = 士兵**相对位置**；组件字段 = **通用移动参数**（`LeashRadius`、`SlotArriveEpsilon`、`CenterMoveSpeedMul`、`FacingTurnRate`、`KeepFormationWhileEngage` 等，见 §9.30） |
 
-**布阵自动组阵（方案 A：覆盖职业区）**
+**布阵手动建组（D-093 修订 D-084 自动单实例；仍覆盖职业区）**
 
 | 规则 | 说明 |
 |------|------|
-| 触发时机 | 每次 `BattleFormation` 变更后（手动上阵/改位/下阵、AutoManufacture `DeployBatch`、一键上阵 **之后**） |
-| 统计源 | 仅 **已上阵** `BattleFormationService.Entries`（对齐 §3.17 羁绊） |
-| 分组 | 按实例 `SoldierSkills` → `SkillConfig.FormationId` 分组 |
-| 激活 | 同 `FormationId` 上阵数 **≥ `MinMemberCount`** → 激活 **1 个**实例（Demo 每种阵型最多 1 实例）；取最多 `MaxMemberCount` 人（稳定排序：上阵先后 / `WarriorId`） |
-| Snap | 放置点 = 该批成员世界坐标**质心**；朝向 = PushMap Prepare 指向当前/首 `Objective`，Defend Prepare 指向 `EngageZone` 内侧 / 地图默认 +Z |
-| 坐标 | 写回 `TrySetPosition` 为槽位世界坐标；**覆盖**原 `FormationClassZone` 螺旋位 |
-| 不足 Min | **不组阵**；若先前已 snap → **退回**职业区螺旋位（D-052 同算法） |
-| 超额 | 超出 `MaxMemberCount` 或槽位数 → 余兵留职业区，仍可单兵拖拽 |
-| 拖拽 | 组阵成员 **禁止**单独拖散；命中任一成员 = **整阵**拖动（只改中心，保持相对偏移与朝向） |
-| 旋转（Q/E） | 整阵左键**按住/拖动**期间：`Q` = 逆时针、`E` = 顺时针，每按一次绕当前阵心旋转 **`FormationRotateStepDegrees=15`**；即时写回成员坐标与会话态 `FacingYawDegrees`；松手仍只结算平移。未按住整阵时 Q/E **无效** |
-| 朝向保留 | 首次激活仍按地图目标自动朝向；**已激活**同 `FormationId` 再 `EvaluateAndApply` 时 **保留** 既有 `FacingYawDegrees`（含玩家旋转），避免冲掉朝向 |
-| 布阵滚轮 | 共享 `FormationEditor` 打开时：鼠标滚轮拉近/拉远；步进/夹限与 Combat 相同（`CameraZoomStepPerNotch` / `CameraOrthoSizeMin` / `CameraOrthoSizeMax` ← `CameraPresentationConstants`）；指针在士兵栏等阻挡 UI 上时忽略 |
-| 小队条 UI | **UI-030 / D-085：** `FormationCanvas` 左缘列出已激活小队（图标按钮）；点击选中该小队 → 士兵栏仅高亮其成员；不改相机；整阵拖拽语义不变 |
+| 不再自动成组 | 布阵变更、一键上阵、AutoManufacture `DeployBatch` **不**把闲兵吸进组。已有组只裁剪：下阵成员移出；剩余 **&lt; `MinMemberCount`** → 整组解散并退回职业区螺旋（D-052 同算法） |
+| 创建 | **仅**左缘目录按钮（UI-030）。一次点击产生一个 `GroupInstanceId`。同 `FormationId` 可同时多组 |
+| 资格 | **未入任何组**，且 `SoldierSkills` 中**任一**技能的 `SkillConfig.FormationId` 等于被点阵型（禁止只看第一个阵型技能）。**先**取已上阵合格兵；未到 `min(MaxMemberCount, 槽位数)` 时，再按士兵库顺序补未上阵合格兵并上阵。资格查询独立于组 Id / 存档 / 战斗键，便于以后加职业筛选；本轮不加职业列 |
+| 人数 | 已上阵合格与栏内补入**合计 ≥ `MinMemberCount`** 才建组；取 `min(合计, MaxMemberCount, 槽位数)`。槽位顺序：已上阵在前（上阵先后 / `WarriorId`），栏内在后（库顺序）。不满 Max 也可以建。合计不足 Min：**不动**已有坐标、**不**上阵。栏内某人上阵失败：撤回本点击新上阵的人；撤回后已上阵仍 ≥ Min 则只用这些已上阵成员建组，否则整次失败 |
+| 一人一组 | 已入组的士兵不参与下一次创建，也不能同时属于另一个阵型 |
+| Snap | 阵心 = 本次纳入的**已上阵**成员质心；一个已上阵都没有时 = 调用方传入的镜头画面中心地面点（地图相对 XZ），未传入则失败且不动。朝向 = PushMap Prepare 指向当前/首 `Objective`，Defend Prepare 指向 `EngageZone` 内侧 / 地图默认 +Z。未上阵成员先上阵到槽位坐标，再与已上阵一起写回，**覆盖**原职业区螺旋位 |
+| 拖拽 | 组成员 **禁止**单独拖散；命中任一成员 = **整组**拖动（只改中心，保持相对偏移与朝向）。键 = `GroupInstanceId`，不是 `FormationId` |
+| 旋转（Q/E） | 整组左键**按住/拖动**期间：`Q` = 逆时针、`E` = 顺时针，每按一次绕当前阵心旋转 **`FormationRotateStepDegrees=15`**；即时写回成员坐标与 `FacingYawDegrees`。未按住整组时 Q/E **无效** |
+| 朝向保留 | 新建组按地图目标自动朝向；已有组被裁剪时 **保留** `FacingYawDegrees`（含玩家旋转） |
+| 布阵滚轮 | 共享 `FormationEditor` 打开时：鼠标滚轮拉近/拉远；步进/夹限与 Combat 相同；指针在士兵栏等阻挡 UI 上时忽略 |
+| 目录条 UI-030 | 左缘展示表内全部阵型（同阵型各等级 **1** 个按钮）；点击只尝试建组 |
+| 组卡牌 UI-035 | 顶中一组一张；视口最多 8 张，超出左右滑动。点卡选中该 `GroupInstanceId`：士兵栏仅高亮成员，布阵预览头顶显示阵型图标（不进战斗）；选中卡下方「解散」= 退回职业区并删组 |
+| 存档 | 组（`GroupInstanceId`、`FormationId`、成员 Id、朝向）与 `BattleFormation` 一起持久化。等级不存，读档重算。旧档无组字段 = 没有组，**不**按站位自动还原 |
 | 与羁绊 | 并行；不改变羁绊统计源（仍按上阵名单计数） |
 
 **战斗：虚拟中心 + FormationSlot + leash**
 
 | 规则 | 说明 |
 |------|------|
-| 开战快照 | StartBattle 锁定：中心世界位、朝向、成员↔槽位映射、Pattern 移动参数 |
-| 中心移动 | PushMap：`TacticalFormationRuntimeService.Tick` 沿 FlowField 方向积分（速度 = 代表成员 `MoveSpeed × CenterMoveSpeedMul`）；Defend：中心守组阵点（无 Engage 时整阵待机） |
+| 开战快照 | 每组独立锁定：中心世界位、朝向、成员↔槽位、Pattern 移动参数、当时算出的 `FormationLevel` 与对应属性行。运行时键 = `GroupInstanceId`（禁止再用 `FormationId` 当唯一实例） |
+| 中心移动 | 每组一个虚拟中心。PushMap：`Tick` 沿 FlowField 方向积分（速度 = 该组代表成员 `MoveSpeed × CenterMoveSpeedMul`）；Defend：中心守该组组阵点 |
 | 成员移动 | `GoalKind=FormationSlot`；`DesiredDestination = center + Rot(facing) * slotLocal`；SoftCollision / LocalDetour **仍作用于成员** |
 | 接敌 | 选敌 / AttackSlot 规则不变（Defend=EngageZone 最近；PushMap=遇敌检测）；认领槽位若超出中心 **`LeashRadius`** → 投影到圆周再趋近 |
 | 超 leash 敌人 | **不追**；可打则打（已在射程内），不可则保持槽位 |
 | Rebel | 退出阵型（无加成）；走既有 Rebel 选敌 |
-| 解散 | 激活成员存活数（非 Rebel、非 `CombatDead`）**< `MinMemberCount`** → 运行时解散：撤 Stat overlay 与 ExclusiveSkill；成员 GoalKind 回 PushMap `Objective` 或 Defend 个人 Home（**解散瞬间世界坐标记为新 Home**，避免瞬移回职业区） |
+| 解散 | **该组**存活成员（非 Rebel、非 `CombatDead`）**< `MinMemberCount`** → 只解散这一组：撤 overlay；成员 GoalKind 回 PushMap `Objective` 或 Defend 个人 Home（**解散瞬间世界坐标记为新 Home**）。其它组不受影响 |
 | 不回写 Prepare | 战斗中阵亡 / 解散 **不**写回 Prepare 布阵坐标 |
 
 **属性与专属技能加成**
 
 | 规则 | 说明 |
 |------|------|
-| 生效窗 | 仅阵型 **激活态**（开战评估 + 每次成员死亡 / Rebel 后再评估） |
-| 属性 | 表 `StatModifiers`；结算对齐 Combat `StatMul` overlay，与魔法书 Combat StatMul **乘积叠加**；**不改** `WarriorInstance.BaseStats`。解散时按剩余 Combat StatMul（魔法书）重算派生属性，`RemainingHp` **钳制**到新 MaxHP |
-| 专属技能 | 表 `ExclusiveSkillIds`；运行时 overlay 进 SkillCast / EffectKind 管线（只读拼接，不写实例 `SoldierSkills`）；**不**持久化进存档。可选 `ExclusiveSkillEffectIds` 直接 overlay `SkillEffectConfig`（不占 `SoldierSkills`） |
+| 生效窗 | 仅该组 **激活态**。开战按当时成员算等级并锁行；成员死亡 / Rebel 后若该组仍 ≥ Min，按**剩余成员**重算等级并换 overlay；&lt; Min 则解散 |
+| 等级 | `Floor(成员 ClassConfig.ClassLevel 之和 / 人数)`（缺职业行按 0；正整数等价于整数除法）。玩家不点选等级 |
+| 查表 | 复合主键 `(FormationId, FormationLevel)`。取 **≤ 计算等级** 的最大表等级（只向下）。没有任何 ≤ 的行：组仍成立，`StatModifiers` 为空并 Warning |
+| 属性 | 命中行的 `StatModifiers`；结算对齐 Combat `StatMul` overlay，与魔法书 Combat StatMul **乘积叠加**；**不改** `WarriorInstance.BaseStats`。换档或解散时按剩余 Combat StatMul 重算派生属性，`RemainingHp` **钳制**到新 MaxHP |
+| 专属技能 | 跟**同一等级行**的 `ExclusiveSkillIds` / `ExclusiveSkillEffectIds`（只读拼接，不写实例 `SoldierSkills`，不进存档） |
 | 与羁绊 | 可叠加；同一 `SkillEffectId` 禁止双计（加载期 Warning） |
 
-**实现切片：** `.scratch/tactical-formation/issues/` TF-00～06；验收见 §3.8 **D-084**。
+**实现切片：** D-084 框架 `.scratch/tactical-formation/issues/` TF-00～06（已落地）。D-093 `.scratch/tactical-formation-groups/issues/` TFG-01～05 已编码（待验收）。
 
 ```
-EvaluateTacticalFormations(formation, pool, configs, patternCatalog)
-  → groups = GroupDeployedByFormationSkill(formation.Entries, pool, skillConfig, tacticalConfig)
-  → for each FormationId: if count >= MinMemberCount → activate one instance (cap MaxMemberCount, stable sort)
-  → snap positions from pattern slots at centroid + facing; else revert extras to class-zone spiral
+TryCreateGroup(formationId)
+  → deployed = on field AND not in any group AND some SoldierSkill.FormationId == formationId
+  → bar = pool order, not deployed, same skill match, not in any group
+  → take deployed first, then bar, until min(Max, slots)
+  → if taken < Min → no-op (no deploy)
+  → center = centroid of taken deployed, else view-center ground point
+  → deploy bar members onto slots; failed deploy rolls back this click's new deploys
+  → if still < Min → no-op
+  → snap; new GroupInstanceId
+  → level = Floor(mean ClassLevel); stat row = greatest FormationLevel <= level
+Prune on deploy change
+  → drop missing members; if remaining < Min → disband to class zones
 StartBattle
-  → lock tactical formation snapshot (center, facing, member→slot, move params)
-  → RuntimeService owns virtual center (pure data); members SetGoal FormationSlot + leash
+  → one CombatLock per GroupInstanceId (center, facing, member→slot, level row)
 OnMemberDeath / Rebel
-  → re-evaluate active count; if < Min → dissolve overlays + fallback GoalKind
+  → if living >= Min → recompute level and swap overlay; else dissolve that group only
 ```
 
 ### English
 
-**Status: Rules locked (Approach A: virtual formation unit + editor snap over class zones); TF-01–TF-06 landed (D-084 **Done**; handcheck `.scratch/tactical-formation/issues/06-sample-content-handcheck.md`).**
+**Status: D-084 framework landed (virtual center + Pattern + leash + overlay). D-093 revises membership: manual groups, many groups per formation, level lookup, top-center cards, per-group combat (TFG-01–05 coded; pending playtest).**
 
 Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5](SPEC_04_Technical.md)). Schema: [SPEC_04 §9.30](SPEC_04_Technical.md). **Distinct from** §3.11/§3.12 `BattleFormation` (deploy coords persistence) and §3.17 `FormationBond` (stat-count buffs, no spatial layout).
 
@@ -4571,7 +4590,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 
 | Concept | Notes |
 |---------|-------|
-| TacticalFormation | Deployed soldiers sharing a Formation Skill auto-snap into a spatial squad in Prepare; Combat moves a **virtual center**, members keep pattern offsets |
+| TacticalFormation | Soldiers with a Formation Skill are manually grouped from the left-edge button (deployed first; shortfall filled from undeployed SoldierBar and deployed onto the field); the same `FormationId` may have many groups; Combat gives **each group** a virtual center and members keep pattern offsets |
 | Formation Skill | MagicBook token `GrantFormationSkill` (Mode2 manufacture Step2 per-slot pulse) writes instance `SoldierSkills`; `SkillConfig.FormationId` → `TacticalFormationConfig` |
 | Virtual center | Rules-layer mover (optional no-Visual; **not** a `MassMoveScheduler` agent, no SoftCollision ghost); PushMap: RuntimeService integrates along FlowField dir; Defend holds deploy center |
 | vs Follow | **Not** sticky follow protagonist / BMH `ArmyRadius`; uses `GoalKind=FormationSlot` + center drive (revises §3.12 B+ “no Follow” wording) |
@@ -4581,7 +4600,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | Rule | Notes |
 |------|-------|
 | Token | `EffectPayload=GrantFormationSkill`; `EffectPhase=SoldierManufacture`; registry [SPEC_04 §9.24](SPEC_04_Technical.md) |
-| Params | **Required** `FormationId`; **optional** `ClassId` / `RaceId` / `BaseClass` / `Chance` (filters align with `ForceClass` / `StatMul`) |
+| Params | **Required** `FormationId` (formation identity, **not** a specific `FormationLevel` row); **optional** `ClassId` / `RaceId` / `BaseClass` / `Chance` (filters align with `ForceClass` / `StatMul`) |
 | Hit | **Append** formation `FormationSkillId`@Lv1 to `SoldierSkills` (skip duplicate SkillId; level via `SoldierSkillLevelAdd` second pass) |
 | Miss | Empty apply + log; no skill, no squad |
 | Mode1 | Demo manufacture **does not** run this token. **Exception:** Tools GM Add Soldier (D-064) applies **only** `GrantFormationSkill` when that book is equipped (no other manufacture tokens; Mode1 Defend handcheck) |
@@ -4590,51 +4609,72 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 
 | Layer | Role |
 |-------|------|
-| `TacticalFormationConfig` (§9.30) | `FormationId`, display, `FormationSkillId`, `MinMemberCount` / `MaxMemberCount`, `PrefabId`, `StatModifiers`, `ExclusiveSkillIds` |
+| `TacticalFormationConfig` (§9.30) | Composite PK `(FormationId, FormationLevel)`; display, `FormationSkillId`, headcount, and `PrefabId` must match across levels of one Id; `StatModifiers` and exclusive-skill columns follow the level row |
 | Pattern Prefab `Assets/Prefabs/Formation/Patterns/{PrefabId}.prefab` | Root = **center**; root forward = **facing** (XZ); child `Slot_*` = **relative positions**; component = **shared move params** (`LeashRadius`, etc., §9.30) |
 
-**Editor auto-layout (Approach A: over class zones)**
+**Editor manual groups (D-093 revises D-084 auto single-instance; still snaps over class zones)**
 
 | Rule | Notes |
 |------|-------|
-| When | After every `BattleFormation` change (manual deploy/move/undeploy, post `DeployBatch`, one-click deploy) |
-| Source | **Deployed** `BattleFormationService.Entries` only (same as §3.17 bonds) |
-| Group | By instance `SoldierSkills` → `SkillConfig.FormationId` |
-| Activate | Same `FormationId` deployed count **≥ MinMemberCount** → **one** instance (Demo max one per FormationId); take up to `MaxMemberCount` (stable sort: deploy order / `WarriorId`) |
-| Snap | Anchor = member **centroid**; facing = PushMap toward current/first Objective, Defend toward EngageZone interior / default +Z |
-| Coords | Write slot world positions via `TrySetPosition`; **overrides** prior `FormationClassZone` spiral |
-| Below Min | **No squad**; prior snap → **revert** to class-zone spiral (D-052 algorithm) |
-| Overflow | Beyond `MaxMemberCount` or slot count → extras stay in class zones, single-soldier drag OK |
-| Drag | Squad members **cannot** be dragged individually; hit any member → **whole squad** drag (center only, keep offsets/facing) |
-| Rotate (Q/E) | While LMB **holding/dragging** the squad: `Q` = CCW, `E` = CW, **`FormationRotateStepDegrees=15`** per press about current center; immediately writes member coords + session `FacingYawDegrees`; mouse-up still only commits translation. Q/E **ignored** when not holding a squad |
-| Facing keep | First activation still auto-faces map target; re-`EvaluateAndApply` for an **already-active** `FormationId` **keeps** prior `FacingYawDegrees` (incl. player rotate) |
-| Editor scroll zoom | While shared `FormationEditor` is open: mouse wheel zooms in/out; step/clamp same as Combat (`CameraZoomStepPerNotch` / `CameraOrthoSizeMin` / `CameraOrthoSizeMax` via `CameraPresentationConstants`); ignore when pointer over soldier bar / blocking UI |
-| Squad strip UI | **UI-030 / D-085:** left-edge icon buttons for active squads; click selects squad → soldier bar highlights only its members; no camera change; whole-squad drag unchanged |
+| No auto-group | Formation changes, one-click deploy, and AutoManufacture `DeployBatch` do **not** pull idle soldiers into a group. Existing groups only prune: undeployed members leave; remaining **&lt; MinMemberCount** → disband the group back to the class-zone spiral (D-052) |
+| Create | **Only** the left-edge catalog button (UI-030). One click creates one `GroupInstanceId`. The same `FormationId` may have many groups at once |
+| Eligibility | **In no group**, and **any** `SoldierSkills` entry whose `SkillConfig.FormationId` equals the clicked formation (do not stop at the first formation skill). Take deployed matches first; if still short of `min(MaxMemberCount, slot count)`, append undeployed matches in pool order and deploy them. The eligibility query stays separate from group id / save / combat key so a later class filter can plug in; this slice adds no class column |
+| Headcount | Create only if deployed matches **plus** bar fills **≥ MinMemberCount**; take `min(total, MaxMemberCount, slot count)`. Slot order: deployed first (deploy order / `WarriorId`), then the bar (pool order). A partial Max is valid. Below Min **does not move** positions and **does not deploy**. If a bar deploy fails: undeploy everyone this click just deployed; if the remaining deployed count is still ≥ Min, create from those deployed members only, otherwise the click fails |
+| One group | A soldier already in a group is skipped and cannot belong to another formation at the same time |
+| Snap | Center = centroid of the **deployed** members taken this click; if none are deployed, the caller-supplied view-center ground point (map-relative XZ), and a missing point fails without moving anyone. Facing = PushMap toward current/first Objective, Defend toward EngageZone interior / default +Z. Undeployed members deploy onto their slot coords, then all taken members are written together; **overrides** the class-zone spiral |
+| Drag | Members **cannot** be dragged individually; hit any member → **whole group** drag (center only). Key = `GroupInstanceId`, not `FormationId` |
+| Rotate (Q/E) | While LMB **holding/dragging** the group: `Q` = CCW, `E` = CW, **`FormationRotateStepDegrees=15`** per press about the current center; writes member coords + `FacingYawDegrees`. Q/E **ignored** when not holding a group |
+| Facing keep | A new group auto-faces the map target; pruning an existing group **keeps** `FacingYawDegrees` (including player rotate) |
+| Editor scroll zoom | While the shared `FormationEditor` is open: mouse wheel zooms; step/clamp same as Combat; ignore when the pointer is over the soldier bar or other blocking UI |
+| Catalog UI-030 | Left edge lists every formation in the table (one button per `FormationId` across levels); click only tries to create a group |
+| Group cards UI-035 | Top center, one card per group; viewport shows at most 8, scroll both ways past that. Click selects that `GroupInstanceId`: soldier bar highlights only its members; formation-preview puppets show the formation icon overhead (not in combat); Disband under the selected card returns members to class zones and deletes the group |
+| Save | Groups (`GroupInstanceId`, `FormationId`, member ids, facing) persist with `BattleFormation`. Level is not stored; recompute on load. Old saves with no group field = no groups; do **not** infer groups from standing positions |
 | vs bonds | Parallel; bond stats unchanged |
 
 **Combat: virtual center + FormationSlot + leash**
 
 | Rule | Notes |
 |------|-------|
-| StartBattle snapshot | Lock center pose, facing, member↔slot map, pattern move params |
-| Center | PushMap: `TacticalFormationRuntimeService.Tick` integrates along FlowField dir (speed = representative `MoveSpeed × CenterMoveSpeedMul`); Defend: hold deploy center when idle |
+| StartBattle snapshot | Each group locks its own center, facing, member↔slot map, pattern move params, and the `FormationLevel` row computed from current members. Runtime key = `GroupInstanceId` (do not use `FormationId` as the instance key) |
+| Center | One virtual center per group. PushMap: `Tick` integrates along FlowField dir (speed = that group's representative `MoveSpeed × CenterMoveSpeedMul`); Defend: hold that group's deploy center |
 | Members | `GoalKind=FormationSlot`; destination = center + rotated slot local offset; SoftCollision / LocalDetour still on members |
 | Engage | Targeting / AttackSlot unchanged; if slot exceeds center **`LeashRadius`** → clamp to circle before seek |
 | Beyond leash | **Do not chase** distant enemies; attack in range if already valid |
 | Rebel | Leave squad (no bonuses); existing Rebel targeting |
-| Dissolve | Living active members (non-Rebel, non-CombatDead) **< MinMemberCount** → runtime dissolve: remove overlays; fallback PushMap `Objective` or Defend personal Home (**current world pos as new Home**, no teleport to class zone) |
+| Dissolve | Living members of **that group** (non-Rebel, non-CombatDead) **&lt; MinMemberCount** → dissolve only that group: drop overlay; fallback PushMap `Objective` or Defend personal Home (**current world pos as new Home**). Other groups stay |
 | No Prepare rewrite | Combat death / dissolve does **not** write back Prepare coords |
 
 **Stat & exclusive-skill bonuses**
 
 | Rule | Notes |
 |------|-------|
-| Window | Active squad only (eval at StartBattle + after each death / Rebel) |
-| Stats | Table `StatModifiers`; Combat `StatMul`-style overlay, **multiplied** with magic-book Combat StatMul; **does not** mutate `WarriorInstance.BaseStats`. On dissolve, recompute derived stats from remaining Combat StatMul (magic book); clamp `RemainingHp` to new MaxHP |
-| Exclusive skills | Table `ExclusiveSkillIds`; runtime overlay into SkillCast / EffectKind (read-only merge, no instance `SoldierSkills` write); **not** persisted. Optional `ExclusiveSkillEffectIds` overlays `SkillEffectConfig` directly (no SoldierSkills slot) |
+| Window | That group only while active. StartBattle computes level from current members and locks the row; after a death / Rebel, if the group is still ≥ Min, recompute level from **remaining** members and swap overlay; below Min, dissolve |
+| Level | `Floor(sum of members' ClassConfig.ClassLevel / count)` (missing class row = 0; for positive ints this is integer division). The player does not pick the level |
+| Lookup | Composite PK `(FormationId, FormationLevel)`. Use the **greatest table level ≤ computed level** (never round up). If no such row: the group still exists, `StatModifiers` empty, Warning |
+| Stats | Matched row `StatModifiers`; Combat `StatMul`-style overlay, **multiplied** with magic-book Combat StatMul; **does not** mutate `WarriorInstance.BaseStats`. On tier change or dissolve, recompute derived stats from remaining Combat StatMul; clamp `RemainingHp` to new MaxHP |
+| Exclusive skills | `ExclusiveSkillIds` / `ExclusiveSkillEffectIds` from the **same level row** (read-only merge, no instance `SoldierSkills` write, not persisted) |
 | vs bonds | Stack OK; duplicate `SkillEffectId` → load-time Warning |
 
-**Slices:** `.scratch/tactical-formation/issues/` TF-00–06; acceptance §3.8 **D-084**.
+**Slices:** D-084 framework `.scratch/tactical-formation/issues/` TF-00–06 (landed). D-093 `.scratch/tactical-formation-groups/issues/` TFG-01–05 coded (pending playtest).
+
+```
+TryCreateGroup(formationId)
+  → deployed = on field AND not in any group AND some SoldierSkill.FormationId == formationId
+  → bar = pool order, not deployed, same skill match, not in any group
+  → take deployed first, then bar, until min(Max, slots)
+  → if taken < Min → no-op (no deploy)
+  → center = centroid of taken deployed, else view-center ground point
+  → deploy bar members onto slots; failed deploy rolls back this click's new deploys
+  → if still < Min → no-op
+  → snap; new GroupInstanceId
+  → level = Floor(mean ClassLevel); stat row = greatest FormationLevel <= level
+Prune on deploy change
+  → drop missing members; if remaining < Min → disband to class zones
+StartBattle
+  → one CombatLock per GroupInstanceId (center, facing, member→slot, level row)
+OnMemberDeath / Rebel
+  → if living >= Min → recompute level and swap overlay; else dissolve that group only
+```
 
 ---
 
@@ -4705,8 +4745,9 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 - [x] 战斗技能图标 CombatSkillIcon（UI-025 / D-071）：PushMap 头顶飘 + `Skill_02` 脚下持续
 - [ ] 战斗指示器 CombatIndicator（UI-033 / D-089）：PushMap + SearchExtract Combat 顶中敌我单位格；issues `.scratch/combat-indicator/`
 - [ ] 离屏刷怪边缘提示 OffScreenSpawnHint（UI-034 / D-090）：屏外 SpawnPoint 边缘 `EnemyAttack_1`；issues `.scratch/offscreen-spawn-hint/`
-- [x] 战术阵型 TacticalFormation 框架（§3.18 / D-084）：GrantFormationSkill、TacticalFormationConfig、Pattern Prefab、虚拟中心+FormationSlot+leash、布阵组阵覆盖职业区、激活/解散 overlay；TF-01～06 已落地（issues `.scratch/tactical-formation/`）
-- [x] 布阵战术阵型小队条（UI-030 / D-085）：左侧已 snap 小队图标按钮；点选高亮整队士兵栏成员；Mode1+Mode2 Prefab 已接线
+- [x] 战术阵型 TacticalFormation 框架（§3.18 / D-084）：GrantFormationSkill、TacticalFormationConfig、Pattern Prefab、虚拟中心+FormationSlot+leash、激活/解散 overlay；TF-01～06 已落地。**自动、每种最多一组**由 D-093 修订
+- [x] 布阵战术阵型目录条（UI-030 / D-085）：原左侧已 snap 小队点选已接线；行为改为 D-093 创建按钮
+- [ ] 战术阵型多组与等级（UI-030 / UI-035 / D-093）：手动多组、等级查表、左缘目录、顶中卡牌、按组战斗已编码（TFG-01～05）；待验收
 - [x] 推图战（PushMap）框架：GameplayType、目标点/判定圈占领、空气墙、刷怪点/陷阱、BOSS 通关、AggroMode、复用 Defend 护盾/失控（§3.14）
 - [x] Mode2 自动制造（AutoManufacture）规则关闭：流水线 Dig→AutoManufacture→UM；最低配方头+躯干+双臂（含主要手）+双腿；近似品质 |Δ|≤1；职业由双手 ClassRestrict；不计 Spirit/Control；无 SoulId；魔法书表+6槽+钩子骨架；清空布阵后按 PlacementOrder/职业区上阵（§3.15）
 - [x] Mode2 制造记录弹窗（UI-015 / D-054）：最近一批只读摘要；布阵右侧入口；方案 A `AutoManufactureBatchRecordService`
@@ -4798,8 +4839,9 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 - [x] CombatSkillIcon (UI-025 / D-071): PushMap overhead popup + `Skill_02` foot persist
 - [ ] CombatIndicator (UI-033 / D-089): PushMap + SearchExtract Combat top-center ally/enemy unit slots; issues `.scratch/combat-indicator/`
 - [ ] OffScreenSpawnHint (UI-034 / D-090): off-viewport SpawnPoint edge `EnemyAttack_1`; issues `.scratch/offscreen-spawn-hint/`
-- [x] TacticalFormation framework (§3.18 / D-084): GrantFormationSkill, TacticalFormationConfig, Pattern Prefab, virtual center+FormationSlot+leash, editor snap over class zones, activate/dissolve overlay; TF-01–06 landed (issues `.scratch/tactical-formation/`)
-- [x] Formation tactical-squad strip (UI-030 / D-085): left-edge snapped-squad icon buttons; click highlights whole squad on soldier bar; Mode1+Mode2 Prefabs wired
+- [x] TacticalFormation framework (§3.18 / D-084): GrantFormationSkill, TacticalFormationConfig, Pattern Prefab, virtual center+FormationSlot+leash, activate/dissolve overlay; TF-01–06 landed. **Auto, max one group per formation** revised by D-093
+- [x] Formation catalog strip (UI-030 / D-085): original snapped-squad select is wired; behavior becomes the D-093 create button
+- [ ] Tactical multi-group + level (UI-030 / UI-035 / D-093): manual groups, level lookup, left-edge catalog, top-center cards, and per-group combat coded (TFG-01–05); pending playtest
 - [ ] Remaining ToolsPanel entries / polish
 - [x] PushMap framework: GameplayType, objectives/CaptureZone, AirWall, SpawnPoint/Trap, Boss clear, AggroMode, reuse Defend Shield/LOC (§3.14)
 - [x] Mode2 AutoManufacture rules closed: Dig→AutoManufacture→UM; min recipe Head+Torso+2Arm(incl PrimaryHand)+2Leg; approx |Δ|≤1; class from hand ClassRestrict; no Spirit/Control; no SoulId; MagicBook schema+6 slots+hook stub; clear formation then PlacementOrder/class-zone deploy (§3.15)
@@ -4848,7 +4890,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | 子状态 | `Prepare` → `Combat` → `Ended`（`SearchExtractPhase`；语义对齐 PushMapPhase） |
 | 布阵 / 开战 | 同一 `FormationEditor`；开战须 ≥1 上阵；控制力超额允许开战 |
 | 地图标记 | `ObjectivePoint` + `CaptureZone`、`AirWall`、`SpawnPoint`、`EngageZone` / `WalkSurface`（作者约束同 §3.14） |
-| 士兵战斗 | 同 §3.12 WarriorCombat + MassCombatPathing + §3.18 战术阵型（虚拟中心跟当前搜集 Objective）；刷出怪物必须进入同一 MassMove Tick 与 AttackSlot 追击刷新（同 PushMap；禁止仅靠 NavMeshAgent 自主位移） |
+| 士兵战斗 | 同 §3.12 WarriorCombat + MassCombatPathing + §3.18 战术阵型（倒计时中各组阵心相对全体上阵质心平移到当前搜集 Objective）；刷出怪物必须进入同一 MassMove Tick 与 AttackSlot 追击刷新（同 PushMap；禁止仅靠 NavMeshAgent 自主位移） |
 | 怪物死亡技能 | 同 §3.14 D-074：Session 实现 `IMonsterDeathSkillHost`，登记 `MonsterConfig.Skills`（样例 `Monster_01`=`MSkill_SelfRevive_99`）；HP≤0 可假死复活。**点清场**规则层彻底死亡，不拦截复活 |
 | 镜头 | 正交战斗相机同 PushMap；**进圈前 / Continue 后接近** = `CameraFollowPath` 轨跟随；**点激活～GatherCountdown** = **HoldFraming**（视口包围+迟滞；见下「倒计时战斗镜头」）；**不**改 PushMap 默认轨语义（[SPEC_04 §6](SPEC_04_Technical.md)/[§9.20b](SPEC_04_Technical.md)） |
 | 战斗指示器 | 同 §3.14 UI-033 / D-089：`Combat` 显示共享 `CombatIndicatorHud`；Prepare / Ended / UI-017 / UI-032 决策期间隐藏；可复活怪算活着 |
@@ -4897,7 +4939,7 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | 中心 | 当前 `ObjectivePoint` 世界 XZ 为 **布阵中心** |
 | 目标位 | 各忠诚兵趋近 `开战 BattleFormation` 相对该中心的世界偏移（`PositionX/Z − FormationHome` 或等价快照） |
 | 空气墙 | 路径遇 `AirWall` 停在最后可走点；**不**穿墙 |
-| 战术阵型 | 已激活阵型：虚拟中心落到当前 Objective；成员 `GoalKind=FormationSlot` |
+| 战术阵型 | 倒计时重定位期间：全体上阵质心对齐当前 Objective；每组阵心 = Objective +（该组开战世界阵心 − 该质心）。开战世界阵心 = 地图中心 + 布阵锁里的地图相对阵心。成员 `GoalKind=FormationSlot` 仍为该组阵心 + 旋转槽位，因此保持布阵时相对全体质心的偏移（多组不叠在同一点）。进圈前的接近阶段不走此平移 |
 | 与战斗 | 重定位与遇敌 AttackSlot **并行**；PushMap 遇敌检测语义可复用 |
 
 **倒计时战斗镜头（HoldFraming；方案 B）**
@@ -4995,7 +5037,7 @@ Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.32](SPEC_04_Technica
 | Phases | `Prepare` → `Combat` → `Ended` (`SearchExtractPhase`; aligned with PushMapPhase) |
 | Formation / StartBattle | Same `FormationEditor`; ≥1 deployed; ControlPower overflow allowed |
 | Map markers | `ObjectivePoint` + `CaptureZone`, `AirWall`, `SpawnPoint`, `EngageZone` / `WalkSurface` |
-| Warrior combat | Same §3.12 + MassCombatPathing + §3.18 TF (virtual center follows current gather Objective); spawned monsters must join the same MassMove Tick and AttackSlot chase refresh as PushMap (no NavMeshAgent-only wander) |
+| Warrior combat | Same §3.12 + MassCombatPathing + §3.18 TF (during countdown each group's center keeps its offset from the StartBattle army centroid, and that centroid maps onto the current gather Objective); spawned monsters must join the same MassMove Tick and AttackSlot chase refresh as PushMap (no NavMeshAgent-only wander) |
 | Monster death skills | Same §3.14 D-074: Session implements `IMonsterDeathSkillHost` and registers `MonsterConfig.Skills` (sample `Monster_01`=`MSkill_SelfRevive_99`); HP≤0 may fake-death revive. **Point-clear** is true death (no SelfRevive intercept) |
 | Camera | Ortho battle camera same as PushMap; **pre-activation / post-Continue approach** = `CameraFollowPath` rail follow; **point active～GatherCountdown** = **HoldFraming** (viewport framing + hysteresis; see Chinese「倒计时战斗镜头」); **Continue** forces Auto, SmoothDamps Size back to `PushMapCameraOrthoSize` with `CameraFollowSmoothTime` (no look-at Snap); **does not** change PushMap default rail ([SPEC_04 §6](SPEC_04_Technical.md)/[§9.20b](SPEC_04_Technical.md)) |
 | Combat indicator | Same §3.14 UI-033 / D-089: show shared `CombatIndicatorHud` in `Combat`; hide during Prepare / Ended / UI-017 / UI-032 decision; revivable monsters count as alive |

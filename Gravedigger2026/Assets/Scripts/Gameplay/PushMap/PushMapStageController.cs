@@ -1787,6 +1787,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _tacticalRuntime ??= new TacticalFormationRuntimeService();
             var speed = ResolveRepresentativeMoveSpeed(locks);
             _tacticalRuntime.OnStartBattle(locks, centerMode, speed);
+            _tacticalRuntime.AssignRepresentativeMoveSpeeds(ResolveMemberMoveSpeed);
         }
 
         private CombatStatMulBuff ResolveCombatRegisterBuff(string warriorId)
@@ -1802,19 +1803,27 @@ namespace Gravedigger2026.Gameplay.PushMap
             TacticalFormationMemberLostReason reason)
         {
             if (_tacticalRuntime == null
-                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change))
+                || !_tacticalRuntime.TryNotifyMemberLost(warriorId, reason, out var change, _configs))
             {
                 return;
             }
 
-            var removed = change.OverlayRemovedWarriorIds;
+            var removed = change.OverlayRemovedWarriorIds ?? Array.Empty<string>();
+            var rebelTrigger = reason == TacticalFormationMemberLostReason.Rebel;
             for (var i = 0; i < removed.Length; i++)
             {
                 UnapplyTacticalFormationOverlay(removed[i]);
-                if (change.SquadDissolved)
+                if (change.SquadDissolved
+                    && !(rebelTrigger && string.Equals(removed[i], warriorId, StringComparison.Ordinal)))
                 {
                     ApplyPushMapDissolveFallback(removed[i]);
                 }
+            }
+
+            var refreshed = change.OverlayRefreshedWarriorIds ?? Array.Empty<string>();
+            for (var i = 0; i < refreshed.Length; i++)
+            {
+                ReapplyTacticalFormationOverlay(refreshed[i]);
             }
         }
 
@@ -1836,6 +1845,36 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             _configs.TryGetClass(warrior.ClassId, out var classRow);
             _session.TryRefreshCombatDerivedStats(warrior, classRow, _combatMagicBookBuff);
+            var view = FindAdvanceView(warriorId);
+            if (view != null && _session.TryGetWarrior(warriorId, out var state) && state != null)
+            {
+                view.SetBaseMoveSpeed(state.MoveSpeed);
+            }
+        }
+
+        private void ReapplyTacticalFormationOverlay(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _warriorPool == null
+                || !_warriorPool.TryGet(warriorId, out var warrior)
+                || warrior == null
+                || _session == null
+                || !_session.IsWarriorCombatActive(warriorId))
+            {
+                return;
+            }
+
+            var formation = CombatStatMulBuff.Identity;
+            if (_tacticalRuntime != null && _tacticalRuntime.TryGetStatMul(warriorId, out var mul))
+            {
+                formation = mul;
+            }
+
+            _configs.TryGetClass(warrior.ClassId, out var classRow);
+            _session.TryRefreshCombatDerivedStats(
+                warrior,
+                classRow,
+                _combatMagicBookBuff.Multiply(formation));
             var view = FindAdvanceView(warriorId);
             if (view != null && _session.TryGetWarrior(warriorId, out var state) && state != null)
             {
@@ -1889,6 +1928,29 @@ namespace Gravedigger2026.Gameplay.PushMap
             return 0f;
         }
 
+        private float ResolveMemberMoveSpeed(string warriorId)
+        {
+            if (string.IsNullOrEmpty(warriorId)
+                || _session == null
+                || !_session.TryGetWarrior(warriorId, out var state)
+                || state == null)
+            {
+                return 0f;
+            }
+
+            return state.MoveSpeed;
+        }
+
+        private Vector2 SampleFlowDirAtCenter(Vector2 centerXZ)
+        {
+            if (_flowField == null)
+            {
+                return Vector2.zero;
+            }
+
+            return _flowField.SampleDir(new Vector3(centerXZ.x, 0f, centerXZ.y));
+        }
+
         private void TickTacticalFormationCenter()
         {
             if (_tacticalRuntime == null || _tacticalRuntime.SquadCount == 0)
@@ -1896,13 +1958,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            var dir = Vector2.zero;
-            if (_flowField != null && _tacticalRuntime.TryGetAnyCenterXZ(out var center))
-            {
-                dir = _flowField.SampleDir(new Vector3(center.x, 0f, center.y));
-            }
-
-            _tacticalRuntime.Tick(Time.deltaTime, dir);
+            _tacticalRuntime.Tick(Time.deltaTime, SampleFlowDirAtCenter);
         }
 
         private void RefreshFormationSlotDestinations()
