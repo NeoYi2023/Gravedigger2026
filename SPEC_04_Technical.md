@@ -830,7 +830,7 @@ DefendGameplayConfig {
 - **Leash：** `TacticalFormationRuntimeService.ClampToLeash`；接敌 `AttackSlot` 世界点若距中心 > leash → 投影到圆周再认领/趋近；敌人中心超 leash **不追**（已在 `AttackRange` 内可停步挥刀，否则保持槽位）
 - **KeepFormationWhileEngage：** `1` = 无 AttackSlot 目标时仍 `FormationSlot`；无空闲槽溢流时也回槽。`0` = 无目标 / 溢流走既有 PushMap `Objective` 或 Defend `FormationHome`（接敌仍受 leash）
 - **Stage 接线（TF-04b / 方案 A 共享解析器）：** `TacticalFormationCombatGoalPolicy` 纯 C#；PushMap/Defend `StageController` 在 `CloseFormationEditor` **之前**从 Layout 拷贝 `CombatLock`，`DeployCombatUnits` 后 `OnStartBattle`；每帧 `Tick` 中心，已处 `FormationSlot` 的成员每帧刷新槽位世界点。Rebel / 未入阵不走本分流
-- **Prepare：** `TacticalFormationLayoutService` 在每次布阵变更后评估；≥ `MinMemberCount` snap 到 Pattern 槽位（覆盖职业区）；< Min revert 职业区螺旋
+- **Prepare：** `TacticalFormationLayoutService` 在每次布阵变更后评估；≥ `MinMemberCount` snap 到 Pattern 槽位（覆盖职业区）；< Min revert 职业区螺旋。**D-092：** 整阵拖中 `TryApplySquadYawDelta`（规则常量 `FormationRotateStepDegrees=15`，非表项）；已激活 `FormationId` 再评估保留 `FacingYawDegrees`；`FormationEditorController` 滚轮缩放复用 §9.20b `CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`（同 Combat）
 - **Combat overlay / 解散（TF-05 / 方案 A）：** 开战把 `StatModifiers` 解析为 StatMul，与魔法书 Combat StatMul **乘积**后写入战斗派生属性（不改 `BaseStats`）；`ExclusiveSkillIds` / `ExclusiveSkillEffectIds` 由 `SkillEffectPipeline` + SkillCast **只读**拼接。Rebel 立即退出并撤 overlay；存活激活成员 < `MinMemberCount` → 撤 overlay 并重算派生（`RemainingHp` 钳制新 MaxHP）；成员回 `Objective`（PushMap）或个人 Home（Defend，当前世界坐标为新 Home）
 - **与 B+ Follow 口径：** 仍禁止 BMH ArmyRadius / 粘随主角；战术阵型是 **已授权例外**（虚拟中心 + 槽位，非 Follow）
 - **实现切片：** Prepare Layout = TF-03（已落地）；Combat 核心 = TF-04a（已落地）；Stage 接线 = TF-04b（已落地）；overlay/解散 = TF-05（已落地）；样例+手验 = TF-06（本版）；`.scratch/tactical-formation/issues/`
@@ -1573,7 +1573,7 @@ LossOfControlConfig {
 |-----------|------|------------|------|
 | ConstantKey | 常量键 | `string` | 主键；与 `CombatConvertCoeffs` 键名对齐，另含 `MaxHpStrengthMult` 与下表 P0 键 |
 | ConstantKeyZh | 主键中文翻译 | `string` | 可选；主键展示用中文名；**运行时不读** |
-| Value | 数值 | `float` | 该键默认值 |
+| Value | 数值或文本 | `float` \| `string` | **数值键：** 可解析为 `float` → `_combatConstantByKey`（`TryGetCombatConstant`）；**文本键**（见下「新建档文本键」）：非整数值载荷 → `_combatConstantTextByKey`（`TryGetCombatConstantText`）；空串合法 |
 | Comment | 备注 | `string` | 可选；英文策划备注；**运行时不读** |
 | CommentZh | 备注中文解释 | `string` | 可选；中文策划说明；**运行时不读** |
 
@@ -1601,9 +1601,9 @@ LossOfControlConfig {
 | `CameraFarClip` | 镜头远裁剪面 | `100` | 远裁剪 |
 | `CameraFollowDeadzone` | 跟随死区半径 | `0.15` | PushMap Auto 跟随世界 XZ 死区 |
 | `CameraFollowSmoothTime` | 跟随平滑时间 | `0.25` | PushMap Auto SmoothDamp 秒 |
-| `CameraZoomStepPerNotch` | 滚轮缩放步进 | `0.5` | 滚轮每格改变 Size |
-| `CameraOrthoSizeMin` | 正交Size下限 | `0.5` | Size 下限 |
-| `CameraOrthoSizeMax` | 正交Size上限 | `20` | PushMap 滚轮上限 |
+| `CameraZoomStepPerNotch` | 滚轮缩放步进 | `0.5` | 滚轮每格改变 Size（PushMap/SE Combat **与** FormationEditor 布阵共用） |
+| `CameraOrthoSizeMin` | 正交Size下限 | `0.5` | Size 下限（Combat + 布阵共用） |
+| `CameraOrthoSizeMax` | 正交Size上限 | `20` | 滚轮上限（Combat + 布阵共用） |
 | `CameraDragThresholdPixels` | 拖拽启动像素阈值 | `4` | 手动拖镜头累计像素阈值 |
 | `PushMapCameraIntroSpeed` | 推图镜头预览速度 | `1.5` | PushMap Prepare「快速预览」沿轨世界 XZ 速度（单位/秒） |
 | `PushMapCameraIntroWaypointDwellSeconds` | 推图镜头预览路点停留 | `0.5` | PushMap Prepare 快速预览每个作者 WP 停留秒 |
@@ -1651,6 +1651,8 @@ LossOfControlConfig {
 | `ProjectileDefaultHitRadius` | 投射物默认命中半径 | `0.55` | 投射物软命中半径 |
 | `DefendVictoryStageExp` | 防守胜利阶段经验 | `100` | Defend 胜场阶段 Exp |
 | `NewSaveInitialSpiritCount` | 新建档初始精魂 | `30` | 新建存档入账 ItemId=Spirit 数量；≤0 不发放 |
+| `NewSaveInitialEquipments` | 新建档初始装备 | 文本（样例可空或 `Equip_IronShovel;1`） | **文本键**；`EquipId;Level\|EquipId;Level`；空=不发；见下「新建档文本键编码」 |
+| `NewSaveInitialMagicBooks` | 新建档初始魔法书 | 文本（样例可空或 `MagicBook_Restore`） | **文本键**；`MagicBookId\|MagicBookId`；空=不发；左→右 `TryEquip` |
 | `DeathKnockbackRatioCoeff` | 死亡击飞比例系数 | `0.5` | 击飞距离 raw=`(OutgoingDamage/MaxHp)×本值`（§15.5） |
 | `DeathKnockbackMinDistance` | 死亡击飞最小距离 | `0.2` | 击飞距离下限（世界单位） |
 | `DeathKnockbackMaxDistance` | 死亡击飞最大距离 | `5` | 击飞距离上限；`OutgoingDamage≤0` 或 `MaxHp≤0` 时用本值 |
@@ -1729,13 +1731,20 @@ LossOfControlConfig {
 CombatConstantConfig {
   ConstantKey: string
   ConstantKeyZh: string   // optional; display; runtime ignore
-  Value: number
+  Value: number | string  // float → numeric dict; non-numeric text keys → text dict
   Comment: string         // optional; EN note; runtime ignore
   CommentZh: string       // optional; ZH note; runtime ignore
 }
 ```
 
-**解析：** `ConfigCsvRepository` 按当前 CampaignMode CSV 根加载；`TryGetCombatConstant(key)`；`GetCombatConvertCoeffDefaults()` 组装五键供 `CombatConvertCoeffs.Parse` 缺键回退；`GetCameraPresentationConstants()` / `ApplyDigTimingConstants` / `GetDigTriggerDwellSeconds` 读 P0 键；**`CombatRuntimeTuning.ApplyFromRepository`** 在常量表加载末尾应用 P1/P2（及共享寻路）快照，AttackSlot / MassMove / FlowField / LocalDetour / SoftCollision / StuckHold / Projectile / Defend 胜场 Exp / PushMap 散布等读该快照。缺必填键 → Warning + 与上表样例同值的安全兜底（**非**业务权威）。Mode1/Mode2 各一份文件。新建档初始精魂：`MetaShellController.EnterShell(..., isNewSave)` → `WarehouseService.ApplyNewSaveGrants(configs)` 读 `NewSaveInitialSpiritCount` 并经 `CreditLootEntry(Spirit)` 入账（[SPEC_03 §3.4](SPEC_03_GameRules.md)）。
+**新建档文本键编码（Value = string）：**
+
+| ConstantKey | Value 语法 | 发放 |
+|-------------|------------|------|
+| `NewSaveInitialEquipments` | `EquipId;Level` 多项用 `\|`；`;` 分隔 Id 与等级 | `ProtagonistEquipmentService.ApplyNewSaveGrants` → `GrantAtLevel`；非法段 Warning 跳过；同 Id 先出现为准 |
+| `NewSaveInitialMagicBooks` | `MagicBookId` 多项用 `\|` | `SpecialEquipSlotsService.ApplyNewSaveGrants` → 依次 `TryEquip`；失败 Warning 跳过该项 |
+
+**解析：** `ConfigCsvRepository` 按当前 CampaignMode CSV 根加载；`Value` 可解析为 `float` → `_combatConstantByKey`（`TryGetCombatConstant` / `GetCombatConstantOrFallback`）；否则 → `_combatConstantTextByKey`（`TryGetCombatConstantText`；缺键/空串视为无文本）。`GetCombatConvertCoeffDefaults()` 组装五键供 `CombatConvertCoeffs.Parse` 缺键回退；`GetCameraPresentationConstants()` / `ApplyDigTimingConstants` / `GetDigTriggerDwellSeconds` 读 P0 键；**`CombatRuntimeTuning.ApplyFromRepository`** 在常量表加载末尾应用 P1/P2（及共享寻路）快照，AttackSlot / MassMove / FlowField / LocalDetour / SoftCollision / StuckHold / Projectile / Defend 胜场 Exp / PushMap 散布等读该快照。缺必填数值键 → Warning + 与上表样例同值的安全兜底（**非**业务权威）。Mode1/Mode2 各一份文件。新建档初始资源：`MetaShellController.EnterShell(..., isNewSave)` → ① `WarehouseService.ApplyNewSaveGrants`（`NewSaveInitialSpiritCount`）→ ② `ProtagonistEquipmentService.ApplyNewSaveGrants`（`NewSaveInitialEquipments`）→ ③ `SpecialEquipSlotsService.ApplyNewSaveGrants`（`NewSaveInitialMagicBooks`）（[SPEC_03 §3.4](SPEC_03_GameRules.md)）。
 
 #### 9.21 技能配置表 `SkillConfig`
 
@@ -2391,14 +2400,14 @@ MagicBookConfig {
 | ExpToNextLevel | 升下一级经验 | `int` | 升到 `EquipLevel+1` 所需；空或 ≤0 → 该行为满级 |
 | ConvertExpValue | 转化经验值 | `int` | 再获同 `EquipId` 时转入的经验（满级时改入 `EquipCommonExp`，见 §3.16） |
 | EffectDomain | 装备生效功能 | 见编码 | `Dig` \| `SoldierManufacture` \| `Combat`；可多值 |
-| EquipEffect | 装备效果 | `string` | Dig 域：与 [§9.17](#917-科技项效果配置表-techeffectconfig) `AttributeModifiers` 同风格 `Attr_Value\|…`。**静态键**（`DigDamage` / `DigDurationReductionSum` / `DigCursorRadius` / `DigStageDurationBonus` / `GraveSpawnWeightBonus_{QualityId}` / `DigProcessSpawnCountBonus` 等）并入 Dig caps；**事件键** `DigOnGraveClear`（消除坟墓触发概率，`_1`=100%）与 `ExplosiveThrowRadius` / `ExplosiveBlastRadius` / `ExplosiveBlastDamage` / `ExplosiveFlightSec` / `ExplosiveFuseSec` / `ExplosiveRingSec` **不**并入 caps（由 `DigExplosiveEffectConfig` 解析，见 D-077）；`DigLightningIntervalSec` / `DigLightningFrameSec` / `DigLightningPreviewSec` **不**并入 caps（由 `DigLightningEffectConfig` 解析，见 D-078）；`SoldierManufacture` / `Combat` Token 登记表 **TBD**（另立 `ProtagonistEquipEffect`，**不**混用 MagicBook `EffectPayload`）；空 = 无效果 |
+| EquipEffect | 装备效果 | `string` | Dig 域：与 [§9.17](#917-科技项效果配置表-techeffectconfig) `AttributeModifiers` 同风格 `Attr_Value\|…`。**静态键**（`DigDamage` / `DigDurationReductionSum` / `DigCursorRadius` / `DigStageDurationBonus` / `GraveSpawnWeightBonus_{QualityId}` / `DigProcessSpawnCountBonus` 等）并入 Dig caps；**事件键** `DigOnGraveClear`（消除坟墓触发概率，`_1`=100%；**非**炸药独占，复活铲亦可解析）与 `ExplosiveThrowRadius` / `ExplosiveBlastRadius` / `ExplosiveBlastDamage` / `ExplosiveFlightSec` / `ExplosiveFuseSec` / `ExplosiveRingSec` **不**并入 caps（由 `DigExplosiveEffectConfig` 解析，见 D-077）；`DigLightningIntervalSec` / `DigLightningFrameSec` / `DigLightningPreviewSec` **不**并入 caps（由 `DigLightningEffectConfig` 解析 D-078，或 `DigReviveShovelEffectConfig` 解析预览秒 D-091）；`SoldierManufacture` / `Combat` Token 登记表 **TBD**（另立 `ProtagonistEquipEffect`，**不**混用 MagicBook `EffectPayload`）；空 = 无效果 |
 | Description | 装备描述 | `string` | 展示文案 |
 
 **`EffectDomain` 编码（固定）：** `Domain` 或 `Domain|Domain|…`。枚举：`Dig` \| `SoldierManufacture` \| `Combat`。
 
 **复合主键规则：** `(EquipId, EquipLevel)` 唯一；同 `EquipId` 的等级行须连续从 1 起（实现加载时可校验并 Warning）。
 
-**Demo 样例行：** `Equip_IronShovel`（铁铲）L1～5，`EffectDomain=Dig`；相对基数 0.6 每级 +10% → L1 `DigCursorRadius_0.06` … L5 `_0.30`；`ExpToNextLevel` L1–4 = 1、L5 空；`ConvertExpValue=1`。`Equip_MinerLamp`（矿灯）L1～5，`EffectDomain=Dig`；每级 Q4/Q5/Q6 生成权重累计 +10 → L1 `GraveSpawnWeightBonus_Q4_10|GraveSpawnWeightBonus_Q5_10|GraveSpawnWeightBonus_Q6_10` … L5 `_50`；升下一级/转化经验均为 1。`Equip_Explosives`（炸药）L1～5，`EffectDomain=Dig`；`DigOnGraveClear_1|ExplosiveThrowRadius_4|ExplosiveBlastRadius_2|ExplosiveBlastDamage_{13/18/23/28/33}|ExplosiveFlightSec_0.5|ExplosiveFuseSec_0.8|ExplosiveRingSec_0.5`。`Equip_Elctr`（引雷）L1～5，`EffectDomain=Dig`；`DigLightningIntervalSec_{15/13/11/9/7}|DigLightningFrameSec_0.05|DigLightningPreviewSec_2`。`Equip_Detector`（探测器）L1～5，`EffectDomain=Dig`；L1 `DigProcessSpawnCountBonus_1` … L5 `_5`（过程生成 M 加法，不改 N）。`Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`（种族信物，Mode2）各 L1～5，`EffectDomain=Dig`；`GraveSpawnWeightBonus` 品质带累计 L1=`_10` … L5=`_30`（Human=Q16～Q19；Elf=Q20～Q23；Orc=Q24～Q27）。旧样例 `Equip_DigRing` 已删除。
+**Demo 样例行：** `Equip_IronShovel`（铁铲）L1～5，`EffectDomain=Dig`；相对基数 0.6 每级 +10% → L1 `DigCursorRadius_0.06` … L5 `_0.30`；`ExpToNextLevel` L1–4 = 1、L5 空；`ConvertExpValue=1`。`Equip_MinerLamp`（矿灯）L1～5，`EffectDomain=Dig`；每级 Q4/Q5/Q6 生成权重累计 +10 → L1 `GraveSpawnWeightBonus_Q4_10|GraveSpawnWeightBonus_Q5_10|GraveSpawnWeightBonus_Q6_10` … L5 `_50`；升下一级/转化经验均为 1。`Equip_Explosives`（炸药）L1～5，`EffectDomain=Dig`；`DigOnGraveClear_1|ExplosiveThrowRadius_4|ExplosiveBlastRadius_2|ExplosiveBlastDamage_{13/18/23/28/33}|ExplosiveFlightSec_0.5|ExplosiveFuseSec_0.8|ExplosiveRingSec_0.5`。`Equip_Elctr`（引雷）L1～5，`EffectDomain=Dig`；`DigLightningIntervalSec_{15/13/11/9/7}|DigLightningFrameSec_0.05|DigLightningPreviewSec_2`。`Equip_ReviveShovel`（复活铲，Mode2）L1～5，`EffectDomain=Dig`；`DigOnGraveClear_{0.2/0.4/0.6/0.8/1}|DigLightningPreviewSec_2`。`Equip_Detector`（探测器）L1～5，`EffectDomain=Dig`；L1 `DigProcessSpawnCountBonus_1` … L5 `_5`（过程生成 M 加法，不改 N）。`Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`（种族信物，Mode2）各 L1～5，`EffectDomain=Dig`；`GraveSpawnWeightBonus` 品质带累计 L1=`_10` … L5=`_30`（Human=Q16～Q19；Elf=Q20～Q23；Orc=Q24～Q27）。旧样例 `Equip_DigRing` 已删除。
 
 ```
 ProtagonistEquipmentConfig {
@@ -2814,7 +2823,7 @@ DefendGameplayConfig {
 - **Leash:** `TacticalFormationRuntimeService.ClampToLeash`; engage `AttackSlot` points beyond leash → project to circle; do **not** chase enemies whose center is outside leash (already in `AttackRange` → hold and swing; else keep slot)
 - **KeepFormationWhileEngage:** `1` = no AttackSlot target still seeks `FormationSlot`; overflow with no free slot also returns to slot. `0` = idle / overflow uses existing PushMap `Objective` or Defend `FormationHome` (engage still leash-clamped)
 - **Stage wiring (TF-04b / Approach A shared policy):** `TacticalFormationCombatGoalPolicy` (pure C#); PushMap/Defend `StageController` copies `CombatLock` from Layout **before** `CloseFormationEditor`, then `OnStartBattle` after `DeployCombatUnits`; every frame `Tick` the center and refresh slot-world dest for agents already on `FormationSlot`. Rebels / non-members skip this branch
-- **Prepare:** `TacticalFormationLayoutService` after every formation change; ≥ Min snap to pattern slots (over class zones); < Min revert class-zone spiral
+- **Prepare:** `TacticalFormationLayoutService` after every formation change; ≥ Min snap to pattern slots (over class zones); < Min revert class-zone spiral. **D-092:** mid-drag `TryApplySquadYawDelta` (rule const `FormationRotateStepDegrees=15`, not a table row); re-Evaluate keeps `FacingYawDegrees` for already-active `FormationId`; `FormationEditorController` scroll zoom reuses §9.20b `CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max` (same as Combat)
 - **Combat overlay / dissolve (TF-05 / Approach A):** StartBattle parses `StatModifiers` into StatMul and **multiplies** it with magic-book Combat StatMul into combat-derived stats (no `BaseStats` mutation); `ExclusiveSkillIds` / `ExclusiveSkillEffectIds` are a **read-only** SkillCast / `SkillEffectPipeline` merge. Rebel leaves immediately and drops overlay; living active members < `MinMemberCount` → drop overlay and recompute derived stats (`RemainingHp` clamped to new MaxHP); fallback PushMap `Objective` or Defend personal Home (current world pos as new Home)
 - **vs B+ Follow:** still no BMH ArmyRadius / sticky follow protagonist; tactical formation is the **authorized exception**
 - **Slices:** Prepare Layout = TF-03 (landed); Combat core = TF-04a (landed); Stage wiring = TF-04b (landed); overlay/dissolve = TF-05 (landed); sample+handcheck = TF-06 (this slice); `.scratch/tactical-formation/issues/`
@@ -3515,7 +3524,7 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 |------------|-----|---------------|-------|
 | ConstantKey | 常量键 | `string` | PK; aligned with `CombatConvertCoeffs` keys, plus `MaxHpStrengthMult` and P0 keys below |
 | ConstantKeyZh | 主键中文翻译 | `string` | Optional; ZH display name for the key; **runtime ignores** |
-| Value | 数值 | `float` | Default value for the key |
+| Value | 数值或文本 | `float` \| `string` | **Numeric keys:** parseable `float` → `_combatConstantByKey` (`TryGetCombatConstant`); **text keys** (`NewSaveInitialEquipments` / `NewSaveInitialMagicBooks`): non-numeric payload → `_combatConstantTextByKey` (`TryGetCombatConstantText`); empty string allowed |
 | Comment | 备注 | `string` | Optional; EN design note; **runtime ignores** |
 | CommentZh | 备注中文解释 | `string` | Optional; ZH design note; **runtime ignores** |
 
@@ -3543,9 +3552,9 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `CameraFarClip` | 镜头远裁剪面 | `100` | farClipPlane |
 | `CameraFollowDeadzone` | 跟随死区半径 | `0.15` | PushMap Auto follow world-XZ deadzone |
 | `CameraFollowSmoothTime` | 跟随平滑时间 | `0.25` | PushMap Auto SmoothDamp seconds |
-| `CameraZoomStepPerNotch` | 滚轮缩放步进 | `0.5` | Scroll wheel Size step |
-| `CameraOrthoSizeMin` | 正交Size下限 | `0.5` | Size floor |
-| `CameraOrthoSizeMax` | 正交Size上限 | `20` | PushMap zoom ceiling |
+| `CameraZoomStepPerNotch` | 滚轮缩放步进 | `0.5` | Scroll wheel Size step (PushMap/SE Combat **and** FormationEditor Prepare) |
+| `CameraOrthoSizeMin` | 正交Size下限 | `0.5` | Size floor (Combat + formation editor) |
+| `CameraOrthoSizeMax` | 正交Size上限 | `20` | Zoom ceiling (Combat + formation editor) |
 | `CameraDragThresholdPixels` | 拖拽启动像素阈值 | `4` | Manual pan arm threshold (px) |
 | `PushMapCameraIntroSpeed` | 推图镜头预览速度 | `1.5` | PushMap Prepare Quick Preview rail speed (world XZ units/sec) |
 | `PushMapCameraIntroWaypointDwellSeconds` | 推图镜头预览路点停留 | `0.5` | PushMap Prepare Quick Preview dwell seconds at each author WP |
@@ -3593,6 +3602,8 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `ProjectileDefaultHitRadius` | 投射物默认命中半径 | `0.55` | Projectile soft-hit radius |
 | `DefendVictoryStageExp` | 防守胜利阶段经验 | `100` | Defend victory stage Exp |
 | `NewSaveInitialSpiritCount` | 新建档初始精魂 | `30` | Spirit credited on new SaveSlot create; no grant when ≤0 |
+| `NewSaveInitialEquipments` | 新建档初始装备 | text (empty or e.g. `Equip_IronShovel;1`) | **Text key**; `EquipId;Level\|EquipId;Level`; empty = none |
+| `NewSaveInitialMagicBooks` | 新建档初始魔法书 | text (empty or e.g. `MagicBook_Restore`) | **Text key**; `MagicBookId\|MagicBookId`; empty = none; left→right `TryEquip` |
 | `DeathKnockbackRatioCoeff` | 死亡击飞比例系数 | `0.5` | Knockback raw=`(OutgoingDamage/MaxHp)×this` (§15.5) |
 | `DeathKnockbackMinDistance` | 死亡击飞最小距离 | `0.2` | Knockback distance floor (world units) |
 | `DeathKnockbackMaxDistance` | 死亡击飞最大距离 | `5` | Knockback distance ceiling; used when `OutgoingDamage≤0` or `MaxHp≤0` |
@@ -3671,13 +3682,20 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 CombatConstantConfig {
   ConstantKey: string
   ConstantKeyZh: string   // optional; display; runtime ignore
-  Value: number
+  Value: number | string  // float → numeric dict; non-numeric text keys → text dict
   Comment: string         // optional; EN note; runtime ignore
   CommentZh: string       // optional; ZH note; runtime ignore
 }
 ```
 
-**Resolve:** `ConfigCsvRepository` loads from current CampaignMode CSV root; `TryGetCombatConstant(key)`; `GetCombatConvertCoeffDefaults()` builds the five-key fallback for `CombatConvertCoeffs.Parse`; `GetCameraPresentationConstants` / `ApplyDigTimingConstants` / `GetDigTriggerDwellSeconds` read P0 keys; **`CombatRuntimeTuning.ApplyFromRepository`** at end of constants load applies P1/P2 snapshot (AttackSlot / MassMove / FlowField / LocalDetour / SoftCollision / StuckHold / Projectile / Defend victory Exp / PushMap spawn spread). Missing required key → Warning + sample-value safety fallback (**not** business authority). Separate Mode1/Mode2 files.
+**New-save text key encoding (Value = string):**
+
+| ConstantKey | Value syntax | Grant |
+|-------------|--------------|-------|
+| `NewSaveInitialEquipments` | `EquipId;Level` items joined by `\|`; `;` splits Id and level | `ProtagonistEquipmentService.ApplyNewSaveGrants` → `GrantAtLevel`; illegal segment Warning skip; duplicate Id → first wins |
+| `NewSaveInitialMagicBooks` | `MagicBookId` items joined by `\|` | `SpecialEquipSlotsService.ApplyNewSaveGrants` → sequential `TryEquip`; failure Warning skip that id |
+
+**Resolve:** `ConfigCsvRepository` loads from current CampaignMode CSV root; parseable `float` `Value` → `_combatConstantByKey` (`TryGetCombatConstant` / `GetCombatConstantOrFallback`); else → `_combatConstantTextByKey` (`TryGetCombatConstantText`; missing/empty = no text). `GetCombatConvertCoeffDefaults()` builds the five-key fallback for `CombatConvertCoeffs.Parse`; `GetCameraPresentationConstants` / `ApplyDigTimingConstants` / `GetDigTriggerDwellSeconds` read P0 keys; **`CombatRuntimeTuning.ApplyFromRepository`** at end of constants load applies P1/P2 snapshot (AttackSlot / MassMove / FlowField / LocalDetour / SoftCollision / StuckHold / Projectile / Defend victory Exp / PushMap spawn spread). Missing required **numeric** key → Warning + sample-value safety fallback (**not** business authority). Separate Mode1/Mode2 files. New-save grants: `MetaShellController.EnterShell(..., isNewSave)` → ① `WarehouseService.ApplyNewSaveGrants` (`NewSaveInitialSpiritCount`) → ② `ProtagonistEquipmentService.ApplyNewSaveGrants` (`NewSaveInitialEquipments`) → ③ `SpecialEquipSlotsService.ApplyNewSaveGrants` (`NewSaveInitialMagicBooks`) ([SPEC_03 §3.4](SPEC_03_GameRules.md)).
 
 #### 9.21 SkillConfig
 
@@ -4160,14 +4178,14 @@ Rules: [SPEC_03 §3.16](SPEC_03_GameRules.md) protagonist equipment warehouse / 
 | ExpToNextLevel | 升下一级经验 | `int` | Exp needed to reach `EquipLevel+1`; empty or ≤0 → max-level row |
 | ConvertExpValue | 转化经验值 | `int` | Exp granted when acquiring duplicate `EquipId` (at max level → `EquipCommonExp`, §3.16) |
 | EffectDomain | 装备生效功能 | encoding | `Dig` \| `SoldierManufacture` \| `Combat`; multi-value OK |
-| EquipEffect | 装备效果 | `string` | Dig domain: same style as [§9.17](#917-科技项效果配置表-techeffectconfig) `AttributeModifiers` `Attr_Value\|…`. **Static keys** (`DigDamage` / `DigDurationReductionSum` / `DigCursorRadius` / `DigStageDurationBonus` / `GraveSpawnWeightBonus_{QualityId}` / `DigProcessSpawnCountBonus`) merge into Dig caps; **event keys** `DigOnGraveClear` (clear-grave trigger chance, `_1`=100%) and `ExplosiveThrowRadius` / `ExplosiveBlastRadius` / `ExplosiveBlastDamage` / `ExplosiveFlightSec` / `ExplosiveFuseSec` / `ExplosiveRingSec` **do not** merge into caps (parsed by `DigExplosiveEffectConfig`, D-077); `DigLightningIntervalSec` / `DigLightningFrameSec` / `DigLightningPreviewSec` **do not** merge into caps (parsed by `DigLightningEffectConfig`, D-078); `SoldierManufacture` / `Combat` Token registry **TBD** (separate `ProtagonistEquipEffect`, **not** MagicBook `EffectPayload`); empty = none |
+| EquipEffect | 装备效果 | `string` | Dig domain: same style as [§9.17](#917-科技项效果配置表-techeffectconfig) `AttributeModifiers` `Attr_Value\|…`. **Static keys** (`DigDamage` / `DigDurationReductionSum` / `DigCursorRadius` / `DigStageDurationBonus` / `GraveSpawnWeightBonus_{QualityId}` / `DigProcessSpawnCountBonus`) merge into Dig caps; **event keys** `DigOnGraveClear` (clear-grave trigger chance, `_1`=100%; **not** explosives-only — Revive Shovel may parse it) and `ExplosiveThrowRadius` / `ExplosiveBlastRadius` / `ExplosiveBlastDamage` / `ExplosiveFlightSec` / `ExplosiveFuseSec` / `ExplosiveRingSec` **do not** merge into caps (parsed by `DigExplosiveEffectConfig`, D-077); `DigLightningIntervalSec` / `DigLightningFrameSec` / `DigLightningPreviewSec` **do not** merge into caps (parsed by `DigLightningEffectConfig` D-078, or preview seconds by `DigReviveShovelEffectConfig` D-091); `SoldierManufacture` / `Combat` Token registry **TBD** (separate `ProtagonistEquipEffect`, **not** MagicBook `EffectPayload`); empty = none |
 | Description | 装备描述 | `string` | Display copy |
 
 **`EffectDomain` encoding (fixed):** `Domain` or `Domain|Domain|…`. Enums: `Dig` \| `SoldierManufacture` \| `Combat`.
 
 **Composite PK:** `(EquipId, EquipLevel)` unique; levels for one `EquipId` should be contiguous from 1 (load may validate + Warning).
 
-**Demo sample rows:** `Equip_IronShovel` (Iron Shovel) L1–5, `EffectDomain=Dig`; +10% of base 0.6 per level → L1 `DigCursorRadius_0.06` … L5 `_0.30`; `ExpToNextLevel` L1–4 = 1, L5 empty; `ConvertExpValue=1`. `Equip_MinerLamp` (Miner Lamp) L1–5, `EffectDomain=Dig`; Q4/Q5/Q6 spawn-weight cumulative +10 per level → L1 `GraveSpawnWeightBonus_Q4_10|GraveSpawnWeightBonus_Q5_10|GraveSpawnWeightBonus_Q6_10` … L5 `_50`; ExpToNext/ConvertExp=1. `Equip_Explosives` (Explosives) L1–5, `EffectDomain=Dig`; `DigOnGraveClear_1|ExplosiveThrowRadius_4|ExplosiveBlastRadius_2|ExplosiveBlastDamage_{13/18/23/28/33}|ExplosiveFlightSec_0.5|ExplosiveFuseSec_0.8|ExplosiveRingSec_0.5`. `Equip_Elctr` (Lightning / 引雷) L1–5, `EffectDomain=Dig`; `DigLightningIntervalSec_{15/13/11/9/7}|DigLightningFrameSec_0.05|DigLightningPreviewSec_2`. `Equip_Detector` (Detector) L1–5, `EffectDomain=Dig`; L1 `DigProcessSpawnCountBonus_1` … L5 `_5` (process-spawn M bonus; does not change N). `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken` (race tokens, Mode2) each L1–5, `EffectDomain=Dig`; `GraveSpawnWeightBonus` band cumulative L1=`_10` … L5=`_30` (Human=Q16–Q19; Elf=Q20–Q23; Orc=Q24–Q27). Former sample `Equip_DigRing` **removed**.
+**Demo sample rows:** `Equip_IronShovel` (Iron Shovel) L1–5, `EffectDomain=Dig`; +10% of base 0.6 per level → L1 `DigCursorRadius_0.06` … L5 `_0.30`; `ExpToNextLevel` L1–4 = 1, L5 empty; `ConvertExpValue=1`. `Equip_MinerLamp` (Miner Lamp) L1–5, `EffectDomain=Dig`; Q4/Q5/Q6 spawn-weight cumulative +10 per level → L1 `GraveSpawnWeightBonus_Q4_10|GraveSpawnWeightBonus_Q5_10|GraveSpawnWeightBonus_Q6_10` … L5 `_50`; ExpToNext/ConvertExp=1. `Equip_Explosives` (Explosives) L1–5, `EffectDomain=Dig`; `DigOnGraveClear_1|ExplosiveThrowRadius_4|ExplosiveBlastRadius_2|ExplosiveBlastDamage_{13/18/23/28/33}|ExplosiveFlightSec_0.5|ExplosiveFuseSec_0.8|ExplosiveRingSec_0.5`. `Equip_Elctr` (Lightning / 引雷) L1–5, `EffectDomain=Dig`; `DigLightningIntervalSec_{15/13/11/9/7}|DigLightningFrameSec_0.05|DigLightningPreviewSec_2`. `Equip_ReviveShovel` (Revive Shovel, Mode2) L1–5, `EffectDomain=Dig`; `DigOnGraveClear_{0.2/0.4/0.6/0.8/1}|DigLightningPreviewSec_2`. `Equip_Detector` (Detector) L1–5, `EffectDomain=Dig`; L1 `DigProcessSpawnCountBonus_1` … L5 `_5` (process-spawn M bonus; does not change N). `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken` (race tokens, Mode2) each L1–5, `EffectDomain=Dig`; `GraveSpawnWeightBonus` band cumulative L1=`_10` … L5=`_30` (Human=Q16–Q19; Elf=Q20–Q23; Orc=Q24–Q27). Former sample `Equip_DigRing` **removed**.
 
 ```
 ProtagonistEquipmentConfig {

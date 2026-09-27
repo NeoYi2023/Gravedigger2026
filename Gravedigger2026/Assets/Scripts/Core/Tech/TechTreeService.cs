@@ -404,7 +404,7 @@ namespace Gravedigger2026.Core.Tech
         }
 
         /// <summary>
-        /// Dig event tokens (D-077) must not merge into DigProtagonistCapabilities.
+        /// Dig event tokens (D-077 / D-078 / D-091) must not merge into DigProtagonistCapabilities.
         /// </summary>
         private static bool IsDigEventOrPayloadKey(string key)
         {
@@ -414,6 +414,11 @@ namespace Gravedigger2026.Core.Tech
             }
 
             if (string.Equals(key, "DigOnGraveClear", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (key.StartsWith("DigLightning", StringComparison.Ordinal))
             {
                 return true;
             }

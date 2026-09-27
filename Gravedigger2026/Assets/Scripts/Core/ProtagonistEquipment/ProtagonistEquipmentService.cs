@@ -158,10 +158,10 @@ namespace Gravedigger2026.Core.ProtagonistEquipment
         }
 
         /// <summary>
-        /// Demo GM (UI-019): set owned piece to an exact config level (CurrentExp=0).
+        /// Set owned piece to an exact config level (CurrentExp=0).
         /// Not owned → add at that level. Does not use convert Exp / TryAcquire.
         /// </summary>
-        public bool DebugGrantAtLevel(string equipId, int level, out string error)
+        public bool GrantAtLevel(string equipId, int level, out string error)
         {
             error = null;
             if (_slotIndex < 0)
@@ -207,10 +207,48 @@ namespace Gravedigger2026.Core.ProtagonistEquipment
 
             Persist();
             Debug.Log(
-                $"[ProtagonistEquipment] GM GrantAtLevel '{id}' → L{level} Exp0 " +
+                $"[ProtagonistEquipment] GrantAtLevel '{id}' → L{level} Exp0 " +
                 $"slot={_slotIndex} mode={_campaignMode}");
             Changed?.Invoke();
             return true;
+        }
+
+        /// <summary>Demo GM (UI-019): delegates to <see cref="GrantAtLevel"/>.</summary>
+        public bool DebugGrantAtLevel(string equipId, int level, out string error)
+        {
+            return GrantAtLevel(equipId, level, out error);
+        }
+
+        /// <summary>
+        /// New-save starter equipment from <see cref="CombatConstantKeys.NewSaveInitialEquipments"/>
+        /// (SPEC_03 §3.4 / SPEC_04 §9.20b).
+        /// </summary>
+        public void ApplyNewSaveGrants()
+        {
+            if (_slotIndex < 0)
+            {
+                return;
+            }
+
+            if (!_configs.TryGetCombatConstantText(
+                    CombatConstantKeys.NewSaveInitialEquipments,
+                    out var raw))
+            {
+                return;
+            }
+
+            var grants = NewSaveGrantParser.ParseEquipments(
+                raw,
+                warn => Debug.LogWarning($"[ProtagonistEquipment] NewSave grant skip: {warn}"));
+            for (var i = 0; i < grants.Count; i++)
+            {
+                var g = grants[i];
+                if (!GrantAtLevel(g.EquipId, g.Level, out var error))
+                {
+                    Debug.LogWarning(
+                        $"[ProtagonistEquipment] NewSave grant failed '{g.EquipId}' L{g.Level}: {error}");
+                }
+            }
         }
 
         /// <summary>Remove one owned piece entirely (D-076 shop sell). Does not refund CurrentExp / EquipCommonExp.</summary>

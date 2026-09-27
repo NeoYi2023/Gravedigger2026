@@ -760,6 +760,8 @@ namespace Gravedigger2026.Meta
             if (isNewSave)
             {
                 _warehouse.ApplyNewSaveGrants(_configs);
+                _protagonistEquipment?.ApplyNewSaveGrants();
+                _specialEquipSlots?.ApplyNewSaveGrants();
             }
 
             // Legacy JsonUtility dropped non-[Serializable] StatBlock; rebuild from SourceItemIds.

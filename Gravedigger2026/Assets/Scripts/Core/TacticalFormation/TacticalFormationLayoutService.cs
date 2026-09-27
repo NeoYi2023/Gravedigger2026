@@ -13,6 +13,9 @@ namespace Gravedigger2026.Core.TacticalFormation
     /// </summary>
     public sealed class TacticalFormationLayoutService
     {
+        /// <summary>SPEC_03 §3.18 / D-092: Q/E rotate step (degrees). Rule constant, not a table row.</summary>
+        public const float FormationRotateStepDegrees = 15f;
+
         private const float PositionEpsilon = 0.0001f;
 
         private readonly Dictionary<string, TacticalFormationSquadSnapshot> _squads =
@@ -119,6 +122,56 @@ namespace Gravedigger2026.Core.TacticalFormation
             return true;
         }
 
+        /// <summary>
+        /// Rotate whole squad about its center by delta yaw (degrees). Updates FacingYawDegrees.
+        /// Does not re-Evaluate. SPEC_03 §3.18 / D-092.
+        /// </summary>
+        public bool TryApplySquadYawDelta(
+            BattleFormationService formation,
+            string memberWarriorId,
+            float deltaYawDegrees)
+        {
+            if (formation == null
+                || string.IsNullOrEmpty(memberWarriorId)
+                || Mathf.Abs(deltaYawDegrees) < PositionEpsilon
+                || !TryGetSquadByMember(memberWarriorId, out var squad)
+                || squad == null
+                || squad.MemberIds == null
+                || squad.MemberIds.Length == 0)
+            {
+                return false;
+            }
+
+            var cx = squad.CenterX;
+            var cz = squad.CenterZ;
+            var rot = Quaternion.Euler(0f, deltaYawDegrees, 0f);
+
+            _writes.Clear();
+            for (var i = 0; i < squad.MemberIds.Length; i++)
+            {
+                var id = squad.MemberIds[i];
+                if (!formation.TryGetEntry(id, out var entry) || entry == null)
+                {
+                    continue;
+                }
+
+                var offset = rot * new Vector3(entry.PositionX - cx, 0f, entry.PositionZ - cz);
+                _writes.Add(new BattleFormationService.PositionWrite(
+                    id,
+                    cx + offset.x,
+                    cz + offset.z));
+            }
+
+            if (_writes.Count == 0)
+            {
+                return false;
+            }
+
+            formation.ApplyPositionBatch(_writes);
+            squad.FacingYawDegrees += deltaYawDegrees;
+            return true;
+        }
+
         public void EvaluateAndApply(
             BattleFormationService formation,
             WarriorPoolService pool,
@@ -201,14 +254,23 @@ namespace Gravedigger2026.Core.TacticalFormation
                 cx /= take;
                 cz /= take;
 
-                var yaw = 0f;
-                if (context.HasFacingTarget)
+                // D-092: keep player / prior facing when this FormationId was already active.
+                float yaw;
+                if (previous.TryGetValue(formationId, out var priorSquad) && priorSquad != null)
                 {
-                    var dx = context.FacingTargetRelX - cx;
-                    var dz = context.FacingTargetRelZ - cz;
-                    if (dx * dx + dz * dz > 0.0001f)
+                    yaw = priorSquad.FacingYawDegrees;
+                }
+                else
+                {
+                    yaw = 0f;
+                    if (context.HasFacingTarget)
                     {
-                        yaw = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
+                        var dx = context.FacingTargetRelX - cx;
+                        var dz = context.FacingTargetRelZ - cz;
+                        if (dx * dx + dz * dz > 0.0001f)
+                        {
+                            yaw = Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
+                        }
                     }
                 }
 

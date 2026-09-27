@@ -39,3 +39,8 @@ Equip_OrcToken,2,兽人信物,Icon_OrcToken,1,2,Dig,GraveSpawnWeightBonus_Q24_15
 Equip_OrcToken,3,兽人信物,Icon_OrcToken,1,3,Dig,GraveSpawnWeightBonus_Q24_20|GraveSpawnWeightBonus_Q25_20|GraveSpawnWeightBonus_Q26_20|GraveSpawnWeightBonus_Q27_20,增加发现兽人坟墓的概率,
 Equip_OrcToken,4,兽人信物,Icon_OrcToken,1,4,Dig,GraveSpawnWeightBonus_Q24_25|GraveSpawnWeightBonus_Q25_25|GraveSpawnWeightBonus_Q26_25|GraveSpawnWeightBonus_Q27_25,增加发现兽人坟墓的概率,
 Equip_OrcToken,5,兽人信物,Icon_OrcToken,,5,Dig,GraveSpawnWeightBonus_Q24_30|GraveSpawnWeightBonus_Q25_30|GraveSpawnWeightBonus_Q26_30|GraveSpawnWeightBonus_Q27_30,增加发现兽人坟墓的概率,
+Equip_ReviveShovel,1,复活铲,Icon_IronShovel,1,1,Dig,DigOnGraveClear_0.2|DigLightningPreviewSec_2,挖开坟墓时有20%概率直接产出士兵,
+Equip_ReviveShovel,2,复活铲,Icon_IronShovel,1,2,Dig,DigOnGraveClear_0.4|DigLightningPreviewSec_2,挖开坟墓时有40%概率直接产出士兵,
+Equip_ReviveShovel,3,复活铲,Icon_IronShovel,1,3,Dig,DigOnGraveClear_0.6|DigLightningPreviewSec_2,挖开坟墓时有60%概率直接产出士兵,
+Equip_ReviveShovel,4,复活铲,Icon_IronShovel,1,4,Dig,DigOnGraveClear_0.8|DigLightningPreviewSec_2,挖开坟墓时有80%概率直接产出士兵,
+Equip_ReviveShovel,5,复活铲,Icon_IronShovel,,5,Dig,DigOnGraveClear_1|DigLightningPreviewSec_2,挖开坟墓时有100%概率直接产出士兵,

@@ -1,8 +1,8 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.60
+**文档版本 / Document Version:** v0.84.63
 **最后更新 / Last Updated:** 2026-09-27
-**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；**Editor 菜单中英双语 v0.84.52**；**远程追击停在射程外 v0.84.53**；**搜打撤远程弹道未接线 v0.84.54**；**远程前摇+停顿帧 v0.84.55**；**士兵普攻按职业权重选动作 v0.84.56**；**移动动画播放速率 v0.84.57**；**攻击动画播放速率 v0.84.58**；**士兵任务标签附有效移速 v0.84.59**；**搜打撤开战属性登记对齐推图 v0.84.60**；Demo 须另授权）  
+**当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；**Editor 菜单中英双语 v0.84.52**；**远程追击停在射程外 v0.84.53**；**搜打撤远程弹道未接线 v0.84.54**；**远程前摇+停顿帧 v0.84.55**；**士兵普攻按职业权重选动作 v0.84.56**；**移动动画播放速率 v0.84.57**；**攻击动画播放速率 v0.84.58**；**士兵任务标签附有效移速 v0.84.59**；**搜打撤开战属性登记对齐推图 v0.84.60**；**新建档初始装备/魔法书常量键 v0.84.61**；**主角装备复活铲 Equip_ReviveShovel D-091 v0.84.62**；**布阵阵型 Q/E 旋转+滚轮缩放 D-092 v0.84.63**；Demo 须另授权）  
 
 **套件维护路径：** `F:\CursorGame_Git\SPECandSKILL\Gravedigger2026\`  
 **日常开发权威：** 复制到 Cursor 工作区根后的 `SPEC_*.md`（工作区：`F:\CursorGame_Git\Gravedigger2026`）
@@ -65,6 +65,9 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-09-27 | v0.84.63 | 布阵战术阵型：整阵左键按住/拖动时 Q/E 即时绕阵心 ±15° 旋转（保留玩家朝向）；布阵滚轮缩放复用战斗 `CameraPresentationConstants`（D-092 / 方案 A）。同步 SPEC_03 §3.8/§3.11/§3.18、SPEC_04 §6/§9.20b |
+| 2026-09-27 | v0.84.62 | 主角装备复活铲 `Equip_ReviveShovel`（D-091 / 方案 A）：玩家 DigAction 清坟按级 20/40/60/80/100% 掷 `DigOnGraveClear`；复用引雷主要手扫描→入士兵池 + `DigLightningPreviewSec_2` 预览；不播闪电、不跳过掉落。同步 SPEC_03 §3.8/§3.16、SPEC_04 §9.25、CONTEXT、spec-map |
+| 2026-09-27 | v0.84.61 | 新建档初始装备/魔法书：常量表文本键 `NewSaveInitialEquipments`（`EquipId;Level\|…`）与 `NewSaveInitialMagicBooks`（`MagicBookId\|…`）；加载器双通道；`EnterShell(isNewSave)` 精魂→装备→魔法书发放。同步 SPEC_03 §3.4、SPEC_04 §9.20b、Mode1+Mode2 常量表 |
 | 2026-09-27 | v0.84.60 | 搜打撤开战登记对齐推图：`DeployCombatUnits` 在 `Bind` 前 `TryRegisterWarrior`，并乘上与推图相同的魔法书 × 战术阵型 `CombatStatMulBuff`；位移基速取登记后的 `MoveSpeed`。阵型 overlay 撤除时刷新派生属性并 `SetBaseMoveSpeed`。阵心仍为 `Hold`。同步 SPEC_04 §9.24 / §9.32 |
 | 2026-09-27 | v0.84.59 | 士兵任务 Debug 标签：`GoalKind` 简标后附 `(有效移速)`（与位移同口径；Defend / PushMap / SearchExtract）。同步 SPEC_03 §3.6、SPEC_04 §9.7 |
 | 2026-09-27 | v0.84.58 | 攻击动画播放速率（方案 A）：每次 `PlayAttack` 采样 clip 长度，`animator.speed = clamp(clipLength×有效攻速, 0.5, 2)`；有效攻速=该次间隔所用值（怪含攻速减速，只乘一次）；远程停帧解除恢复该倍率；制造预览保持 1。不改 HitConfirm 与 `1/AttackSpeed`。同步 SPEC_03 §3.12、SPEC_04 §15.5、CONTEXT |
@@ -525,6 +528,9 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-09-27 | v0.84.63 | Formation editor tactical squad: while LMB holding/dragging a squad, Q/E instantly rotate ±15° about center (preserve player facing); scroll-wheel zoom reuses combat `CameraPresentationConstants` (D-092 / Approach A). Synced SPEC_03 §3.8/§3.11/§3.18, SPEC_04 §6/§9.20b |
+| 2026-09-27 | v0.84.62 | Protagonist gear Revive Shovel `Equip_ReviveShovel` (D-091 / Approach A): on player DigAction grave clear roll `DigOnGraveClear` 20/40/60/80/100% by level; reuse Lightning primary-hand scan → WarriorPool + `DigLightningPreviewSec_2` preview; no bolt VFX, loot still settles. Synced SPEC_03 §3.8/§3.16, SPEC_04 §9.25, CONTEXT, spec-map |
+| 2026-09-27 | v0.84.61 | New-save starter gear/books: constant text keys `NewSaveInitialEquipments` (`EquipId;Level\|…`) and `NewSaveInitialMagicBooks` (`MagicBookId\|…`); dual-channel loader; `EnterShell(isNewSave)` grants Spirit → equipment → MagicBooks. Synced SPEC_03 §3.4, SPEC_04 §9.20b, Mode1+Mode2 constants tables |
 | 2026-09-27 | v0.84.60 | SearchExtract StartBattle registration matches PushMap: `DeployCombatUnits` calls `TryRegisterWarrior` before `Bind`, applying the same magic-book × tactical-formation `CombatStatMulBuff`. Base move speed is the registered `MoveSpeed`. Overlay removal refreshes derived stats and `SetBaseMoveSpeed`. Formation center stays `Hold`. Synced SPEC_04 §9.24 / §9.32 |
 | 2026-09-27 | v0.84.59 | Soldier task Debug label: append `(effective move speed)` after `GoalKind` short label (same value as displacement; Defend / PushMap / SearchExtract). Synced SPEC_03 §3.6, SPEC_04 §9.7 |
 | 2026-09-27 | v0.84.58 | Attack anim playback rate (Approach A): each `PlayAttack` samples clip length, `animator.speed = clamp(clipLength×effectiveAttackSpeed, 0.5, 2)`; effective speed is the value already used for that swing's interval (monster attack slow multiplied once); ranged-hold release restores that rate; manufacture preview stays at 1. HitConfirm and `1/AttackSpeed` unchanged. Synced SPEC_03 §3.12, SPEC_04 §15.5, CONTEXT |

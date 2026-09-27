@@ -25,7 +25,7 @@
 | EquipmentWarehousePanel | 装备仓弹窗 | InSaveShell 左下「装备」打开的只读 Modal；展示 OwnedEquip（名/等级/描述/图标）；不升级、不卸下（UI-022 / D-067） | [§3.6](SPEC_03_GameRules.md)、[§3.16](SPEC_03_GameRules.md) |
 | MagicBookSlotsPanel | 魔法书槽弹窗 | InSaveShell 左下「魔法书」打开；共享 BookRow；拖拽 TrySwap 含空槽；点占用槽槽下「删除」须确认后 TryUnequip（UI-023 / D-068 / D-072） | [§3.6](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
 | BookRow | 魔法书槽行 | 6×BookSlot 共享 Prefab；AM 演出与魔法书弹窗嵌套同一份 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
-| ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment；Dig 事件型样例 `Equip_Explosives`（D-077）、`Equip_Elctr`（D-078） | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
+| ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment；Dig 事件型样例 `Equip_Explosives`（D-077）、`Equip_Elctr`（D-078）、`Equip_ReviveShovel`（D-091） | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
 | FormationBond | 阵容羁绊 | 上阵士兵属性统计激活的战斗增益；同 BondId 多等级互斥；Buff→SkillEffectConfig | [§3.17](SPEC_03_GameRules.md)、[SPEC_04 §9.26](SPEC_04_Technical.md) |
 | TacticalFormation | 战术阵型 | 同阵型技能士兵组成可移动空间编队；虚拟中心+槽位+leash；与 BattleFormation/FormationBond 并行 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
 | TacticalFormationRuntime | 战术阵型运行时 | Combat 虚拟中心纯数据 + 成员 FormationSlot + leash；PushMap/Defend Stage 分流；激活态 Stat/ExclusiveSkill overlay；不进 SoftCollision | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
@@ -139,7 +139,7 @@
 | PrimaryStat | 主属性 | 职业字段 Strength/Agility/Intelligence；定普攻属性维 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | BodyLife | 躯体生命 | Base(MaxHP)+Equip(MaxHP)；代入 MaxHP=ceil(BodyLife+Str×MaxHpStrengthMult) | [§3.11](SPEC_03_GameRules.md) |
 | NormalAttackPower | 普通攻击值 | Primary×NormalAttackPrimaryMult（职业覆盖，否则 CombatConstantConfig；样例 15） | [§3.12](SPEC_03_GameRules.md) |
-| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞/尸体投射键（含 Die2 阈值、抛物线峰值、砸击系数/半径） | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| CombatConstantConfig | 战斗常量表 | 全局战斗公式默认键值；CombatConvertCoeffs 缺键回退；含 MaxHpStrengthMult；含死亡击飞/尸体投射键；新建档文本键 `NewSaveInitialEquipments` / `NewSaveInitialMagicBooks` | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
 | DeathKnockbackRatioCoeff | 死亡击飞比例系数 | 常量表键；击飞 raw=`(OutgoingDamage/MaxHp)×本值` 再 clamp | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
 | DeathKnockbackDirectionSpreadHalfDegrees | 死亡击飞方向半角扩散 | 常量表键；基准方向左右各允许的最大偏角（度）；`≤0` 关闭随机 | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |
 | DeathKnockbackDirectionRandomStepDegrees | 死亡击飞方向随机步进 | 常量表键；偏角随机粒度（度）；`offset=k×本值` | [SPEC_04 §9.20b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md) |

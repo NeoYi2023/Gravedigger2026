@@ -536,8 +536,9 @@ namespace Gravedigger2026.Core.Dig
                 }
             }
             var origin = grave.WorldPosition;
+            var unsettledLoot = grave.LootDropEncoded;
             var settled = LootDropParser.Resolve(
-                grave.LootDropEncoded,
+                unsettledLoot,
                 grave.DropMode,
                 _rng,
                 msg => Debug.LogWarning($"[DigSession] {msg}"));
@@ -546,6 +547,7 @@ namespace Gravedigger2026.Core.Dig
             if (triggerExplosiveOnClear)
             {
                 TryEnqueueExplosiveBarrel(origin);
+                TrySpawnReviveShovelSoldier(unsettledLoot, origin);
             }
             GraveClearedForReward?.Invoke(grave, settledEncoded);
             _graves.Remove(grave);
@@ -609,22 +611,8 @@ namespace Gravedigger2026.Core.Dig
                 var grave = _unclearedScratch[_rng.Next(_unclearedScratch.Count)];
                 var pos = grave.WorldPosition;
                 LightningStrikeQueued?.Invoke(pos, effect.FrameSeconds);
-
-                string appearanceId = null;
-                if (DigLightningEffectConfig.TryPickPrimaryHand(
-                        grave.LootDropEncoded, _configs, _rng, out var hand) &&
-                    DigLightningEffectConfig.TryPickClassId(hand.ClassRestrict, _rng, out var classId) &&
-                    _soldierGrant != null &&
-                    _soldierGrant.TryGrantOne(classId, hand.RaceId, out var warrior, out _))
-                {
-                    appearanceId = warrior != null ? warrior.AppearanceId : null;
-                }
-
+                TryGrantSoldierFromLoot(grave.LootDropEncoded, pos, effect.PreviewSeconds);
                 RemoveGraveWithoutLoot(grave);
-                if (!string.IsNullOrEmpty(appearanceId))
-                {
-                    LightningSoldierPreview?.Invoke(appearanceId, pos, effect.PreviewSeconds);
-                }
 
                 return;
             }
@@ -737,6 +725,52 @@ namespace Gravedigger2026.Core.Dig
                 effect.BlastRadius,
                 effect.BlastDamage,
                 effect.RingSeconds);
+        }
+
+        private void TrySpawnReviveShovelSoldier(string unsettledLoot, Vector3 origin)
+        {
+            if (_equipment == null ||
+                !_equipment.TryGetOwned(DigReviveShovelEffectConfig.EquipId, out var owned) ||
+                owned == null)
+            {
+                return;
+            }
+
+            if (!_configs.TryGetProtagonistEquipment(owned.EquipId, owned.Level, out var row) ||
+                row == null ||
+                !EffectDomainIncludesDig(row.EffectDomain) ||
+                !DigReviveShovelEffectConfig.TryParse(row, out var effect))
+            {
+                return;
+            }
+
+            if (effect.TriggerChance < 1f && _rng.NextDouble() > effect.TriggerChance)
+            {
+                return;
+            }
+
+            TryGrantSoldierFromLoot(unsettledLoot, origin, effect.PreviewSeconds);
+        }
+
+        private bool TryGrantSoldierFromLoot(string lootDropEncoded, Vector3 worldPosition, float previewSeconds)
+        {
+            if (!DigLightningEffectConfig.TryPickPrimaryHand(
+                    lootDropEncoded, _configs, _rng, out var hand) ||
+                !DigLightningEffectConfig.TryPickClassId(hand.ClassRestrict, _rng, out var classId) ||
+                _soldierGrant == null ||
+                !_soldierGrant.TryGrantOne(classId, hand.RaceId, out var warrior, out _))
+            {
+                return false;
+            }
+
+            var appearanceId = warrior != null ? warrior.AppearanceId : null;
+            if (string.IsNullOrEmpty(appearanceId))
+            {
+                return false;
+            }
+
+            LightningSoldierPreview?.Invoke(appearanceId, worldPosition, previewSeconds);
+            return true;
         }
 
         private bool TrySampleRingPosition(Vector3 origin, float throwRadius, out Vector3 position)

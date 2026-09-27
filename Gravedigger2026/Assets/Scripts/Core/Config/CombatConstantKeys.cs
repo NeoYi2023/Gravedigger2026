@@ -69,6 +69,8 @@ namespace Gravedigger2026.Core.Config
         public const string ProjectileDefaultHitRadius = "ProjectileDefaultHitRadius";
         public const string DefendVictoryStageExp = "DefendVictoryStageExp";
         public const string NewSaveInitialSpiritCount = "NewSaveInitialSpiritCount";
+        public const string NewSaveInitialEquipments = "NewSaveInitialEquipments";
+        public const string NewSaveInitialMagicBooks = "NewSaveInitialMagicBooks";
         public const string DeathKnockbackRatioCoeff = "DeathKnockbackRatioCoeff";
         public const string DeathKnockbackMinDistance = "DeathKnockbackMinDistance";
         public const string DeathKnockbackMaxDistance = "DeathKnockbackMaxDistance";

@@ -571,9 +571,12 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 规则 | 说明 |
 |------|------|
 | 触发 | **新建**进档（非进入已有档；本 Demo 在旁路 Mode2 进壳时发放） |
-| 发放 | 向当前存档仓库入账 `ItemId=Spirit`（精魂），数量 ← **`CombatConstantConfig.NewSaveInitialSpiritCount`**（样例 **30**） |
-| 边界 | 常量 `Value ≤ 0` 时不发放；进入已有档不重复发放 |
-| Demo | 仓库/精魂尚未持久化；本规则保证新建档首次进壳即有可消费精魂（商店/制造等） |
+| 发放顺序 | ① 精魂 → ② 主角装备仓 → ③ 魔法书槽（均在 Service 已 `BindSlot` 且 CSV 已加载之后） |
+| 精魂 | 向当前存档仓库入账 `ItemId=Spirit`，数量 ← **`CombatConstantConfig.NewSaveInitialSpiritCount`**（样例 **30**）；`Value ≤ 0` 不发放 |
+| 装备 | 解析 **`CombatConstantConfig.NewSaveInitialEquipments`**（文本 Value）：`EquipId;Level\|EquipId;Level`；空串不发；`Level≥1` 且表内有行才入仓（`GrantAtLevel`，`CurrentExp=0`）；非法段 Warning 跳过；同 `EquipId` **先出现为准**（后者跳过） |
+| 魔法书 | 解析 **`CombatConstantConfig.NewSaveInitialMagicBooks`**（文本 Value）：`MagicBookId\|MagicBookId`；空串不发；左→右依次 `TryEquip`；非法 / Unique 冲突 / 槽满 → Warning 跳过该项并继续 |
+| 边界 | 进入已有档不重复发放；编码与加载见 [SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| Demo | 仓库/精魂尚未持久化；装备仓与魔法书槽已持久化；本规则保证新建档首次进壳即可消费精魂并拥有配置的初始装备/书 |
 
 **槽位展示（最小）**
 
@@ -614,9 +617,12 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | Rule | Notes |
 |------|-------|
 | When | **Create** enter (not enter existing slot; this Demo grants on Mode2 bypass EnterShell) |
-| Grant | Credit warehouse `ItemId=Spirit` (SpiritEssence); count ← **`CombatConstantConfig.NewSaveInitialSpiritCount`** (sample **30**) |
-| Boundary | No grant when constant `Value ≤ 0`; no repeat grant on enter existing slot |
-| Demo | Warehouse/Spirit not yet persisted; ensures new save has spendable Spirit on first InSaveShell entry (Shop / manufacture, etc.) |
+| Order | ① Spirit → ② protagonist equipment warehouse → ③ MagicBook slots (after Services `BindSlot` and CSV loaded) |
+| Spirit | Credit warehouse `ItemId=Spirit`; count ← **`CombatConstantConfig.NewSaveInitialSpiritCount`** (sample **30**); no grant when `Value ≤ 0` |
+| Equipment | Parse **`CombatConstantConfig.NewSaveInitialEquipments`** (text Value): `EquipId;Level\|EquipId;Level`; empty = none; grant only when `Level≥1` and config row exists (`GrantAtLevel`, `CurrentExp=0`); illegal segment → Warning skip; duplicate `EquipId` → **first wins** (later skipped) |
+| MagicBook | Parse **`CombatConstantConfig.NewSaveInitialMagicBooks`** (text Value): `MagicBookId\|MagicBookId`; empty = none; left→right `TryEquip`; unknown / Unique conflict / full → Warning skip that id and continue |
+| Boundary | No repeat grant on enter existing slot; encoding/load: [SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| Demo | Warehouse/Spirit not yet persisted; equipment warehouse and MagicBook slots are persisted; ensures new save has Spirit plus configured starter gear/books on first InSaveShell |
 
 **Minimal display**
 
@@ -975,6 +981,8 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-088 | 关卡路线进度存档（方案 A）：按槽+CampaignMode 持久化已通关 `GameplayOptionId`；`TryEnterLevel` 水合 Cleared 并派生 Unlocked；通关立即写回；进行中选项不存；整关胜利保留 Cleared；删档清键 | P0 | **完成**（`LevelRouteProgressService` + Driver 水合；Play Mode 由负责人勾选） |
 | D-089 | 战斗指示器（UI-033 / 方案 A）：PushMap + SearchExtract **仅 Combat** 显示顶中敌我单位格 HUD（`y=-10`，`scale=0.75`）；`CenterBg` 内左右存活数（BestFit 26～42；敌方开场未现身前为 `?`）；简画按职业/怪物表；HP% 四色；永久死亡灰+X 0.5s 后移除重对齐；可复活怪算活着；叛变不入两侧；单行截断（不换行）；0.2s 轮询 Snapshot（不改战斗热路事件）；Defend 不接线 | P1 | TBD（issues `.scratch/combat-indicator/`） |
 | D-090 | 离屏刷怪边缘提示（UI-034 / 方案 A）：PushMap + SearchExtract **仅 Combat 真实刷怪**；判定=该组 `basePos` 视口外；边缘 `EnemyAttack_1` 开场闪红 2 次（0.4s）后常亮 2s、放大 1.3；Prepare 预览不出；同帧多组独立；离 Combat 清理；Defend 不接线 | P1 | TBD（issues `.scratch/offscreen-spawn-hint/`） |
+| D-091 | 主角装备「复活铲」`Equip_ReviveShovel`（Mode2）：5 级表行 + 玩家 DigAction 清坟按级 20/40/60/80/100% 掷 `DigOnGraveClear`；复用引雷主要手扫描→入士兵池 + `DigLightningPreviewSec_2` 预览（**不**播闪电、**不**跳过掉落）；爆炸/引雷清坟不触发；Dig HUD GM 发放 | P1 | **完成**（方案 A：`DigReviveShovelEffectConfig` + `DigSessionService`） |
+| D-092 | 布阵战术阵型旋转与滚轮缩放（方案 A）：整阵左键按住/拖动时 `Q`/`E` 绕阵心即时 ±15°；已激活小队再评估保留玩家朝向；布阵滚轮缩放步进/夹限同 Combat（`CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`）；指针在士兵栏等 UI 上忽略 | P1 | **完成**（方案 A：`TryApplySquadYawDelta` + `FormationEditorController`） |
 
 **Demo 范围外（仍排除）：**
 
@@ -985,7 +993,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 - 完整存档序列化 schema（超出槽占用、士兵池、布阵、**关卡路线进度**及流水线所需的最小持久化字段；仓库/经验/科技等仍 TBD）
 - 精确 OutsideMap 出生几何、完整障碍烘焙细则（Demo 最小约定见 §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md)）
 - 科技树节点具体数值/图标 polish 与功能系统名完整枚举（§3.13；画布方案 A 已落地，非本表 P0）
-- 工具面板「设置」「关卡」及 D-061 / D-064 GM、D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 / D-080 以外的后续功能；完整 polish；未写入本表的需求
+- 工具面板「设置」「关卡」及 D-061 / D-064 GM、D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 / D-080 / D-091 以外的后续功能；完整 polish；未写入本表的需求
 - 打表全量 §9 列/类型校验（[SPEC_04 §14](SPEC_04_Technical.md) Demo 仅文件名+表头；schema 校验后置）
 
 实现边界对照：[SPEC_04 §6](SPEC_04_Technical.md)。
@@ -1055,6 +1063,8 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-088 | Level route progress save (Approach A): persist cleared `GameplayOptionId`s per slot+CampaignMode; `TryEnterLevel` hydrates Cleared and derives Unlocked; write on clear; no in-progress option; keep Cleared after level victory; delete slot clears keys | P0 | **Done** (`LevelRouteProgressService` + Driver hydrate; Play Mode checkboxes for owner) |
 | D-089 | Combat indicator (UI-033 / Approach A): PushMap + SearchExtract **Combat only** top-center ally/enemy unit-slot HUD (`y=-10`, `scale=0.75`); alive counts inside `CenterBg` left/right halves (BestFit 26–42; enemy `?` until first `>0` this battle); silhouettes from class/monster tables; HP% four tints; permanent-dead gray+X then remove after 0.5s and re-align; revivable monsters count as alive; Rebels excluded from both sides; single-row truncate (no wrap); 0.2s Snapshot poll (no combat hot-path events); Defend unwired | P1 | TBD (issues `.scratch/combat-indicator/`) |
 | D-090 | Off-screen spawn edge hint (UI-034 / Approach A): PushMap + SearchExtract **Combat real spawns only**; gate = group `basePos` outside viewport; edge `EnemyAttack_1` 2 red blinks in 0.4s then hold 2s at scale 1.3; Prepare preview skipped; multi-group independent; clear on leave Combat; Defend unwired | P1 | TBD (issues `.scratch/offscreen-spawn-hint/`) |
+| D-091 | ProtagonistEquipment Revive Shovel `Equip_ReviveShovel` (Mode2): 5-level rows + player DigAction grave-clear roll `DigOnGraveClear` 20/40/60/80/100% by level; reuse Lightning primary-hand scan → WarriorPool + `DigLightningPreviewSec_2` preview (**no** bolt VFX, **no** loot skip); blast/lightning clears do not trigger; Dig HUD GM grant | P1 | **Done** (Approach A: `DigReviveShovelEffectConfig` + `DigSessionService`) |
+| D-092 | Formation tactical-squad rotate + scroll zoom (Approach A): while LMB holding/dragging a squad, `Q`/`E` instantly rotate ±15° about center; re-Evaluate keeps player facing for already-active squads; formation scroll zoom step/clamp same as Combat (`CameraZoomStepPerNotch` / `CameraOrthoSizeMin`/`Max`); ignore when pointer over soldier bar / blocking UI | P1 | **Done** (Approach A: `TryApplySquadYawDelta` + `FormationEditorController`) |
 
 **Out of Demo scope (still excluded):**
 
@@ -1065,7 +1075,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 - Full save schema beyond occupied flag + warrior pool + BattleFormation + **LevelRouteProgress** + minimal pipeline fields (Warehouse / Exp / Tech still TBD)
 - Exact OutsideMap spawn geometry / full obstacle-bake detail (Demo-min in §3.12 / [SPEC_04 §9.7](SPEC_04_Technical.md))
 - Full TechTree node values/icon polish & full feature-system enum (§3.13; canvas Approach A landed; not P0 here)
-- Tools entries beyond Settings / Level / D-061 / D-064 GM / D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 / D-080; full polish; anything not in this table
+- Tools entries beyond Settings / Level / D-061 / D-064 GM / D-067 / D-068 / D-069 / D-070 / D-071 / D-072 / D-073 / D-075 / D-076 / D-077 / D-078 / D-079 / D-080 / D-091; full polish; anything not in this table
 - Bake full §9 column/type validation ([SPEC_04 §14](SPEC_04_Technical.md) Demo: filename + header only; schema validation deferred)
 
 Boundary: [SPEC_04 §6](SPEC_04_Technical.md).
@@ -1986,6 +1996,7 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | 离开 | UM：「返回」关编辑器回主屏；Defend：「开战」（UI-009，≥1）关编辑器进 Combat |
 | Mode2 完成钮 | 仅 `FormationEditorRoot_Mode2`：`SoldierBar` 上方右侧 `CompleteButton`（UM/Prepare **均显示**）；其**正上方**叠放 `StartBattleButton`（Prepare 开战）；UM 宿主点击 Complete = 关编辑器并触发与主屏相同的阶段结束；Mode1 Prefab **无** Complete 钮 |
 | 战术阵型小队条 | **UI-030：** 左缘竖排已 snap 战术阵型小队图标按钮；点选高亮整队士兵栏成员（见 §3.18 / D-085） |
+| 阵型旋转 / 镜头 | 已激活整阵左键按住/拖动时 `Q`/`E` ±15°（§3.18 / D-092）；编辑器内滚轮缩放同 Combat 相机常量 |
 | 准备态可做 | 调整位置、上下阵（从已有士兵实例池选入/撤下）；**不可**在 Prepare 制造新士兵 |
 | 与防守关系 | `Prepare` 加载并允许改写布阵；开战瞬间按**当前**布阵部署（见 §3.12） |
 | 控制力 | 上下阵变更后立即重算控制力占用 / 失控档次 |
@@ -2333,6 +2344,7 @@ MaxHP = ceil(BodyLife + Str × MaxHpStrengthMult)
 | Leave | UM: Return closes editor; Defend: StartBattle (UI-009, ≥1) closes editor → Combat |
 | Mode2 Complete | `FormationEditorRoot_Mode2` only: `CompleteButton` above `SoldierBar` (right); `StartBattleButton` stacked **directly above** it (Prepare StartBattle); **Complete visible in UM and Prepare**; UM host click Complete = close editor + same stage end as main Complete; Mode1 Prefab has **no** Complete button |
 | Tactical squad strip | **UI-030:** left-edge icon buttons for snapped tactical squads; click highlights whole squad on soldier bar (§3.18 / D-085) |
+| Squad rotate / camera | While LMB holding/dragging an active squad: `Q`/`E` ±15° (§3.18 / D-092); editor scroll zoom uses Combat camera constants |
 | Prepare may | Positions + deploy/undeploy from instance pool; **no** manufacture |
 | Defend link | StartBattle deploys from **current** formation |
 | ControlPower | Recalculate immediately after deploy changes |
@@ -4190,15 +4202,19 @@ AutoManufacture stage
 | `EquipCommonExp` | 非负整数（或 number） |
 | `OwnedEquip[]` | `{ EquipId, Level, CurrentExp }[]` |
 
-键名意图见 [SPEC_04 §6](SPEC_04_Technical.md)；**PE-02 已实现**（`ProtagonistEquipmentService` + PlayerPrefs）。Dig caps 合并 **PE-03 已实现**（`TechTreeService` 科技+Dig 装备加法）。炸药事件调度 **D-077 已实现**（`DigExplosiveScheduler`）。引雷落雷调度 **D-078 已实现**（`DigLightningScheduler`）。
+键名意图见 [SPEC_04 §6](SPEC_04_Technical.md)；**PE-02 已实现**（`ProtagonistEquipmentService` + PlayerPrefs）。Dig caps 合并 **PE-03 已实现**（`TechTreeService` 科技+Dig 装备加法）。炸药事件调度 **D-077 已实现**（`DigExplosiveScheduler`）。引雷落雷调度 **D-078 已实现**（`DigLightningScheduler`）。复活铲清坟产兵 **D-091 已实现**（`DigReviveShovelEffectConfig`）。
 
 **Dig 事件型效果（炸药）**
 
-仓内拥有且 `EffectDomain` 含 `Dig`、当前行含 `DigOnGraveClear` 时生效（Demo 装备=`Equip_Explosives`）。**仅**玩家 DigAction 直接消除的坟墓 HP 归零时按 Token 值掷概率（`_1` = 100%）；**爆炸伤害清坟不触发**新炸药桶。命中则：以该坟 `WorldPosition` 为圆心，在半径 `ExplosiveThrowRadius` 的圆环上均匀随机角度采样落点；落点须在地图可放置 IsoDiamond 内（`MapFootprintMath.ContainsXZ`），不合格重试至 `PlacementMaxRetries`；仍失败则 Warning 且本次不投掷。炸药桶飞行 `ExplosiveFlightSec` 后落地，再经 `ExplosiveFuseSec` 引信，对半径 `ExplosiveBlastRadius` 内未清除坟墓造成 `ExplosiveBlastDamage`（**独立于** `DigDamage`；爆炸清坟仍正常结算掉落/奖励）。爆炸瞬间在落点显示与地板同倾角的红色半透明圆圈，持续 `ExplosiveRingSec` 后消失。表现精灵 `ZYT_1`（`Art/Defend/Projectile/ZYT_1.png`）。**引雷 `ClearGraveByLightning` 删除的坟墓不走本流程。**
+仓内拥有 `Equip_Explosives` 且 `EffectDomain` 含 `Dig`、当前行可解析 `DigOnGraveClear` + `Explosive*` 时生效（`DigOnGraveClear` **非**炸药独占，复活铲亦可解析该键）。**仅**玩家 DigAction 直接消除的坟墓 HP 归零时按 Token 值掷概率（`_1` = 100%）；**爆炸伤害清坟不触发**新炸药桶。命中则：以该坟 `WorldPosition` 为圆心，在半径 `ExplosiveThrowRadius` 的圆环上均匀随机角度采样落点；落点须在地图可放置 IsoDiamond 内（`MapFootprintMath.ContainsXZ`），不合格重试至 `PlacementMaxRetries`；仍失败则 Warning 且本次不投掷。炸药桶飞行 `ExplosiveFlightSec` 后落地，再经 `ExplosiveFuseSec` 引信，对半径 `ExplosiveBlastRadius` 内未清除坟墓造成 `ExplosiveBlastDamage`（**独立于** `DigDamage`；爆炸清坟仍正常结算掉落/奖励）。爆炸瞬间在落点显示与地板同倾角的红色半透明圆圈，持续 `ExplosiveRingSec` 后消失。表现精灵 `ZYT_1`（`Art/Defend/Projectile/ZYT_1.png`）。**引雷 `ClearGraveByLightning` 删除的坟墓不走本流程。** 与复活铲同一次玩家清坟可各自掷概率、互不抢占。
 
 **Dig 事件型效果（引雷）**
 
-仓内拥有且 `EffectDomain` 含 `Dig`、当前行可解析 `DigLightningIntervalSec`（>0）时生效（Demo 装备=`Equip_Elctr`）。仅在 Dig **有效倒计时未归零** 期间 Tick。阶段 `Begin` 后先等待 **完整** 当前间隔再落第一次（Lv1=15s，Lv2=13s，Lv3=11s，Lv4=9s，Lv5=7s）；之后每满一间隔再落。升级即时改间隔：等待剩余大于新间隔则钳制到新间隔。每次落雷：若场上有未清除坟墓，等权随机一座；否则在可放置 IsoDiamond 内随机一点（避障规则同坟墓生成采样，`PlacementMaxRetries`）。命中坟墓时：按该坟品质 `LootDrop` **表项扫描**（`LootDropParser.ParseWeighted`，**不**掷 `DropMode`）收集 `IsPrimaryHand=1` 的躯体材料；多件等权随机一件；取其 `ClassRestrict`（多值 `|` 则等权随机一个 ClassId）与 `RaceId`，按 GM 发兵同款写入 `WarriorPool`（Dig 中 **不**自动布阵）。无主要手或 `ClassRestrict` 空 → **仍删除该坟、不产兵**。删除走 `ClearGraveByLightning`：**不**结算 LootDrop 入仓、**不**飞 DigReward、**不**触发 `DigOnGraveClear`/炸药。无坟落点只播闪电、不产兵。表现：落点播放一次序列帧 `Art/Defend/Projectile/ShanDian_1/Elctr_0`～`Elctr_3`（**4 帧**，`DigLightningFrameSec` 默认 0.05s，总约 0.20s）；**每一帧**以其 Sprite **CustomPivot** 锚定在落点（坟墓中心 / 无坟随机点）；若产兵则在坟位 Instantiate 该兵 `AppearanceId` 模型（预览 **Scale XYZ=2**）、待机 `DigLightningPreviewSec`（默认 2s）后销毁 **View**（士兵实例保留；预览放大不写入实例）。
+仓内拥有且 `EffectDomain` 含 `Dig`、当前行可解析 `DigLightningIntervalSec`（>0）时生效（Demo 装备=`Equip_Elctr`）。仅在 Dig **有效倒计时未归零** 期间 Tick。阶段 `Begin` 后先等待 **完整** 当前间隔再落第一次（Lv1=15s，Lv2=13s，Lv3=11s，Lv4=9s，Lv5=7s）；之后每满一间隔再落。升级即时改间隔：等待剩余大于新间隔则钳制到新间隔。每次落雷：若场上有未清除坟墓，等权随机一座；否则在可放置 IsoDiamond 内随机一点（避障规则同坟墓生成采样，`PlacementMaxRetries`）。命中坟墓时：按该坟品质 `LootDrop` **表项扫描**（`LootDropParser.ParseWeighted`，**不**掷 `DropMode`）收集 `IsPrimaryHand=1` 的躯体材料；多件等权随机一件；取其 `ClassRestrict`（多值 `|` 则等权随机一个 ClassId）与 `RaceId`，按 GM 发兵同款写入 `WarriorPool`（Dig 中 **不**自动布阵）。无主要手或 `ClassRestrict` 空 → **仍删除该坟、不产兵**。删除走 `ClearGraveByLightning`：**不**结算 LootDrop 入仓、**不**飞 DigReward、**不**触发 `DigOnGraveClear`/炸药/复活铲。无坟落点只播闪电、不产兵。表现：落点播放一次序列帧 `Art/Defend/Projectile/ShanDian_1/Elctr_0`～`Elctr_3`（**4 帧**，`DigLightningFrameSec` 默认 0.05s，总约 0.20s）；**每一帧**以其 Sprite **CustomPivot** 锚定在落点（坟墓中心 / 无坟随机点）；若产兵则在坟位 Instantiate 该兵 `AppearanceId` 模型（预览 **Scale XYZ=2**）、待机 `DigLightningPreviewSec`（默认 2s）后销毁 **View**（士兵实例保留；预览放大不写入实例）。
+
+**Dig 事件型效果（复活铲）**
+
+仓内拥有 `Equip_ReviveShovel` 且 `EffectDomain` 含 `Dig`、当前行可解析 `DigOnGraveClear`（>0）时生效（Mode2 Demo；`DigLightningPreviewSec` 默认 2）。**仅**玩家 DigAction 直接消除的坟墓 HP 归零时按 Token 值掷概率（L1=`_0.2` … L5=`_1`）；**爆炸清坟与引雷 `ClearGraveByLightning` 不触发**。命中则对**刚挖开的这座坟**复用引雷产兵路径：扫描该坟品质 **未结算** `LootDrop` 表项（`LootDropParser.ParseWeighted`，**不**掷 `DropMode`）中 `IsPrimaryHand=1`；多件等权随机一件；取其 `ClassRestrict`（多值 `|` 则等权随机一个 ClassId）与 `RaceId`，按 GM 发兵同款写入 `WarriorPool`（Dig 中 **不**自动布阵）。无主要手或 `ClassRestrict` 空 → **不产兵**。该坟 **仍**正常结算 LootDrop 入仓、飞 DigReward，且可同时触发炸药。表现：若产兵则坟位 Instantiate 该兵 `AppearanceId` 模型（预览 **Scale XYZ=2**）、待机 `DigLightningPreviewSec` 后销毁 **View**（与引雷共用预览通道；**不**播 `Elctr_*` 闪电序列帧）。
 
 **正式仓 UI（本轮只读；UI-022 / D-067）**
 
@@ -4225,6 +4241,7 @@ AutoManufacture stage
 | `Equip_HumanToken` | 人类信物 | 1～5 | `Dig` | 静态：Q16～Q19 生成权重累计 L1=`_10` … L5=`_30`（`GraveSpawnWeightBonus_Q16_*\|…_Q19_*`）；表缺席视为 0 再插入 | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
 | `Equip_ElfToken` | 精灵信物 | 1～5 | `Dig` | 静态：Q20～Q23 生成权重累计 L1=`_10` … L5=`_30` | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
 | `Equip_OrcToken` | 兽人信物 | 1～5 | `Dig` | 静态：Q24～Q27 生成权重累计 L1=`_10` … L5=`_30` | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
+| `Equip_ReviveShovel` | 复活铲 | 1～5 | `Dig` | 事件：`DigOnGraveClear_{0.2/0.4/0.6/0.8/1}` + `DigLightningPreviewSec_2`（Mode2） | L1–4 = **1**；L5 空 | Mode2 样例 ConvertExp 为 1～5 |
 
 **明确非范围（本轮规则录入）**
 
@@ -4299,15 +4316,19 @@ RecalcCaps
 | `EquipCommonExp` | Non-negative |
 | `OwnedEquip[]` | `{ EquipId, Level, CurrentExp }[]` |
 
-Key intent: [SPEC_04 §6](SPEC_04_Technical.md); **PE-02 implemented** (`ProtagonistEquipmentService` + PlayerPrefs). Dig caps merge **PE-03 implemented** (`TechTreeService` tech + Dig gear additive). Explosive event scheduler **D-077 implemented** (`DigExplosiveScheduler`). Lightning scheduler **D-078 implemented** (`DigLightningScheduler`).
+Key intent: [SPEC_04 §6](SPEC_04_Technical.md); **PE-02 implemented** (`ProtagonistEquipmentService` + PlayerPrefs). Dig caps merge **PE-03 implemented** (`TechTreeService` tech + Dig gear additive). Explosive event scheduler **D-077 implemented** (`DigExplosiveScheduler`). Lightning scheduler **D-078 implemented** (`DigLightningScheduler`). Revive-shovel grave-clear spawn **D-091 implemented** (`DigReviveShovelEffectConfig`).
 
 **Dig event effects (Explosives)**
 
-Applies while owned, `EffectDomain` includes `Dig`, and the current row contains `DigOnGraveClear` (Demo gear = `Equip_Explosives`). On **player DigAction** grave HP reaching 0 only, roll the token value (`_1` = 100%); **graves cleared by blast damage do not** trigger a new barrel. On hit: sample a landing point on the circle of radius `ExplosiveThrowRadius` around that grave’s `WorldPosition`; the point must lie in the placeable IsoDiamond (`MapFootprintMath.ContainsXZ`); retry up to `PlacementMaxRetries`; if all fail, Warning and skip this throw. The barrel flies for `ExplosiveFlightSec`, then fuses for `ExplosiveFuseSec`, then deals `ExplosiveBlastDamage` to uncleared graves within `ExplosiveBlastRadius` (**independent of** `DigDamage`; blast clears still settle loot/rewards normally). At blast, show a red translucent disc matching floor tilt for `ExplosiveRingSec`. Sprite `ZYT_1` (`Art/Defend/Projectile/ZYT_1.png`). Graves removed by lightning `ClearGraveByLightning` **do not** enter this path.
+Applies while `Equip_Explosives` is owned, `EffectDomain` includes `Dig`, and the current row parses `DigOnGraveClear` + `Explosive*` (`DigOnGraveClear` is **not** explosives-only; Revive Shovel may parse the same key). On **player DigAction** grave HP reaching 0 only, roll the token value (`_1` = 100%); **graves cleared by blast damage do not** trigger a new barrel. On hit: sample a landing point on the circle of radius `ExplosiveThrowRadius` around that grave’s `WorldPosition`; the point must lie in the placeable IsoDiamond (`MapFootprintMath.ContainsXZ`); retry up to `PlacementMaxRetries`; if all fail, Warning and skip this throw. The barrel flies for `ExplosiveFlightSec`, then fuses for `ExplosiveFuseSec`, then deals `ExplosiveBlastDamage` to uncleared graves within `ExplosiveBlastRadius` (**independent of** `DigDamage`; blast clears still settle loot/rewards normally). At blast, show a red translucent disc matching floor tilt for `ExplosiveRingSec`. Sprite `ZYT_1` (`Art/Defend/Projectile/ZYT_1.png`). Graves removed by lightning `ClearGraveByLightning` **do not** enter this path. The same player clear may also roll Revive Shovel independently.
 
 **Dig event effects (Lightning)**
 
-Applies while owned, `EffectDomain` includes `Dig`, and the current row parses `DigLightningIntervalSec` > 0 (Demo gear = `Equip_Elctr`). Ticks only while Dig effective duration has not reached 0. After stage `Begin`, wait a **full** current interval before the first strike (Lv1=15s, Lv2=13s, Lv3=11s, Lv4=9s, Lv5=7s); then repeat each interval. Level-up updates the interval immediately (clamp remaining wait to the new interval if larger). Each strike: if any uncleared grave exists, pick one uniformly; else sample a placeable IsoDiamond point (same obstacle retries as grave spawn, `PlacementMaxRetries`). On a grave: scan that quality’s `LootDrop` **table entries** (`LootDropParser.ParseWeighted`, **no** `DropMode` roll) for `IsPrimaryHand=1` body parts; if several, pick one uniformly; take `ClassRestrict` (if `|`-separated, pick one ClassId uniformly) and `RaceId`, grant via the same path as GM soldier grant into `WarriorPool` (**no** auto-deploy during Dig). No primary hand or empty `ClassRestrict` → **still delete the grave, spawn no soldier**. Deletion uses `ClearGraveByLightning`: **no** LootDrop warehouse credit, **no** DigReward flyer, **no** `DigOnGraveClear`/explosives. A no-grave landing plays lightning only. Presentation: play sequence `Art/Defend/Projectile/ShanDian_1/Elctr_0`–`Elctr_3` (**4 frames**, `DigLightningFrameSec` default 0.05s, ~0.20s total) once at the point; **each frame** anchors its Sprite **CustomPivot** to the strike point (grave center / no-grave sample); if a soldier was granted, Instantiate its `AppearanceId` model at the grave (preview **Scale XYZ=2**), idle for `DigLightningPreviewSec` (default 2s), then destroy the **View** (instance remains in the pool; preview scale is View-only).
+Applies while owned, `EffectDomain` includes `Dig`, and the current row parses `DigLightningIntervalSec` > 0 (Demo gear = `Equip_Elctr`). Ticks only while Dig effective duration has not reached 0. After stage `Begin`, wait a **full** current interval before the first strike (Lv1=15s, Lv2=13s, Lv3=11s, Lv4=9s, Lv5=7s); then repeat each interval. Level-up updates the interval immediately (clamp remaining wait to the new interval if larger). Each strike: if any uncleared grave exists, pick one uniformly; else sample a placeable IsoDiamond point (same obstacle retries as grave spawn, `PlacementMaxRetries`). On a grave: scan that quality’s `LootDrop` **table entries** (`LootDropParser.ParseWeighted`, **no** `DropMode` roll) for `IsPrimaryHand=1` body parts; if several, pick one uniformly; take `ClassRestrict` (if `|`-separated, pick one ClassId uniformly) and `RaceId`, grant via the same path as GM soldier grant into `WarriorPool` (**no** auto-deploy during Dig). No primary hand or empty `ClassRestrict` → **still delete the grave, spawn no soldier**. Deletion uses `ClearGraveByLightning`: **no** LootDrop warehouse credit, **no** DigReward flyer, **no** `DigOnGraveClear`/explosives/Revive Shovel. A no-grave landing plays lightning only. Presentation: play sequence `Art/Defend/Projectile/ShanDian_1/Elctr_0`–`Elctr_3` (**4 frames**, `DigLightningFrameSec` default 0.05s, ~0.20s total) once at the point; **each frame** anchors its Sprite **CustomPivot** to the strike point (grave center / no-grave sample); if a soldier was granted, Instantiate its `AppearanceId` model at the grave (preview **Scale XYZ=2**), idle for `DigLightningPreviewSec` (default 2s), then destroy the **View** (instance remains in the pool; preview scale is View-only).
+
+**Dig event effects (Revive Shovel)**
+
+Applies while `Equip_ReviveShovel` is owned, `EffectDomain` includes `Dig`, and the current row parses `DigOnGraveClear` > 0 (Mode2 Demo; `DigLightningPreviewSec` default 2). On **player DigAction** grave HP reaching 0 only, roll the token (L1=`_0.2` … L5=`_1`); **blast clears and lightning `ClearGraveByLightning` do not** trigger. On hit, reuse the Lightning soldier-grant path on **that just-cleared grave**: scan the quality’s **unsettled** `LootDrop` table entries (`LootDropParser.ParseWeighted`, **no** `DropMode` roll) for `IsPrimaryHand=1`; if several, pick one uniformly; take `ClassRestrict` (if `|`-separated, pick one ClassId uniformly) and `RaceId`, grant via the same path as GM soldier grant into `WarriorPool` (**no** auto-deploy during Dig). No primary hand or empty `ClassRestrict` → **spawn no soldier**. The grave **still** settles LootDrop into warehouse and flies DigReward, and may also trigger explosives. Presentation: if a soldier was granted, Instantiate its `AppearanceId` model at the grave (preview **Scale XYZ=2**), idle for `DigLightningPreviewSec`, then destroy the **View** (shared preview channel with Lightning; **no** `Elctr_*` bolt frames).
 
 **Formal warehouse UI (read-only this round; UI-022 / D-067)**
 
@@ -4334,6 +4355,7 @@ Only the current-level row applies, so `EquipEffect` is the **cumulative** bonus
 | `Equip_HumanToken` | Human Token | 1–5 | `Dig` | Static: Q16–Q19 spawn-weight cumulative L1=`_10` … L5=`_30` (`GraveSpawnWeightBonus_Q16_*\|…_Q19_*`); missing table Id = 0 then insert | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
 | `Equip_ElfToken` | Elf Token | 1–5 | `Dig` | Static: Q20–Q23 spawn-weight cumulative L1=`_10` … L5=`_30` | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
 | `Equip_OrcToken` | Orc Token | 1–5 | `Dig` | Static: Q24–Q27 spawn-weight cumulative L1=`_10` … L5=`_30` | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
+| `Equip_ReviveShovel` | Revive Shovel | 1–5 | `Dig` | Event: `DigOnGraveClear_{0.2/0.4/0.6/0.8/1}` + `DigLightningPreviewSec_2` (Mode2) | L1–4 = **1**; L5 empty | Mode2 sample ConvertExp 1–5 |
 
 **Out of scope this rules pass**
 
@@ -4497,6 +4519,9 @@ Mode1 / Mode2 **共用机制**；配置表按 `CampaignMode` 各自 CSV 根（[S
 | 不足 Min | **不组阵**；若先前已 snap → **退回**职业区螺旋位（D-052 同算法） |
 | 超额 | 超出 `MaxMemberCount` 或槽位数 → 余兵留职业区，仍可单兵拖拽 |
 | 拖拽 | 组阵成员 **禁止**单独拖散；命中任一成员 = **整阵**拖动（只改中心，保持相对偏移与朝向） |
+| 旋转（Q/E） | 整阵左键**按住/拖动**期间：`Q` = 逆时针、`E` = 顺时针，每按一次绕当前阵心旋转 **`FormationRotateStepDegrees=15`**；即时写回成员坐标与会话态 `FacingYawDegrees`；松手仍只结算平移。未按住整阵时 Q/E **无效** |
+| 朝向保留 | 首次激活仍按地图目标自动朝向；**已激活**同 `FormationId` 再 `EvaluateAndApply` 时 **保留** 既有 `FacingYawDegrees`（含玩家旋转），避免冲掉朝向 |
+| 布阵滚轮 | 共享 `FormationEditor` 打开时：鼠标滚轮拉近/拉远；步进/夹限与 Combat 相同（`CameraZoomStepPerNotch` / `CameraOrthoSizeMin` / `CameraOrthoSizeMax` ← `CameraPresentationConstants`）；指针在士兵栏等阻挡 UI 上时忽略 |
 | 小队条 UI | **UI-030 / D-085：** `FormationCanvas` 左缘列出已激活小队（图标按钮）；点击选中该小队 → 士兵栏仅高亮其成员；不改相机；整阵拖拽语义不变 |
 | 与羁绊 | 并行；不改变羁绊统计源（仍按上阵名单计数） |
 
@@ -4581,6 +4606,9 @@ Shared across Mode1 / Mode2; tables per `CampaignMode` CSV root ([SPEC_04 §14.5
 | Below Min | **No squad**; prior snap → **revert** to class-zone spiral (D-052 algorithm) |
 | Overflow | Beyond `MaxMemberCount` or slot count → extras stay in class zones, single-soldier drag OK |
 | Drag | Squad members **cannot** be dragged individually; hit any member → **whole squad** drag (center only, keep offsets/facing) |
+| Rotate (Q/E) | While LMB **holding/dragging** the squad: `Q` = CCW, `E` = CW, **`FormationRotateStepDegrees=15`** per press about current center; immediately writes member coords + session `FacingYawDegrees`; mouse-up still only commits translation. Q/E **ignored** when not holding a squad |
+| Facing keep | First activation still auto-faces map target; re-`EvaluateAndApply` for an **already-active** `FormationId` **keeps** prior `FacingYawDegrees` (incl. player rotate) |
+| Editor scroll zoom | While shared `FormationEditor` is open: mouse wheel zooms in/out; step/clamp same as Combat (`CameraZoomStepPerNotch` / `CameraOrthoSizeMin` / `CameraOrthoSizeMax` via `CameraPresentationConstants`); ignore when pointer over soldier bar / blocking UI |
 | Squad strip UI | **UI-030 / D-085:** left-edge icon buttons for active squads; click selects squad → soldier bar highlights only its members; no camera change; whole-squad drag unchanged |
 | vs bonds | Parallel; bond stats unchanged |
 

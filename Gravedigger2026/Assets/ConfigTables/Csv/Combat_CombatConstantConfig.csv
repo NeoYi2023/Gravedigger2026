@@ -53,6 +53,9 @@ StuckDisplacementEpsilon,卡死位移阈值,0.2,StuckHold displacement epsilon,�
 StuckHoldSeconds,卡死停顿时长,1,StuckHold force-Idle seconds,判定卡住后强制Idle的秒数
 ProjectileDefaultHitRadius,投射物默认命中半径,0.55,Default projectile soft-hit radius,远程投射物默认软命中半径（表缺列时兜底）
 DefendVictoryStageExp,防守胜利阶段经验,100,Defend victory Demo stage Exp,Defend清场胜利结算时入账的阶段经验
+NewSaveInitialSpiritCount,新建档初始精魂,30,Spirit credited on new SaveSlot create; no grant when <=0,新建存档入账 ItemId=Spirit 数量；<=0 不发放
+NewSaveInitialEquipments,新建档初始装备,Equip_IronShovel;1,EquipId;Level|EquipId;Level; empty=none,新建档初始装备；编码 EquipId;Level|…；空=不发
+NewSaveInitialMagicBooks,新建档初始魔法书,MagicBook_Restore,MagicBookId|MagicBookId; empty=none; left-to-right TryEquip,新建档初始魔法书；编码 MagicBookId|…；空=不发
 FlowFieldDefaultCellSize,流场默认格宽,0.5,FlowField default cell size,共享目标流场默认格子边长
 FlowFieldMinCellSize,流场最小格宽,0.25,FlowField min cell size,流场格宽下限（性能降级时可抬高）
 FlowFieldMaxCellSize,流场最大格宽,0.5,FlowField max cell size,流场格宽上限

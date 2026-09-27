@@ -247,6 +247,43 @@ namespace Gravedigger2026.Core.AutoManufacture
             }
         }
 
+        /// <summary>
+        /// New-save starter MagicBooks from <see cref="CombatConstantKeys.NewSaveInitialMagicBooks"/>
+        /// (SPEC_03 §3.4 / SPEC_04 §9.20b). Left→right <see cref="TryEquip"/>; failures Warning-skip.
+        /// </summary>
+        public void ApplyNewSaveGrants()
+        {
+            if (_slotIndex < 0)
+            {
+                return;
+            }
+
+            if (!_configs.TryGetCombatConstantText(
+                    CombatConstantKeys.NewSaveInitialMagicBooks,
+                    out var raw))
+            {
+                return;
+            }
+
+            var ids = NewSaveGrantParser.ParseMagicBooks(raw);
+            for (var i = 0; i < ids.Count; i++)
+            {
+                var id = ids[i];
+                if (!_configs.TryGetMagicBook(id, out var row) || row == null)
+                {
+                    Debug.LogWarning(
+                        $"[SpecialEquipSlots] NewSave grant skip: MagicBookId '{id}' not in MagicBookConfig.");
+                    continue;
+                }
+
+                if (!TryEquip(id, out var error))
+                {
+                    Debug.LogWarning(
+                        $"[SpecialEquipSlots] NewSave grant failed '{id}': {error}");
+                }
+            }
+        }
+
         private void Persist()
         {
             if (_slotIndex < 0)

@@ -345,6 +345,8 @@ namespace Gravedigger2026.Gameplay.Formation
                 return;
             }
 
+            HandleEditorScrollZoom();
+
             if (_dragKind != DragKind.None)
             {
                 HideHoverTooltip();
@@ -379,6 +381,11 @@ namespace Gravedigger2026.Gameplay.Formation
                         }
                     }
                 }
+            }
+
+            if (_squadDrag)
+            {
+                HandleSquadRotateKeys(mouse);
             }
 
             UpdateDragFollow(mouse);
@@ -761,6 +768,134 @@ namespace Gravedigger2026.Gameplay.Formation
             _squadDragOrigZ.Clear();
             _squadDragAnchorX = 0f;
             _squadDragAnchorZ = 0f;
+        }
+
+        /// <summary>
+        /// D-092: Q = CCW (−15°), E = CW (+15°) while LMB holding/dragging a squad.
+        /// Instantly writes formation + facing; re-samples drag origins so translate stays relative.
+        /// </summary>
+        private void HandleSquadRotateKeys(Vector2 screenPos)
+        {
+            if (_layout == null || _formation == null || string.IsNullOrEmpty(_dragWarriorId))
+            {
+                return;
+            }
+
+            var delta = 0f;
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                delta = -TacticalFormationLayoutService.FormationRotateStepDegrees;
+            }
+            else if (Input.GetKeyDown(KeyCode.E))
+            {
+                delta = TacticalFormationLayoutService.FormationRotateStepDegrees;
+            }
+
+            if (Mathf.Abs(delta) < 0.01f)
+            {
+                return;
+            }
+
+            _suppressAutoDeployRefresh = true;
+            try
+            {
+                if (!_layout.TryApplySquadYawDelta(_formation, _dragWarriorId, delta))
+                {
+                    return;
+                }
+            }
+            finally
+            {
+                _suppressAutoDeployRefresh = false;
+            }
+
+            if (!RecaptureSquadDragOrigins(_dragWarriorId))
+            {
+                return;
+            }
+
+            // Re-apply current pointer translate on top of rotated origins (or show rotated pose if pick fails).
+            if (_battlefieldPreview == null)
+            {
+                return;
+            }
+
+            if (!TryScreenToMapXZ(screenPos, out _, out _))
+            {
+                for (var i = 0; i < _squadDragIds.Count; i++)
+                {
+                    _battlefieldPreview.SetPreviewMapRel(
+                        _squadDragIds[i],
+                        _squadDragOrigX[i],
+                        _squadDragOrigZ[i]);
+                }
+
+                return;
+            }
+
+            UpdateSquadPreviewFollow(screenPos);
+        }
+
+        private bool RecaptureSquadDragOrigins(string warriorId)
+        {
+            if (_layout == null
+                || _formation == null
+                || string.IsNullOrEmpty(warriorId)
+                || !_layout.TryGetSquadByMember(warriorId, out var squad)
+                || squad == null
+                || squad.MemberIds == null
+                || squad.MemberIds.Length == 0
+                || !_formation.TryGetEntry(warriorId, out var anchor)
+                || anchor == null)
+            {
+                return false;
+            }
+
+            _squadDragIds.Clear();
+            _squadDragOrigX.Clear();
+            _squadDragOrigZ.Clear();
+            _squadDragAnchorX = anchor.PositionX;
+            _squadDragAnchorZ = anchor.PositionZ;
+            for (var i = 0; i < squad.MemberIds.Length; i++)
+            {
+                var id = squad.MemberIds[i];
+                if (!_formation.TryGetEntry(id, out var entry) || entry == null)
+                {
+                    continue;
+                }
+
+                _squadDragIds.Add(id);
+                _squadDragOrigX.Add(entry.PositionX);
+                _squadDragOrigZ.Add(entry.PositionZ);
+            }
+
+            _squadDrag = _squadDragIds.Count > 0;
+            return _squadDrag;
+        }
+
+        /// <summary>
+        /// D-092: scroll zoom — same step/clamp as PushMap Combat (<see cref="CameraPresentationConstants"/>).
+        /// Ignores soldier bar / blocking buttons (bar horizontal scroll must keep the wheel).
+        /// </summary>
+        private void HandleEditorScrollZoom()
+        {
+            if (_editorCamera == null || IsPointerOverSoldierBar() || IsPointerOverBlockingUi())
+            {
+                return;
+            }
+
+            var scroll = Input.mouseScrollDelta.y;
+            if (Mathf.Abs(scroll) < 0.01f)
+            {
+                return;
+            }
+
+            var cam = _configs != null
+                ? _configs.GetCameraPresentationConstants()
+                : CameraPresentationConstants.SafetyDefaults;
+            var step = Mathf.Max(0.01f, cam.ZoomStepPerNotch);
+            var size = _editorCamera.orthographicSize - scroll * step;
+            _editorCamera.orthographicSize = Mathf.Clamp(size, cam.OrthoSizeMin, cam.OrthoSizeMax);
         }
 
         private void EnsureOneClickDeployButton()

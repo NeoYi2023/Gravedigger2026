@@ -70,6 +70,8 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<int, LossOfControlConfigRow>();
         private readonly Dictionary<string, float> _combatConstantByKey =
             new Dictionary<string, float>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _combatConstantTextByKey =
+            new Dictionary<string, string>(StringComparer.Ordinal);
         private readonly List<TechTreeConfigRow> _techTreeRows = new List<TechTreeConfigRow>();
         private readonly Dictionary<string, TechTreeConfigRow> _techTreeById =
             new Dictionary<string, TechTreeConfigRow>(StringComparer.Ordinal);
@@ -163,6 +165,7 @@ namespace Gravedigger2026.Core.Config
             _appearanceById.Clear();
             _lossOfControlByTier.Clear();
             _combatConstantByKey.Clear();
+            _combatConstantTextByKey.Clear();
             _techTreeRows.Clear();
             _techTreeById.Clear();
             _techEffectById.Clear();
@@ -743,10 +746,27 @@ namespace Gravedigger2026.Core.Config
             return _lossOfControlByTier.TryGetValue(tierId, out row);
         }
 
-        /// <summary>Combat_CombatConstantConfig lookup (SPEC_04 §9.20b).</summary>
+        /// <summary>Combat_CombatConstantConfig numeric lookup (SPEC_04 §9.20b).</summary>
         public bool TryGetCombatConstant(string constantKey, out float value)
         {
             return _combatConstantByKey.TryGetValue(constantKey ?? string.Empty, out value);
+        }
+
+        /// <summary>
+        /// Combat_CombatConstantConfig text-key lookup (SPEC_04 §9.20b).
+        /// Missing key or empty Value → false / empty string (treat as no grant).
+        /// </summary>
+        public bool TryGetCombatConstantText(string constantKey, out string value)
+        {
+            value = string.Empty;
+            if (!_combatConstantTextByKey.TryGetValue(constantKey ?? string.Empty, out var raw)
+                || string.IsNullOrEmpty(raw))
+            {
+                return false;
+            }
+
+            value = raw;
+            return true;
         }
 
         /// <summary>
@@ -2887,8 +2907,20 @@ namespace Gravedigger2026.Core.Config
                         $"{table} row {rowIndex}: duplicate ConstantKey '{key}'.");
                 }
 
-                var value = RequireFloat(raw, "Value", table, rowIndex);
-                _combatConstantByKey[key] = value;
+                var valueText = OptionalText(raw, "Value");
+                if (float.TryParse(
+                        valueText,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out var numeric))
+                {
+                    _combatConstantByKey[key] = numeric;
+                }
+                else
+                {
+                    // Text keys (e.g. NewSaveInitialEquipments); empty string is a valid "no grant".
+                    _combatConstantTextByKey[key] = valueText ?? string.Empty;
+                }
             }
 
             CombatRuntimeTuning.ApplyFromRepository(this);
