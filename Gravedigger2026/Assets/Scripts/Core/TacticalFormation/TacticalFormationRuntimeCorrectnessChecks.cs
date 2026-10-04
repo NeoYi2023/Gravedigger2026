@@ -49,9 +49,212 @@ namespace Gravedigger2026.Core.TacticalFormation
             CheckTwoGroupsSameFormationIndependentLevel(sb);
             CheckDuplicateFormationCompositeKeyThrows(sb);
             CheckManualGroupSession(sb);
+            CheckPreferredClassSoftAssign(sb);
+            CheckPreferredClassPullsBeyondTruncate(sb);
             CheckCatalogFillsFromSoldierBar(sb);
             CheckSearchExtractLayoutKeepsGroupOffset(sb);
+            CheckFrontArc90(sb);
+            CheckBodyContactHoldSwing(sb);
+            CheckRearSlotFillsLowerVacancy(sb);
+            CheckFormationSlotIgnoresIncomingPush(sb);
+            CheckStatMulSurvivesSlotFill(sb);
             return sb.Length == 0 ? null : sb.ToString();
+        }
+
+        private static void CheckFrontArc90(StringBuilder sb)
+        {
+            if (!TacticalFormationCombatGoalPolicy.IsInsideFrontArc(
+                    Vector2.zero,
+                    new Vector2(0f, 2f),
+                    0f,
+                    90f))
+            {
+                sb.AppendLine("FrontArc: +Z should be inside a 90° arc facing +Z.");
+            }
+
+            if (TacticalFormationCombatGoalPolicy.IsInsideFrontArc(
+                    Vector2.zero,
+                    new Vector2(2f, 0f),
+                    0f,
+                    90f))
+            {
+                sb.AppendLine("FrontArc: +X should be outside a 90° arc facing +Z.");
+            }
+        }
+
+        private static void CheckBodyContactHoldSwing(StringBuilder sb)
+        {
+            if (!TacticalFormationCombatGoalPolicy.IsBodyContact(1f, 0.5f, 0.5f))
+            {
+                sb.AppendLine("BodyContact: radii 0.5+0.5 should touch at dist 1.");
+            }
+
+            if (TacticalFormationCombatGoalPolicy.IsBodyContact(1.1f, 0.5f, 0.5f))
+            {
+                sb.AppendLine("BodyContact: dist 1.1 should not touch radii 0.5+0.5.");
+            }
+
+            // Behind the soldier (facing +Z), touching → eligible (D-096).
+            if (!TacticalFormationCombatGoalPolicy.IsEligibleHoldSwingTarget(
+                    Vector2.zero,
+                    new Vector2(0f, -0.9f),
+                    0f,
+                    90f,
+                    0.9f,
+                    0.5f,
+                    0.5f,
+                    0.5f))
+            {
+                sb.AppendLine("HoldSwing: rear body-contact should be eligible.");
+            }
+
+            // Behind, not touching → ineligible.
+            if (TacticalFormationCombatGoalPolicy.IsEligibleHoldSwingTarget(
+                    Vector2.zero,
+                    new Vector2(0f, -2f),
+                    0f,
+                    90f,
+                    2f,
+                    1.5f,
+                    0.5f,
+                    0.5f))
+            {
+                sb.AppendLine("HoldSwing: rear non-contact should stay ineligible.");
+            }
+
+            // Front, in AttackRange, not touching → eligible.
+            if (!TacticalFormationCombatGoalPolicy.IsEligibleHoldSwingTarget(
+                    Vector2.zero,
+                    new Vector2(0f, 1.5f),
+                    0f,
+                    90f,
+                    1.5f,
+                    1f,
+                    0.5f,
+                    0.5f))
+            {
+                sb.AppendLine("HoldSwing: front in-range should stay eligible.");
+            }
+        }
+
+        private static void CheckRearSlotFillsLowerVacancy(StringBuilder sb)
+        {
+            var runtime = new TacticalFormationRuntimeService();
+            var locals = new[]
+            {
+                new Vector2(0f, 2f),
+                new Vector2(-1f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(0f, -1f),
+                new Vector2(0f, -2f)
+            };
+            runtime.OnStartBattle(
+                new[]
+                {
+                    new TacticalFormationCombatLock(
+                        "Form_Fill",
+                        new[] { "s0", "s1", "s2", "s3", "s4" },
+                        locals,
+                        TacticalFormationMoveParams.CreateDefault(),
+                        Vector2.zero,
+                        0f,
+                        1,
+                        CombatStatMulBuff.Identity,
+                        Array.Empty<string>(),
+                        Array.Empty<string>())
+                },
+                TacticalFormationCenterMode.Hold,
+                0f);
+
+            if (!runtime.TryNotifyMemberLost("s1", TacticalFormationMemberLostReason.CombatDead, out var first)
+                || first.SquadDissolved)
+            {
+                sb.AppendLine("SlotFill: killing s1 should not dissolve.");
+                return;
+            }
+
+            runtime.FlushSlotFills();
+            runtime.TryGetSlotIndex("s4", out var s4);
+            runtime.TryGetSlotIndex("s0", out var s0);
+            runtime.TryGetSlotIndex("s2", out var s2);
+            runtime.TryGetSlotIndex("s3", out var s3);
+            if (s4 != 1 || s0 != 0 || s2 != 2 || s3 != 3)
+            {
+                sb.AppendLine($"SlotFill: s4 should take slot 1, others stay. s0={s0} s2={s2} s3={s3} s4={s4}.");
+            }
+
+            if (!runtime.TryGetSlotWorldXZ("s4", out var world) || (world - locals[1]).sqrMagnitude > 0.0001f)
+            {
+                sb.AppendLine($"SlotFill: s4 world should be slot 1 local {locals[1]}, got {world}.");
+            }
+
+            if (!runtime.TryNotifyMemberLost("s3", TacticalFormationMemberLostReason.CombatDead, out var maxDead)
+                || maxDead.SquadDissolved)
+            {
+                sb.AppendLine("SlotFill: killing current max should not dissolve.");
+                return;
+            }
+
+            runtime.FlushSlotFills();
+            runtime.TryGetSlotIndex("s4", out s4);
+            runtime.TryGetSlotIndex("s2", out s2);
+            runtime.TryGetSlotIndex("s0", out s0);
+            if (s4 != 1 || s2 != 2 || s0 != 0)
+            {
+                sb.AppendLine($"SlotFill: killing the highest index should not move others. s0={s0} s2={s2} s4={s4}.");
+            }
+        }
+
+        private static void CheckFormationSlotIgnoresIncomingPush(StringBuilder sb)
+        {
+            var scheduler = new MassMoveScheduler();
+            scheduler.Register(1, 0.4f, MassMoveScheduler.DetourGroupLoyal);
+            scheduler.Register(2, 0.4f, MassMoveScheduler.DetourGroupLoyal);
+            scheduler.SetGoal(1, GoalKind.FormationSlot, Vector2.zero);
+            scheduler.SetGoal(2, GoalKind.Objective);
+            var samples = new List<MassMoveSample>
+            {
+                new MassMoveSample(1, Vector2.zero, 0.4f, true),
+                new MassMoveSample(2, Vector2.zero, 0.4f, true)
+            };
+            scheduler.SoftCollisionMaxBodiesPerFrame = 8;
+            scheduler.Tick(samples, Dt);
+            if (!scheduler.TryGetCorrection(1, out var held) || held.sqrMagnitude > 1e-8f)
+            {
+                sb.AppendLine($"SlotAnchor: FormationSlot incoming correction should be 0, got {held}.");
+            }
+
+            if (!scheduler.TryGetCorrection(2, out var shoved) || shoved.sqrMagnitude < 1e-8f)
+            {
+                sb.AppendLine($"SlotAnchor: Objective neighbor should still be shoved, got {shoved}.");
+            }
+        }
+
+        private static void CheckStatMulSurvivesSlotFill(StringBuilder sb)
+        {
+            var mul = new CombatStatMulBuff(1f, 1.15f, 1f, 1f);
+            var runtime = StartOverlayRuntime(
+                "Form_Test",
+                new[] { "w1", "w2", "w3", "w4" },
+                minCount: 3,
+                mul);
+            if (!runtime.TryNotifyMemberLost("w1", TacticalFormationMemberLostReason.CombatDead, out var result)
+                || result.SquadDissolved)
+            {
+                sb.AppendLine("StatHold: killing one of four at Min 3 should keep the group.");
+                return;
+            }
+
+            runtime.FlushSlotFills();
+            if (!runtime.TryGetStatMul("w4", out var stayed) || Mathf.Abs(stayed.StrengthMul - 1.15f) > 0.0001f)
+            {
+                sb.AppendLine($"StatHold: survivor should keep Strength×1.15, got {stayed.StrengthMul}.");
+            }
+
+            if (runtime.TryGetStatMul("w1", out _))
+            {
+                sb.AppendLine("StatHold: dead member should not keep the formation mul.");
+            }
         }
 
         private static void CheckSlotWorldMatchesPrepareRotation(StringBuilder sb)
@@ -624,27 +827,29 @@ namespace Gravedigger2026.Core.TacticalFormation
             if (!configs.TryGetTacticalFormation("Form_Wedge_01", out var identity)
                 || identity == null
                 || identity.FormationLevel != 1
-                || identity.FormationSkillId != "Skill_Form_Wedge"
+                || identity.FormationSkillId != "Skill_Form_Wedge_01"
                 || identity.StatModifiers != "Stat=Strength|Mul=1.15")
             {
                 sb.AppendLine(
                     "FormationLevel: GrantFormationSkill identity Form_Wedge_01 should be level 1 Strength×1.15.");
             }
 
-            ExpectComputedFormationLevel(sb, configs, 4, 1, "Stat=Strength|Mul=1.15");
-            ExpectComputedFormationLevel(sb, configs, 5, 5, "Stat=Strength|Mul=1.30");
-            ExpectComputedFormationLevel(sb, configs, 9, 5, "Stat=Strength|Mul=1.30");
+            ExpectComputedFormationLevel(sb, configs, 4, 4, "Stat=Strength|Mul=1.30");
+            ExpectComputedFormationLevel(sb, configs, 5, 5, "Stat=Strength|Mul=1.35");
+            ExpectComputedFormationLevel(sb, configs, 9, 5, "Stat=Strength|Mul=1.35");
             if (configs.TryGetTacticalFormationForComputedLevel("Form_Wedge_01", 0, out _))
             {
                 sb.AppendLine("FormationLevel: computed level 0 should miss.");
             }
 
             var ids = configs.GetTacticalFormationIds();
-            if (ids == null || ids.Count != 2
+            if (ids == null || ids.Count != 4
                 || ids[0] != "Form_Wedge_01"
-                || ids[1] != "Form_Wedge_02")
+                || ids[1] != "Form_Wedge_02"
+                || ids[2] != "Form_Wedge_03"
+                || ids[3] != "Form_Wedge_04")
             {
-                sb.AppendLine("FormationLevel: catalog ids should be Form_Wedge_01 then Form_Wedge_02.");
+                sb.AppendLine("FormationLevel: catalog ids should be Form_Wedge_01 through Form_Wedge_04.");
             }
         }
 
@@ -800,11 +1005,14 @@ namespace Gravedigger2026.Core.TacticalFormation
 
             if (squads[0].ComputedLevel != 2
                 || squads[0].MatchedLevelRow == null
-                || squads[0].MatchedLevelRow.FormationLevel != 1)
+                || squads[0].MatchedLevelRow.FormationLevel != 2)
             {
+                var matched = squads[0].MatchedLevelRow == null
+                    ? "none"
+                    : squads[0].MatchedLevelRow.FormationLevel.ToString();
                 sb.AppendLine(
-                    "TFG-02: six Class_Warrior (level 2) should match FormationLevel 1, got level "
-                    + squads[0].ComputedLevel + ".");
+                    "TFG-02: six Class_Warrior (level 2) should match FormationLevel 2, got computed "
+                    + squads[0].ComputedLevel + " matched " + matched + ".");
             }
 
             var beforeThird = SnapshotPositions(formation);
@@ -1301,13 +1509,27 @@ namespace Gravedigger2026.Core.TacticalFormation
         private sealed class StubSlotPatterns : ITacticalFormationPatternLookup
         {
             private readonly Vector3[] _slots;
+            private readonly BaseClassKind[] _preferred;
 
             public StubSlotPatterns(int count)
+                : this(count, null)
+            {
+            }
+
+            public StubSlotPatterns(int count, BaseClassKind[] preferredClasses)
             {
                 _slots = new Vector3[count];
                 for (var i = 0; i < count; i++)
                 {
                     _slots[i] = new Vector3(i * 0.5f, 0f, 0f);
+                }
+
+                _preferred = new BaseClassKind[count];
+                for (var i = 0; i < count; i++)
+                {
+                    _preferred[i] = preferredClasses != null && i < preferredClasses.Length
+                        ? preferredClasses[i]
+                        : BaseClassKind.Unspecified;
                 }
             }
 
@@ -1317,10 +1539,200 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return _slots.Length > 0;
             }
 
+            public bool TryGetSlotPreferredClasses(string prefabId, out BaseClassKind[] preferredClasses)
+            {
+                preferredClasses = _preferred;
+                return _slots.Length > 0;
+            }
+
             public bool TryGetMoveParams(string prefabId, out TacticalFormationMoveParams moveParams)
             {
                 moveParams = TacticalFormationMoveParams.CreateDefault();
                 return true;
+            }
+        }
+
+        private static void CheckPreferredClassSoftAssign(StringBuilder sb)
+        {
+            var configs = new ConfigCsvRepository();
+            if (!configs.TryLoadAll(Gravedigger2026.Core.CampaignMode.Mode2))
+            {
+                sb.AppendLine("PreferredClass: Mode2 load failed: " + configs.LastError);
+                return;
+            }
+
+            if (!configs.TryGetTacticalFormation("Form_Wedge_03", out var row) || row == null)
+            {
+                sb.AppendLine("PreferredClass: missing Form_Wedge_03 identity row.");
+                return;
+            }
+
+            row.MinMemberCount = 6;
+            row.MaxMemberCount = 6;
+
+            var preferred = new[]
+            {
+                BaseClassKind.Unspecified,
+                BaseClassKind.Unspecified,
+                BaseClassKind.Unspecified,
+                BaseClassKind.Archer,
+                BaseClassKind.Archer,
+                BaseClassKind.Archer
+            };
+            var patterns = new StubSlotPatterns(6, preferred);
+            var pool = new WarriorPoolService();
+            var formation = new BattleFormationService(pool);
+            var layout = new TacticalFormationLayoutService();
+            var zones = new List<FormationClassZoneSnapshot>
+            {
+                new FormationClassZoneSnapshot("Class_Warrior", 0f, 0f, 40f, 40f)
+            };
+            var context = TacticalFormationLayoutContext.DefaultPlusZ(zones);
+
+            // Selection order: warrior, low archer, mid archer, high archer, warrior, high archer.
+            var classIds = new[]
+            {
+                "Class_BaseWarrior",
+                "Class_BaseArcher",
+                "Class_Archer",
+                "Class_Longbowman",
+                "Class_Warrior",
+                "Class_BombMaster"
+            };
+
+            for (var i = 0; i < classIds.Length; i++)
+            {
+                var id = "PC" + i.ToString("D2");
+                var warrior = new WarriorInstance
+                {
+                    Id = id,
+                    ClassId = classIds[i],
+                    RemainingHP = 10f
+                };
+                warrior.SoldierSkills.Add(new SoldierSkillEntry
+                {
+                    SkillId = "Skill_Form_Wedge_03",
+                    SkillLevel = 1
+                });
+                pool.Add(warrior);
+                if (!formation.TryDeployAt(id, i * 2f, 0f, out var error))
+                {
+                    sb.AppendLine("PreferredClass: deploy " + id + " failed: " + error);
+                    return;
+                }
+            }
+
+            if (!layout.TryCreateGroup("Form_Wedge_03", formation, pool, configs, patterns, context))
+            {
+                sb.AppendLine("PreferredClass: create should succeed.");
+                return;
+            }
+
+            var squads = new List<TacticalFormationSquadSnapshot>(2);
+            layout.CollectActiveSquads(squads);
+            if (squads.Count != 1 || squads[0].MemberIds == null || squads[0].MemberIds.Length != 6)
+            {
+                sb.AppendLine("PreferredClass: expected one group of 6.");
+                return;
+            }
+
+            var members = squads[0].MemberIds;
+            // Pass1 Archer slots 3..5 → Longbowman, BombMaster, Archer (ClassLevel 3,3,2).
+            // Pass2 Unspecified 0..2 → leftover selection order BaseWarrior, BaseArcher, Warrior.
+            var expected = new[] { "PC00", "PC01", "PC04", "PC03", "PC05", "PC02" };
+            for (var i = 0; i < expected.Length; i++)
+            {
+                if (!string.Equals(members[i], expected[i], StringComparison.Ordinal))
+                {
+                    sb.AppendLine(
+                        "PreferredClass: soft assign mismatch at slot " + i
+                        + " got=" + members[i] + " expected=" + expected[i]
+                        + " all=[" + string.Join(",", members) + "]");
+                    return;
+                }
+            }
+        }
+
+        private static void CheckPreferredClassPullsBeyondTruncate(StringBuilder sb)
+        {
+            var configs = new ConfigCsvRepository();
+            if (!configs.TryLoadAll(Gravedigger2026.Core.CampaignMode.Mode2))
+            {
+                sb.AppendLine("PreferredClass pull: Mode2 load failed: " + configs.LastError);
+                return;
+            }
+
+            var preferred = new[]
+            {
+                BaseClassKind.Warrior,
+                BaseClassKind.Warrior,
+                BaseClassKind.Unspecified
+            };
+            var patterns = new StubSlotPatterns(3, preferred);
+            var pool = new WarriorPoolService();
+            var formation = new BattleFormationService(pool);
+            var layout = new TacticalFormationLayoutService();
+            var zones = new List<FormationClassZoneSnapshot>
+            {
+                new FormationClassZoneSnapshot("Class_Warrior", 0f, 0f, 40f, 40f)
+            };
+            var context = TacticalFormationLayoutContext.DefaultPlusZ(zones);
+            var classIds = new[]
+            {
+                "Class_BaseArcher",
+                "Class_BaseMage",
+                "Class_BaseArcher",
+                "Class_Warrior",
+                "Class_BaseWarrior"
+            };
+            var ids = new[] { "A00", "M00", "A01", "W00", "W01" };
+            for (var i = 0; i < ids.Length; i++)
+            {
+                var warrior = new WarriorInstance
+                {
+                    Id = ids[i],
+                    ClassId = classIds[i],
+                    RemainingHP = 10f
+                };
+                warrior.SoldierSkills.Add(new SoldierSkillEntry
+                {
+                    SkillId = "Skill_Form_Wedge",
+                    SkillLevel = 1
+                });
+                pool.Add(warrior);
+                if (!formation.TryDeployAt(ids[i], i * 2f, 0f, out var error))
+                {
+                    sb.AppendLine("PreferredClass pull: deploy " + ids[i] + " failed: " + error);
+                    return;
+                }
+            }
+
+            if (!layout.TryCreateGroup("Form_Wedge_01", formation, pool, configs, patterns, context))
+            {
+                sb.AppendLine("PreferredClass pull: create should succeed.");
+                return;
+            }
+
+            var squads = new List<TacticalFormationSquadSnapshot>(2);
+            layout.CollectActiveSquads(squads);
+            if (squads.Count != 1 || squads[0].MemberIds == null || squads[0].MemberIds.Length != 3)
+            {
+                sb.AppendLine("PreferredClass pull: expected one group of 3.");
+                return;
+            }
+
+            var members = squads[0].MemberIds;
+            var expected = new[] { "W00", "W01", "A00" };
+            for (var i = 0; i < expected.Length; i++)
+            {
+                if (!string.Equals(members[i], expected[i], StringComparison.Ordinal))
+                {
+                    sb.AppendLine(
+                        "PreferredClass pull: slot " + i
+                        + " got=" + members[i] + " expected=" + expected[i]
+                        + " all=[" + string.Join(",", members) + "]");
+                    return;
+                }
             }
         }
 
@@ -1393,14 +1805,14 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return;
             }
 
-            if (!runtime.TryGetStatMul("a2", out var dropped) || Mathf.Abs(dropped.StrengthMul - 1.15f) > 0.0001f)
+            if (!runtime.TryGetStatMul("a2", out var dropped) || Mathf.Abs(dropped.StrengthMul - 1.30f) > 0.0001f)
             {
-                sb.AppendLine("TFG-05: group A average level 4 should drop to Strength×1.15.");
+                sb.AppendLine("TFG-05: group A average level 4 should use FormationLevel 4 Strength×1.30.");
             }
 
             if (runtime.GetExclusiveSkillIds("a2").Count != 0)
             {
-                sb.AppendLine("TFG-05: group A should take the level-1 row's empty exclusive skills.");
+                sb.AppendLine("TFG-05: group A should take the level-4 row's empty exclusive skills.");
             }
 
             if (!ContainsId(drop.OverlayRefreshedWarriorIds, "a2")

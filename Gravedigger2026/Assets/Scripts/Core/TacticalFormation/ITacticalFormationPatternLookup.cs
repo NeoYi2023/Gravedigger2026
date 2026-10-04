@@ -1,3 +1,4 @@
+using Gravedigger2026.Core.Config;
 using UnityEngine;
 
 namespace Gravedigger2026.Core.TacticalFormation
@@ -9,6 +10,12 @@ namespace Gravedigger2026.Core.TacticalFormation
     public interface ITacticalFormationPatternLookup
     {
         bool TryGetSlotLocalXZ(string prefabId, out Vector3[] slotLocalXZ);
+
+        /// <summary>
+        /// Preferred classes packed in the same order as <see cref="TryGetSlotLocalXZ"/>
+        /// (null slots skipped). Missing authoring → <see cref="BaseClassKind.Unspecified"/>.
+        /// </summary>
+        bool TryGetSlotPreferredClasses(string prefabId, out BaseClassKind[] preferredClasses);
 
         bool TryGetMoveParams(string prefabId, out TacticalFormationMoveParams moveParams);
     }

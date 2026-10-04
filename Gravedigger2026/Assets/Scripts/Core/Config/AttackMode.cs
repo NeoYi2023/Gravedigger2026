@@ -6,6 +6,8 @@ namespace Gravedigger2026.Core.Config
     public enum AttackMode
     {
         Melee = 0,
-        Ranged = 1
+        Ranged = 1,
+        /// <summary>Archer arc shot (SPEC_03 §3.12). Monsters do not use this value.</summary>
+        Parabola = 2
     }
 }

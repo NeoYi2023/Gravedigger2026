@@ -21,6 +21,9 @@ namespace Gravedigger2026.Core.Combat
 
         bool TryConfirmMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange);
 
+        /// <summary>Parabola temporary melee. View already checked ParabolaMeleeRange.</summary>
+        bool TryConfirmParabolaMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange);
+
         bool TryAcquireWarriorTarget(
             string warriorId,
             Vector2 warriorPositionXZ,

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.TacticalFormation;
 using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
@@ -72,6 +73,10 @@ namespace Gravedigger2026.Gameplay.Formation
                     _mapCenter.z + e.PositionZ);
                 TryApplyWarriorVisual(go, e.WarriorId, pool);
                 PreparePreviewVisual(go);
+                if (TryGetMemberFacingYaw(formation, e.WarriorId, out var yaw))
+                {
+                    ApplyFacingYaw(go, yaw);
+                }
             }
 
             var remove = new List<string>();
@@ -114,6 +119,26 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             return false;
+        }
+
+        /// <summary>D-095: rewrite grouped preview 8-dir from the squad yaw (ungrouped stays south).</summary>
+        public void ApplySquadFacing(string[] memberIds, float facingYawDegrees)
+        {
+            if (memberIds == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < memberIds.Length; i++)
+            {
+                var id = memberIds[i];
+                if (string.IsNullOrEmpty(id) || !_previews.TryGetValue(id, out var go) || go == null)
+                {
+                    continue;
+                }
+
+                ApplyFacingYaw(go, facingYawDegrees);
+            }
         }
 
         public void SetPreviewVisible(string warriorId, bool visible)
@@ -438,7 +463,69 @@ namespace Gravedigger2026.Gameplay.Formation
             }
         }
 
+        private static bool TryGetMemberFacingYaw(
+            BattleFormationService formation,
+            string warriorId,
+            out float yawDegrees)
+        {
+            yawDegrees = 0f;
+            var groups = formation != null ? formation.Groups : null;
+            if (groups == null || string.IsNullOrEmpty(warriorId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < groups.Count; i++)
+            {
+                var group = groups[i];
+                var members = group != null ? group.MemberIds : null;
+                if (members == null)
+                {
+                    continue;
+                }
+
+                for (var m = 0; m < members.Length; m++)
+                {
+                    if (!string.Equals(members[m], warriorId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    yawDegrees = group.FacingYawDegrees;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void ApplyFacingYaw(GameObject go, float facingYawDegrees)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var dirIndex = WarriorAnimView.DirIndexFromXZ(
+                TacticalFormationRuntimeService.FacingYawToWorldForward(facingYawDegrees));
+            var animators = go.GetComponentsInChildren<Animator>(true);
+            for (var i = 0; i < animators.Length; i++)
+            {
+                var animator = animators[i];
+                ApplyDirIndex(animator, dirIndex);
+                if (animator != null && animator.runtimeAnimatorController != null)
+                {
+                    animator.Update(0f);
+                }
+            }
+        }
+
         private static void ApplyFixedFacing(Animator animator, bool facingYawFlip = false)
+        {
+            ApplyDirIndex(animator, FixedDirIndex, facingYawFlip);
+        }
+
+        private static void ApplyDirIndex(Animator animator, int dirIndex, bool facingYawFlip = false)
         {
             if (animator == null || animator.runtimeAnimatorController == null)
             {
@@ -447,7 +534,7 @@ namespace Gravedigger2026.Gameplay.Formation
 
             var dirIndexHash = Animator.StringToHash(DirIndexParam);
             var directionHash = Animator.StringToHash("Direction");
-            var written = WarriorAnimView.ApplyFacingYawFlip(FixedDirIndex, facingYawFlip);
+            var written = WarriorAnimView.ApplyFacingYawFlip(dirIndex, facingYawFlip);
 
             foreach (var p in animator.parameters)
             {

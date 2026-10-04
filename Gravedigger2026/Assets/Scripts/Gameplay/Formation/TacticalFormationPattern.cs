@@ -1,4 +1,5 @@
 using System;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.TacticalFormation;
 using UnityEngine;
 
@@ -17,6 +18,8 @@ namespace Gravedigger2026.Gameplay.Formation
         public const float DefaultFacingTurnRate = TacticalFormationMoveParams.DefaultFacingTurnRate;
         public const bool DefaultKeepFormationWhileEngage =
             TacticalFormationMoveParams.DefaultKeepFormationWhileEngage;
+        public const float DefaultFrontArcDegrees =
+            TacticalFormationMoveParams.DefaultFrontArcDegrees;
 
         [SerializeField] private Transform[] _slots = Array.Empty<Transform>();
         [SerializeField] private float _leashRadius = DefaultLeashRadius;
@@ -24,6 +27,7 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private float _centerMoveSpeedMul = DefaultCenterMoveSpeedMul;
         [SerializeField] private float _facingTurnRate = DefaultFacingTurnRate;
         [SerializeField] private bool _keepFormationWhileEngage = DefaultKeepFormationWhileEngage;
+        [SerializeField] private float _frontArcDegrees = DefaultFrontArcDegrees;
 
         public Transform[] Slots => _slots ?? Array.Empty<Transform>();
 
@@ -65,6 +69,10 @@ namespace Gravedigger2026.Gameplay.Formation
 
         public bool KeepFormationWhileEngage => _keepFormationWhileEngage;
 
+        /// <summary>≤0 falls back to <see cref="DefaultFrontArcDegrees"/> (D-094 forward arc).</summary>
+        public float FrontArcDegrees =>
+            _frontArcDegrees > 0f ? _frontArcDegrees : DefaultFrontArcDegrees;
+
         public TacticalFormationMoveParams ReadMoveParams()
         {
             return new TacticalFormationMoveParams(
@@ -72,7 +80,8 @@ namespace Gravedigger2026.Gameplay.Formation
                 SlotArriveEpsilon,
                 CenterMoveSpeedMul,
                 FacingTurnRate,
-                KeepFormationWhileEngage);
+                KeepFormationWhileEngage,
+                FrontArcDegrees);
         }
 
         /// <summary>Local XZ of slot i (Y forced 0). Missing slot → Vector3.zero.</summary>
@@ -85,6 +94,22 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             return ToGroundLocalXz(slots[index]);
+        }
+
+        /// <summary>
+        /// Preferred <c>BaseClass</c> for slot i (SPEC_04 §9.30).
+        /// Missing slot / missing <see cref="TacticalFormationSlot"/> → <see cref="BaseClassKind.Unspecified"/>.
+        /// </summary>
+        public BaseClassKind GetPreferredClass(int index)
+        {
+            var slots = Slots;
+            if (index < 0 || index >= slots.Length || slots[index] == null)
+            {
+                return BaseClassKind.Unspecified;
+            }
+
+            var authored = slots[index].GetComponent<TacticalFormationSlot>();
+            return authored != null ? authored.PreferredClass : BaseClassKind.Unspecified;
         }
 
         /// <summary>
@@ -141,13 +166,15 @@ namespace Gravedigger2026.Gameplay.Formation
             float slotArriveEpsilon,
             float centerMoveSpeedMul,
             float facingTurnRate,
-            bool keepFormationWhileEngage)
+            bool keepFormationWhileEngage,
+            float frontArcDegrees = DefaultFrontArcDegrees)
         {
             _leashRadius = leashRadius;
             _slotArriveEpsilon = slotArriveEpsilon;
             _centerMoveSpeedMul = centerMoveSpeedMul;
             _facingTurnRate = facingTurnRate;
             _keepFormationWhileEngage = keepFormationWhileEngage;
+            _frontArcDegrees = frontArcDegrees;
         }
 
         private void OnValidate()

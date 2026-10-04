@@ -64,7 +64,9 @@ namespace Gravedigger2026.Core.Pathing
 
         public static int SlotCountFor(AttackMode attackMode)
         {
-            return attackMode == AttackMode.Ranged ? RangedSlotCount : MeleeSlotCount;
+            return attackMode == AttackMode.Ranged || attackMode == AttackMode.Parabola
+                ? RangedSlotCount
+                : MeleeSlotCount;
         }
 
         /// <summary>

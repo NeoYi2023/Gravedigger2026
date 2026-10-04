@@ -40,6 +40,7 @@ namespace Gravedigger2026.Core.Pathing
             public Vector2 Correction;
             public float RepulsionScale;
             public float PushCoefficient;
+            public bool IgnoreIncomingPush;
         }
 
         private readonly List<BodyState> _bodies = new List<BodyState>(64);
@@ -177,6 +178,13 @@ namespace Gravedigger2026.Core.Pathing
 
                 var index = _cursor++;
                 var self = _bodies[index];
+                if (self.IgnoreIncomingPush)
+                {
+                    self.Correction = Vector2.zero;
+                    _bodies[index] = self;
+                    LastFrameResolvedCount++;
+                    continue;
+                }
 
                 // SPEC_04 §9.7: query radius ≈ 2·radius + 0.2; SC-04 fallback ④ scales it down.
                 var queryRadius = SpatialHash2D.RecommendedQueryRadius(self.Radius) * radiusScale;
@@ -289,6 +297,22 @@ namespace Gravedigger2026.Core.Pathing
         /// SoftCollision shove strength (SPEC_04 §9.7 Approach B): how hard this body
         /// pushes overlapping neighbors. Does not change overlap radius. False when not registered.
         /// </summary>
+        /// <summary>
+        /// D-094: formation-slot holders ignore incoming shove. They still push others.
+        /// </summary>
+        public bool SetIgnoreIncomingPush(int id, bool ignore)
+        {
+            if (!_indexById.TryGetValue(id, out var index))
+            {
+                return false;
+            }
+
+            var b = _bodies[index];
+            b.IgnoreIncomingPush = ignore;
+            _bodies[index] = b;
+            return true;
+        }
+
         public bool SetPushCoefficient(int id, float coefficient)
         {
             if (!_indexById.TryGetValue(id, out var index))

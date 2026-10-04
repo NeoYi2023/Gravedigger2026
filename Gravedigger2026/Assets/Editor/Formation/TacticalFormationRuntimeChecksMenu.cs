@@ -14,7 +14,7 @@ namespace Gravedigger2026.Editor.Formation
                 var error = TacticalFormationRuntimeCorrectnessChecks.RunAll();
                 if (error == null)
                 {
-                    Debug.Log("[TacticalFormationRuntimeCorrectnessChecks] All checks passed (TF-04a/04b/05, TFG-01, TFG-02).");
+                    Debug.Log("[TacticalFormationRuntimeCorrectnessChecks] All checks passed (TF-04a/04b/05, TFG-01, TFG-02, D-094 hold, PreferredClass soft assign).");
                 }
                 else
                 {

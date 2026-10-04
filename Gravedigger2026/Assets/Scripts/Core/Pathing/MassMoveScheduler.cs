@@ -151,6 +151,7 @@ namespace Gravedigger2026.Core.Pathing
             agent.GoalKind = kind;
             agent.DesiredDestination = desiredDestinationXZ;
             _agents[index] = agent;
+            _softCollision.SetIgnoreIncomingPush(id, kind == GoalKind.FormationSlot);
         }
 
         public bool TryGetGoal(int id, out GoalKind kind, out Vector2 desiredDestinationXZ)

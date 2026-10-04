@@ -95,6 +95,73 @@ namespace Gravedigger2026.Core.TacticalFormation
             return runtime != null && runtime.TryIsWorldInsideLeash(warriorId, enemyWorldXZ);
         }
 
+        /// <summary>
+        /// Enemy center is inside the group-facing forward arc (D-094).
+        /// Yaw 0 faces +Z. Arc is the full angle (default 90 → 45° each side).
+        /// </summary>
+        public static bool IsInsideFrontArc(
+            Vector2 soldierXZ,
+            Vector2 enemyXZ,
+            float facingYawDegrees,
+            float arcDegrees)
+        {
+            var toEnemy = enemyXZ - soldierXZ;
+            if (toEnemy.sqrMagnitude < 1e-8f)
+            {
+                return false;
+            }
+
+            var forward = TacticalFormationRuntimeService.RotateYaw(new Vector2(0f, 1f), facingYawDegrees);
+            if (forward.sqrMagnitude < 1e-8f)
+            {
+                return false;
+            }
+
+            var arc = arcDegrees > 0f
+                ? arcDegrees
+                : TacticalFormationMoveParams.DefaultFrontArcDegrees;
+            return Vector2.Angle(forward, toEnemy) <= arc * 0.5f + 0.01f;
+        }
+
+        /// <summary>
+        /// Soft-collision body contact: XZ center distance ≤ both BodyRadii (D-096).
+        /// </summary>
+        public static bool IsBodyContact(
+            float centerDistanceXZ,
+            float soldierBodyRadius,
+            float enemyBodyRadius)
+        {
+            return centerDistanceXZ
+                   <= Mathf.Max(0f, soldierBodyRadius) + Mathf.Max(0f, enemyBodyRadius) + 0.01f;
+        }
+
+        /// <summary>
+        /// Hold-swing eligibility: front arc + AttackRange, or body contact (D-096).
+        /// Caller keeps <see cref="GoalKind.FormationSlot"/> (in-place; no chase).
+        /// </summary>
+        public static bool IsEligibleHoldSwingTarget(
+            Vector2 soldierXZ,
+            Vector2 enemyXZ,
+            float facingYawDegrees,
+            float frontArcDegrees,
+            float centerDistanceXZ,
+            float attackRange,
+            float soldierBodyRadius,
+            float enemyBodyRadius)
+        {
+            if (IsBodyContact(centerDistanceXZ, soldierBodyRadius, enemyBodyRadius))
+            {
+                return true;
+            }
+
+            return IsInsideFrontArc(soldierXZ, enemyXZ, facingYawDegrees, frontArcDegrees)
+                   && CombatReach.IsInAttackRange(
+                       centerDistanceXZ,
+                       attackRange,
+                       soldierBodyRadius,
+                       enemyBodyRadius);
+        }
+
         public static Vector2 ClampAttackSlot(
             TacticalFormationRuntimeService runtime,
             string warriorId,

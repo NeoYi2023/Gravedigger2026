@@ -39,10 +39,31 @@ namespace Gravedigger2026.Core.Config
         /// <summary>
         /// Weighted normal-attack bases <c>id;weight|...</c> (SPEC_04 §9.9b).
         /// Empty → Attack1. Presentation only.
+        /// For <c>AttackMode=Parabola</c>, this is the ranged (straight/arc) pool.
         /// </summary>
         public string NormalAttackAnims;
+        /// <summary>
+        /// Parabola temporary-melee attack bases <c>id;weight|...</c> (SPEC_04 §9.9b).
+        /// Empty → Attack1. Presentation only. Unread for non-Parabola rows.
+        /// </summary>
+        public string ParabolaMeleeAttackAnims;
         public float RangedProjectileSpeed;
         public float RangedTimeoutSeconds;
+        /// <summary>XZ center distance; forward-arc enemy closer than this forces temporary melee. Missing → 0.25.</summary>
+        public const float DefaultParabolaMeleeRange = 0.25f;
+        /// <summary>Target XZ center distance at which an arc and hit-rate roll start. Missing → 1.25.</summary>
+        public const float DefaultParabolaArcMinDistance = 1.25f;
+        /// <summary>Arc hit chance rolled once at fire. Missing → 0.6.</summary>
+        public const float DefaultParabolaHitRate = 0.6f;
+        /// <summary>Miss landing distance behind the target along aim. Missing → 0.8.</summary>
+        public const float DefaultParabolaMissOvershoot = 0.8f;
+        /// <summary>Seconds a miss stays on the ground. Missing → 1.5.</summary>
+        public const float DefaultParabolaMissLingerSeconds = 1.5f;
+        public float ParabolaMeleeRange = DefaultParabolaMeleeRange;
+        public float ParabolaArcMinDistance = DefaultParabolaArcMinDistance;
+        public float ParabolaHitRate = DefaultParabolaHitRate;
+        public float ParabolaMissOvershoot = DefaultParabolaMissOvershoot;
+        public float ParabolaMissLingerSeconds = DefaultParabolaMissLingerSeconds;
         /// <summary>≥0; soldier MoveSpeed Base (SPEC_04 §9.9b); missing/≤0 → DefaultBaseMoveSpeed.</summary>
         public float BaseMoveSpeed;
         /// <summary>≥0; × FinalStat(MoveSpeed) only when GoalKind=AttackSlot; default 1.</summary>

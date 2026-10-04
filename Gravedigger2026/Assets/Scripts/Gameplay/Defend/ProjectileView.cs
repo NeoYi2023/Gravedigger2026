@@ -28,9 +28,33 @@ namespace Gravedigger2026.Gameplay.Defend
         private float _hitRadius;
         private bool _settled;
         private bool _ballistic;
+        private bool _arc;
+        private bool _arcCommittedHit;
+        private bool _lingering;
+        private float _arcProgress;
+        private float _arcLength;
+        private float _arcPeak;
+        private float _groundY;
+        private float _lingerRemaining;
+        private Vector3 _arcStart;
+        private Vector3 _arcLanding;
         private Vector3 _lastKnownTargetPos;
         private Vector3 _lastMoveDir = Vector3.forward;
         private SpriteRenderer _visualRenderer;
+        private float _stretchRemaining;
+        private float _stretchDuration;
+        private Vector3 _stretchStart;
+
+        /// <summary>
+        /// Visual child localScale XYZ (mage / mid-band straight / long arc; SPEC_04).
+        /// </summary>
+        public const float VisualLocalScale = 0.7f;
+
+        /// <summary>
+        /// Mid-band straight shots that would enter the hit radius sooner than this
+        /// are stretched so the bolt renders before the hit despawn (SPEC_03 §3.12).
+        /// </summary>
+        public const float StraightMinVisibleSeconds = 0.2f;
 
         /// <summary>
         /// Applies BaseClass-specific projectile art. Sprite tip faces +Y in texture (SPEC_04 §15 Visual child).
@@ -55,7 +79,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 go.transform.SetParent(transform, false);
                 go.transform.localEulerAngles = new Vector3(90f, 0f, 0f);
                 _visualRenderer = go.AddComponent<SpriteRenderer>();
-                _visualRenderer.sortingOrder = 210;
+                _visualRenderer.sortingOrder = 320;
             }
             else
             {
@@ -63,11 +87,15 @@ namespace Gravedigger2026.Gameplay.Defend
                 if (_visualRenderer == null)
                 {
                     _visualRenderer = visual.gameObject.AddComponent<SpriteRenderer>();
-                    _visualRenderer.sortingOrder = 210;
+                    _visualRenderer.sortingOrder = 320;
                 }
             }
 
             _visualRenderer.sprite = sprite;
+            _visualRenderer.transform.localScale = new Vector3(
+                VisualLocalScale,
+                VisualLocalScale,
+                VisualLocalScale);
         }
 
         public void Launch(
@@ -78,7 +106,13 @@ namespace Gravedigger2026.Gameplay.Defend
             float speed,
             float timeoutSeconds,
             float hitRadius = -1f,
-            Func<IReadOnlyList<string>> enumerateAliveTargets = null)
+            Func<IReadOnlyList<string>> enumerateAliveTargets = null,
+            bool arc = false,
+            bool arcCommittedHit = false,
+            Vector3 arcLanding = default,
+            float arcPeak = 1f,
+            float missLingerSeconds = 0f,
+            bool stretchShortFlight = false)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _warriorId = warriorId ?? throw new ArgumentNullException(nameof(warriorId));
@@ -92,6 +126,18 @@ namespace Gravedigger2026.Gameplay.Defend
                 hitRadius < 0f ? CombatRuntimeTuning.ProjectileDefaultHitRadius : hitRadius);
             _settled = false;
             _ballistic = false;
+            _arc = arc;
+            _arcCommittedHit = arc && arcCommittedHit;
+            _lingering = false;
+            _arcProgress = 0f;
+            _arcStart = transform.position;
+            _groundY = arcLanding.y;
+            _arcLanding = arc ? new Vector3(arcLanding.x, _groundY, arcLanding.z) : default;
+            var flat = _arcLanding - _arcStart;
+            flat.y = 0f;
+            _arcLength = Mathf.Max(0.05f, flat.magnitude);
+            _arcPeak = Mathf.Max(0.2f, arcPeak);
+            _lingerRemaining = Mathf.Max(0f, missLingerSeconds);
             _alreadyHit.Clear();
             _flight.AlreadyHitRuntimeIds = _alreadyHit;
             _flight.ExtraHitsRemaining = 0;
@@ -105,6 +151,22 @@ namespace Gravedigger2026.Gameplay.Defend
             if (fwd.sqrMagnitude > 0.0001f)
             {
                 _lastMoveDir = fwd.normalized;
+            }
+
+            _stretchStart = transform.position;
+            _stretchRemaining = 0f;
+            _stretchDuration = 0f;
+            if (stretchShortFlight && !arc)
+            {
+                var gap = _lastKnownTargetPos - _stretchStart;
+                gap.y = 0f;
+                var gapDist = gap.magnitude;
+                var timeToHit = Mathf.Max(0f, gapDist - _hitRadius) / _speed;
+                if (timeToHit < StraightMinVisibleSeconds)
+                {
+                    _stretchDuration = StraightMinVisibleSeconds;
+                    _stretchRemaining = StraightMinVisibleSeconds;
+                }
             }
         }
 
@@ -121,10 +183,28 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            if (_lingering)
+            {
+                _lingerRemaining -= Time.deltaTime;
+                if (_lingerRemaining <= 0f)
+                {
+                    _settled = true;
+                    Destroy(gameObject);
+                }
+
+                return;
+            }
+
             _timeoutRemaining -= Time.deltaTime;
             if (_timeoutRemaining <= 0f)
             {
                 DespawnMiss("timeout");
+                return;
+            }
+
+            if (_arc)
+            {
+                TickArc();
                 return;
             }
 
@@ -137,12 +217,59 @@ namespace Gravedigger2026.Gameplay.Defend
             TickHoming();
         }
 
+        private void TickArc()
+        {
+            if (_arcCommittedHit)
+            {
+                var target = _resolveTarget != null ? _resolveTarget(_targetRuntimeId) : null;
+                if (target != null && _session != null && _session.IsMonsterAlive(_targetRuntimeId))
+                {
+                    _arcLanding = new Vector3(target.position.x, _groundY, target.position.z);
+                }
+            }
+
+            _arcProgress += (_speed * Time.deltaTime) / _arcLength;
+            if (_arcProgress >= 1f)
+            {
+                transform.position = _arcLanding;
+                if (_arcCommittedHit)
+                {
+                    TryHitTarget(_targetRuntimeId, snapToTarget: true);
+                }
+                else
+                {
+                    _arc = false;
+                    _lingering = true;
+                }
+
+                return;
+            }
+
+            var t = Mathf.Clamp01(_arcProgress);
+            var pos = Vector3.Lerp(_arcStart, _arcLanding, t);
+            pos.y = Mathf.Lerp(_arcStart.y, _groundY, t) + (4f * t * (1f - t) * _arcPeak);
+            var dir = pos - transform.position;
+            dir.y = 0f;
+            transform.position = pos;
+            if (dir.sqrMagnitude > 0.0001f)
+            {
+                _lastMoveDir = dir.normalized;
+                transform.rotation = Quaternion.LookRotation(_lastMoveDir, Vector3.up);
+            }
+        }
+
         private void TickHoming()
         {
             var target = _resolveTarget != null ? _resolveTarget(_targetRuntimeId) : null;
             if (target != null && _session.IsMonsterAlive(_targetRuntimeId))
             {
                 _lastKnownTargetPos = target.position;
+            }
+
+            if (_stretchRemaining > 0f)
+            {
+                TickStretchedHoming();
+                return;
             }
 
             var pos = transform.position;
@@ -169,6 +296,32 @@ namespace Gravedigger2026.Gameplay.Defend
             if (dir.sqrMagnitude > 0.0001f)
             {
                 transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+            }
+        }
+
+        /// <summary>
+        /// Short mid-band straight flights (often already inside the hit radius at spawn)
+        /// lerp to the target over <see cref="StraightMinVisibleSeconds"/>, then settle.
+        /// </summary>
+        private void TickStretchedHoming()
+        {
+            _stretchRemaining -= Time.deltaTime;
+            var duration = Mathf.Max(0.05f, _stretchDuration);
+            var t = 1f - Mathf.Clamp01(_stretchRemaining / duration);
+            var dest = _lastKnownTargetPos;
+            var pos = Vector3.Lerp(_stretchStart, new Vector3(dest.x, _stretchStart.y, dest.z), t);
+            var dir = pos - transform.position;
+            dir.y = 0f;
+            transform.position = pos;
+            if (dir.sqrMagnitude > 0.0001f)
+            {
+                _lastMoveDir = dir.normalized;
+                transform.rotation = Quaternion.LookRotation(_lastMoveDir, Vector3.up);
+            }
+
+            if (_stretchRemaining <= 0f)
+            {
+                TryHitTarget(_targetRuntimeId, snapToTarget: true);
             }
         }
 
@@ -315,6 +468,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            _arc = false;
             _ballistic = true;
             var fwd = transform.forward;
             fwd.y = 0f;

@@ -27,14 +27,15 @@
 | BookRow | 魔法书槽行 | 6×BookSlot 共享 Prefab；AM 演出与魔法书弹窗嵌套同一份 | [§3.15](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | ProtagonistEquipment | 主角装备 | 成长型装备；仓内拥有即生效；同 Id 转化经验 / EquipCommonExp 升级；并行于 MagicBook / 材料仓 / ExtraEquipment；Dig 事件型样例 `Equip_Explosives`（D-077）、`Equip_Elctr`（D-078）、`Equip_ReviveShovel`（D-091） | [§3.16](SPEC_03_GameRules.md)、[SPEC_04 §9.25](SPEC_04_Technical.md) |
 | FormationBond | 阵容羁绊 | 上阵士兵属性统计激活的战斗增益；同 BondId 多等级互斥；Buff→SkillEffectConfig | [§3.17](SPEC_03_GameRules.md)、[SPEC_04 §9.26](SPEC_04_Technical.md) |
-| TacticalFormation | 战术阵型 | 手动把持有阵型技能的已上阵士兵建成空间编队；同阵型可多组；每组虚拟中心+槽位+leash | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
+| TacticalFormation | 战术阵型 | 手动把持有阵型技能的已上阵士兵建成空间编队；同阵型可多组；每组虚拟中心+槽位；战斗中成员守槽 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
 | TacticalFormationGroup | 战术阵型组 | 一次按钮点击的一组；GroupInstanceId 唯一；一人一组；跟布阵存档走 | [§3.18](SPEC_03_GameRules.md) |
 | FormationLevel | 阵型等级 | 表复合主键之一；等于组内 ClassLevel 平均向下取整，再向下就近取表行 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
-| TacticalFormationRuntime | 战术阵型运行时 | 每组一个 Combat 虚拟中心 + FormationSlot + leash；死亡后仍达最小人数则重算等级 overlay | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| TacticalFormationRuntime | 战术阵型运行时 | 每组一个 Combat 虚拟中心 + FormationSlot；守槽打前方扇形，贴身扇外亦可原地挥（D-096）；空槽由最大编号递补；死亡后仍达最小人数则重算等级 overlay | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | FormationSkill | 阵型技能 | 魔法书 GrantFormationSkill 授予的标记技能；SkillConfig.FormationId FK 战术阵型表 | [§3.18](SPEC_03_GameRules.md) |
 | GrantFormationSkill | 授予阵型技能 | MagicBook EffectPayload Token；Mode2 制造 Step2 写入 SoldierSkills | [SPEC_04 §9.24](SPEC_04_Technical.md) |
-| FormationSlot | 阵型槽位 | Pattern Prefab 相对中心站位；战斗 GoalKind=FormationSlot | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
-| FormationLeash | 阵型拴绳 | 接敌时成员距中心最大半径；AttackSlot 投影回圆周 | [§3.18](SPEC_03_GameRules.md) |
+| FormationSlot | 阵型槽位 | Pattern Prefab 相对中心站位；可挂 PreferredClass；战斗 GoalKind=FormationSlot | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
+| PreferredClass | 优选职业 | Slot 作者字段；匹配 ClassConfig.BaseClass；建组时从全部合格候选软抽进该槽（同职 ClassLevel 高→低，同分已上阵在前）；不单独取消入组资格；战斗递补不读 | [§3.18](SPEC_03_GameRules.md)、[SPEC_04 §9.30](SPEC_04_Technical.md) |
+| FormationLeash | 阵型拴绳 | Pattern 上保留的半径字段；D-094 起不再把成员拉出槽位 | [§3.18](SPEC_03_GameRules.md) |
 | TacticalFormationConfig | 战术阵型配置表 | 复合主键 (FormationId, FormationLevel)；同 Id 几何字段一致，属性按等级行 | [SPEC_04 §9.30](SPEC_04_Technical.md) |
 | BondBuff | 羁绊Buff | FormationBondConfig.BondBuff FK→SkillEffectConfig；本 Demo 片仅配置与 UI | [§3.17](SPEC_03_GameRules.md) |
 | ProtagonistEquipmentWarehouse | 主角装备仓库 | 存档状态仓；不限种类；每 EquipId 至多 1 件 OwnedEquip | [§3.16](SPEC_03_GameRules.md) |
@@ -62,7 +63,7 @@
 | TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（**新建**默认难度 Hub；**进入占用档**直开 UI-031；玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → UI-031）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064） | [§3.5](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → UI-031）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064；UM 布阵或 Mode2 Prepare 布阵打开时可用） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
 | BgmConfig | BGM 配置表 | `Audio_BgmConfig`：BgmId / Context / ClipId / Loop / Weight / Volume | [SPEC_04 §9.29](SPEC_04_Technical.md) |
@@ -118,12 +119,12 @@
 | UnlockedFeatureSystems | 已解锁功能系统 | 存档集合；科技效果写入 | [§3.13](SPEC_03_GameRules.md) |
 | Material | 材料 | 挖坟入仓库；造士兵消耗（与精魂并列） | [§3.10](SPEC_03_GameRules.md)、[§3.11](SPEC_03_GameRules.md) |
 | Warrior | 士兵 | 制造产出的独立实例（ID/名字/血量/属性构成）；非堆叠；中文单位称「士兵」，英文标识仍为 `Warrior`；勿与职业名「战士」混淆 | [§3.11](SPEC_03_GameRules.md) |
-| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（士兵走跑 `IsRun`/`RunBT`；普攻按 `ClassConfig.NormalAttackAnims` 权重抽基名，空或当前朝向无状态则 `Attack1`；另有 `Die`/`Taunt`/`DirIndex`+`Direction`）；怪物可选池：`NormalAttackAnims` 每次普攻均匀随机基名、`WalkAnims`/`RunAnims` 在 Bind/复活完成各抽一次；怪物 `SetMoving(…, useRun)` 走/跑门控；移动播放速率 `clamp(有效移速/标称, 0.5, 2)`（士兵 3.5，怪走 0.5 / 跑 1.0），停步恢复 1；攻击播放速率每次 `PlayAttack` 采样 clip 长度 `clamp(clipLength×有效攻速, 0.5, 2)`（有效攻速=该次间隔所用值；制造预览为 1；远程停帧解除恢复该倍率）；可选 `FacingYawFlip`；移动朝向跟 MassMove `LastDesired`；`PlayAttack` 锁 `DirIndex` 至本次攻击结束；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制打断攻击；尸体分级：`PlayDie(corpseDarkenMul, corpseAlphaMul)` — 彻底死亡/PushMap 士兵 `RGB×0.4`；PushMap 假死 `RGB×0.7`；Defend 怪/士兵另 `alpha×0.85`；Defend/PushMap/SearchExtract 士兵共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
+| WarriorAnimView | 士兵/怪物动画表现 | 表现层：驱动 Creator Animator（士兵走跑 `IsRun`/`RunBT`；普攻按 `ClassConfig.NormalAttackAnims` 权重抽基名，空或当前朝向无状态则 `Attack1`；`AttackMode=Parabola` 前摇开始预判近战门→临时近战改用 `ParabolaMeleeAttackAnims`；另有 `Die`/`Taunt`/`DirIndex`+`Direction`）；怪物可选池：`NormalAttackAnims` 每次普攻均匀随机基名、`WalkAnims`/`RunAnims` 在 Bind/复活完成各抽一次；怪物 `SetMoving(…, useRun)` 走/跑门控；移动播放速率 `clamp(有效移速/标称, 0.5, 2)`（士兵 3.5，怪走 0.5 / 跑 1.0），停步恢复 1；攻击播放速率每次 `PlayAttack` 采样 clip 长度 `clamp(clipLength×有效攻速, 0.5, 2)`（有效攻速=该次间隔所用值；制造预览为 1；远程停帧解除恢复该倍率）；可选 `FacingYawFlip`；未入组移动朝向跟 MassMove `LastDesired`；已入组且未在攻击锁时走路与待机八向跟该组 `FacingYawDegrees`（D-095）；`PlayAttack` 锁 `DirIndex` 至本次攻击结束；`SetMoving(true)` 仅当移动目标 XZ 距 >0.4 才强制打断攻击；尸体分级：`PlayDie(corpseDarkenMul, corpseAlphaMul)` — 彻底死亡/PushMap 士兵 `RGB×0.4`；PushMap 假死 `RGB×0.7`；Defend 怪/士兵另 `alpha×0.85`；Defend/PushMap/SearchExtract 士兵共用 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | MonsterConfig | 怪物配置表 | MonsterId → ModelId/目标选择/AttackMode/MonsterType/AggroMode/AlertRadius/BodyRadius/`PushCoefficient`/`RepulsionScale`/FacingYawFlip/血量/`MoveSpeed`(走)/`RunSpeed`(跑)/`WalkToRunSeconds`/Aggro 移速倍率/攻力/攻速/AttackRange 等/技能/`NormalAttackAnims`/`WalkAnims`/`RunAnims`/掉落；PushMap D-074：`Skills` 可驱动 `MonsterSelfReviveOnDeath` | [SPEC_04 §9.19](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | FacingYawFlip | 朝向整圈翻转 | 配表 0\|1；写入 Animator 前 `(DirIndex+4)%8`（180°）；士兵=`BodyAppearanceConfig`，怪=`MonsterConfig`；缺省 0 | [SPEC_04 §15.5](SPEC_04_Technical.md)/[§9.13](SPEC_04_Technical.md)/[§9.19](SPEC_04_Technical.md) |
 | FacingHysteresis | 朝向迟滞 | `WarriorAnimView.SetFacing`：候选扇区越过当前边界 +12° 且过最短保持 0.12s 才切换；叠在意图朝向上防 FlowField 格边界缓抖 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
 | AttackFacingLock | 攻击朝向锁 | `PlayAttack` 后冻结 `DirIndex` 至 Attack1 clip 结束（或移动打断解锁）；禁止攻击中途因碰撞/目标微移换向 | [SPEC_04 §15.5](SPEC_04_Technical.md) |
-| LastDesired | 移动意图方向 | MassMove 经 LocalDetour **之前**的 desired（FlowField / 槽位直线）；表现层八向跟此向量，位移仍跟 steer | [SPEC_04 §9.7](SPEC_04_Technical.md)/[§15.5](SPEC_04_Technical.md) |
+| LastDesired | 移动意图方向 | MassMove 经 LocalDetour **之前**的 desired（FlowField / 槽位直线）；未入组移动八向跟此向量，位移仍跟 steer。已入组士兵的默认八向改跟阵型 `FacingYawDegrees`（D-095） | [SPEC_04 §9.7](SPEC_04_Technical.md)/[§15.5](SPEC_04_Technical.md) |
 | StuckHold | 受堵停滞 | 可移动战斗单位 steer 非零但检测窗内 XZ 位移过小 → 停播 Run；**不**改 `DirIndex`（保持进入停滞前朝向）；位移恢复或 steer 归零即退出 | [SPEC_04 §15.5](SPEC_04_Technical.md)、[§3.14](SPEC_03_GameRules.md) |
 | ChaseStuckRetarget | 追击卡住换目标 | 忠诚兵追击未进距且位移卡住达阈值 → 排除当前认领、绕过粘滞、认领次近（保底；非 LocalDetour 治本） | [§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | WarriorInfo | 士兵信息 | 主标签=定稿种族；不改数值 | [§3.11](SPEC_03_GameRules.md) |
@@ -165,7 +166,8 @@
 | SoulConfig | 灵魂配置表 | SoulId → ClassId、AttackMode、Skills（`SkillId;Level|…`）、AttackPriority（同 TargetSelect）、MoveStyle、SpiritCost、ControlPowerCost；含系统默认 `Soul_00` | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
 | Class | 职业 | 实例 ClassId（有灵魂取自灵魂；无灵魂 Class_Servants）；ClassName/PrimaryStat/五维→战斗参数换算系数 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassId | 职业ID | 职业主键；有灵魂取自灵魂；无灵魂强制 Class_Servants；写入士兵实例 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md) |
-| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PromoteClass（转职职业，可选文字，预留）、PrimaryStat、CombatConvertCoeffs、BaseMoveSpeed（基础移速）、AttackRange/前摇/远程停顿帧/弹速/超时、ChaseMoveSpeedMult、AttackMode、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| ClassConfig | 职业配置表 | ClassId → ClassName、ClassLevel、BaseClass（基础职业，预留）、PromoteClass（转职职业，可选文字，预留）、PrimaryStat、CombatConvertCoeffs、BaseMoveSpeed（基础移速）、AttackRange/前摇/远程停顿帧/弹速/超时、Parabola 近战距/弧线距/命中率/落点超出/停留、`NormalAttackAnims`（Parabola 时为远程池）、`ParabolaMeleeAttackAnims`（特殊普通攻击动作/临时近战池）、ChaseMoveSpeedMult、AttackMode（含 Parabola）、PlacementOrder、DefaultAppearanceId、DefaultSkillIds | [SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| ParabolaMeleeAttackAnims | 特殊普通攻击动作 | ClassConfig 列；`AttackMode=Parabola` 临时近战普攻动作权重池；编码同 `NormalAttackAnims`；空→`Attack1`；前摇开始预判近战门选用 | [SPEC_04 §9.9b](SPEC_04_Technical.md)、[§15.5](SPEC_04_Technical.md)、[§3.12](SPEC_03_GameRules.md) |
 | RangedWindupHoldFrame | 远程前摇停顿帧 | ClassConfig/MonsterConfig；1 基 Attack 帧；≤0=不停顿；远程前摇内冻结该帧 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | BaseMoveSpeed | 基础移速 | ClassConfig 列；士兵 MoveSpeed 维 Base；缺/≤0 → 3.5 | [§3.11](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | ClassName | 职业名 | 职业表字段；参与 WarriorName 与外观 ClassAffinity；可为「战士」等，**不是**单位称谓「士兵」 | [§3.11](SPEC_03_GameRules.md) |
@@ -251,7 +253,7 @@
 | DesiredDestination | 期望目的地 | 移动层趋近的世界坐标（Objective/Home/Slot 等） | [§3.12](SPEC_03_GameRules.md) |
 | GoalKind | 目的地种类 | Objective \| FormationHome \| AttackSlot \| ChaseAnchor | [§3.12](SPEC_03_GameRules.md) |
 | IsoDiamond | 地图菱形足迹 | XZ 曼哈顿菱形（`|dx|/hx+|dz|/hz≤1`）；半尺寸 = `PaintRadius*(cellSize.x,cellSize.y)`，可随 iso 高宽比各向异性（Demo `(5,2.5)`）；`DigMapBounds`/`EngageZone`/`WalkSurface`/`FormationClassZone`/NavMesh 共用（职业区半尺寸更小，Sanitize 下限 0.05） | [§3.10](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md)/[§13](SPEC_04_Technical.md) |
-| AttackMode | 攻击模式 | Melee/Ranged；士兵 SoulConfig / 怪物 MonsterConfig；普攻命中分支；**异于** AggroMode | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
+| AttackMode | 攻击模式 | Melee/Ranged/Parabola；士兵 SoulConfig 或 Mode2 无灵魂 ClassConfig；怪物仍 Melee/Ranged；Parabola 仅射手；**异于** AggroMode | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | AttackRange | 攻击距离 | 士兵 ClassConfig / 怪物 MonsterConfig；进入距内才攻击 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)、[§9.19](SPEC_04_Technical.md) |
 | CombatDead | 战斗死亡 | 无宝石士兵 HP≤0；可复活；不触发物资去向 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | PermanentDeath | 彻底死亡 | 物资去向+清实例/布阵位；Ended/LevelFailure 结算或宝石特例立即 | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |

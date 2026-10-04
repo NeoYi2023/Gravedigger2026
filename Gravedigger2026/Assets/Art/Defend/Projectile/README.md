@@ -8,4 +8,4 @@
 | 法师 Mage | `MoFa_1.png` | `DefendPrefabCatalog._mageProjectileSprite` |
 | Dig 炸药桶 | `ZYT_1.png` | `DigPrefabCatalog._explosiveBarrelSprite` |
 
-贴图弹头朝 **+Y（图片上方）**；运行时根节点 `LookRotation` 对齐飞行方向，`Visual` 子节点 `localEulerAngles = (90,0,0)`。
+贴图弹头朝 **+Y（图片上方）**；运行时根节点 `LookRotation` 对齐飞行方向，`Visual` 子节点 `localEulerAngles = (90,0,0)`。`ApplyVisual` 把 `Visual` 的 `localScale` XYZ 统一设为 **0.7**（法师直线 / 射手中距直线 / 远弧同值）。两距离阈值之间走直线；`ParabolaArcMinDistance` 之外才抛物线。Filter 用 Point。

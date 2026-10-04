@@ -1,7 +1,7 @@
 SoulId,ClassId,AttackMode,Skills,AttackPriority,MoveStyle,SpiritCost,ControlPowerCost
 Soul_00,Class_Servants,Melee,,Nearest,Normal,5,5
 Soul_01,Class_Warrior,Melee,,Nearest,Normal,10,5
-Soul_02,Class_Archer,Ranged,Skill_02;1,PreferWarrior,Aggressive,15,7
+Soul_02,Class_Archer,Parabola,Skill_02;1,PreferWarrior,Aggressive,15,7
 Soul_03,Class_Mage,Ranged,Skill_03;1,PreferProtagonist,Cautious,20,9
 Soul_04,Class_Knight,Melee,,Nearest,Normal,25,11
 Soul_05,Class_Rogue,Melee,Skill_05;1,PreferWarrior,Aggressive,30,13

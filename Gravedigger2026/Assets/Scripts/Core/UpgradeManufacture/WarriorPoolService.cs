@@ -300,7 +300,7 @@ namespace Gravedigger2026.Core.UpgradeManufacture
                 AppearanceId = dto.AppearanceId,
                 SoulId = dto.SoulId,
                 ClassId = dto.ClassId,
-                AttackMode = dto.AttackMode == (int)AttackMode.Ranged ? AttackMode.Ranged : AttackMode.Melee,
+                AttackMode = RestoreAttackMode(dto.AttackMode),
                 GemMult = dto.GemMult,
                 ControlPowerCost = dto.ControlPowerCost,
                 EquipStats = dto.EquipStats,
@@ -317,6 +317,24 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             CopyIds(dto.SourceItemIds, w.SourceItemIds);
             CopySkills(dto.SoldierSkills, w.SoldierSkills);
             return w;
+        }
+
+        /// <summary>
+        /// Keep Melee=0 / Ranged=1 / Parabola=2. Unknown values stay Melee so old saves do not invent a mode.
+        /// </summary>
+        private static AttackMode RestoreAttackMode(int value)
+        {
+            if (value == (int)AttackMode.Ranged)
+            {
+                return AttackMode.Ranged;
+            }
+
+            if (value == (int)AttackMode.Parabola)
+            {
+                return AttackMode.Parabola;
+            }
+
+            return AttackMode.Melee;
         }
 
         private static string[] ToArray(List<string> list)

@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Gameplay.Formation;
 using UnityEditor;
 using UnityEngine;
@@ -15,8 +16,12 @@ namespace Gravedigger2026.Editor.Formation
         private const string CatalogPath = "Assets/Settings/Formation/FormationPrefabCatalog.asset";
         public const string WedgePrefabId = "FormationPattern_Wedge_01";
         public const string ParallelPrefabId = "FormationPattern_Wedge_02";
+        public const string ParallelCompactPrefabId = "FormationPattern_Wedge_03";
+        public const string TightParallelPrefabId = "FormationPattern_Wedge_04";
         private const string WedgePath = PrefabDir + "/" + WedgePrefabId + ".prefab";
         private const string ParallelPath = PrefabDir + "/" + ParallelPrefabId + ".prefab";
+        private const string ParallelCompactPath = PrefabDir + "/" + ParallelCompactPrefabId + ".prefab";
+        private const string TightParallelPath = PrefabDir + "/" + TightParallelPrefabId + ".prefab";
 
         private static readonly Vector3[] WedgeSlotLocalXz =
         {
@@ -78,6 +83,12 @@ namespace Gravedigger2026.Editor.Formation
                 BindCatalog(
                     AssetDatabase.LoadAssetAtPath<GameObject>(ParallelPath),
                     ParallelPrefabId);
+                BindCatalog(
+                    AssetDatabase.LoadAssetAtPath<GameObject>(ParallelCompactPath),
+                    ParallelCompactPrefabId);
+                BindCatalog(
+                    AssetDatabase.LoadAssetAtPath<GameObject>(TightParallelPath),
+                    TightParallelPrefabId);
                 AssetDatabase.SaveAssets();
             };
         }
@@ -98,12 +109,19 @@ namespace Gravedigger2026.Editor.Formation
             BindCatalog(
                 AssetDatabase.LoadAssetAtPath<GameObject>(ParallelPath),
                 ParallelPrefabId);
+            BindCatalog(
+                AssetDatabase.LoadAssetAtPath<GameObject>(ParallelCompactPath),
+                ParallelCompactPrefabId);
+            BindCatalog(
+                AssetDatabase.LoadAssetAtPath<GameObject>(TightParallelPath),
+                TightParallelPrefabId);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log(
                 "[TacticalFormationPatternBuilder] Ensured patterns "
-                + WedgePrefabId + " / " + ParallelPrefabId
+                + WedgePrefabId + " / " + ParallelPrefabId + " / " + ParallelCompactPrefabId
+                + " / " + TightParallelPrefabId
                 + " and bound FormationPrefabCatalog.");
         }
 
@@ -163,10 +181,88 @@ namespace Gravedigger2026.Editor.Formation
                 slot.transform.localPosition = slotLocalXz[i];
                 slot.transform.localRotation = Quaternion.identity;
                 slot.transform.localScale = Vector3.one;
+                slot.AddComponent<TacticalFormationSlot>();
             }
 
             pattern.RefreshSlotsFromChildren();
             return root;
+        }
+
+        [MenuItem("Gravedigger2026/Formation（阵型）/Ensure Slot PreferredClass Components（确保槽位优选职业组件）")]
+        public static void EnsurePreferredClassOnAllPatternSlots()
+        {
+            EnsureFolders();
+            var guids = AssetDatabase.FindAssets(
+                "t:Prefab FormationPattern_Wedge",
+                new[] { PrefabDir });
+            var touched = 0;
+            for (var g = 0; g < guids.Length; g++)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[g]);
+                if (string.IsNullOrEmpty(path) || !path.Contains("/Patterns/"))
+                {
+                    continue;
+                }
+
+                var root = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    var pattern = root.GetComponent<TacticalFormationPattern>();
+                    if (pattern == null)
+                    {
+                        continue;
+                    }
+
+                    pattern.RefreshSlotsFromChildren();
+                    var slots = pattern.Slots;
+                    var dirty = false;
+                    var isWedge02 = path.IndexOf("FormationPattern_Wedge_02", System.StringComparison.Ordinal) >= 0;
+                    for (var i = 0; i < slots.Length; i++)
+                    {
+                        var slotTf = slots[i];
+                        if (slotTf == null)
+                        {
+                            continue;
+                        }
+
+                        var authored = slotTf.GetComponent<TacticalFormationSlot>();
+                        if (authored == null)
+                        {
+                            authored = slotTf.gameObject.AddComponent<TacticalFormationSlot>();
+                            dirty = true;
+                        }
+
+                        if (isWedge02)
+                        {
+                            var local = pattern.GetSlotLocalXZ(i);
+                            var want = local.z < -0.01f
+                                ? BaseClassKind.Archer
+                                : BaseClassKind.Unspecified;
+                            if (authored.PreferredClass != want)
+                            {
+                                authored.EditorSetPreferredClass(want);
+                                dirty = true;
+                            }
+                        }
+                    }
+
+                    if (dirty)
+                    {
+                        PrefabUtility.SaveAsPrefabAsset(root, path);
+                        touched++;
+                    }
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                "[TacticalFormationPatternBuilder] Ensured PreferredClass on pattern slots; saved="
+                + touched);
         }
 
         private static void EnsureFolders()

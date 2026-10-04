@@ -126,3 +126,4 @@ AutoMfgBodyAngleMaxDeg,自动制造躯体绝对转角上限,270,Clamp body Z ang
 AutoMfgBodyAbsorbStaggerSeconds,自动制造躯体吸入起飞间隔,0.06,StepB body absorb stagger launch seconds,StepB 同兵躯体件错开起飞间隔（秒；随 speed 缩短）
 AutoMfgBodyAbsorbFlySeconds,自动制造躯体吸入飞入时长,0.35,StepB body absorb fly-to-center seconds,StepB 单件飞入谜底视觉中心时长（秒；随 speed 缩短）
 AutoMfgBodyAbsorbFlashHz,自动制造躯体吸入闪红频率,8,StepB body absorb in-flight white-red flash Hz,StepB 飞入中 Image 白↔红闪烁 Hz
+ParabolaForwardArcDegrees,抛物线前方张角,60,Full forward arc degrees for Parabola block and melee,抛物线挡射与近战扇形全角

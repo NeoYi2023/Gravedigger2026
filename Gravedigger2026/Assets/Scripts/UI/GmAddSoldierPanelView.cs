@@ -19,9 +19,13 @@ namespace Gravedigger2026.UI
 
     /// <summary>
     /// UI-020 / D-064: left-docked Tools GM add-soldier settings panel.
+    /// Root Canvas overrideSorting=100 so it draws above FormationCanvas (70) / squad bar.
     /// </summary>
     public sealed class GmAddSoldierPanelView : MonoBehaviour
     {
+        /// <summary>Above FormationCanvas (70); aligned with other InSaveShell modals.</summary>
+        private const int PanelSortingOrder = 100;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private Dropdown _classDropdown;
         [SerializeField] private Dropdown _raceDropdown;
@@ -39,6 +43,7 @@ namespace Gravedigger2026.UI
         private void Awake()
         {
             WireButtons();
+            ApplyPanelSorting();
             if (_countInput != null && string.IsNullOrEmpty(_countInput.text))
             {
                 _countInput.text = "1";
@@ -69,6 +74,7 @@ namespace Gravedigger2026.UI
             _closeButton = closeButton;
             _addButton = addButton;
             WireButtons();
+            ApplyPanelSorting();
             if (_countInput != null && string.IsNullOrEmpty(_countInput.text))
             {
                 _countInput.text = "1";
@@ -111,7 +117,9 @@ namespace Gravedigger2026.UI
 
             if (_root != null)
             {
+                ApplyPanelSorting();
                 _root.SetActive(true);
+                _root.transform.SetAsLastSibling();
             }
         }
 
@@ -120,6 +128,28 @@ namespace Gravedigger2026.UI
             if (_root != null)
             {
                 _root.SetActive(false);
+            }
+        }
+
+        private void ApplyPanelSorting()
+        {
+            var target = _root != null ? _root : gameObject;
+            if (target == null)
+            {
+                return;
+            }
+
+            var canvas = target.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = target.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = PanelSortingOrder;
+            if (target.GetComponent<GraphicRaycaster>() == null)
+            {
+                target.AddComponent<GraphicRaycaster>();
             }
         }
 

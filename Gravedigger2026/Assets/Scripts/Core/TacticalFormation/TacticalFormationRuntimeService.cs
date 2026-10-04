@@ -127,6 +127,7 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         private readonly List<string> _lostScratch = new List<string>(8);
         private readonly List<string> _refreshScratch = new List<string>(8);
+        private readonly List<SlotVacancy> _pendingSlotFills = new List<SlotVacancy>(8);
 
         private TacticalFormationCenterMode _centerMode = TacticalFormationCenterMode.Hold;
         private float _representativeMoveSpeed;
@@ -142,6 +143,7 @@ namespace Gravedigger2026.Core.TacticalFormation
             _layoutScratch.Clear();
             _lostScratch.Clear();
             _refreshScratch.Clear();
+            _pendingSlotFills.Clear();
             _centerMode = TacticalFormationCenterMode.Hold;
             _representativeMoveSpeed = 0f;
         }
@@ -178,6 +180,7 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         public void Tick(float dt, Vector2 flowFieldDirXZ)
         {
+            FlushSlotFills();
             TickSquads(dt, flowFieldDirXZ, null);
         }
 
@@ -186,6 +189,7 @@ namespace Gravedigger2026.Core.TacticalFormation
         /// </summary>
         public void Tick(float dt, Func<Vector2, Vector2> sampleDirAtCenter)
         {
+            FlushSlotFills();
             TickSquads(dt, default, sampleDirAtCenter);
         }
 
@@ -326,6 +330,11 @@ namespace Gravedigger2026.Core.TacticalFormation
                     $"formation={squad.FormationId} living={squad.ActiveMemberCount}");
             }
 
+            if (!dissolved)
+            {
+                _pendingSlotFills.Add(new SlotVacancy(memberRef.GroupKey, memberRef.SlotIndex));
+            }
+
             var removed = _lostScratch.Count == 0
                 ? Array.Empty<string>()
                 : _lostScratch.ToArray();
@@ -452,6 +461,13 @@ namespace Gravedigger2026.Core.TacticalFormation
         {
             var world = Quaternion.Euler(0f, yawDegrees, 0f) * new Vector3(localXZ.x, 0f, localXZ.y);
             return new Vector2(world.x, world.z);
+        }
+
+        /// <summary>D-095: group facing 0° is world +Z (north), same as slot rotation.</summary>
+        public static Vector3 FacingYawToWorldForward(float yawDegrees)
+        {
+            var xz = RotateYaw(new Vector2(0f, 1f), yawDegrees);
+            return new Vector3(xz.x, 0f, xz.y);
         }
 
         public static List<TacticalFormationCombatLock> BuildLocks(
@@ -644,6 +660,50 @@ namespace Gravedigger2026.Core.TacticalFormation
             }
         }
 
+        /// <summary>
+        /// D-094: move the living member with the highest slot index into each vacated
+        /// lower index, lowest vacancy first. No-op when the vacated index is already highest.
+        /// </summary>
+        public void FlushSlotFills()
+        {
+            if (_pendingSlotFills.Count == 0)
+            {
+                return;
+            }
+
+            _pendingSlotFills.Sort(CompareVacancy);
+            for (var i = 0; i < _pendingSlotFills.Count; i++)
+            {
+                var vacancy = _pendingSlotFills[i];
+                if (!_squads.ContainsKey(vacancy.GroupKey))
+                {
+                    continue;
+                }
+
+                if (!TryFindHighestActiveSlot(vacancy.GroupKey, out var highestId, out var highestSlot)
+                    || highestSlot <= vacancy.SlotIndex)
+                {
+                    continue;
+                }
+
+                _memberIndex[highestId] = new MemberRef(vacancy.GroupKey, vacancy.SlotIndex);
+            }
+
+            _pendingSlotFills.Clear();
+        }
+
+        public bool TryGetSlotIndex(string warriorId, out int slotIndex)
+        {
+            slotIndex = -1;
+            if (!TryGetSquadForMember(warriorId, out _, out slotIndex))
+            {
+                slotIndex = -1;
+                return false;
+            }
+
+            return true;
+        }
+
         private void TickSquads(float dt, Vector2 uniformDir, Func<Vector2, Vector2> sampleDirAtCenter)
         {
             if (dt <= 0f || _squads.Count == 0)
@@ -681,6 +741,50 @@ namespace Gravedigger2026.Core.TacticalFormation
 
             slotIndex = memberRef.SlotIndex;
             return true;
+        }
+
+        private readonly struct SlotVacancy
+        {
+            public readonly string GroupKey;
+            public readonly int SlotIndex;
+
+            public SlotVacancy(string groupKey, int slotIndex)
+            {
+                GroupKey = groupKey;
+                SlotIndex = slotIndex;
+            }
+        }
+
+        private static int CompareVacancy(SlotVacancy a, SlotVacancy b)
+        {
+            var group = string.CompareOrdinal(a.GroupKey, b.GroupKey);
+            if (group != 0)
+            {
+                return group;
+            }
+
+            return a.SlotIndex.CompareTo(b.SlotIndex);
+        }
+
+        private bool TryFindHighestActiveSlot(string groupKey, out string warriorId, out int slotIndex)
+        {
+            warriorId = null;
+            slotIndex = -1;
+            foreach (var kv in _memberIndex)
+            {
+                if (!string.Equals(kv.Value.GroupKey, groupKey, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (kv.Value.SlotIndex > slotIndex)
+                {
+                    slotIndex = kv.Value.SlotIndex;
+                    warriorId = kv.Key;
+                }
+            }
+
+            return !string.IsNullOrEmpty(warriorId);
         }
 
         private readonly struct MemberRef

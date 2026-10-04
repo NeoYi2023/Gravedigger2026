@@ -65,6 +65,23 @@ namespace Gravedigger2026.Gameplay.Defend
         private bool _driverOutcomeDispatched;
         private FormationEditorController _formationEditor;
 
+        public bool IsFormationEditorOpen => _formationEditor != null && _formationEditor.IsActive;
+
+        public bool TryCollectFormationClassZones(List<FormationClassZoneSnapshot> into)
+        {
+            if (_formationEditor == null)
+            {
+                if (into != null)
+                {
+                    into.Clear();
+                }
+
+                return false;
+            }
+
+            return _formationEditor.TryCollectClassZones(into);
+        }
+
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
         private int _nextMoveId;
@@ -1065,6 +1082,11 @@ namespace Gravedigger2026.Gameplay.Defend
                 return;
             }
 
+            if (_tacticalRuntime != null && _tacticalRuntime.IsMember(warrior.WarriorId))
+            {
+                return;
+            }
+
             var monster = warrior.FindNearestEngageMonster();
             if (monster == null)
             {
@@ -1441,12 +1463,12 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private void RefreshFormationSlotDestinations()
         {
-            if (_tacticalRuntime == null
-                || _tacticalRuntime.MemberCount == 0
-                || _moveScheduler == null)
+            if (_tacticalRuntime == null || _moveScheduler == null)
             {
                 return;
             }
+
+            _tacticalRuntime.FlushSlotFills();
 
             for (var i = 0; i < _warriorAgents.Count; i++)
             {
@@ -1456,22 +1478,109 @@ namespace Gravedigger2026.Gameplay.Defend
                     || warrior.IsRebel
                     || (_session != null && !_session.IsWarriorCombatActive(warrior.WarriorId)))
                 {
+                    if (warrior != null)
+                    {
+                        warrior.SetFormationPresentationFacing(false, default);
+                    }
+
                     continue;
                 }
 
-                if (!_moveScheduler.TryGetGoal(warrior.MoveId, out var kind, out _)
-                    || kind != GoalKind.FormationSlot)
+                if (!_tacticalRuntime.IsMember(warrior.WarriorId)
+                    || !_tacticalRuntime.TryGetSlotWorldXZ(warrior.WarriorId, out var slot))
                 {
+                    warrior.SetFormationHoldSwing(false, null);
+                    warrior.SetFormationPresentationFacing(false, default);
                     continue;
                 }
 
-                if (!_tacticalRuntime.TryGetSlotWorldXZ(warrior.WarriorId, out var slot))
-                {
-                    continue;
-                }
-
+                ApplyFormationPresentationFacing(warrior);
+                _attackSlots?.Release(warrior.AttackerId);
                 _moveScheduler.SetGoal(warrior.MoveId, GoalKind.FormationSlot, slot);
+
+                var soldierXZ = new Vector2(warrior.transform.position.x, warrior.transform.position.z);
+                var arrived = false;
+                if (_tacticalRuntime.TryGetMoveParams(warrior.WarriorId, out var moveParams))
+                {
+                    var eps = moveParams.SlotArriveEpsilon;
+                    arrived = (soldierXZ - slot).sqrMagnitude <= eps * eps;
+                }
+
+                string swingId = null;
+                if (arrived && TryPickFormationFrontMonster(warrior, soldierXZ, out var monster))
+                {
+                    swingId = monster.RuntimeId;
+                }
+                else
+                {
+                    _moveScheduler.SetPaused(warrior.MoveId, false);
+                }
+
+                warrior.SetFormationHoldSwing(true, swingId);
             }
+        }
+
+        private void ApplyFormationPresentationFacing(WarriorAgentView warrior)
+        {
+            if (warrior != null
+                && _tacticalRuntime != null
+                && _tacticalRuntime.TryGetFacingYawDegrees(warrior.WarriorId, out var yaw))
+            {
+                warrior.SetFormationPresentationFacing(
+                    true,
+                    TacticalFormationRuntimeService.FacingYawToWorldForward(yaw));
+                return;
+            }
+
+            warrior?.SetFormationPresentationFacing(false, default);
+        }
+
+        private bool TryPickFormationFrontMonster(
+            WarriorAgentView warrior,
+            Vector2 soldierXZ,
+            out MonsterAgentView best)
+        {
+            best = null;
+            if (warrior == null
+                || _tacticalRuntime == null
+                || !_tacticalRuntime.TryGetFacingYawDegrees(warrior.WarriorId, out var yaw)
+                || !_tacticalRuntime.TryGetMoveParams(warrior.WarriorId, out var move))
+            {
+                return false;
+            }
+
+            var bestDist = float.MaxValue;
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !monster.IsAlive)
+                {
+                    continue;
+                }
+
+                var enemyXZ = new Vector2(monster.transform.position.x, monster.transform.position.z);
+                var dist = CombatReach.DistanceXZ(warrior.transform.position, monster.transform.position);
+                if (!TacticalFormationCombatGoalPolicy.IsEligibleHoldSwingTarget(
+                        soldierXZ,
+                        enemyXZ,
+                        yaw,
+                        move.FrontArcDegrees,
+                        dist,
+                        warrior.AttackRange,
+                        warrior.AgentRadius,
+                        monster.BodyRadius))
+                {
+                    continue;
+                }
+
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = monster;
+                }
+            }
+
+            return best != null;
         }
 
         private bool TryApplyFormationMemberGoal(

@@ -61,3 +61,6 @@ Skill_12,4,,Mode2,EnemySingle,当开始寻找新的攻击目标,瞬移,更换选
 Skill_12,5,,Mode2,EnemySingle,当开始寻找新的攻击目标,瞬移,更换选择的目标为“距离自己最远的敌人”，目标确定后“瞬移”到该敌人的背后,Skill_12,SkillEffect_12_5,20,0,1
 Skill_Form_Wedge,1,Form_Wedge_01,Mode2,Self,,楔阵,战术阵型标记技能；制造授予后用于组阵判定，不驱动战斗,Skill_Form_Wedge,,0,0,0
 Skill_Form_Wedge_02,1,Form_Wedge_02,Mode2,Self,,平行阵,战术阵型标记技能；制造授予后用于组阵判定，不驱动战斗,Skill_Form_Wedge_02,,0,0,0
+Skill_Form_Wedge_03,1,Form_Wedge_03,Mode2,Self,,远射平行阵,战术阵型标记技能；制造授予后用于组阵判定，不驱动战斗,Skill_Form_Wedge_03,,0,0,0
+Skill_Form_Wedge_01,1,Form_Wedge_01,Mode2,Self,,楔阵,战术阵型标记技能；制造授予后用于组阵判定，不驱动战斗,Skill_Form_Wedge_01,,0,0,0
+Skill_Form_Wedge_04,1,Form_Wedge_04,Mode2,Self,,紧凑平行阵,战术阵型标记技能；制造授予后用于组阵判定，不驱动战斗,Skill_Form_Wedge_04,,0,0,0

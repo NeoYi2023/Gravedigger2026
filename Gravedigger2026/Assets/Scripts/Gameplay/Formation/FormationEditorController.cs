@@ -39,6 +39,8 @@ namespace Gravedigger2026.Gameplay.Formation
         [SerializeField] private Button _quickPreviewButton;
         [SerializeField] private Slider _cameraPathSlider;
         private Button _oneClickDeployButton;
+        private Button _oneClickUndeployButton;
+        private readonly List<string> _undeployIdScratch = new List<string>(32);
         [SerializeField] private RectTransform _dragGhost;
         [SerializeField] private Image _dragGhostImage;
         [SerializeField] private FormationSoldierHoverTooltipView _hoverTooltip;
@@ -218,6 +220,12 @@ namespace Gravedigger2026.Gameplay.Formation
                 _oneClickDeployButton.onClick.AddListener(HandleOneClickDeploy);
             }
 
+            EnsureOneClickUndeployButton();
+            if (_oneClickUndeployButton != null)
+            {
+                _oneClickUndeployButton.onClick.AddListener(HandleOneClickUndeploy);
+            }
+
             SetupPathPreviewControls();
 
             if (_soldierBar != null)
@@ -274,6 +282,11 @@ namespace Gravedigger2026.Gameplay.Formation
             if (_oneClickDeployButton != null)
             {
                 _oneClickDeployButton.onClick.RemoveListener(HandleOneClickDeploy);
+            }
+
+            if (_oneClickUndeployButton != null)
+            {
+                _oneClickUndeployButton.onClick.RemoveListener(HandleOneClickUndeploy);
             }
 
             TeardownPathPreviewControls();
@@ -822,6 +835,13 @@ namespace Gravedigger2026.Gameplay.Formation
                 {
                     return;
                 }
+
+                if (_battlefieldPreview != null
+                    && _layout.TryGetSquadByMember(_dragWarriorId, out var squad)
+                    && squad != null)
+                {
+                    _battlefieldPreview.ApplySquadFacing(squad.MemberIds, squad.FacingYawDegrees);
+                }
             }
             finally
             {
@@ -984,6 +1004,68 @@ namespace Gravedigger2026.Gameplay.Formation
             _oneClickDeployButton.interactable = true;
         }
 
+        private void EnsureOneClickUndeployButton()
+        {
+            if (_oneClickUndeployButton != null)
+            {
+                return;
+            }
+
+            if (_formation == null || _formation.BoundCampaignMode != CampaignMode.Mode2)
+            {
+                return;
+            }
+
+            EnsureOneClickDeployButton();
+            if (_oneClickDeployButton == null)
+            {
+                return;
+            }
+
+            var deployRt = _oneClickDeployButton.GetComponent<RectTransform>();
+            var canvasParent = _oneClickDeployButton.transform.parent;
+            if (deployRt == null || canvasParent == null)
+            {
+                return;
+            }
+
+            const float gap = 8f;
+
+            // Runtime-UI: stack above OneClickDeployButton (SPEC_03 D-097).
+            var go = new GameObject("OneClickUndeployButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(canvasParent, false);
+
+            var img = go.GetComponent<Image>();
+            img.color = new Color(0.55f, 0.32f, 0.28f, 1f);
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = deployRt.anchorMin;
+            rect.anchorMax = deployRt.anchorMax;
+            rect.pivot = deployRt.pivot;
+            rect.anchoredPosition = new Vector2(
+                deployRt.anchoredPosition.x,
+                deployRt.anchoredPosition.y + deployRt.sizeDelta.y + gap);
+            rect.sizeDelta = deployRt.sizeDelta;
+
+            var textGo = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(go.transform, false);
+            var txt = textGo.GetComponent<Text>();
+            txt.text = "一键下阵";
+            txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.fontSize = 20;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+
+            var textRt = txt.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = Vector2.zero;
+            textRt.offsetMax = Vector2.zero;
+
+            _oneClickUndeployButton = go.GetComponent<Button>();
+            _oneClickUndeployButton.interactable = true;
+        }
+
         private void HandleOneClickDeploy()
         {
             if (_pool == null || _formation == null || _configs == null)
@@ -1009,6 +1091,61 @@ namespace Gravedigger2026.Gameplay.Formation
                 var deployService = new OneClickFormationDeployService(_configs, _pool, _formation);
                 var deployed = deployService.DeployNotYetDeployedRandom(_zonesScratch);
                 Debug.Log($"[FormationEditor] OneClickDeploy deployed={deployed} (zones={_zonesScratch.Count})");
+                PruneTacticalLayout();
+            }
+            finally
+            {
+                _suppressAutoDeployRefresh = false;
+                RefreshAll();
+            }
+        }
+
+        private void HandleOneClickUndeploy()
+        {
+            if (_formation == null)
+            {
+                return;
+            }
+
+            if (_formation.BoundCampaignMode != CampaignMode.Mode2 || _suppressAutoDeployRefresh)
+            {
+                return;
+            }
+
+            var entries = _formation.Entries;
+            if (entries == null || entries.Count == 0)
+            {
+                return;
+            }
+
+            _undeployIdScratch.Clear();
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var id = entries[i].WarriorId;
+                if (!string.IsNullOrEmpty(id))
+                {
+                    _undeployIdScratch.Add(id);
+                }
+            }
+
+            if (_undeployIdScratch.Count == 0)
+            {
+                return;
+            }
+
+            _suppressAutoDeployRefresh = true;
+            try
+            {
+                var undeployed = 0;
+                for (var i = 0; i < _undeployIdScratch.Count; i++)
+                {
+                    if (_formation.TryUndeploy(_undeployIdScratch[i], out _))
+                    {
+                        undeployed++;
+                    }
+                }
+
+                Debug.Log($"[FormationEditor] OneClickUndeploy undeployed={undeployed}");
                 PruneTacticalLayout();
             }
             finally
@@ -1257,6 +1394,9 @@ namespace Gravedigger2026.Gameplay.Formation
 
             if (!created)
             {
+                Debug.Log(
+                    $"[FormationEditor] Catalog create failed for '{formationId}' " +
+                    "(need ≥ Min eligible soldiers with that FormationId skill, and Pattern bound).");
                 return;
             }
 

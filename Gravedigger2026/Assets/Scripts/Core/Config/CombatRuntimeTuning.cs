@@ -44,6 +44,9 @@ namespace Gravedigger2026.Core.Config
         public static float ProjectileDefaultHitRadius { get; private set; } =
             CombatConstantKeys.Safety.ProjectileDefaultHitRadius;
 
+        public static float ParabolaForwardArcDegrees { get; private set; } =
+            CombatConstantKeys.Safety.ParabolaForwardArcDegrees;
+
         public static long DefendVictoryStageExp { get; private set; } =
             (long)CombatConstantKeys.Safety.DefendVictoryStageExp;
 
@@ -208,6 +211,12 @@ namespace Gravedigger2026.Core.Config
             ProjectileDefaultHitRadius = Mathf.Max(0.05f, F(
                 CombatConstantKeys.ProjectileDefaultHitRadius,
                 CombatConstantKeys.Safety.ProjectileDefaultHitRadius));
+            ParabolaForwardArcDegrees = Mathf.Clamp(
+                F(
+                    CombatConstantKeys.ParabolaForwardArcDegrees,
+                    CombatConstantKeys.Safety.ParabolaForwardArcDegrees),
+                0f,
+                360f);
             DefendVictoryStageExp = (long)Mathf.Max(0f, F(
                 CombatConstantKeys.DefendVictoryStageExp,
                 CombatConstantKeys.Safety.DefendVictoryStageExp));

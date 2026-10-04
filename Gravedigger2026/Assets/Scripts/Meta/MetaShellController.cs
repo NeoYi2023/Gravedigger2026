@@ -83,6 +83,9 @@ namespace Gravedigger2026.Meta
         private AutoFormationDeployService _autoDeploy;
         private GmSoldierGrantService _gmSoldierGrant;
         private UpgradeManufactureStageModule _umModule;
+        private DefendStageModule _defendModule;
+        private PushMapStageModule _pushMapModule;
+        private SearchExtractStageModule _searchExtractModule;
         private LevelOperationDriver _levelDriver;
         private LevelRouteSelectView _routeSelectView;
         private readonly List<string> _routeLevelIds = new List<string>();
@@ -215,22 +218,22 @@ namespace Gravedigger2026.Meta
 
             if (_defendPrefabCatalog != null)
             {
-                _levelDriver.RegisterModule(
-                    new DefendStageModule(
-                        _configs,
-                        _defendPrefabCatalog,
-                        _formationPrefabCatalog,
-                        _defendWorldParent != null ? _defendWorldParent : transform,
-                        _progress,
-                        _warriorPool,
-                        _formation,
-                        _warehouse,
-                        _specialEquipSlots,
-                        HandleDefendVictory,
-                        HandleDefendLevelFailure,
-                        HandlePushMapModeConfirmed,
-                        SetStagePresentationActive,
-                        _bgm));
+                _defendModule = new DefendStageModule(
+                    _configs,
+                    _defendPrefabCatalog,
+                    _formationPrefabCatalog,
+                    _defendWorldParent != null ? _defendWorldParent : transform,
+                    _progress,
+                    _warriorPool,
+                    _formation,
+                    _warehouse,
+                    _specialEquipSlots,
+                    HandleDefendVictory,
+                    HandleDefendLevelFailure,
+                    HandlePushMapModeConfirmed,
+                    SetStagePresentationActive,
+                    _bgm);
+                _levelDriver.RegisterModule(_defendModule);
             }
             else
             {
@@ -239,24 +242,24 @@ namespace Gravedigger2026.Meta
 
             if (_defendPrefabCatalog != null)
             {
-                _levelDriver.RegisterModule(
-                    new PushMapStageModule(
-                        _configs,
-                        _defendPrefabCatalog,
-                        _formationPrefabCatalog,
-                        _defendWorldParent != null ? _defendWorldParent : transform,
-                        _progress,
-                        _warriorPool,
-                        _formation,
-                        _warehouse,
-                        _specialEquipSlots,
-                        _protagonistEquipment,
-                        _dungeonUnlocks,
-                        HandlePushMapVictoryContinue,
-                        HandleBattleFailureReturnTitle,
-                        HandleBattleFailureRestart,
-                        SetStagePresentationActive,
-                        _bgm));
+                _pushMapModule = new PushMapStageModule(
+                    _configs,
+                    _defendPrefabCatalog,
+                    _formationPrefabCatalog,
+                    _defendWorldParent != null ? _defendWorldParent : transform,
+                    _progress,
+                    _warriorPool,
+                    _formation,
+                    _warehouse,
+                    _specialEquipSlots,
+                    _protagonistEquipment,
+                    _dungeonUnlocks,
+                    HandlePushMapVictoryContinue,
+                    HandleBattleFailureReturnTitle,
+                    HandleBattleFailureRestart,
+                    SetStagePresentationActive,
+                    _bgm);
+                _levelDriver.RegisterModule(_pushMapModule);
             }
             else
             {
@@ -265,22 +268,22 @@ namespace Gravedigger2026.Meta
 
             if (_defendPrefabCatalog != null)
             {
-                _levelDriver.RegisterModule(
-                    new SearchExtractStageModule(
-                        _configs,
-                        _defendPrefabCatalog,
-                        _formationPrefabCatalog,
-                        _defendWorldParent != null ? _defendWorldParent : transform,
-                        _progress,
-                        _warriorPool,
-                        _formation,
-                        _warehouse,
-                        _specialEquipSlots,
-                        _protagonistEquipment,
-                        HandleSearchExtractVictory,
-                        HandleBattleFailureReturnTitle,
-                        HandleBattleFailureRestart,
-                        SetStagePresentationActive));
+                _searchExtractModule = new SearchExtractStageModule(
+                    _configs,
+                    _defendPrefabCatalog,
+                    _formationPrefabCatalog,
+                    _defendWorldParent != null ? _defendWorldParent : transform,
+                    _progress,
+                    _warriorPool,
+                    _formation,
+                    _warehouse,
+                    _specialEquipSlots,
+                    _protagonistEquipment,
+                    HandleSearchExtractVictory,
+                    HandleBattleFailureReturnTitle,
+                    HandleBattleFailureRestart,
+                    SetStagePresentationActive);
+                _levelDriver.RegisterModule(_searchExtractModule);
             }
             else
             {
@@ -1447,6 +1450,59 @@ namespace Gravedigger2026.Meta
             OpenGmGrantList(GmGrantKind.MagicBook);
         }
 
+        /// <summary>
+        /// D-064: UM Formation (any mode) or Mode2 Prepare formation (Defend/PushMap/SE).
+        /// </summary>
+        private bool IsGmAddSoldierFormationOpen()
+        {
+            if (_umModule != null && _umModule.IsFormationEditorOpen)
+            {
+                return true;
+            }
+
+            if (!_campaignMode.HasMode || _campaignMode.Current != CampaignMode.Mode2)
+            {
+                return false;
+            }
+
+            return (_defendModule != null && _defendModule.IsFormationEditorOpen)
+                   || (_pushMapModule != null && _pushMapModule.IsFormationEditorOpen)
+                   || (_searchExtractModule != null && _searchExtractModule.IsFormationEditorOpen);
+        }
+
+        private bool TryCollectGmAddSoldierFormationClassZones(List<FormationClassZoneSnapshot> into)
+        {
+            if (_umModule != null && _umModule.IsFormationEditorOpen)
+            {
+                return _umModule.TryCollectFormationClassZones(into);
+            }
+
+            if (_campaignMode.HasMode && _campaignMode.Current == CampaignMode.Mode2)
+            {
+                if (_defendModule != null && _defendModule.IsFormationEditorOpen)
+                {
+                    return _defendModule.TryCollectFormationClassZones(into);
+                }
+
+                if (_pushMapModule != null && _pushMapModule.IsFormationEditorOpen)
+                {
+                    return _pushMapModule.TryCollectFormationClassZones(into);
+                }
+
+                if (_searchExtractModule != null && _searchExtractModule.IsFormationEditorOpen)
+                {
+                    return _searchExtractModule.TryCollectFormationClassZones(into);
+                }
+            }
+
+            if (into != null)
+            {
+                into.Clear();
+            }
+
+            return false;
+        }
+
         private void HandleGrantAddSoldier()
         {
             if (!_configs.IsLoaded)
@@ -1463,7 +1519,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.HideMagicBookSlotsPanel();
             }
 
-            if (_umModule == null || !_umModule.IsFormationEditorOpen)
+            if (!IsGmAddSoldierFormationOpen())
             {
                 if (_toastView != null)
                 {
@@ -1501,7 +1557,7 @@ namespace Gravedigger2026.Meta
                 return;
             }
 
-            if (_umModule == null || !_umModule.IsFormationEditorOpen)
+            if (!IsGmAddSoldierFormationOpen())
             {
                 if (_toastView != null)
                 {
@@ -1512,7 +1568,7 @@ namespace Gravedigger2026.Meta
             }
 
             _gmZoneScratch.Clear();
-            _umModule.TryCollectFormationClassZones(_gmZoneScratch);
+            TryCollectGmAddSoldierFormationClassZones(_gmZoneScratch);
 
             if (!_gmSoldierGrant.TryAdd(
                     classId,

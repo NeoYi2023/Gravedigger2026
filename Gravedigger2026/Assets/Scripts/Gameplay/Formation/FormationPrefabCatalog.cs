@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Gravedigger2026.Core;
+using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.TacticalFormation;
 using UnityEngine;
 
@@ -114,6 +115,46 @@ namespace Gravedigger2026.Gameplay.Formation
             }
 
             slotLocalXZ = result;
+            return true;
+        }
+
+        /// <inheritdoc />
+        public bool TryGetSlotPreferredClasses(string prefabId, out BaseClassKind[] preferredClasses)
+        {
+            preferredClasses = Array.Empty<BaseClassKind>();
+            if (!TryGetPattern(prefabId, out var pattern) || pattern == null)
+            {
+                return false;
+            }
+
+            var slots = pattern.Slots;
+            var count = 0;
+            for (var i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] != null)
+                {
+                    count++;
+                }
+            }
+
+            if (count <= 0)
+            {
+                return false;
+            }
+
+            var result = new BaseClassKind[count];
+            var w = 0;
+            for (var i = 0; i < slots.Length; i++)
+            {
+                if (slots[i] == null)
+                {
+                    continue;
+                }
+
+                result[w++] = pattern.GetPreferredClass(i);
+            }
+
+            preferredClasses = result;
             return true;
         }
 

@@ -827,7 +827,7 @@ namespace Gravedigger2026.Core.PushMap
             {
                 WarriorId = warrior.Id,
                 BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
-                AttackMode = warrior.AttackMode,
+                AttackMode = ParabolaCombatRegistration.ResolveAttackMode(warrior, classRow),
                 MaxHp = maxHp,
                 RemainingHp = remaining,
                 NormalAttackPower = WarriorCombatMath.ComputeNormalAttackPower(primary, coeffs),
@@ -858,6 +858,7 @@ namespace Gravedigger2026.Core.PushMap
                 EffectStackByKind = new Dictionary<string, EffectStackState>(StringComparer.Ordinal)
             };
 
+            ParabolaCombatRegistration.CopyParams(state, classRow);
             SeedInternalSkillCooldowns(state, battleStats, coeffs);
 
             if (SoldierSkillCast.TryResolveSkill03(state.SoldierSkills, _configs, out var skillRow)
@@ -1599,6 +1600,27 @@ namespace Gravedigger2026.Core.PushMap
             return SettleMonsterDamage(warrior, monsterRuntimeId, "MeleeHit");
         }
 
+        /// <summary>Parabola temporary melee. View already checked ParabolaMeleeRange.</summary>
+        public bool TryConfirmParabolaMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange)
+        {
+            if (!IsCombatGameplayActive || !stillInRange)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            if (warrior.AttackMode != AttackMode.Parabola)
+            {
+                return false;
+            }
+
+            return SettleMonsterDamage(warrior, monsterRuntimeId, "ParabolaMelee");
+        }
+
         /// <summary>
         /// PM-12 ranged HitConfirm: View reports soft-collision hit; rules settle
         /// NormalAttackPower if still alive. Timeout miss must not call this.
@@ -1626,7 +1648,7 @@ namespace Gravedigger2026.Core.PushMap
                 return false;
             }
 
-            if (warrior.AttackMode != AttackMode.Ranged)
+            if (warrior.AttackMode != AttackMode.Ranged && warrior.AttackMode != AttackMode.Parabola)
             {
                 return false;
             }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.AutoManufacture;
@@ -73,6 +74,12 @@ namespace Gravedigger2026.Core.Level
         }
 
         public GameplayState HandledState => GameplayState.Defend;
+
+        public bool IsFormationEditorOpen =>
+            _controller != null && _controller.IsFormationEditorOpen;
+
+        public bool TryCollectFormationClassZones(List<FormationClassZoneSnapshot> into) =>
+            _controller != null && _controller.TryCollectFormationClassZones(into);
 
         public void Enter(LevelStageContext context)
         {

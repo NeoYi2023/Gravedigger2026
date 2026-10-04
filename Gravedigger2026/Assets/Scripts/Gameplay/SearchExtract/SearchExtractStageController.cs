@@ -73,6 +73,24 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private PushMapCameraFollowController _cameraFollow;
         private GameObject _resumeFollowButtonRoot;
         private FormationEditorController _formationEditor;
+
+        public bool IsFormationEditorOpen => _formationEditor != null && _formationEditor.IsActive;
+
+        public bool TryCollectFormationClassZones(List<FormationClassZoneSnapshot> into)
+        {
+            if (_formationEditor == null)
+            {
+                if (into != null)
+                {
+                    into.Clear();
+                }
+
+                return false;
+            }
+
+            return _formationEditor.TryCollectClassZones(into);
+        }
+
         private Vector2 _mapHalfExtents = new Vector2(5f, 2.5f);
         private Vector3 _mapCenter;
         private bool _running;
@@ -1625,6 +1643,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     pushCoefficient: pushCoefficient,
                     repulsionScale: repulsionScale,
                     chaseMoveSpeedMult: chaseMult);
+                advance.SetParabolaCrowd(() => _advanceViews, () => null);
 
                 var hold = new Vector2(worldPos.x, worldPos.z);
                 _moveScheduler.SetGoal(advance.MoveId, GoalKind.FormationHome, hold);
@@ -1858,6 +1877,11 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 return;
             }
 
+            if (_tacticalRuntime != null && _tacticalRuntime.IsMember(soldier.AttackerId))
+            {
+                return;
+            }
+
             if (!TryGetRelocateFallbackGoal(soldier.AttackerId, out var relocateGoal))
             {
                 _attackSlots.Release(soldier.AttackerId);
@@ -2007,12 +2031,12 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private void RefreshFormationSlotDestinations()
         {
-            if (_tacticalRuntime == null
-                || _tacticalRuntime.MemberCount == 0
-                || _moveScheduler == null)
+            if (_tacticalRuntime == null || _moveScheduler == null)
             {
                 return;
             }
+
+            _tacticalRuntime.FlushSlotFills();
 
             for (var i = 0; i < _advanceViews.Count; i++)
             {
@@ -2022,22 +2046,114 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     || soldier.IsRebel
                     || !soldier.IsCombatActive)
                 {
+                    if (soldier != null)
+                    {
+                        soldier.SetFormationPresentationFacing(false, default);
+                    }
+
                     continue;
                 }
 
-                if (!_moveScheduler.TryGetGoal(soldier.MoveId, out var kind, out _)
-                    || kind != GoalKind.FormationSlot)
+                if (!_tacticalRuntime.IsMember(soldier.AttackerId)
+                    || !_tacticalRuntime.TryGetSlotWorldXZ(soldier.AttackerId, out var slot))
                 {
+                    soldier.SetFormationHoldSwing(false, null);
+                    soldier.SetFormationPresentationFacing(false, default);
                     continue;
                 }
 
-                if (!_tacticalRuntime.TryGetSlotWorldXZ(soldier.AttackerId, out var slot))
-                {
-                    continue;
-                }
-
+                ApplyFormationPresentationFacing(soldier);
+                _attackSlots?.Release(soldier.AttackerId);
                 _moveScheduler.SetGoal(soldier.MoveId, GoalKind.FormationSlot, slot);
+                if (_decisionMovementHeld)
+                {
+                    soldier.SetFormationHoldSwing(true, null);
+                    continue;
+                }
+
+                var soldierXZ = new Vector2(soldier.transform.position.x, soldier.transform.position.z);
+                var arrived = false;
+                if (_tacticalRuntime.TryGetMoveParams(soldier.AttackerId, out var moveParams))
+                {
+                    var eps = moveParams.SlotArriveEpsilon;
+                    arrived = (soldierXZ - slot).sqrMagnitude <= eps * eps;
+                }
+
+                string swingId = null;
+                if (arrived && TryPickFormationFrontMonster(soldier, soldierXZ, out var monster))
+                {
+                    swingId = monster.RuntimeTargetId;
+                }
+                else
+                {
+                    _moveScheduler.SetPaused(soldier.MoveId, false);
+                }
+
+                soldier.SetFormationHoldSwing(true, swingId);
             }
+        }
+
+        private void ApplyFormationPresentationFacing(PushMapAdvanceView soldier)
+        {
+            if (soldier != null
+                && _tacticalRuntime != null
+                && _tacticalRuntime.TryGetFacingYawDegrees(soldier.AttackerId, out var yaw))
+            {
+                soldier.SetFormationPresentationFacing(
+                    true,
+                    TacticalFormationRuntimeService.FacingYawToWorldForward(yaw));
+                return;
+            }
+
+            soldier?.SetFormationPresentationFacing(false, default);
+        }
+
+        private bool TryPickFormationFrontMonster(
+            PushMapAdvanceView soldier,
+            Vector2 soldierXZ,
+            out PushMapMonsterAgentView best)
+        {
+            best = null;
+            if (soldier == null
+                || _tacticalRuntime == null
+                || !_tacticalRuntime.TryGetFacingYawDegrees(soldier.AttackerId, out var yaw)
+                || !_tacticalRuntime.TryGetMoveParams(soldier.AttackerId, out var move))
+            {
+                return false;
+            }
+
+            var bestDist = float.MaxValue;
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !monster.IsAlive)
+                {
+                    continue;
+                }
+
+                var enemyXZ = new Vector2(monster.transform.position.x, monster.transform.position.z);
+                var dist = CombatReach.DistanceXZ(soldier.transform.position, monster.transform.position);
+                if (!TacticalFormationCombatGoalPolicy.IsEligibleHoldSwingTarget(
+                        soldierXZ,
+                        enemyXZ,
+                        yaw,
+                        move.FrontArcDegrees,
+                        dist,
+                        soldier.AttackRange,
+                        soldier.AgentRadius,
+                        monster.BodyRadius))
+                {
+                    continue;
+                }
+
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = monster;
+                }
+            }
+
+            return best != null;
         }
 
         private bool TryApplyFormationMemberGoal(

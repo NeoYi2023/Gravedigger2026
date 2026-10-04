@@ -14,17 +14,17 @@ using UnityEngine.AI;
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// MP-04/05: loyal advance via FlowField; engage ù?GoalKind=AttackSlot (SPEC_03 ù3.12/ù3.14).
-    /// Samples MassMoveScheduler steer; applies NavMeshAgent.Move ù?no per-frame SetDestination.
+    /// MP-04/05: loyal advance via FlowField; engage ??GoalKind=AttackSlot (SPEC_03 ?3.12/?3.14).
+    /// Samples MassMoveScheduler steer; applies NavMeshAgent.Move ??no per-frame SetDestination.
     /// Capture-zone monsters do NOT pause advance. Rebels do not advance.
-    /// PM-12 (Approach B, SPEC_04 ù9.22): WarriorCombat scheme D ù?melee windup ù?
-    /// TryConfirmMeleeHit; ranged ù?shared ProjectileView soft-hit ù?TryConfirmRangedHit
+    /// PM-12 (Approach B, SPEC_04 ?9.22): WarriorCombat scheme D ??melee windup ??
+    /// TryConfirmMeleeHit; ranged ??shared ProjectileView soft-hit ??TryConfirmRangedHit
     /// (timeout = miss, no settlement). Combat params come from PushMapSessionService
     /// StartBattle registry (WarriorCombatMath + ClassConfig, mirrored from Defend).
-    /// D-069: Skill_03 burst occupies this attack channel (3ù scheme D) when CD ready.
+    /// D-069: Skill_03 burst occupies this attack channel (3? scheme D) when CD ready.
     /// D-073 SE-09: new-target acquire may Warp behind farthest enemy (rules pick; View Warp).
-    /// PM-13: CombatDead ù?PlayDie + stop acting (aligned with Defend WarriorAgentView).
-    /// PM-13: CombatDead ù?PlayDie + stop acting (aligned with Defend WarriorAgentView).
+    /// PM-13: CombatDead ??PlayDie + stop acting (aligned with Defend WarriorAgentView).
+    /// PM-13: CombatDead ??PlayDie + stop acting (aligned with Defend WarriorAgentView).
     /// Presentation: WarriorAnimView SetMoving/DirIndex facing; PlayAttack on windup/fire.
     /// </summary>
     [DisallowMultipleComponent]
@@ -42,13 +42,16 @@ namespace Gravedigger2026.Gameplay.PushMap
         private const float DefaultAttackRange = 1f;
         private const float MoveAnimSpeedSqr = 0.01f;
         /// <summary>
-        /// SPEC_03 ù3.14 v0.74.10: a rival must be closer than the claimed target by more
-        /// than this margin to steal the claim ù?dense packs + soft-collision jostle
+        /// SPEC_03 ?3.14 v0.74.10: a rival must be closer than the claimed target by more
+        /// than this margin to steal the claim ??dense packs + soft-collision jostle
         /// otherwise flip-flop the strictly-nearest target and starve the kill engage clock.
         /// </summary>
         private float _engageStickHysteresisMargin = CombatConstantKeys.Safety.EngageStickHysteresisMargin;
 
         private Func<IReadOnlyList<PushMapMonsterAgentView>> _monstersProvider;
+        private Func<IReadOnlyList<PushMapAdvanceView>> _alliesProvider;
+        private Func<Transform> _protagonistProvider;
+        private readonly List<ParabolaBody> _parabolaBodies = new List<ParabolaBody>(24);
         private readonly List<string> _aliveMonsterIdsScratch = new List<string>(32);
         private MassMoveScheduler _scheduler;
         private NavMeshAgent _agent;
@@ -79,9 +82,13 @@ namespace Gravedigger2026.Gameplay.PushMap
         private float _burstRecoverRemaining;
 
         private AttackSlotService _attackSlots;
-        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun ù?not NavMeshAgent.velocity (SPEC_04 ù15.5).</summary>
+        private bool _formationHold;
+        private string _formationSwingTargetId;
+        private bool _formationPresentationFacing;
+        private Vector3 _formationPresentationFacingXZ;
+        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun ??not NavMeshAgent.velocity (SPEC_04 ?15.5).</summary>
         private Vector3 _lastSteerDirXZ;
-        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 ù15.5 v0.83.31).</summary>
+        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 ?15.5 v0.83.31).</summary>
         private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private readonly ChaseStuckRetargetTracker _chaseStuckRetarget = new ChaseStuckRetargetTracker();
@@ -137,6 +144,14 @@ namespace Gravedigger2026.Gameplay.PushMap
 
                 return _attackMode;
             }
+        }
+
+        public void SetParabolaCrowd(
+            Func<IReadOnlyList<PushMapAdvanceView>> allies,
+            Func<Transform> protagonist)
+        {
+            _alliesProvider = allies;
+            _protagonistProvider = protagonist;
         }
 
         public void Bind(
@@ -202,7 +217,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _agent.radius = _bodyRadius;
             _agent.height = 0.1f;
             _agent.autoBraking = false;
-            // Facing via Animator DirIndex in PushMap as in Defend (SPEC_04 ù15.2).
+            // Facing via Animator DirIndex in PushMap as in Defend (SPEC_04 ?15.2).
             _agent.updateRotation = false;
             // Field/slot follow: LocalDetour owns friendlies (no RVO scale scheme).
             _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
@@ -262,7 +277,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>
-        /// Effective speed: base ù ChaseMoveSpeedMult only when GoalKind=AttackSlot (SPEC_03 ù3.12).
+        /// Effective speed: base ? ChaseMoveSpeedMult only when GoalKind=AttackSlot (SPEC_03 ?3.12).
         /// </summary>
         private float ResolveEffectiveMoveSpeed()
         {
@@ -306,12 +321,33 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// <summary>
         /// Nearest living monster inside Demo engage detect (MP-05: enter AttackSlot, leave
         /// Objective field). v0.82.55 Approach C: detect = max(weapon reach, monster AlertRadius).
-        /// v0.74.10 sticky hysteresis (SPEC_03 ù3.14): while the claimed
+        /// v0.74.10 sticky hysteresis (SPEC_03 ?3.14): while the claimed
         /// target is alive and still inside its detect radius, a rival steals the claim only
         /// when closer by more than engage stick hysteresis (CombatConstantConfig).
         /// v0.84.25/26: chase-stuck force retarget excludes stuck ids, bypasses stickiness,
         /// and only switches to an alternate that still has a free AttackSlot.
         /// </summary>
+        /// <summary>
+        /// D-094: Stage holds this soldier on a formation slot. When <paramref name="holdingSlot"/>
+        /// is true, swings only at <paramref name="swingTargetId"/> (null = stay, do not chase).
+        /// </summary>
+        public void SetFormationHoldSwing(bool holdingSlot, string swingTargetId)
+        {
+            _formationHold = holdingSlot;
+            _formationSwingTargetId = swingTargetId;
+        }
+
+        /// <summary>D-095: grouped walk/idle 8-dir follows the squad forward. Attack lock still wins.</summary>
+        public void SetFormationPresentationFacing(bool active, Vector3 worldForwardXZ)
+        {
+            worldForwardXZ.y = 0f;
+            _formationPresentationFacing = active && worldForwardXZ.sqrMagnitude > 0.0001f;
+            if (_formationPresentationFacing)
+            {
+                _formationPresentationFacingXZ = worldForwardXZ;
+            }
+        }
+
         public bool TryGetEngageMonster(out PushMapMonsterAgentView monster)
         {
             monster = null;
@@ -340,7 +376,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     continue;
                 }
 
-                // Detect = max(weapon reach, monster AlertRadius) (SPEC_03 ù3.12 v0.82.55 C).
+                // Detect = max(weapon reach, monster AlertRadius) (SPEC_03 ?3.12 v0.82.55 C).
                 var detect = CombatReach.EngageDetectRadius(
                     m.AttackRange,
                     AttackRange,
@@ -411,7 +447,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         /// <summary>
         /// Nearest engageable alternate that still has a free AttackSlot (v0.84.26).
-        /// Avoids Release?full-ring fail ù?FormationHome thrash.
+        /// Avoids Release?full-ring fail ??FormationHome thrash.
         /// </summary>
         private PushMapMonsterAgentView PickForceRetargetMonster(
             IReadOnlyList<PushMapMonsterAgentView> list)
@@ -635,7 +671,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            // PM-13: CombatDead / PermanentDeath mark ù?PlayDie once and stop acting.
+            // PM-13: CombatDead / PermanentDeath mark ??PlayDie once and stop acting.
             if (!IsCombatActive)
             {
                 EnterCombatDeadPresentation();
@@ -716,7 +752,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _burstHitsRemaining > 0 || _attackPhase == AttackPhase.BurstRecover;
 
         /// <summary>
-        /// PM-12 scheme D: engaged (AttackSlot claim on a living monster) + in AttackRange ù?
+        /// PM-12 scheme D: engaged (AttackSlot claim on a living monster) + in AttackRange ??
         /// melee windup / ranged projectile; settlement via session HitConfirm only.
         /// D-069: Skill_03 occupies this channel for 3 sequential scheme-D hits when CD ready.
         /// </summary>
@@ -801,13 +837,28 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private bool TryResolveCombatTarget(out PushMapMonsterAgentView target)
         {
+            if (_formationHold)
+            {
+                target = null;
+                if (string.IsNullOrEmpty(_formationSwingTargetId))
+                {
+                    return false;
+                }
+
+                return TryFindMonsterByRuntimeId(
+                           _monstersProvider != null ? _monstersProvider() : null,
+                           _formationSwingTargetId,
+                           out target)
+                       && target != null;
+            }
+
             if (TryResolveEngagedTarget(out target))
             {
                 return true;
             }
 
             // In-range hold may keep GoalKind=AttackSlot without a free ring slot
-            // (SPEC_03 ù3.12 v0.82.57). Still allow the swing if the detect target is in reach.
+            // (SPEC_03 ?3.12 v0.82.57). Still allow the swing if the detect target is in reach.
             if (_scheduler == null ||
                 !_scheduler.TryGetGoal(_moveId, out var kind, out _) ||
                 kind != GoalKind.AttackSlot ||
@@ -845,12 +896,60 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_anim != null)
             {
                 FaceTarget(target.transform.position);
-                var hold = state.AttackMode == AttackMode.Ranged && state.MeleeWindupSeconds > 0f
+                var parabolaMeleePreview = state.AttackMode == AttackMode.Parabola
+                    && PreviewParabolaMeleeAtWindup(state, target);
+                var animPool = parabolaMeleePreview
+                    ? state.ParabolaMeleeAttackAnims
+                    : state.NormalAttackAnims;
+                var hold = !parabolaMeleePreview
+                           && (state.AttackMode == AttackMode.Ranged || state.AttackMode == AttackMode.Parabola)
+                           && state.MeleeWindupSeconds > 0f
                     ? state.RangedWindupHoldFrame
                     : 0;
-                _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
+                _anim.ConfigureSoldierNormalAttackAnims(animPool);
                 _anim.PlayAttack(hold, state.AttackSpeed);
             }
+        }
+
+        /// <summary>
+        /// Windup-start preview of the Parabola forward-arc melee gate (SPEC_04 ¬ß15.5).
+        /// Fire resolution at windup end still runs Choose again.
+        /// </summary>
+        private bool PreviewParabolaMeleeAtWindup(
+            DefendCombatWarriorState state,
+            PushMapMonsterAgentView target)
+        {
+            var origin = transform.position;
+            var aimPoint = target != null ? target.transform.position : origin + transform.forward;
+            var aim = aimPoint - origin;
+            aim.y = 0f;
+            if (aim.sqrMagnitude < 0.0001f)
+            {
+                aim = transform.forward;
+                aim.y = 0f;
+            }
+
+            var targetInEngage = IsMonsterEngageable(target)
+                && CombatReach.IsInAttackRange(
+                    CombatReach.DistanceXZ(origin, target.transform.position),
+                    state.AttackRange,
+                    _bodyRadius,
+                    target.BodyRadius);
+
+            FillParabolaBodies();
+            var choice = ParabolaFirePolicy.Choose(
+                origin,
+                aimPoint,
+                targetInEngage,
+                state.AttackRange,
+                state.ParabolaMeleeRange,
+                state.ParabolaArcMinDistance,
+                state.ParabolaHitRate,
+                CombatRuntimeTuning.ParabolaForwardArcDegrees,
+                0f,
+                aim,
+                _parabolaBodies);
+            return choice.Kind == ParabolaShotKind.Melee;
         }
 
         private void TickWindup()
@@ -878,7 +977,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                               CombatReach.HitConfirmSlack);
 
             _anim?.ReleaseAttackHold();
-            if (state.AttackMode == AttackMode.Ranged)
+            if (state.AttackMode == AttackMode.Parabola)
+            {
+                var melee = ResolveParabolaShot(state, target, inRange);
+                ClearWindup();
+                if (_burstHitsRemaining > 0)
+                {
+                    AfterBurstHit(melee: melee);
+                }
+            }
+            else if (state.AttackMode == AttackMode.Ranged)
             {
                 if (inRange && target != null)
                 {
@@ -910,11 +1018,185 @@ namespace Gravedigger2026.Gameplay.PushMap
             _anim?.ReleaseAttackHold();
         }
 
+        private bool ResolveParabolaShot(
+            DefendCombatWarriorState state,
+            PushMapMonsterAgentView target,
+            bool targetInEngageRange)
+        {
+            var origin = transform.position;
+            var aimPoint = target != null ? target.transform.position : origin + transform.forward;
+            var aim = aimPoint - origin;
+            aim.y = 0f;
+            if (aim.sqrMagnitude < 0.0001f)
+            {
+                aim = transform.forward;
+                aim.y = 0f;
+            }
+
+            FillParabolaBodies();
+            var choice = ParabolaFirePolicy.Choose(
+                origin,
+                aimPoint,
+                targetInEngageRange && target != null,
+                state.AttackRange,
+                state.ParabolaMeleeRange,
+                state.ParabolaArcMinDistance,
+                state.ParabolaHitRate,
+                CombatRuntimeTuning.ParabolaForwardArcDegrees,
+                UnityEngine.Random.value,
+                aim,
+                _parabolaBodies);
+
+            switch (choice.Kind)
+            {
+                case ParabolaShotKind.Melee:
+                    _session.TryConfirmParabolaMeleeHit(_attackerId, choice.MeleeTargetId, true);
+                    return true;
+                case ParabolaShotKind.Straight:
+                    if (target != null)
+                    {
+                        FireProjectile(
+                            state,
+                            target,
+                            fromBurst: false,
+                            fromWindupEnd: true,
+                            stretchShortFlight: true);
+                    }
+
+                    return false;
+                case ParabolaShotKind.ArcHit:
+                case ParabolaShotKind.ArcMiss:
+                    if (target != null)
+                    {
+                        FireParabolaArc(state, target, aim, choice.Kind == ParabolaShotKind.ArcHit);
+                    }
+
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        private void FireParabolaArc(
+            DefendCombatWarriorState state,
+            PushMapMonsterAgentView target,
+            Vector3 aim,
+            bool committedHit)
+        {
+            var flat = aim;
+            flat.y = 0f;
+            if (flat.sqrMagnitude < 0.0001f)
+            {
+                flat = Vector3.forward;
+            }
+            else
+            {
+                flat.Normalize();
+            }
+
+            var landing = committedHit
+                ? target.transform.position
+                : target.transform.position + flat * state.ParabolaMissOvershoot;
+            landing.y = target.transform.position.y;
+            var horiz = ParabolaFirePolicy.DistanceXZ(transform.position, landing);
+            var peak = Mathf.Max(0.75f, horiz * 0.35f);
+            FireProjectile(
+                state,
+                target,
+                fromBurst: false,
+                fromWindupEnd: true,
+                arc: true,
+                arcCommittedHit: committedHit,
+                arcLanding: landing,
+                arcPeak: peak,
+                missLingerSeconds: state.ParabolaMissLingerSeconds);
+        }
+
+        private void FillParabolaBodies()
+        {
+            _parabolaBodies.Clear();
+            var monsters = _monstersProvider != null ? _monstersProvider() : null;
+            if (monsters != null)
+            {
+                for (var i = 0; i < monsters.Count; i++)
+                {
+                    var monster = monsters[i];
+                    if (monster == null || !monster.IsAlive || string.IsNullOrEmpty(monster.RuntimeTargetId))
+                    {
+                        continue;
+                    }
+
+                    if (_session != null && !_session.IsMonsterAlive(monster.RuntimeTargetId))
+                    {
+                        continue;
+                    }
+
+                    _parabolaBodies.Add(new ParabolaBody
+                    {
+                        Id = monster.RuntimeTargetId,
+                        Position = monster.transform.position,
+                        Friendly = false
+                    });
+                }
+            }
+
+            var allies = _alliesProvider != null ? _alliesProvider() : null;
+            if (allies != null)
+            {
+                for (var i = 0; i < allies.Count; i++)
+                {
+                    var other = allies[i];
+                    if (other == null || string.Equals(other.AttackerId, _attackerId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (other.IsRebel != _isRebel)
+                    {
+                        continue;
+                    }
+
+                    if (_session != null && !_session.IsWarriorCombatActive(other.AttackerId))
+                    {
+                        continue;
+                    }
+
+                    _parabolaBodies.Add(new ParabolaBody
+                    {
+                        Id = other.AttackerId,
+                        Position = other.transform.position,
+                        Friendly = true
+                    });
+                }
+            }
+
+            if (!_isRebel)
+            {
+                var protagonist = _protagonistProvider != null ? _protagonistProvider() : null;
+                if (protagonist != null)
+                {
+                    _parabolaBodies.Add(new ParabolaBody
+                    {
+                        Id = "Protagonist",
+                        Position = protagonist.position,
+                        Friendly = true
+                    });
+                }
+            }
+        }
+
         private void FireProjectile(
             DefendCombatWarriorState state,
             PushMapMonsterAgentView target,
             bool fromBurst,
-            bool fromWindupEnd = false)
+            bool fromWindupEnd = false,
+            bool arc = false,
+            bool arcCommittedHit = false,
+            Vector3 arcLanding = default,
+            float arcPeak = 1f,
+            float missLingerSeconds = 0f,
+            float speedOverride = -1f,
+            bool stretchShortFlight = false)
         {
             if (!fromBurst && !fromWindupEnd)
             {
@@ -968,10 +1250,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _attackerId,
                 target.RuntimeTargetId,
                 ResolveMonsterTransform,
-                state.RangedProjectileSpeed,
+                speedOverride > 0f ? speedOverride : state.RangedProjectileSpeed,
                 state.RangedTimeoutSeconds,
                 hitRadius: -1f,
-                enumerateAliveTargets: EnumerateAliveMonsterRuntimeIds);
+                enumerateAliveTargets: EnumerateAliveMonsterRuntimeIds,
+                arc: arc,
+                arcCommittedHit: arcCommittedHit,
+                arcLanding: arcLanding,
+                arcPeak: arcPeak,
+                missLingerSeconds: missLingerSeconds,
+                stretchShortFlight: stretchShortFlight);
 
             TryApplyProjectileVisual(view, state.BaseClass);
 
@@ -1180,7 +1468,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         /// <summary>
         /// Movement: IsRun from steer, DirIndex from LastDesired; attack facing is snapped
-        /// once at PlayAttack (SPEC_04 ù15.5 v0.83.31).
+        /// once at PlayAttack (SPEC_04 ?15.5 v0.83.31).
         /// </summary>
         private void TickAnimPresentation()
         {
@@ -1199,7 +1487,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var inWindup = _attackPhase == AttackPhase.Windup ||
                            _attackPhase == AttackPhase.BurstRecover;
-            // MassMove uses Move()+ResetPath ù?velocityù?; use steer like monsters (SPEC_04 ù15.5).
+            // MassMove uses Move()+ResetPath ??velocity??; use steer like monsters (SPEC_04 ?15.5).
             var wantsMove = !inWindup && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;
             _anim.SetMoving(
@@ -1209,7 +1497,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                     ResolveEffectiveMoveSpeed(),
                     WarriorAnimView.SoldierMoveAnimReferenceSpeed));
 
-            if (moving)
+            if (_formationPresentationFacing)
+            {
+                _anim.SetFacing(_formationPresentationFacingXZ);
+            }
+            else if (moving)
             {
                 ApplyMoveFacing();
             }
@@ -1239,7 +1531,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _anim.SetFacing(_lastDesiredDirXZ);
         }
 
-        /// <summary>SPEC_04 ù15.5: distance for attack?run interrupt gate (Objective / missing ù?+ù?.</summary>
+        /// <summary>SPEC_04 ?15.5: distance for attack?run interrupt gate (Objective / missing ??+??.</summary>
         private float ResolveMoveTargetDistanceXZ()
         {
             if (_scheduler == null || _moveId == 0)
@@ -1353,7 +1645,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            // No SetDestination ù?follow scheduler steer (Objective field or AttackSlot).
+            // No SetDestination ??follow scheduler steer (Objective field or AttackSlot).
             if (_agent.hasPath)
             {
                 _agent.ResetPath();
@@ -1386,7 +1678,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>
-        /// SPEC_03 ù3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
+        /// SPEC_03 ?3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
         /// </summary>
         private void TickChaseStuckRetarget()
         {

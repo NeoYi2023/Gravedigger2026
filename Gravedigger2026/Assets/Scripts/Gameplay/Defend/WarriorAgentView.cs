@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
@@ -38,6 +39,7 @@ namespace Gravedigger2026.Gameplay.Defend
         private EngageZone _engageZone;
         private Func<IReadOnlyList<MonsterAgentView>> _monstersProvider;
         private Func<IReadOnlyList<WarriorAgentView>> _warriorsProvider;
+        private readonly List<ParabolaBody> _parabolaBodies = new List<ParabolaBody>(24);
         private Func<Transform> _protagonistProvider;
         private GameObject _projectilePrefab;
         private Transform _projectileParent;
@@ -62,10 +64,14 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
+        private bool _formationHold;
+        private string _formationSwingTargetId;
+        private bool _formationPresentationFacing;
+        private Vector3 _formationPresentationFacingXZ;
         private int _moveId;
-        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun ù?not NavMeshAgent.velocity (SPEC_04 ù15.5).</summary>
+        /// <summary>Last MassMove steer XZ (LateUpdate); drives IsRun ??not NavMeshAgent.velocity (SPEC_04 ?15.5).</summary>
         private Vector3 _lastSteerDirXZ;
-        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 ù15.5 v0.83.31).</summary>
+        /// <summary>Last MassMove pre-detour desired; drives DirIndex while moving (SPEC_04 ?15.5 v0.83.31).</summary>
         private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private readonly ChaseStuckRetargetTracker _chaseStuckRetarget = new ChaseStuckRetargetTracker();
@@ -96,7 +102,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
         }
 
-        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ù?0/frame (SPEC_04 ù9.7).</summary>
+        /// <summary>From DefendGameplayConfig; Stage slot refresh is budgeted ??0/frame (SPEC_04 ?9.7).</summary>
         public float TargetRetargetInterval => _retargetInterval;
 
         public float AttackRange
@@ -224,7 +230,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _agent.radius = _bodyRadius;
             _agent.height = 0.1f;
             _agent.autoBraking = false;
-            // SPEC_04 ù15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
+            // SPEC_04 ?15.2: facing via Animator DirIndex; do not yaw the Visual sprite.
             _agent.updateRotation = false;
             _agent.obstacleAvoidanceType = ObstacleAvoidanceType.NoObstacleAvoidance;
 
@@ -627,7 +633,7 @@ namespace Gravedigger2026.Gameplay.Defend
         }
 
         /// <summary>
-        /// SPEC_03 ù3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
+        /// SPEC_03 ?3.12 v0.84.25/26: arm exclude-id when AttackSlot chase is out of range and stuck.
         /// </summary>
         private void TickChaseStuckRetarget()
         {
@@ -752,7 +758,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
             CacheDesiredDirFromScheduler();
 
-            // MassMove uses Move()+ResetPath ù?velocityù?; use steer like monsters (SPEC_04 ù15.5).
+            // MassMove uses Move()+ResetPath ??velocity??; use steer like monsters (SPEC_04 ?15.5).
             var wantsMove = _attackPhase != AttackPhase.Windup
                             && _lastSteerDirXZ.sqrMagnitude > MoveAnimSpeedSqr;
             var moving = wantsMove && !_stuckHold.IsHolding;
@@ -767,7 +773,11 @@ namespace Gravedigger2026.Gameplay.Defend
                         WarriorAnimView.SoldierMoveAnimReferenceSpeed));
             }
 
-            if (moving)
+            if (_formationPresentationFacing)
+            {
+                _anim.SetFacing(_formationPresentationFacingXZ);
+            }
+            else if (moving)
             {
                 ApplyMoveFacing();
             }
@@ -797,7 +807,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _anim.SetFacing(_lastDesiredDirXZ);
         }
 
-        /// <summary>SPEC_04 ù15.5: distance for attack?run interrupt gate (Objective / missing ù?+ù?.</summary>
+        /// <summary>SPEC_04 ?15.5: distance for attack?run interrupt gate (Objective / missing ??+??.</summary>
         private float ResolveMoveTargetDistanceXZ()
         {
             if (_scheduler == null || _moveId == 0)
@@ -823,6 +833,42 @@ namespace Gravedigger2026.Gameplay.Defend
             _anim.PlayDie(corpseAlphaMul: WarriorAnimView.DefendCorpseAlphaMul);
         }
 
+        /// <summary>
+        /// D-094: Stage holds this soldier on a formation slot. Swings only at
+        /// <paramref name="swingTargetId"/> while <paramref name="holdingSlot"/> is true.
+        /// </summary>
+        public void SetFormationHoldSwing(bool holdingSlot, string swingTargetId)
+        {
+            _formationHold = holdingSlot;
+            _formationSwingTargetId = swingTargetId;
+        }
+
+        /// <summary>D-095: grouped walk/idle 8-dir follows the squad forward. Attack lock still wins.</summary>
+        public void SetFormationPresentationFacing(bool active, Vector3 worldForwardXZ)
+        {
+            worldForwardXZ.y = 0f;
+            _formationPresentationFacing = active && worldForwardXZ.sqrMagnitude > 0.0001f;
+            if (_formationPresentationFacing)
+            {
+                _formationPresentationFacingXZ = worldForwardXZ;
+            }
+        }
+
+        private MonsterAgentView ResolveLoyalAttackTarget()
+        {
+            if (!_formationHold)
+            {
+                return FindNearestEngageMonster();
+            }
+
+            if (string.IsNullOrEmpty(_formationSwingTargetId))
+            {
+                return null;
+            }
+
+            return FindMonsterByRuntimeId(_formationSwingTargetId);
+        }
+
         private void TickLoyalMelee(DefendCombatWarriorState state)
         {
             if (_attackPhase == AttackPhase.Windup)
@@ -832,7 +878,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
-            var target = FindNearestEngageMonster();
+            var target = ResolveLoyalAttackTarget();
             if (target == null || _attackStartCooldown > 0f)
             {
                 return;
@@ -856,7 +902,7 @@ namespace Gravedigger2026.Gameplay.Defend
             }
 
             _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
-            var target = FindNearestEngageMonster();
+            var target = ResolveLoyalAttackTarget();
             if (target == null || _attackStartCooldown > 0f)
             {
                 return;
@@ -896,7 +942,174 @@ namespace Gravedigger2026.Gameplay.Defend
             BeginWindup(kind, targetId, state);
         }
 
-        private void FireProjectile(DefendCombatWarriorState state, MonsterAgentView target, bool fromWindupEnd = false)
+        private void ResolveParabolaShot(
+            DefendCombatWarriorState state,
+            MonsterAgentView target,
+            bool targetInEngageRange)
+        {
+            var origin = transform.position;
+            var aimPoint = target != null ? target.transform.position : origin + transform.forward;
+            var aim = aimPoint - origin;
+            aim.y = 0f;
+            if (aim.sqrMagnitude < 0.0001f)
+            {
+                aim = transform.forward;
+                aim.y = 0f;
+            }
+
+            FillParabolaBodies();
+            var choice = ParabolaFirePolicy.Choose(
+                origin,
+                aimPoint,
+                targetInEngageRange && target != null,
+                state.AttackRange,
+                state.ParabolaMeleeRange,
+                state.ParabolaArcMinDistance,
+                state.ParabolaHitRate,
+                CombatRuntimeTuning.ParabolaForwardArcDegrees,
+                UnityEngine.Random.value,
+                aim,
+                _parabolaBodies);
+
+            switch (choice.Kind)
+            {
+                case ParabolaShotKind.Melee:
+                    _session.TryConfirmParabolaMeleeHit(_warriorId, choice.MeleeTargetId, true);
+                    break;
+                case ParabolaShotKind.Straight:
+                    FireProjectile(state, target, fromWindupEnd: true, stretchShortFlight: true);
+                    break;
+                case ParabolaShotKind.ArcHit:
+                case ParabolaShotKind.ArcMiss:
+                    FireParabolaArc(state, target, aim, choice.Kind == ParabolaShotKind.ArcHit);
+                    break;
+            }
+        }
+
+        private void FireParabolaArc(
+            DefendCombatWarriorState state,
+            MonsterAgentView target,
+            Vector3 aim,
+            bool committedHit)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var flat = aim;
+            flat.y = 0f;
+            if (flat.sqrMagnitude < 0.0001f)
+            {
+                flat = Vector3.forward;
+            }
+            else
+            {
+                flat.Normalize();
+            }
+
+            var landing = committedHit
+                ? target.transform.position
+                : target.transform.position + flat * state.ParabolaMissOvershoot;
+            landing.y = target.transform.position.y;
+            var horiz = ParabolaFirePolicy.DistanceXZ(transform.position, landing);
+            var peak = Mathf.Max(0.75f, horiz * 0.35f);
+            FireProjectile(
+                state,
+                target,
+                fromWindupEnd: true,
+                arc: true,
+                arcCommittedHit: committedHit,
+                arcLanding: landing,
+                arcPeak: peak,
+                missLingerSeconds: state.ParabolaMissLingerSeconds);
+        }
+
+        private void FillParabolaBodies()
+        {
+            _parabolaBodies.Clear();
+            var shooterRebel = IsRebel;
+            var monsters = _monstersProvider != null ? _monstersProvider() : null;
+            if (monsters != null)
+            {
+                for (var i = 0; i < monsters.Count; i++)
+                {
+                    var monster = monsters[i];
+                    if (monster == null || !monster.IsAlive)
+                    {
+                        continue;
+                    }
+
+                    if (_session != null && !_session.IsMonsterAlive(monster.RuntimeId))
+                    {
+                        continue;
+                    }
+
+                    _parabolaBodies.Add(new ParabolaBody
+                    {
+                        Id = monster.RuntimeId,
+                        Position = monster.transform.position,
+                        Friendly = false
+                    });
+                }
+            }
+
+            var warriors = _warriorsProvider != null ? _warriorsProvider() : null;
+            if (warriors != null)
+            {
+                for (var i = 0; i < warriors.Count; i++)
+                {
+                    var other = warriors[i];
+                    if (other == null || string.Equals(other.WarriorId, _warriorId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (other.IsRebel != shooterRebel)
+                    {
+                        continue;
+                    }
+
+                    if (_session != null && !_session.IsWarriorCombatActive(other.WarriorId))
+                    {
+                        continue;
+                    }
+
+                    _parabolaBodies.Add(new ParabolaBody
+                    {
+                        Id = other.WarriorId,
+                        Position = other.transform.position,
+                        Friendly = true
+                    });
+                }
+            }
+
+            if (!shooterRebel)
+            {
+                var protagonist = _protagonistProvider != null ? _protagonistProvider() : null;
+                if (protagonist != null)
+                {
+                    _parabolaBodies.Add(new ParabolaBody
+                    {
+                        Id = "Protagonist",
+                        Position = protagonist.position,
+                        Friendly = true
+                    });
+                }
+            }
+        }
+
+        private void FireProjectile(
+            DefendCombatWarriorState state,
+            MonsterAgentView target,
+            bool fromWindupEnd = false,
+            bool arc = false,
+            bool arcCommittedHit = false,
+            Vector3 arcLanding = default,
+            float arcPeak = 1f,
+            float missLingerSeconds = 0f,
+            float speedOverride = -1f,
+            bool stretchShortFlight = false)
         {
             if (_projectilePrefab == null)
             {
@@ -952,8 +1165,14 @@ namespace Gravedigger2026.Gameplay.Defend
                 _warriorId,
                 target.RuntimeId,
                 ResolveMonsterTransform,
-                state.RangedProjectileSpeed,
-                state.RangedTimeoutSeconds);
+                speedOverride > 0f ? speedOverride : state.RangedProjectileSpeed,
+                state.RangedTimeoutSeconds,
+                arc: arc,
+                arcCommittedHit: arcCommittedHit,
+                arcLanding: arcLanding,
+                arcPeak: arcPeak,
+                missLingerSeconds: missLingerSeconds,
+                stretchShortFlight: stretchShortFlight);
 
             TryApplyProjectileVisual(view, state.BaseClass);
 
@@ -998,13 +1217,70 @@ namespace Gravedigger2026.Gameplay.Defend
                     }
                 }
 
-                _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
-                _anim.PlayAttack(
-                    state.AttackMode == AttackMode.Ranged && state.MeleeWindupSeconds > 0f
-                        ? state.RangedWindupHoldFrame
-                        : 0,
-                    state.AttackSpeed);
+                var parabolaMeleePreview = state.AttackMode == AttackMode.Parabola
+                    && PreviewParabolaMeleeAtWindup(state, kind, targetId);
+                var animPool = parabolaMeleePreview
+                    ? state.ParabolaMeleeAttackAnims
+                    : state.NormalAttackAnims;
+                var hold = !parabolaMeleePreview
+                           && (state.AttackMode == AttackMode.Ranged || state.AttackMode == AttackMode.Parabola)
+                           && state.MeleeWindupSeconds > 0f
+                    ? state.RangedWindupHoldFrame
+                    : 0;
+                _anim.ConfigureSoldierNormalAttackAnims(animPool);
+                _anim.PlayAttack(hold, state.AttackSpeed);
             }
+        }
+
+        /// <summary>
+        /// Windup-start preview of the Parabola forward-arc melee gate (SPEC_04 ¬ß15.5).
+        /// Fire resolution at windup end still runs Choose again.
+        /// </summary>
+        private bool PreviewParabolaMeleeAtWindup(
+            DefendCombatWarriorState state,
+            RebelTargetKind kind,
+            string targetId)
+        {
+            var origin = transform.position;
+            if (!TryResolveWindupAim(kind, targetId, out var aimPoint))
+            {
+                aimPoint = origin + transform.forward;
+            }
+
+            var aim = aimPoint - origin;
+            aim.y = 0f;
+            if (aim.sqrMagnitude < 0.0001f)
+            {
+                aim = transform.forward;
+                aim.y = 0f;
+            }
+
+            var targetInEngage = false;
+            if (kind == RebelTargetKind.Monster)
+            {
+                var monster = FindMonsterByRuntimeId(targetId);
+                if (monster != null && monster.IsAlive)
+                {
+                    var dist = CombatReach.DistanceXZ(origin, monster.transform.position);
+                    targetInEngage = CombatReach.IsInAttackRange(
+                        dist, state.AttackRange, _bodyRadius, monster.BodyRadius);
+                }
+            }
+
+            FillParabolaBodies();
+            var choice = ParabolaFirePolicy.Choose(
+                origin,
+                aimPoint,
+                targetInEngage,
+                state.AttackRange,
+                state.ParabolaMeleeRange,
+                state.ParabolaArcMinDistance,
+                state.ParabolaHitRate,
+                CombatRuntimeTuning.ParabolaForwardArcDegrees,
+                0f,
+                aim,
+                _parabolaBodies);
+            return choice.Kind == ParabolaShotKind.Melee;
         }
 
         private bool TryResolveWindupAim(RebelTargetKind kind, string targetId, out Vector3 aim)
@@ -1069,7 +1345,11 @@ namespace Gravedigger2026.Gameplay.Defend
                               CombatReach.HitConfirmSlack);
 
             _anim?.ReleaseAttackHold();
-            if (state.AttackMode == AttackMode.Ranged)
+            if (state.AttackMode == AttackMode.Parabola)
+            {
+                ResolveParabolaShot(state, target, inRange);
+            }
+            else if (state.AttackMode == AttackMode.Ranged)
             {
                 if (inRange && target != null)
                 {
@@ -1136,7 +1416,11 @@ namespace Gravedigger2026.Gameplay.Defend
                                       _bodyRadius,
                                       target.BodyRadius,
                                       CombatReach.HitConfirmSlack);
-                    if (state.AttackMode == AttackMode.Ranged)
+                    if (state.AttackMode == AttackMode.Parabola)
+                    {
+                        ResolveParabolaShot(state, target, inRange);
+                    }
+                    else if (state.AttackMode == AttackMode.Ranged)
                     {
                         if (inRange && target != null)
                         {

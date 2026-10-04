@@ -19,3 +19,7 @@ MonoBehaviour:
     Prefab: {fileID: 81100001, guid: 8d5f0c2b3e9a4f7d8b6c4e2f1a0d9b35, type: 3}
   - PrefabId: FormationPattern_Wedge_02
     Prefab: {fileID: 81100001, guid: 7da7df4a610b3d34ba0102b4ba8e4dba, type: 3}
+  - PrefabId: FormationPattern_Wedge_03
+    Prefab: {fileID: 81100001, guid: 1948caf2d494f9b488a5efe232422d32, type: 3}
+  - PrefabId: FormationPattern_Wedge_04
+    Prefab: {fileID: 81100001, guid: d85b2327342213549a9b5c87eef61431, type: 3}

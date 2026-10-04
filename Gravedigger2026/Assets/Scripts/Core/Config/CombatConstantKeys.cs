@@ -67,6 +67,7 @@ namespace Gravedigger2026.Core.Config
         public const string StuckDisplacementEpsilon = "StuckDisplacementEpsilon";
         public const string StuckHoldSeconds = "StuckHoldSeconds";
         public const string ProjectileDefaultHitRadius = "ProjectileDefaultHitRadius";
+        public const string ParabolaForwardArcDegrees = "ParabolaForwardArcDegrees";
         public const string DefendVictoryStageExp = "DefendVictoryStageExp";
         public const string NewSaveInitialSpiritCount = "NewSaveInitialSpiritCount";
         public const string NewSaveInitialEquipments = "NewSaveInitialEquipments";
@@ -196,6 +197,7 @@ namespace Gravedigger2026.Core.Config
             public const float StuckDisplacementEpsilon = 0.2f;
             public const float StuckHoldSeconds = 1f;
             public const float ProjectileDefaultHitRadius = 0.55f;
+            public const float ParabolaForwardArcDegrees = 60f;
             public const float DefendVictoryStageExp = 100f;
             public const float NewSaveInitialSpiritCount = 30f;
             public const float DeathKnockbackRatioCoeff = 0.5f;

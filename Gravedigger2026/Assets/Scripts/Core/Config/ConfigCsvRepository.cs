@@ -2069,8 +2069,39 @@ namespace Gravedigger2026.Core.Config
                     RangedWindupHoldFrame = ParseOptionalNonNegInt(
                         raw, "RangedWindupHoldFrame", table, rowIndex),
                     NormalAttackAnims = OptionalText(raw, "NormalAttackAnims"),
+                    ParabolaMeleeAttackAnims = OptionalText(raw, "ParabolaMeleeAttackAnims"),
                     RangedProjectileSpeed = OptionalFloat(raw, "RangedProjectileSpeed"),
                     RangedTimeoutSeconds = OptionalFloat(raw, "RangedTimeoutSeconds"),
+                    ParabolaMeleeRange = ParseOptionalNonNegFloat(
+                        raw,
+                        "ParabolaMeleeRange",
+                        ClassConfigRow.DefaultParabolaMeleeRange,
+                        table,
+                        rowIndex),
+                    ParabolaArcMinDistance = ParseOptionalNonNegFloat(
+                        raw,
+                        "ParabolaArcMinDistance",
+                        ClassConfigRow.DefaultParabolaArcMinDistance,
+                        table,
+                        rowIndex),
+                    ParabolaHitRate = Mathf.Clamp01(ParseOptionalNonNegFloat(
+                        raw,
+                        "ParabolaHitRate",
+                        ClassConfigRow.DefaultParabolaHitRate,
+                        table,
+                        rowIndex)),
+                    ParabolaMissOvershoot = ParseOptionalNonNegFloat(
+                        raw,
+                        "ParabolaMissOvershoot",
+                        ClassConfigRow.DefaultParabolaMissOvershoot,
+                        table,
+                        rowIndex),
+                    ParabolaMissLingerSeconds = ParseOptionalNonNegFloat(
+                        raw,
+                        "ParabolaMissLingerSeconds",
+                        ClassConfigRow.DefaultParabolaMissLingerSeconds,
+                        table,
+                        rowIndex),
                     BaseMoveSpeed = OptionalFloat(raw, "BaseMoveSpeed"),
                     ChaseMoveSpeedMult = ParseOptionalNonNegFloat(
                         raw,

@@ -7,7 +7,7 @@ namespace Gravedigger2026.Core.TacticalFormation
 {
     /// <summary>
     /// Who may join a new tactical group (SPEC_03 §3.18 / TFG-02).
-    /// Class filters belong here later; group id, save fields, and combat keys stay unchanged.
+    /// Class soft-preference is applied at slot assignment in LayoutService, not here.
     /// </summary>
     public static class TacticalFormationMemberQuery
     {

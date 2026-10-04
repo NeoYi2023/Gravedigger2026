@@ -337,7 +337,7 @@ namespace Gravedigger2026.Core.Defend
             {
                 WarriorId = warrior.Id,
                 BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
-                AttackMode = warrior.AttackMode,
+                AttackMode = ParabolaCombatRegistration.ResolveAttackMode(warrior, classRow),
                 MaxHp = maxHp,
                 RemainingHp = remaining,
                 NormalAttackPower = WarriorCombatMath.ComputeNormalAttackPower(primary, coeffs),
@@ -366,6 +366,7 @@ namespace Gravedigger2026.Core.Defend
                 state.IsPermanentDead = true;
             }
 
+            ParabolaCombatRegistration.CopyParams(state, classRow);
             _warriors[warrior.Id] = state;
             warrior.RemainingHP = state.RemainingHp;
             var buffLog = combatBuff.IsIdentity ? string.Empty : $" CombatBuff={combatBuff}";
@@ -495,6 +496,48 @@ namespace Gravedigger2026.Core.Defend
         }
 
         /// <summary>
+        /// Parabola temporary melee. Distance gate is ParabolaMeleeRange, already checked by the View.
+        /// </summary>
+        public bool TryConfirmParabolaMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange)
+        {
+            if (!_active || _phase != DefendPhase.Combat || !stillInRange)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            if (warrior.AttackMode != AttackMode.Parabola)
+            {
+                return false;
+            }
+
+            if (!IsMonsterAlive(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            {
+                return false;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - warrior.NormalAttackPower);
+            Debug.Log(
+                $"[DefendSession] ParabolaMelee {warriorId} -> {monsterRuntimeId} dmg={warrior.NormalAttackPower:0.##} " +
+                $"HP={monster.RemainingHp:0}/{monster.MaxHp}");
+
+            if (monster.RemainingHp <= 0f)
+            {
+                monster.IsAlive = false;
+                Debug.Log($"[DefendSession] MonsterDead {monsterRuntimeId} ({monster.MonsterId})");
+                MonsterKilled?.Invoke(monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
+            }
+
+            MonsterCombatStateChanged?.Invoke(monsterRuntimeId);
+            TrySignalClearVictory();
+            return true;
+        }
+
+        /// <summary>
         /// Ranged HitConfirm: View reports soft-collision hit; rules settle NormalAttackPower if still alive.
         /// Timeout miss must not call this (no HP change).
         /// </summary>
@@ -510,7 +553,7 @@ namespace Gravedigger2026.Core.Defend
                 return false;
             }
 
-            if (warrior.AttackMode != AttackMode.Ranged)
+            if (warrior.AttackMode != AttackMode.Ranged && warrior.AttackMode != AttackMode.Parabola)
             {
                 return false;
             }
@@ -917,8 +960,15 @@ namespace Gravedigger2026.Core.Defend
         public int RangedWindupHoldFrame;
         /// <summary>ClassConfig weighted attack bases; empty → Attack1 (SPEC_04 §9.9b).</summary>
         public string NormalAttackAnims;
+        /// <summary>Parabola temporary-melee pool; empty → Attack1 (SPEC_04 §9.9b).</summary>
+        public string ParabolaMeleeAttackAnims;
         public float RangedProjectileSpeed;
         public float RangedTimeoutSeconds;
+        public float ParabolaMeleeRange;
+        public float ParabolaArcMinDistance;
+        public float ParabolaHitRate;
+        public float ParabolaMissOvershoot;
+        public float ParabolaMissLingerSeconds;
         public bool HasGems;
         public bool IsCombatDead;
         public bool IsPermanentDead;

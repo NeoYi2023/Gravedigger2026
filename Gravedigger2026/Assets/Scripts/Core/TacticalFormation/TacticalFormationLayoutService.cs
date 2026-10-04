@@ -34,6 +34,7 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         private readonly List<string> _barScratch = new List<string>(16);
         private readonly List<string> _memberScratch = new List<string>(16);
+        private readonly List<string> _assignedScratch = new List<string>(16);
         private readonly List<string> _newDeployScratch = new List<string>(16);
 
         private readonly List<TacticalFormationSquadSnapshot> _disbandScratch =
@@ -156,8 +157,8 @@ namespace Gravedigger2026.Core.TacticalFormation
 
         /// <summary>
         /// Create one group for <paramref name="formationId"/>.
-        /// Deployed matches fill first; undeployed SoldierBar matches fill the rest.
-        /// Fails without moving anyone when the taken count stays below Min.
+        /// Preferred slots draw from the full eligible list (deployed first as tie order).
+        /// Fails without moving anyone when the candidate count stays below Min.
         /// </summary>
         public bool TryCreateGroup(
             string formationId,
@@ -190,6 +191,14 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return false;
             }
 
+            BaseClassKind[] preferredClasses = null;
+            if (!patterns.TryGetSlotPreferredClasses(row.PrefabId, out preferredClasses)
+                || preferredClasses == null
+                || preferredClasses.Length != slots.Length)
+            {
+                preferredClasses = CreateUnspecifiedPreferred(slots.Length);
+            }
+
             FillGroupedIds(formation);
             TacticalFormationMemberQuery.CollectEligible(
                 formationId,
@@ -198,10 +207,37 @@ namespace Gravedigger2026.Core.TacticalFormation
                 configs,
                 _groupedScratch,
                 _eligibleScratch);
+            TacticalFormationMemberQuery.CollectUndeployed(
+                formationId,
+                formation,
+                pool,
+                configs,
+                _groupedScratch,
+                _barScratch);
 
             var min = Mathf.Max(1, row.MinMemberCount);
             var cap = row.MaxMemberCount < min ? min : row.MaxMemberCount;
-            var slotLimit = Mathf.Min(cap, slots.Length);
+            _memberScratch.Clear();
+            for (var i = 0; i < _eligibleScratch.Count; i++)
+            {
+                _memberScratch.Add(_eligibleScratch[i].WarriorId);
+            }
+
+            var deployedCount = _memberScratch.Count;
+            for (var i = 0; i < _barScratch.Count; i++)
+            {
+                _memberScratch.Add(_barScratch[i]);
+            }
+
+            if (_memberScratch.Count < min)
+            {
+                Debug.LogWarning(
+                    $"[TacticalFormationLayout] {formationId} eligible=" +
+                    $"{_memberScratch.Count} < MinMemberCount={min} — create failed.");
+                return false;
+            }
+
+            var slotLimit = Mathf.Min(_memberScratch.Count, Mathf.Min(cap, slots.Length));
             if (slotLimit < min)
             {
                 Debug.LogWarning(
@@ -209,73 +245,42 @@ namespace Gravedigger2026.Core.TacticalFormation
                 return false;
             }
 
-            var deployedTake = Mathf.Min(_eligibleScratch.Count, slotLimit);
-            var barNeed = slotLimit - deployedTake;
-            _barScratch.Clear();
-            if (barNeed > 0)
-            {
-                TacticalFormationMemberQuery.CollectUndeployed(
-                    formationId,
-                    formation,
+            if (!TryPickSlotMembers(
+                    _memberScratch,
+                    slotLimit,
+                    preferredClasses,
                     pool,
                     configs,
-                    _groupedScratch,
-                    _barScratch);
-                if (_barScratch.Count > barNeed)
-                {
-                    _barScratch.RemoveRange(barNeed, _barScratch.Count - barNeed);
-                }
-            }
-
-            if (deployedTake + _barScratch.Count < min)
+                    _assignedScratch))
             {
                 return false;
             }
 
-            float cx;
-            float cz;
-            if (deployedTake > 0)
-            {
-                cx = 0f;
-                cz = 0f;
-                for (var m = 0; m < deployedTake; m++)
-                {
-                    cx += _eligibleScratch[m].Entry.PositionX;
-                    cz += _eligibleScratch[m].Entry.PositionZ;
-                }
-
-                cx /= deployedTake;
-                cz /= deployedTake;
-            }
-            else if (context.HasFallbackCenter)
-            {
-                cx = context.FallbackCenterRelX;
-                cz = context.FallbackCenterRelZ;
-            }
-            else
+            if (!TryResolveCreateCenter(
+                    _assignedScratch,
+                    _memberScratch,
+                    deployedCount,
+                    formation,
+                    context,
+                    out var cx,
+                    out var cz))
             {
                 return false;
-            }
-
-            _memberScratch.Clear();
-            for (var i = 0; i < deployedTake; i++)
-            {
-                _memberScratch.Add(_eligibleScratch[i].WarriorId);
-            }
-
-            for (var i = 0; i < _barScratch.Count; i++)
-            {
-                _memberScratch.Add(_barScratch[i]);
             }
 
             var yaw = ResolveCreateYaw(cx, cz, context);
-            FillSlotWrites(_memberScratch, slots, cx, cz, yaw);
+            WriteAssignedPositions(_assignedScratch, slots, cx, cz, yaw);
 
             _newDeployScratch.Clear();
             var barFailed = false;
-            for (var i = deployedTake; i < _memberScratch.Count; i++)
+            for (var i = 0; i < _writes.Count; i++)
             {
                 var write = _writes[i];
+                if (IsAmongFirst(_memberScratch, deployedCount, write.WarriorId))
+                {
+                    continue;
+                }
+
                 if (!formation.TryDeployAt(write.WarriorId, write.X, write.Z, out _))
                 {
                     barFailed = true;
@@ -293,21 +298,43 @@ namespace Gravedigger2026.Core.TacticalFormation
                 }
 
                 _newDeployScratch.Clear();
-                if (deployedTake < min)
+                if (deployedCount < min)
                 {
                     return false;
                 }
 
-                if (_memberScratch.Count > deployedTake)
+                if (_memberScratch.Count > deployedCount)
                 {
-                    _memberScratch.RemoveRange(deployedTake, _memberScratch.Count - deployedTake);
+                    _memberScratch.RemoveRange(deployedCount, _memberScratch.Count - deployedCount);
                 }
 
-                FillSlotWrites(_memberScratch, slots, cx, cz, yaw);
+                slotLimit = Mathf.Min(_memberScratch.Count, Mathf.Min(cap, slots.Length));
+                if (slotLimit < min
+                    || !TryPickSlotMembers(
+                        _memberScratch,
+                        slotLimit,
+                        preferredClasses,
+                        pool,
+                        configs,
+                        _assignedScratch)
+                    || !TryResolveCreateCenter(
+                        _assignedScratch,
+                        _memberScratch,
+                        _memberScratch.Count,
+                        formation,
+                        context,
+                        out cx,
+                        out cz))
+                {
+                    return false;
+                }
+
+                yaw = ResolveCreateYaw(cx, cz, context);
+                WriteAssignedPositions(_assignedScratch, slots, cx, cz, yaw);
             }
 
             formation.ApplyPositionBatch(_writes);
-            var snappedIds = _memberScratch.ToArray();
+            var snappedIds = _assignedScratch.ToArray();
             var squad = new TacticalFormationSquadSnapshot
             {
                 GroupInstanceId = Guid.NewGuid().ToString("N"),
@@ -343,26 +370,248 @@ namespace Gravedigger2026.Core.TacticalFormation
             return Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
         }
 
-        private void FillSlotWrites(
-            List<string> ids,
+        private static bool TryPickSlotMembers(
+            List<string> candidates,
+            int slotLimit,
+            BaseClassKind[] preferredClasses,
+            WarriorPoolService pool,
+            ConfigCsvRepository configs,
+            List<string> assigned)
+        {
+            if (assigned == null)
+            {
+                return false;
+            }
+
+            assigned.Clear();
+            if (candidates == null || slotLimit <= 0 || candidates.Count < slotLimit)
+            {
+                return false;
+            }
+
+            var picked = new string[slotLimit];
+            var used = new bool[candidates.Count];
+            for (var s = 0; s < slotLimit; s++)
+            {
+                var pref = ResolvePreferred(preferredClasses, s);
+                if (pref == BaseClassKind.Unspecified)
+                {
+                    continue;
+                }
+
+                var bestIdx = -1;
+                var bestLevel = int.MinValue;
+                for (var m = 0; m < candidates.Count; m++)
+                {
+                    if (used[m])
+                    {
+                        continue;
+                    }
+
+                    ResolveClassMeta(candidates[m], pool, configs, out var baseClass, out var classLevel);
+                    if (baseClass != pref)
+                    {
+                        continue;
+                    }
+
+                    if (bestIdx < 0 || classLevel > bestLevel)
+                    {
+                        bestIdx = m;
+                        bestLevel = classLevel;
+                    }
+                }
+
+                if (bestIdx < 0)
+                {
+                    continue;
+                }
+
+                picked[s] = candidates[bestIdx];
+                used[bestIdx] = true;
+            }
+
+            var next = 0;
+            for (var s = 0; s < slotLimit; s++)
+            {
+                if (!string.IsNullOrEmpty(picked[s]))
+                {
+                    continue;
+                }
+
+                while (next < candidates.Count && used[next])
+                {
+                    next++;
+                }
+
+                if (next >= candidates.Count)
+                {
+                    return false;
+                }
+
+                picked[s] = candidates[next];
+                used[next] = true;
+                next++;
+            }
+
+            for (var s = 0; s < slotLimit; s++)
+            {
+                assigned.Add(picked[s]);
+            }
+
+            return true;
+        }
+
+        private static bool TryResolveCreateCenter(
+            List<string> assigned,
+            List<string> candidates,
+            int deployedCandidateCount,
+            BattleFormationService formation,
+            TacticalFormationLayoutContext context,
+            out float cx,
+            out float cz)
+        {
+            cx = 0f;
+            cz = 0f;
+            var count = 0;
+            if (assigned != null && formation != null)
+            {
+                for (var i = 0; i < assigned.Count; i++)
+                {
+                    var id = assigned[i];
+                    if (!IsAmongFirst(candidates, deployedCandidateCount, id))
+                    {
+                        continue;
+                    }
+
+                    if (!formation.TryGetEntry(id, out var entry) || entry == null)
+                    {
+                        continue;
+                    }
+
+                    cx += entry.PositionX;
+                    cz += entry.PositionZ;
+                    count++;
+                }
+            }
+
+            if (count > 0)
+            {
+                cx /= count;
+                cz /= count;
+                return true;
+            }
+
+            if (context.HasFallbackCenter)
+            {
+                cx = context.FallbackCenterRelX;
+                cz = context.FallbackCenterRelZ;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void WriteAssignedPositions(
+            List<string> assigned,
             Vector3[] slots,
             float cx,
             float cz,
             float yaw)
         {
             _writes.Clear();
+            if (assigned == null || slots == null)
+            {
+                return;
+            }
+
+            var count = assigned.Count;
+            if (count > slots.Length)
+            {
+                count = slots.Length;
+            }
+
             var rot = Quaternion.Euler(0f, yaw, 0f);
-            var count = ids.Count;
             for (var s = 0; s < count; s++)
             {
+                var id = assigned[s];
+                if (string.IsNullOrEmpty(id))
+                {
+                    continue;
+                }
+
                 var local = slots[s];
                 local.y = 0f;
                 var world = rot * local;
                 _writes.Add(new BattleFormationService.PositionWrite(
-                    ids[s],
+                    id,
                     cx + world.x,
                     cz + world.z));
             }
+        }
+
+        private static bool IsAmongFirst(List<string> ids, int count, string id)
+        {
+            if (ids == null || string.IsNullOrEmpty(id) || count <= 0)
+            {
+                return false;
+            }
+
+            var n = count < ids.Count ? count : ids.Count;
+            for (var i = 0; i < n; i++)
+            {
+                if (string.Equals(ids[i], id, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static BaseClassKind ResolvePreferred(BaseClassKind[] preferredClasses, int slotIndex)
+        {
+            if (preferredClasses == null || slotIndex < 0 || slotIndex >= preferredClasses.Length)
+            {
+                return BaseClassKind.Unspecified;
+            }
+
+            return preferredClasses[slotIndex];
+        }
+
+        private static BaseClassKind[] CreateUnspecifiedPreferred(int length)
+        {
+            var arr = new BaseClassKind[Mathf.Max(0, length)];
+            for (var i = 0; i < arr.Length; i++)
+            {
+                arr[i] = BaseClassKind.Unspecified;
+            }
+
+            return arr;
+        }
+
+        private static void ResolveClassMeta(
+            string warriorId,
+            WarriorPoolService pool,
+            ConfigCsvRepository configs,
+            out BaseClassKind baseClass,
+            out int classLevel)
+        {
+            baseClass = BaseClassKind.Unspecified;
+            classLevel = 0;
+            if (string.IsNullOrEmpty(warriorId)
+                || pool == null
+                || !pool.TryGet(warriorId, out var warrior)
+                || warrior == null
+                || string.IsNullOrEmpty(warrior.ClassId)
+                || configs == null
+                || !configs.TryGetClass(warrior.ClassId, out var row)
+                || row == null)
+            {
+                return;
+            }
+
+            baseClass = row.BaseClass;
+            classLevel = row.ClassLevel;
         }
 
         /// <summary>Return members to class-zone spirals and delete the group.</summary>

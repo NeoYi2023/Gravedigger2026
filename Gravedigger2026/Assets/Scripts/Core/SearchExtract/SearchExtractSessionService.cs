@@ -659,7 +659,7 @@ namespace Gravedigger2026.Core.SearchExtract
             {
                 WarriorId = warrior.Id,
                 BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
-                AttackMode = warrior.AttackMode,
+                AttackMode = ParabolaCombatRegistration.ResolveAttackMode(warrior, classRow),
                 MaxHp = maxHp,
                 RemainingHp = remaining,
                 NormalAttackPower = WarriorCombatMath.ComputeNormalAttackPower(primary, coeffs),
@@ -690,6 +690,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 EffectStackByKind = new Dictionary<string, EffectStackState>(StringComparer.Ordinal)
             };
 
+            ParabolaCombatRegistration.CopyParams(state, classRow);
             _warriors[warrior.Id] = state;
             RememberWarriorRegisterOrder(warrior.Id);
             warrior.RemainingHP = state.RemainingHp;
@@ -922,6 +923,43 @@ namespace Gravedigger2026.Core.SearchExtract
             return true;
         }
 
+        /// <summary>Parabola temporary melee. View already checked ParabolaMeleeRange.</summary>
+        public bool TryConfirmParabolaMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange)
+        {
+            if (!IsCombatGameplayActive || !stillInRange)
+            {
+                return false;
+            }
+
+            if (!IsWarriorCombatActive(warriorId) || !TryGetWarrior(warriorId, out var warrior))
+            {
+                return false;
+            }
+
+            if (warrior.AttackMode != AttackMode.Parabola)
+            {
+                return false;
+            }
+
+            if (!IsMonsterTargetable(monsterRuntimeId) || !TryGetMonster(monsterRuntimeId, out var monster))
+            {
+                return false;
+            }
+
+            monster.RemainingHp = Math.Max(0f, monster.RemainingHp - warrior.NormalAttackPower);
+            Debug.Log(
+                $"[SearchExtractSession] ParabolaMelee {warriorId} -> {monsterRuntimeId} " +
+                $"dmg={warrior.NormalAttackPower:0.##} HP={monster.RemainingHp:0}/{monster.MaxHp}");
+            MonsterDamageSettled?.Invoke(monsterRuntimeId, warrior.NormalAttackPower);
+
+            if (monster.RemainingHp <= 0f)
+            {
+                TryFinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
+            }
+
+            return true;
+        }
+
         public bool TryConfirmRangedHit(string warriorId, string monsterRuntimeId)
         {
             if (!IsCombatGameplayActive)
@@ -934,7 +972,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 return false;
             }
 
-            if (warrior.AttackMode != AttackMode.Ranged)
+            if (warrior.AttackMode != AttackMode.Ranged && warrior.AttackMode != AttackMode.Parabola)
             {
                 return false;
             }
