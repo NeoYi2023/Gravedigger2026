@@ -101,6 +101,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
 
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
+        private TargetFocusRegistry _targetFocus;
         private TacticalFormationRuntimeService _tacticalRuntime;
         private CombatStatMulBuff _combatMagicBookBuff = CombatStatMulBuff.Identity;
         private List<TacticalFormationCombatLock> _tacticalCombatLocks;
@@ -1092,6 +1093,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 }
 
                 var runtimeId = go.name;
+                EnsurePathingServices();
                 view.Bind(
                     monsterRow,
                     protagonist: null,
@@ -1105,7 +1107,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                         _session.TryApplyMonsterDamageToWarrior(monsterRuntimeId, warriorId, attackPower),
                     () => _session != null && _session.IsMonsterStunned(runtimeId),
                     () => _session != null ? _session.GetMonsterSlowMoveMul(runtimeId) : 1f,
-                    () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f);
+                    () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f,
+                    _targetFocus);
                 view.ApplySpawnInitialFacing(PushMapSpawnFacing.ResolveDirIndex(0));
 
                 view.SetCorpseSmashBridge(
@@ -1734,12 +1737,14 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         {
             _moveScheduler ??= new MassMoveScheduler();
             _attackSlots ??= new AttackSlotService();
+            _targetFocus ??= new TargetFocusRegistry();
         }
 
         private void ClearMassCombatPathing()
         {
             _moveScheduler?.Clear();
             _attackSlots?.Clear();
+            _targetFocus?.Clear();
             _tacticalRuntime?.Clear();
             _moveSamples.Clear();
             _nextMoveId = 0;

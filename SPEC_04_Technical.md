@@ -1660,6 +1660,8 @@ LossOfControlConfig {
 | `AttackSlotReclaimMoveThreshold` | 攻击位重算位移阈值 | `0.5` | 目标移动重算阈值 |
 | `AttackSlotDefaultTargetBodyRadius` | 默认目标体半径 | `0.35` | 缺半径时默认 |
 | `HitConfirmSlack` | 命中确认松弛距离 | `0.05` | HitConfirm 距离松弛 |
+| `NearestTargetBandRelative` | 最近目标带相对系数 | `0.25` | 怪物士兵最近带：`bandMax=dMin×(1+本值)+Slack`（§3.12） |
+| `NearestTargetBandSlack` | 最近目标带绝对松弛 | `0.5` | 最近带绝对加项（世界单位；§3.12） |
 | `SurroundGapDegrees` | 包围缺口角度 | `60` | 近战包围缺口扇区 |
 | `StuckDetectWindowSeconds` | 卡死检测窗口 | `0.5` | StuckHold 检测窗 |
 | `StuckDisplacementEpsilon` | 卡死位移阈值 | `0.2` | 卡死位移 ε |
@@ -3624,6 +3626,8 @@ Rules: [SPEC_03 §3.11](SPEC_03_GameRules.md) / [§3.12](SPEC_03_GameRules.md) g
 | `AttackSlotReclaimMoveThreshold` | 攻击位重算位移阈值 | `0.5` | Recompute move threshold |
 | `AttackSlotDefaultTargetBodyRadius` | 默认目标体半径 | `0.35` | Fallback target BodyRadius |
 | `HitConfirmSlack` | 命中确认松弛距离 | `0.05` | HitConfirm slack |
+| `NearestTargetBandRelative` | 最近目标带相对系数 | `0.25` | Monster soldier nearest band: `bandMax=dMin×(1+this)+Slack` (§3.12) |
+| `NearestTargetBandSlack` | 最近目标带绝对松弛 | `0.5` | Nearest-band absolute addend (world units; §3.12) |
 | `SurroundGapDegrees` | 包围缺口角度 | `60` | Surround gap sector |
 | `StuckDetectWindowSeconds` | 卡死检测窗口 | `0.5` | StuckHold detect window |
 | `StuckDisplacementEpsilon` | 卡死位移阈值 | `0.2` | StuckHold displacement ε |

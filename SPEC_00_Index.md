@@ -1,6 +1,6 @@
 # Gravedigger2026 — SPEC 总索引 / SPEC Master Index
 
-**文档版本 / Document Version:** v0.84.87
+**文档版本 / Document Version:** v0.84.88
 **最后更新 / Last Updated:** 2026-10-04
 **当前阶段 / Current Phase:** Demo 开发 / Demo development（…战术阵型 D-084 **完成**；**搜打撤 SearchExtract SE-00～SE-08 已关**（SE-09 全灭仍 pending）；**战斗指示器 UI-033 / D-089 SPEC 已关**；**离屏刷怪边缘提示 UI-034 / D-090 SPEC 已关**（方案 A）；**P1 HoldFraming 守点镜头 SE-CAM-00～03 已关**（样例锁定初值）；**Continue 回轨 + Size→PushMapCameraOrthoSize v0.84.43**；**Lv2 CameraFollowPath Bake 刷新 v0.84.45**；**UI-016 尸骸雨布局调参 v0.84.44**；**UI-016 复活兵居中左推+隐影 v0.84.48**；**Dig GM 少量躯体材料 +2 v0.84.49**；**UI-016 谜底从法阵上升并与套书并行 v0.84.50**；**UI-016 StepB 躯体飞入谜底 v0.84.51**；**Editor 菜单中英双语 v0.84.52**；**远程追击停在射程外 v0.84.53**；**搜打撤远程弹道未接线 v0.84.54**；**远程前摇+停顿帧 v0.84.55**；**士兵普攻按职业权重选动作 v0.84.56**；**移动动画播放速率 v0.84.57**；**攻击动画播放速率 v0.84.58**；**士兵任务标签附有效移速 v0.84.59**；**搜打撤开战属性登记对齐推图 v0.84.60**；**新建档初始装备/魔法书常量键 v0.84.61**；**主角装备复活铲 Equip_ReviveShovel D-091 v0.84.62**；**布阵阵型 Q/E 旋转+滚轮缩放 D-092 v0.84.63**；**阵型槽位 RectTransform 横向偏移 v0.84.64**；**战术阵型 FormationLevel 复合主键 TFG-01 v0.84.66**；**战术阵型手动建组存档 TFG-02 v0.84.67**；**战术阵型目录条建组 TFG-03 v0.84.68**；**战术阵型组卡牌 TFG-04 v0.84.69**；**战术阵型按组战斗 TFG-05 v0.84.70**；**战术阵型目录补人与搜打撤守点站位 v0.84.71**；**战术阵型守槽不散 D-094 v0.84.72**；**阵型默认八向 D-095 v0.84.73**；**阵型贴身可打 D-096 v0.84.74**；**GM 添加士兵 Mode2 Prepare 门闩 D-064 v0.84.76**；**GmAddSoldierPanel 层级高于阵型条 v0.84.77**；**阵型槽位优选职业软分配 v0.84.78**；**Parabola 临时近战特殊普攻动作 v0.84.79**；**抛物线弹体缩到 0.23、近距直线至少飞 0.2s v0.84.83**；**远弧再减半、中距改必中短弧 v0.84.84**；**弹体统一 0.46（当前 200%）v0.84.85**；**弹体 Visual ScaleXYZ=0.7 v0.84.86**；**中距直线/远距抛物线接线纠正 v0.84.87**；Demo 须另授权）  
 
@@ -65,6 +65,7 @@
 
 | 日期 | 版本 | 摘要（中文） |
 |------|------|-------------|
+| 2026-10-04 | v0.84.88 | 怪物士兵「最近」改为相对最近带 + TargetFocus 空闲优先（`NearestTargetBandRelative/Slack`；Defend/PushMap/SE）。同步 SPEC_03 §3.12、SPEC_04 §9.20b、CONTEXT |
 | 2026-10-04 | v0.84.87 | 射手 Parabola：`ParabolaMeleeRange`～`ParabolaArcMinDistance` 恢复为直线追瞄（不掷命中率；短程至少飞 0.2s）；`ParabolaArcMinDistance` 之外才打抛物线。修正此前中距误走必中短弧、看起来像区间对调。同步 SPEC_03 §3.12、SPEC_04 §6 |
 | 2026-10-04 | v0.84.86 | 远程弹体 `Visual` 子节点 `localScale` XYZ 统一为 **0.7**（不再按最长边换算世界长度）。同步 SPEC_04 §6 |
 | 2026-10-04 | v0.84.85 | 远程弹体贴图最长边统一为世界长度 **0.46**（相对前一版短弧 0.23 的 200%；远弧不再单独减半）。同步 SPEC_04 §6 |
@@ -551,6 +552,7 @@
 
 | Date | Version | Summary (English) |
 |------|---------|-------------------|
+| 2026-10-04 | v0.84.88 | Monster soldier “nearest” uses relative nearest-band + TargetFocus free-first (`NearestTargetBandRelative/Slack`; Defend/PushMap/SE). Synced SPEC_03 §3.12, SPEC_04 §9.20b, CONTEXT |
 | 2026-10-04 | v0.84.87 | Archer Parabola: between `ParabolaMeleeRange` and `ParabolaArcMinDistance` is straight homing again (no accuracy roll; short flights stretch to 0.2s); arcs only beyond `ParabolaArcMinDistance`. Fixes the mid-band short-arc that made the ranges look swapped. Synced SPEC_03 §3.12, SPEC_04 §6 |
 | 2026-10-04 | v0.84.86 | Ranged projectile child `Visual` `localScale` XYZ unified to **0.7** (no longer derived from longest-edge world length). Synced SPEC_04 §6 |
 | 2026-10-04 | v0.84.85 | Ranged projectile longest edge unified to world length **0.46** (200% of the prior short-arc 0.23; long-range arcs no longer use a half scale). Synced SPEC_04 §6 |

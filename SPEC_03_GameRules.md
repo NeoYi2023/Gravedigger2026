@@ -218,7 +218,9 @@
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 出怪顺序/剩余秒/怪物/数量/位置/方式（§3.12，[SPEC_04 §9.18](SPEC_04_Technical.md)）。 |
 | WaveConfigId | 波次配置ID | 防守玩法配置指向的刷怪表分组键（§3.12，[SPEC_04 §9.7](SPEC_04_Technical.md)）。 |
 | RemainingCombatSeconds | 战斗剩余秒 | Defend 开战倒计时剩余整秒；与刷怪行 `SpawnRemainingSeconds` 相等时激活该行（§3.12）。 |
-| TargetSelect | 目标选择 | 怪物选目标模式：`Nearest` / `PreferWarrior` / `PreferProtagonist`（§3.12 / `MonsterConfig`）。 |
+| TargetSelect | 目标选择 | 怪物选目标模式：`Nearest` / `PreferWarrior` / `PreferProtagonist`（§3.12 / `MonsterConfig`）。士兵侧「最近」见 `NearestTargetBand`。 |
+| NearestTargetBand | 最近目标带 | 怪物挑士兵时：先求合法候选最小距 `dMin`，带内 `d ≤ dMin×(1+NearestTargetBandRelative)+NearestTargetBandSlack`；带内优先无 `TargetFocus` 的空闲兵，再取最近；同档粘滞当前聚焦。常量见 [SPEC_04 §9.20b](SPEC_04_Technical.md)（§3.12）。 |
+| TargetFocus | 目标聚焦 | 怪物当前锁定的攻击目标登记（`TargetFocusRegistry`）；用于最近带内「空闲优先」。进距后释放 AttackSlot **不**等于失去聚焦（§3.12）。 |
 | AttackPriority | 攻击优先级 | **士兵灵魂**配置字段（§3.11 / `SoulConfig`）；枚举与怪物 `TargetSelect` 对齐：`Nearest` \| `PreferWarrior` \| `PreferProtagonist`；**本批不驱动**选目标（默认见 `EngageZone` 内最近敌人）。怪物侧选目标用 `TargetSelect`（§3.12）。 |
 | EngageZone | 选敌区 | BattleMap 预制体上比地图稍小的 **IsoDiamond**（XZ 菱形）；非叛变士兵仅在此区内选最近敌人；区外不可选（§3.12）。 |
 | FormationHome | 布阵原点 | 开战部署锁定的该士兵布阵世界坐标；无 EngageZone 目标时非叛变士兵自动返回此处（§3.12）。 |
@@ -446,7 +448,9 @@
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + spawn order / remaining seconds / monster / count / location / mode (§3.12, [SPEC_04 §9.18](SPEC_04_Technical.md)). |
 | WaveConfigId | 波次配置ID | Grouping key for spawn rows referenced by DefendGameplayConfig (§3.12, [SPEC_04 §9.7](SPEC_04_Technical.md)). |
 | RemainingCombatSeconds | 战斗剩余秒 | Whole-second Defend combat countdown remaining; activates spawn rows when equal to `SpawnRemainingSeconds` (§3.12). |
-| TargetSelect | 目标选择 | Monster targeting mode: `Nearest` / `PreferWarrior` / `PreferProtagonist` (§3.12 / `MonsterConfig`). |
+| TargetSelect | 目标选择 | Monster targeting mode: `Nearest` / `PreferWarrior` / `PreferProtagonist` (§3.12 / `MonsterConfig`). Soldier-side “nearest” uses `NearestTargetBand`. |
+| NearestTargetBand | 最近目标带 | When a monster picks soldiers: compute min legal distance `dMin`; band = `d ≤ dMin×(1+NearestTargetBandRelative)+NearestTargetBandSlack`; inside band prefer soldiers with no `TargetFocus`, then nearest; same-tier sticky on current focus. Constants: [SPEC_04 §9.20b](SPEC_04_Technical.md) (§3.12). |
+| TargetFocus | 目标聚焦 | Registry of each monster’s current attack lock (`TargetFocusRegistry`); drives free-first inside the nearest band. Releasing AttackSlot in range does **not** clear focus (§3.12). |
 | AttackPriority | 攻击优先级 | **Soldier Soul** field (§3.11 / `SoulConfig`); same enum as monster `TargetSelect`: `Nearest` \| `PreferWarrior` \| `PreferProtagonist`; **does not drive** targeting this batch (default = nearest enemy inside `EngageZone`). Monster targeting uses `TargetSelect` (§3.12). |
 | EngageZone | 选敌区 | **IsoDiamond** (XZ diamond) on BattleMap Prefab, slightly smaller than the map; non-Rebel soldiers pick nearest enemy **only inside** this zone; outside = not selectable (§3.12). |
 | FormationHome | Formation home | World position locked at StartBattle deploy for that soldier; loyal soldiers auto-return here when EngageZone has no target (§3.12). |
@@ -2523,7 +2527,7 @@ UpgradeManufacture stage
 | 规则 | 说明 |
 |------|------|
 | 参数表 | `MonsterConfig`（[SPEC_04 §9.19](SPEC_04_Technical.md)） |
-| 选目标 | 按该怪 `TargetSelect`：`Nearest`（就近）/ `PreferWarrior`（优先士兵）/ `PreferProtagonist`（优先主角） |
+| 选目标 | 按该怪 `TargetSelect`：`Nearest`（就近带，见下）/ `PreferWarrior`（优先士兵，士兵支路同最近带）/ `PreferProtagonist`（优先主角） |
 | 攻击模式 | `AttackMode`：`Melee` / `Ranged`；怪物侧 `AttackRange` 与命中参数取自 `MonsterConfig`（可复用士兵命中方案 D 语义） |
 | 对士兵 | 使用 `AttackPower` **直接扣士兵当前 HP**（本批无护甲/减伤） |
 | 对主角 | 普通攻击只扣护盾 1 点（见上）；不用 `AttackPower` |
@@ -2535,6 +2539,8 @@ UpgradeManufacture stage
 | 规则 | 说明 |
 |------|------|
 | 选目标 | 按 `MonsterConfig.TargetSelect`（见上） |
+| 士兵最近带 | `Nearest` 与 `PreferWarrior` 的士兵支路：合法士兵（Defend=可战；PushMap/SE=忠诚可战；含 Aggro 发现门闩）先求 `dMin`；**最近带** `bandMax = dMin×(1+NearestTargetBandRelative)+NearestTargetBandSlack`（← `CombatConstantConfig`，样例 `0.25` / `0.5`）。带内优先 **无 TargetFocus** 的空闲兵，再取带内最近；若当前聚焦仍在带内且与新候选同档（同空闲/同交战）则粘滞不换。主角比较：用带内最佳士兵与主角比绝对距离（主角不进带）。`PreferProtagonist` 主角优先不变 |
+| TargetFocus | 每怪至多一条当前攻击锁定（`TargetFocusRegistry`）；选中士兵时 `SetFocus`，无目标/死亡/被动未激怒时 `ClearFocus`。进距释放 AttackSlot **不**清聚焦 |
 | 目的地 | 前往该目标的 **AttackSlot**（落在 `AttackRange` 环上的可站立点；见下「大规模战斗寻路」） |
 | 修正间隔 | 每 **TargetRetargetInterval**（暂定 **1s**，可配置）重选目标并重算 AttackSlot；**禁止**全员每帧全图重寻路 |
 | 技术约定 | 规则层输出目标实体 ID + `GoalKind`；移动服务解析 `DesiredDestination` 并执行移动；规则层不直接驱动 `Transform`。见 [SPEC_04 §9.7](SPEC_04_Technical.md) |
@@ -2938,7 +2944,7 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | Rule | Notes |
 |------|-------|
 | Table | `MonsterConfig` ([SPEC_04 §9.19](SPEC_04_Technical.md)) |
-| TargetSelect | `Nearest` / `PreferWarrior` / `PreferProtagonist` |
+| TargetSelect | `Nearest` (nearest band below) / `PreferWarrior` (soldier branch uses same band) / `PreferProtagonist` |
 | AttackMode | `Melee` / `Ranged`; monster `AttackRange` and hit params from `MonsterConfig` (may reuse soldier hit scheme D) |
 | Vs soldier | Use `AttackPower` to **subtract from soldier current HP** directly (no armor/mitigation this batch) |
 | Vs protagonist | Normal attack reduces Shield by 1 only (above); do not use `AttackPower` |
@@ -2950,6 +2956,8 @@ Entered when Level stage `GameplayType = Defend`. Depends on §3.11 **BattleForm
 | Rule | Notes |
 |------|-------|
 | Select target | Per `MonsterConfig.TargetSelect` (above) |
+| Soldier nearest band | For `Nearest` and `PreferWarrior` soldier branch: among legal soldiers (Defend=combat-active; PushMap/SE=loyal combat-active; Aggro detect gate applies) compute `dMin`; **band** `bandMax = dMin×(1+NearestTargetBandRelative)+NearestTargetBandSlack` (← `CombatConstantConfig`, sample `0.25` / `0.5`). Inside band prefer soldiers with **no TargetFocus**, then nearest; if current focus still in band and same tier (free/engaged) as the new pick, keep sticky. Vs protagonist: compare band-best soldier to protagonist by absolute distance (protagonist not in band). `PreferProtagonist` unchanged |
+| TargetFocus | At most one attack lock per monster (`TargetFocusRegistry`); `SetFocus` when a soldier is chosen; `ClearFocus` on none/death/passive unprovoked. Releasing AttackSlot in range does **not** clear focus |
 | Destination | That target’s **AttackSlot** (standable point on the `AttackRange` ring; see Mass Combat Pathing below) |
 | Retarget interval | Every **TargetRetargetInterval** (provisional **1s**, configurable) reselect target and recompute AttackSlot; **forbid** full-map repath every frame for all units |
 | Tech | Rules layer outputs target entity id + `GoalKind`; move service resolves `DesiredDestination` and moves; rules must not drive `Transform`. See [SPEC_04 §9.7](SPEC_04_Technical.md) |

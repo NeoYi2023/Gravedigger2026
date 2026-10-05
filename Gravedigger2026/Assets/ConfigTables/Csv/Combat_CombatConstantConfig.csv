@@ -47,6 +47,8 @@ AttackSlotMinRingRadius,攻击位环最小半径,0.05,Min AttackSlot ring radius
 AttackSlotReclaimMoveThreshold,攻击位重算位移阈值,0.5,Target move distance to recompute slots,目标移动超过本距离时重算攻击位
 AttackSlotDefaultTargetBodyRadius,默认目标体半径,0.35,Fallback target BodyRadius,缺体外观/怪物半径时的默认目标体半径
 HitConfirmSlack,命中确认松弛距离,0.05,HitConfirm range slack,前摇结束命中确认时在攻击距离上额外允许的松弛
+NearestTargetBandRelative,最近目标带相对系数,0.25,Monster soldier nearest band relative; bandMax=dMin*(1+R)+Slack,怪物士兵最近带相对系数；bandMax=dMin×(1+本值)+Slack
+NearestTargetBandSlack,最近目标带绝对松弛,0.5,Monster soldier nearest band absolute slack (world units),怪物士兵最近带绝对加项（世界单位）
 SurroundGapDegrees,包围缺口角度,60,Surround gap sector degrees,近战多打一时攻击位环上预留的缺口扇区角度
 StuckDetectWindowSeconds,卡死检测窗口,0.5,StuckHold detect window seconds,有移动意图但位移不足时的检测窗口秒数
 StuckDisplacementEpsilon,卡死位移阈值,0.2,StuckHold displacement epsilon,检测窗口内XZ位移小于本值则判定卡住

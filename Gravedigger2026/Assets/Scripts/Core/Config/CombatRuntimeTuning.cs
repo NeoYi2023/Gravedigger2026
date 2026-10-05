@@ -29,6 +29,12 @@ namespace Gravedigger2026.Core.Config
         public static float HitConfirmSlack { get; private set; } =
             CombatConstantKeys.Safety.HitConfirmSlack;
 
+        public static float NearestTargetBandRelative { get; private set; } =
+            CombatConstantKeys.Safety.NearestTargetBandRelative;
+
+        public static float NearestTargetBandSlack { get; private set; } =
+            CombatConstantKeys.Safety.NearestTargetBandSlack;
+
         public static float SurroundGapDegrees { get; private set; } =
             CombatConstantKeys.Safety.SurroundGapDegrees;
 
@@ -195,6 +201,12 @@ namespace Gravedigger2026.Core.Config
             HitConfirmSlack = Mathf.Max(0f, F(
                 CombatConstantKeys.HitConfirmSlack,
                 CombatConstantKeys.Safety.HitConfirmSlack));
+            NearestTargetBandRelative = Mathf.Max(0f, F(
+                CombatConstantKeys.NearestTargetBandRelative,
+                CombatConstantKeys.Safety.NearestTargetBandRelative));
+            NearestTargetBandSlack = Mathf.Max(0f, F(
+                CombatConstantKeys.NearestTargetBandSlack,
+                CombatConstantKeys.Safety.NearestTargetBandSlack));
             SurroundGapDegrees = Mathf.Clamp(
                 F(CombatConstantKeys.SurroundGapDegrees, CombatConstantKeys.Safety.SurroundGapDegrees),
                 0f,

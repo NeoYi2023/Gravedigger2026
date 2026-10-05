@@ -132,6 +132,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private StaticBoxWalkableMask _flowWalkableMask;
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
+        private TargetFocusRegistry _targetFocus;
         private readonly List<MassMoveSample> _moveSamples = new List<MassMoveSample>(64);
         private int _nextAdvanceMoveId;
         private int _slotGoalCursor;
@@ -1109,6 +1110,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 }
 
                 var runtimeId = go.name;
+                EnsurePathingServices();
                 view.Bind(
                     monsterRow,
                     protagonistTf,
@@ -1123,7 +1125,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                         _session.TryApplyMonsterDamageToWarrior(monsterRuntimeId, warriorId, attackPower),
                     () => _session != null && _session.IsMonsterStunned(runtimeId),
                     () => _session != null ? _session.GetMonsterSlowMoveMul(runtimeId) : 1f,
-                    () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f);
+                    () => _session != null ? _session.GetMonsterSlowAttackMul(runtimeId) : 1f,
+                    _targetFocus);
                 view.ApplySpawnInitialFacing(PushMapSpawnFacing.ResolveDirIndex(request.InitialFacing));
                 if (request.IsBoss)
                 {
@@ -1463,6 +1466,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _advanceViews.Clear();
             _moveScheduler?.Clear();
             _attackSlots?.Clear();
+            _targetFocus?.Clear();
             _tacticalRuntime?.Clear();
             _battleProtagonistInstance = null;
         }
@@ -1473,6 +1477,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _flowWalkableMask ??= new StaticBoxWalkableMask();
             _moveScheduler ??= new MassMoveScheduler();
             _attackSlots ??= new AttackSlotService();
+            _targetFocus ??= new TargetFocusRegistry();
         }
 
         private void ConfigureFlowFieldPathing(IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> airWallBoxes)
@@ -1481,6 +1486,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _flowWalkableMask.Clear();
             _moveScheduler.Clear();
             _attackSlots.Clear();
+            _targetFocus.Clear();
             _nextAdvanceMoveId = 0;
             _slotGoalCursor = 0;
             _lastSlotGoalRefreshCount = 0;
@@ -1509,6 +1515,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _flowFieldReady = false;
             _moveScheduler?.Clear();
             _attackSlots?.Clear();
+            _targetFocus?.Clear();
             _flowWalkableMask?.Clear();
             _moveSamples.Clear();
             _nextAdvanceMoveId = 0;

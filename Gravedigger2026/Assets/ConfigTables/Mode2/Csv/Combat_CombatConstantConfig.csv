@@ -127,3 +127,5 @@ AutoMfgBodyAbsorbStaggerSeconds,自动制造躯体吸入起飞间隔,0.06,StepB 
 AutoMfgBodyAbsorbFlySeconds,自动制造躯体吸入飞入时长,0.35,StepB body absorb fly-to-center seconds,StepB 单件飞入谜底视觉中心时长（秒；随 speed 缩短）
 AutoMfgBodyAbsorbFlashHz,自动制造躯体吸入闪红频率,8,StepB body absorb in-flight white-red flash Hz,StepB 飞入中 Image 白↔红闪烁 Hz
 ParabolaForwardArcDegrees,抛物线前方张角,60,Full forward arc degrees for Parabola block and melee,抛物线挡射与近战扇形全角
+NearestTargetBandRelative,最近目标带相对系数,0.25,Monster soldier nearest band relative; bandMax=dMin*(1+R)+Slack,怪物士兵最近带相对系数；bandMax=dMin×(1+本值)+Slack
+NearestTargetBandSlack,最近目标带绝对松弛,0.5,Monster soldier nearest band absolute slack (world units),怪物士兵最近带绝对加项（世界单位）

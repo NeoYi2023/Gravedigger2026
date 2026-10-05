@@ -62,6 +62,8 @@ namespace Gravedigger2026.Core.Config
         public const string AttackSlotReclaimMoveThreshold = "AttackSlotReclaimMoveThreshold";
         public const string AttackSlotDefaultTargetBodyRadius = "AttackSlotDefaultTargetBodyRadius";
         public const string HitConfirmSlack = "HitConfirmSlack";
+        public const string NearestTargetBandRelative = "NearestTargetBandRelative";
+        public const string NearestTargetBandSlack = "NearestTargetBandSlack";
         public const string SurroundGapDegrees = "SurroundGapDegrees";
         public const string StuckDetectWindowSeconds = "StuckDetectWindowSeconds";
         public const string StuckDisplacementEpsilon = "StuckDisplacementEpsilon";
@@ -192,6 +194,8 @@ namespace Gravedigger2026.Core.Config
             public const float AttackSlotReclaimMoveThreshold = 0.5f;
             public const float AttackSlotDefaultTargetBodyRadius = 0.35f;
             public const float HitConfirmSlack = 0.05f;
+            public const float NearestTargetBandRelative = 0.25f;
+            public const float NearestTargetBandSlack = 0.5f;
             public const float SurroundGapDegrees = 60f;
             public const float StuckDetectWindowSeconds = 0.5f;
             public const float StuckDisplacementEpsilon = 0.2f;

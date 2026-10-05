@@ -270,7 +270,9 @@
 | WaveSpawnConfig | 刷怪波次配置表 | WaveConfigId + 顺序/剩余秒/怪物/数量/位置/方式 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.18](SPEC_04_Technical.md) |
 | WaveConfigId | 波次配置ID | DefendGameplayConfig → WaveSpawnConfig 分组键 | [SPEC_04 §9.7](SPEC_04_Technical.md) |
 | RemainingCombatSeconds | 战斗剩余秒 | 开战倒计时剩余整秒；等于 SpawnRemainingSeconds 时刷怪 | [§3.12](SPEC_03_GameRules.md) |
-| TargetSelect | 目标选择 | Nearest / PreferWarrior / PreferProtagonist | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
+| TargetSelect | 目标选择 | Nearest / PreferWarrior / PreferProtagonist；士兵最近用 NearestTargetBand | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
+| NearestTargetBand | 最近目标带 | dMin 相对带 + Slack；带内优先无 TargetFocus | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.20b](SPEC_04_Technical.md) |
+| TargetFocus | 目标聚焦 | 怪物当前攻击锁定登记；空闲优先依据 | [§3.12](SPEC_03_GameRules.md) |
 | AttackPriority | 攻击优先级 | 灵魂字段；与 TargetSelect 同枚举；本批不驱动选目标（默认 EngageZone 内最近） | [§3.11](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md) |
 | TargetRetargetInterval | 目标修正间隔 | 怪物与士兵重算目的地间隔；暂定 1s | [§3.12](SPEC_03_GameRules.md) |
 | LevelFailure | 关卡失败 | 护盾归零等（Defend/PushMap）；PushMap 另含无忠诚存活；与 VictorySettlement 互斥；无本阶段经验/无关卡结算奖励；已获不扣；PushMap/SE Demo 经 UI-017 战败 → TitleMenu 或重开同选项 | [§3.9](SPEC_03_GameRules.md)、[§3.12](SPEC_03_GameRules.md)、[§3.14](SPEC_03_GameRules.md)、[§3.19](SPEC_03_GameRules.md) |

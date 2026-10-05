@@ -84,6 +84,7 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
+        private TargetFocusRegistry _targetFocus;
         private int _nextMoveId;
         private int _slotGoalCursor;
         private TacticalFormationRuntimeService _tacticalRuntime;
@@ -571,7 +572,8 @@ namespace Gravedigger2026.Gameplay.Defend
                     retarget,
                     _moveScheduler,
                     _attackSlots,
-                    moveId);
+                    moveId,
+                    _targetFocus);
                 agentView.SetCorpseSmashBridge(
                     (corpseId, killerId, killerDmg, targetId) =>
                         _session.TryApplyCorpseSmashDamage(corpseId, killerId, killerDmg, targetId),
@@ -826,6 +828,7 @@ namespace Gravedigger2026.Gameplay.Defend
             EnsurePathingServices();
             _moveScheduler.Clear();
             _attackSlots.Clear();
+            _targetFocus.Clear();
             _nextMoveId = 0;
             _slotGoalCursor = 0;
 
@@ -976,12 +979,14 @@ namespace Gravedigger2026.Gameplay.Defend
         {
             _moveScheduler ??= new MassMoveScheduler();
             _attackSlots ??= new AttackSlotService();
+            _targetFocus ??= new TargetFocusRegistry();
         }
 
         private void ClearMassCombatPathing()
         {
             _moveScheduler?.Clear();
             _attackSlots?.Clear();
+            _targetFocus?.Clear();
             _moveSamples.Clear();
             _nextMoveId = 0;
             _slotGoalCursor = 0;

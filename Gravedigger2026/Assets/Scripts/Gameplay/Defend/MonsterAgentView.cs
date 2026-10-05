@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Gravedigger2026.Core.Combat;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Defend;
 using Gravedigger2026.Core.Pathing;
@@ -52,6 +53,9 @@ namespace Gravedigger2026.Gameplay.Defend
 
         private MassMoveScheduler _scheduler;
         private AttackSlotService _attackSlots;
+        private TargetFocusRegistry _targetFocus;
+        private readonly List<MonsterNearestWarriorPicker.Candidate> _nearestCandidateScratch =
+            new List<MonsterNearestWarriorPicker.Candidate>(32);
         private int _moveId;
         private string _attackerId;
         private enum MonsterAttackPhase
@@ -94,6 +98,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _warriorsProvider = null;
             _scheduler = null;
             _attackSlots = null;
+            _targetFocus = null;
             _moveId = 0;
             _attackerId = string.Empty;
             _alive = true;
@@ -125,7 +130,8 @@ namespace Gravedigger2026.Gameplay.Defend
             float retargetIntervalSeconds,
             MassMoveScheduler scheduler = null,
             AttackSlotService attackSlots = null,
-            int moveId = 0)
+            int moveId = 0,
+            TargetFocusRegistry targetFocus = null)
         {
             _probeOnly = false;
             _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -140,6 +146,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _deathKnockActive = false;
             _scheduler = scheduler;
             _attackSlots = attackSlots;
+            _targetFocus = targetFocus;
             _moveId = moveId;
             _attackerId = runtimeId;
 
@@ -225,6 +232,7 @@ namespace Gravedigger2026.Gameplay.Defend
             _stuckHold.Reset();
             _gait.Reset();
             ClearRangedWindup();
+            ClearTargetFocus();
             ReleaseSlotClaim();
             _attackSlots?.ReleaseAllForTarget(_attackerId);
             if (_scheduler != null && _moveId != 0)
@@ -908,32 +916,43 @@ namespace Gravedigger2026.Gameplay.Defend
 
             if (_config == null)
             {
-                return protagonist != null ? TargetKind.Protagonist : TargetKind.None;
+                var fallback = protagonist != null ? TargetKind.Protagonist : TargetKind.None;
+                SyncTargetFocus(fallback, null);
+                return fallback;
             }
 
+            TargetKind kind;
             switch (_config.TargetSelect)
             {
                 case TargetSelect.PreferProtagonist:
                     if (protagonist != null)
                     {
-                        return TargetKind.Protagonist;
+                        kind = TargetKind.Protagonist;
+                        break;
                     }
 
                     warrior = NearestActiveWarriorOrNull();
-                    return warrior != null ? TargetKind.Warrior : TargetKind.None;
+                    kind = warrior != null ? TargetKind.Warrior : TargetKind.None;
+                    break;
 
                 case TargetSelect.PreferWarrior:
                     warrior = NearestActiveWarriorOrNull();
                     if (warrior != null)
                     {
-                        return TargetKind.Warrior;
+                        kind = TargetKind.Warrior;
+                        break;
                     }
 
-                    return protagonist != null ? TargetKind.Protagonist : TargetKind.None;
+                    kind = protagonist != null ? TargetKind.Protagonist : TargetKind.None;
+                    break;
 
                 default:
-                    return NearestAny(out warrior, out protagonist);
+                    kind = NearestAny(out warrior, out protagonist);
+                    break;
             }
+
+            SyncTargetFocus(kind, warrior);
+            return kind;
         }
 
         private TargetKind NearestAny(out WarriorAgentView warrior, out Transform protagonist)
@@ -971,8 +990,7 @@ namespace Gravedigger2026.Gameplay.Defend
                 return null;
             }
 
-            WarriorAgentView best = null;
-            var bestDist = float.MaxValue;
+            _nearestCandidateScratch.Clear();
             for (var i = 0; i < list.Count; i++)
             {
                 var w = list[i];
@@ -986,15 +1004,65 @@ namespace Gravedigger2026.Gameplay.Defend
                     continue;
                 }
 
-                var d = Vector3.Distance(transform.position, w.transform.position);
-                if (d < bestDist)
+                _nearestCandidateScratch.Add(
+                    new MonsterNearestWarriorPicker.Candidate(w.AttackerId, w.transform.position));
+            }
+
+            if (_nearestCandidateScratch.Count == 0)
+            {
+                return null;
+            }
+
+            string currentFocus = null;
+            _targetFocus?.TryGetFocus(_attackerId, out currentFocus);
+            var pickedId = MonsterNearestWarriorPicker.Pick(
+                transform.position,
+                _nearestCandidateScratch,
+                _targetFocus,
+                _attackerId,
+                currentFocus,
+                CombatRuntimeTuning.NearestTargetBandRelative,
+                CombatRuntimeTuning.NearestTargetBandSlack);
+            if (string.IsNullOrEmpty(pickedId))
+            {
+                return null;
+            }
+
+            for (var i = 0; i < list.Count; i++)
+            {
+                var w = list[i];
+                if (w != null && w.AttackerId == pickedId)
                 {
-                    bestDist = d;
-                    best = w;
+                    return w;
                 }
             }
 
-            return best;
+            return null;
+        }
+
+        private void SyncTargetFocus(TargetKind kind, WarriorAgentView warrior)
+        {
+            if (_targetFocus == null || string.IsNullOrEmpty(_attackerId))
+            {
+                return;
+            }
+
+            if (kind == TargetKind.Warrior && warrior != null && !string.IsNullOrEmpty(warrior.AttackerId))
+            {
+                _targetFocus.SetFocus(_attackerId, warrior.AttackerId);
+            }
+            else
+            {
+                _targetFocus.ClearFocus(_attackerId);
+            }
+        }
+
+        private void ClearTargetFocus()
+        {
+            if (_targetFocus != null && !string.IsNullOrEmpty(_attackerId))
+            {
+                _targetFocus.ClearFocus(_attackerId);
+            }
         }
     }
 }
