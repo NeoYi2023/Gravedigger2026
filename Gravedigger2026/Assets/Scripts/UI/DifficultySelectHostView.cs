@@ -7,7 +7,7 @@ namespace Gravedigger2026.UI
 {
     /// <summary>
     /// UI-029: InSaveShell difficulty host — three equal-width columns same-screen;
-    /// hover shows description; Normal click enters RouteSelect; Hard/Hell Toast (D-081).
+    /// hover shows description; any column click opens the Sandbox for that difficulty (D-098).
     /// </summary>
     public sealed class DifficultySelectHostView : MonoBehaviour
     {
@@ -44,8 +44,20 @@ namespace Gravedigger2026.UI
         private float _lastViewportWidth = -1f;
         private DifficultyKind? _hoveredKind;
 
-        public event Action DifficultySelected;
-        public event Action LockedDifficultyClicked;
+        public event Action<DifficultyKind> DifficultyPicked;
+
+        public static string ToDifficultyId(DifficultyKind kind)
+        {
+            switch (kind)
+            {
+                case DifficultyKind.Hard:
+                    return "Diff_Hard";
+                case DifficultyKind.Hell:
+                    return "Diff_Hell";
+                default:
+                    return "Diff_Normal";
+            }
+        }
 
         public bool IsOpen => _root != null && _root.activeSelf;
 
@@ -126,19 +138,19 @@ namespace Gravedigger2026.UI
             if (_normalButton != null)
             {
                 _normalButton.onClick.RemoveAllListeners();
-                _normalButton.onClick.AddListener(HandleNormalClicked);
+                _normalButton.onClick.AddListener(() => HandleColumnClicked(DifficultyKind.Normal));
             }
 
             if (_hardButton != null)
             {
                 _hardButton.onClick.RemoveAllListeners();
-                _hardButton.onClick.AddListener(HandleLockedClicked);
+                _hardButton.onClick.AddListener(() => HandleColumnClicked(DifficultyKind.Hard));
             }
 
             if (_hellButton != null)
             {
                 _hellButton.onClick.RemoveAllListeners();
-                _hellButton.onClick.AddListener(HandleLockedClicked);
+                _hellButton.onClick.AddListener(() => HandleColumnClicked(DifficultyKind.Hell));
             }
         }
 
@@ -239,14 +251,9 @@ namespace Gravedigger2026.UI
             ResetDescription();
         }
 
-        private void HandleNormalClicked()
+        private void HandleColumnClicked(DifficultyKind kind)
         {
-            DifficultySelected?.Invoke();
-        }
-
-        private void HandleLockedClicked()
-        {
-            LockedDifficultyClicked?.Invoke();
+            DifficultyPicked?.Invoke(kind);
         }
 
         private void ApplyLayout()

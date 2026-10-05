@@ -234,9 +234,10 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.ProtagonistEquipmentWarehouse` — JSON：`OwnedEquip[]` = `{ EquipId, Level, CurrentExp }[]`（§9.25 / §3.16；**PE-02 已实现**）
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.ShopProgress` — JSON：商店进度快照（`maxUnlockedLevelNumber`、`pendingOpenOnNewUnlock`、`currentRefreshCount`、`currentOffers[6]`，每项包含 `slotIndex/itemId/category(A|B)/priceSpirit/isSold` 等）。商店仅 Mode2 使用；Mode1 可忽略该键值
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.LevelRouteProgress` — JSON：`ClearedOptionIds[]`（已通关 `GameplayOptionId` 扁平数组；OptionId 不跨 LevelId 复用）。`LevelRouteProgressService` 进档 Bind、通关立即写回；`LevelOperationDriver.TryEnterLevel` 水合本关 Cleared 并派生 Unlocked（Stage1 ∪ 已通关项 UnlockNext）；进行中选项不存；删档清两模式
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SandboxProgress` — JSON：`Nodes[]` = `{ NodeId, RemainingEnterCount, Cleared }`；`Captures[]` = 已激活 `CapturePointId`。规则 [SPEC_03 §3.20](SPEC_03_GameRules.md) / [§3.21](SPEC_03_GameRules.md)。存档第一次见到某 `NodeId` 时 `RemainingEnterCount`=`RepeatEnterCount`、`Cleared`=false；之后改表不回写。变更立即写回；删档清两模式。`Nodes` 由 `SandboxProgressService`（方案 A，切片 01）读写：打开某难度时才为未见过的节点写入。挖坟 / 商店 / 自动造兵在调用 `Enter` 前扣 1；COC 进入不扣。切片 03d：`TryMarkCleared`（胜利通关）与 `TryConsumeRoundLoss`（单局失败扣 1，返回扣后剩余）。切片 05（方案 A）：`TryActivateCapture` 把 `CapturePointId` 写入 `Captures`（每个点一次），`TryAddRemainingEnterCount` 给未通关目标加次数。
 - **兼容：** Mode1 绑定时若新键空且旧键 `Gravedigger2026.SaveSlot.{i}.WarriorPool`（及 Formation/DungeonUnlocks）有数据 → 读旧键并可一次性迁移到新键
 
-**士兵池 / 布阵持久化（方案 A + CampaignMode）：** `WarriorPoolService` / `BattleFormationService` / `DungeonUnlockService` / `AutoManufactureBatchRecordService` / `ProtagonistEquipmentService` / **`LevelRouteProgressService`** 各自 `BindSlot(slot, campaignMode)` 进档加载、`ClearBound` 回档选；池/布阵/批次记录/装备仓/**路线进度**变更立即 `PlayerPrefs` 写回；删档 `DeleteSlotData` 清 **两模式**键。进档顺序：先绑池再绑布阵；布阵加载时丢弃池中不存在的 `WarriorId`。仓库 / 经验 / 科技等完整 schema 仍 **TBD**（主角装备仓键与 Service：**PE-02 已落地**；路线进度：**D-088 已落地**）。
+**士兵池 / 布阵持久化（方案 A + CampaignMode）：** `WarriorPoolService` / `BattleFormationService` / `DungeonUnlockService` / `AutoManufactureBatchRecordService` / `ProtagonistEquipmentService` / **`LevelRouteProgressService`** / **`SandboxProgressService`** 各自 `BindSlot(slot, campaignMode)` 进档加载、`ClearBound` 回档选；池/布阵/批次记录/装备仓/**路线进度**/**沙盘次数**变更立即 `PlayerPrefs` 写回；删档 `DeleteSlotData` 清 **两模式**键。进档顺序：先绑池再绑布阵；布阵加载时丢弃池中不存在的 `WarriorId`。仓库 / 经验 / 科技等完整 schema 仍 **TBD**（主角装备仓键与 Service：**PE-02 已落地**；路线进度：**D-088 已落地**；沙盘剩余次数：**切片 01 已落地**）。
 
 **玩法模式门闩（D-045 Demo 旁路）：** 新建/进入 **跳过** `CampaignModeSelectView`，一律 `CampaignMode.Mode2` → `CampaignModeService.Set` → 按模式绑槽 → `ConfigCsvRepository` 自 Mode2 CSV 根重载 → `EnterShell`。UI-014 组件保留、进档路径不调用；Mode1 入口后置。回存档选 Clear 模式。Mode2 士兵制造 = **AutoManufacture**（规则 [SPEC_03 §3.15](SPEC_03_GameRules.md)；实现 D-050～D-054 / `.scratch/mode2-auto-manufacture/issues/`）。
 
@@ -304,6 +305,8 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **战斗指示器（UI-033 / D-089 / 方案 A）：** 共享 Prefab `Assets/Prefabs/Combat/CombatIndicatorHud.prefab`（可先 `CombatIndicatorHudRuntimeFactory`）；ScreenSpaceOverlay 参考 1920×1080；顶中 `anchoredPosition.y=-10`；根 `localScale=0.75`；`CenterBg` 子节点左右半区存活数（BestFit 26～42；敌方开场未现身前为 `?`）；单行截断（不换行）。纯 C# `CombatIndicatorSnapshotBuilder` + View **0.2s** 轮询；Session 经共享接口 `ICombatIndicatorSessionReads` 暴露只读枚举（复用 List）；死亡 0.5s 倒计时仅 View 记忆。简画 `Resources/UI/Icons/{SilhouetteIconAssetId}`。PushMap / SearchExtract StageController 在 `Combat` 显、Prepare/Ended/UI-032/UI-017 隐。Defend **不接线**。issues `.scratch/combat-indicator/`。
 
+**COC 战斗（D-099；切片 06 已写长按展开组内士兵；切片 05 方案 A 已写占领点永久亮起）：** `CocCombatStageModule`（`IStageModule`）+ 纯 C# `CocCombatSessionService`（保存本局刷怪行）。沙盘会话 Enter，`SetState(CocCombat)`，不走 `LevelOperationDriver`。表现 `CocCombatStageController` Instantiate `Prefabs/Maps/{MapId}`。样例图意图 `Coc_Lv2_01`：自 `SearchExtract_Lv2_01` 复制，去掉搜打撤搜集点、决策与 Hold 镜头组件，保留可走面与 `AirWall`。标记见 §9.35。战斗镜头复用推图 Combat 正交相机与滚轮缩放，不用搜打撤 Hold。COC 平移按住鼠标右键拖动，左键只洒兵；推图与搜打撤仍是左键拖动。切片 03a：在地图 `SpawnPoint` 上实例化 `PushMapMonsterAgentView` 并 `Bind`；主角与我方列表皆空，随后关闭战斗表现并停住 NavMeshAgent。缺标记或怪物配置则跳过并 Warning。不登记推图会话血量。切片 03b：`CocFieldCombatSession` 实现 `IWarriorMassCombatSession`，用现有 `WarriorCombatMath` 登记士兵，并用 `MonsterConfig.MaxHP` 登记怪物；普通攻击按 `NormalAttackPower` / 怪物 `AttackPower` 扣血。不发经验、不护盾、不失控、不跑技能爆发、不弹结算。底部职业卡按池内 `ClassId` 出现顺序分组。选中后左键点 NavMesh 可行走且不在 `AirWall` 内的地面，放走该组最前一名并立刻 `TryRemove`。按住每 `DeployHoldIntervalSeconds` 再放。本片无迷雾，整张可行走地图可洒。进图按推图口径 Bake IsoDiamond NavMesh（`DigMapBounds`），并把 `AirWall` 标成不可走，左键点地才采样得到可行走点。士兵为 `PushMapAdvanceView`，移动用 `MassMoveScheduler` + `AttackSlotService`。检测范围内有敌人则追击并攻击。切片 03c：没有检测范围内敌人时，缓存的唯一 `IsBoss` 最终 BOSS 若仍存活，则 `GoalKind.ChaseAnchor` 指向其地面坐标并解除暂停；进入检测范围后改回 AttackSlot。最终 BOSS 已死或缺失则暂停。小 BOSS 死亡不切换界面。场上有存活我方时打开怪物战斗表现并沿用 `AggroMode`；没有则关掉并停住。切片 03d：Controller 判定胜负后以 `CocRoundResult` 回调；壳层 `TryMarkCleared`（胜利）或 `TryConsumeRoundLoss`（失败）；剩余 &gt;0 回沙盘，否则回 Title。「退出」即单局失败。已洒出的不回库。禁止改 `PushMapSessionService`。切片 04a（方案 A，格子盖章）已画静态未探索雾。雾片一格一像素写入，边缘过渡 0.5 由着色器完成。切片 04b（方案 A，同格三态就地更新）按存活士兵 `RevealRadius` 盖章临时亮起，离开或死亡后变暗；已发现普通怪在变暗区保持可见；临时亮起与变暗仍禁洒；重进重建格子即重置探索。切片 05（方案 A，同格第四态）：士兵中心进入配置半径后 `TryActivateCapture` 一次，雾格盖成永久亮起（透明度 0，可洒兵）；已通关目标不加次数；重进先重建再按 `Captures` 盖章。切片 06：`CocClassCardBar` 按 `CardHoldSeconds` 长按职业卡，在该卡上方展开组内士兵（只查看，左右拖动滑动，松手收起，不改池顺序）。issues `.scratch/coc-combat/`。切片 02 已建 §9.35–§9.38 样例表（三个难度各一行，共用地图 `Coc_Lv2_01`）。禁止运行时引用 `SmallScaleInt/`。
+
 **SkillEffect 管线意图（D-073 / 方案 B+）：** 纯 C# `Assets/Scripts/Core/Combat/CombatStatusService.cs`、`SkillEffectPipeline.cs`、`SkillEffects/*Handler.cs`（命名空间 `Gravedigger2026.Core.Combat`）。`PushMapSessionService` **只**在既有结算点调用 `Dispatch(TriggerHook, context)` 与 `CombatStatusService.Tick`；**禁止**按 `SkillId` `if/switch`。CombatSkillIcon 仍走 `SkillIconPopup` / `SkillPersistChanged`。Mode1 新列可空占位；Defend 不接线。issues `.scratch/soldier-skill-effects/`。**SE-07：** 远程命中 `Dispatch(OnProjectileHit)`；`ProjectileView` 为**通用穿透通道**（命中后保持当前速度方向；`alreadyHitRuntimeIds` 防重复；Handler 写 `ExtraHitsRemaining` / `DamageMul`；无弹道不触发）。禁止 View 按 `SkillId` 分支。**SE-09：** 重选目标瞬间 `Dispatch(OnWarriorTargetAcquired)`；Handler 给最远敌 + 背后落点；View 局部 `SamplePosition`+`Warp`；AttackSlot / MassMove 同步；失败不进 CD。
 
 **架构提示：** `ToolsPanel` 属 Meta 壳层 UI；玩法状态由规则层持有，View 只订阅展示（见 §13）。挖坟：规则层负责生成、计时、DigAction 触发/忙碌锁与扣血；菱形地图与圆圈光标、帧动画、奖励飞向 HUD 头像框由 View 表现；逻辑层为整体可放置空间（非格子）。UM 阶段不查玩法配置表主键；升级进度本片内存持有。Defend：规则层输出目标/目的地；移动服务执行（规模栈见 §9.7）；Demo 最小可走面见 §9.7 / SPEC_03 §3.12。
@@ -327,9 +330,10 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.ProtagonistEquipmentWarehouse` — JSON: `OwnedEquip[]` = `{ EquipId, Level, CurrentExp }[]` (§9.25 / §3.16; **PE-02 implemented**)
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.ShopProgress` — JSON: shop progress snapshot (`maxUnlockedLevelNumber`, `pendingOpenOnNewUnlock`, `currentRefreshCount`, `currentOffers[6]` with `slotIndex/itemId/category(A|B)/priceSpirit/isSold`). Mode2 only; Mode1 can ignore this key.
 - `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.LevelRouteProgress` — JSON: `ClearedOptionIds[]` (flat cleared `GameplayOptionId`s; OptionIds must not reuse across LevelIds). `LevelRouteProgressService` Bind on enter-save, write on clear; `LevelOperationDriver.TryEnterLevel` hydrates Cleared for this LevelId and derives Unlocked (Stage1 ∪ UnlockNext of cleared); no in-progress option; delete slot clears both modes.
+- `Gravedigger2026.SaveSlot.{i}.CampaignMode{1|2}.SandboxProgress` — JSON: `Nodes[]` = `{ NodeId, RemainingEnterCount, Cleared }`; `Captures[]` = activated `CapturePointId`s. Rules [SPEC_03 §3.20](SPEC_03_GameRules.md) / [§3.21](SPEC_03_GameRules.md). The first time a save sees a `NodeId`, `RemainingEnterCount`=`RepeatEnterCount` and `Cleared`=false; later table edits do not rewrite it. Write on change; delete slot clears both modes. `SandboxProgressService` (Approach A, slice 01) reads and writes `Nodes`: a node is recorded only when that difficulty is opened and the id is new. Dig / Shop / AutoManufacture decrement by 1 before `Enter`; COC does not decrement on enter. Slice 03d: `TryMarkCleared` (victory) and `TryConsumeRoundLoss` (round loss decrements by 1 and returns the new remaining). Slice 05 (Approach A): `TryActivateCapture` writes each `CapturePointId` into `Captures` once, and `TryAddRemainingEnterCount` adds count to an uncleared target.
 - **Compat:** On Mode1 bind, if new key empty and legacy `Gravedigger2026.SaveSlot.{i}.WarriorPool` (and Formation/DungeonUnlocks) has data → read legacy and optionally one-shot migrate to new key
 
-**Warrior pool / formation persistence (Approach A + CampaignMode):** `WarriorPoolService` / `BattleFormationService` / `DungeonUnlockService` / `AutoManufactureBatchRecordService` / `ProtagonistEquipmentService` / **`LevelRouteProgressService`** each `BindSlot(slot, campaignMode)` on enter-save, `ClearBound` on return to SaveSelect; mutate → immediate `PlayerPrefs` write; delete slot → `DeleteSlotData` clears **both** mode keys. Enter order: bind pool then formation; drop formation rows whose `WarriorId` is missing from pool. Warehouse / Exp / Tech full schema still **TBD** (protagonist equipment warehouse keys + Service: **PE-02 landed**; route progress: **D-088 landed**).
+**Warrior pool / formation persistence (Approach A + CampaignMode):** `WarriorPoolService` / `BattleFormationService` / `DungeonUnlockService` / `AutoManufactureBatchRecordService` / `ProtagonistEquipmentService` / **`LevelRouteProgressService`** / **`SandboxProgressService`** each `BindSlot(slot, campaignMode)` on enter-save, `ClearBound` on return to SaveSelect; mutate → immediate `PlayerPrefs` write; delete slot → `DeleteSlotData` clears **both** mode keys. Enter order: bind pool then formation; drop formation rows whose `WarriorId` is missing from pool. Warehouse / Exp / Tech full schema still **TBD** (protagonist equipment warehouse keys + Service: **PE-02 landed**; route progress: **D-088 landed**; Sandbox remaining counts: **slice 01 landed**).
 
 **CampaignMode gate (D-045 Demo bypass):** Create/Enter **skip** `CampaignModeSelectView`, always `CampaignMode.Mode2` → `CampaignModeService.Set` → bind slot by mode → `ConfigCsvRepository` reload from Mode2 CSV root → `EnterShell`. UI-014 retained unused on enter path; Mode1 entry deferred. Clear mode on return to SaveSelect. Mode2 soldier manufacture = **AutoManufacture** (rules [SPEC_03 §3.15](SPEC_03_GameRules.md); impl D-050–D-054 / `.scratch/mode2-auto-manufacture/issues/`).
 
@@ -397,6 +401,8 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 **CombatIndicator (UI-033 / D-089 / Approach A):** shared Prefab `Assets/Prefabs/Combat/CombatIndicatorHud.prefab` (RuntimeFactory OK first); ScreenSpaceOverlay ref 1920×1080; top-center `anchoredPosition.y=-10`; root `localScale=0.75`; alive-count Texts as `CenterBg` children (left/right halves; BestFit 26–42; enemy `?` until first `>0` this battle); single-row truncate (no wrap). Pure-C# `CombatIndicatorSnapshotBuilder` + View **0.2s** poll; Sessions expose read-only enumerations via shared `ICombatIndicatorSessionReads` (reuse Lists); death 0.5s linger View-only. Silhouettes `Resources/UI/Icons/{SilhouetteIconAssetId}`. PushMap / SearchExtract StageControllers show in `Combat`, hide in Prepare/Ended/UI-032/UI-017. Defend **unwired**. issues `.scratch/combat-indicator/`.
 
+**COC combat (D-099; slice 06 writes card-hold group expand; slice 05 Approach A writes capture permanent light):** `CocCombatStageModule` (`IStageModule`) + pure-C# `CocCombatSessionService` (stores this round's spawn rows). Sandbox session Enter, `SetState(CocCombat)`, not via `LevelOperationDriver`. View `CocCombatStageController` instantiates `Prefabs/Maps/{MapId}`. Intended sample `Coc_Lv2_01`: copy `SearchExtract_Lv2_01`, strip SearchExtract gather points, decision UI, and Hold camera, keep the walkable surface and `AirWall`. Markers: §9.35. Combat camera reuses the PushMap Combat orthographic camera and scroll zoom, not the SearchExtract Hold camera. COC pans by holding the right mouse button, and the left button only deploys; PushMap and SearchExtract still pan with the left button. Slice 03a instantiates `PushMapMonsterAgentView` on the map `SpawnPoint` and `Bind`s it with a null protagonist and an empty friendly list, then disables combat presentation and stops the NavMeshAgent. A missing marker or monster config skips that row with a Warning. Monster HP is not registered on the PushMap session. Slice 03b: `CocFieldCombatSession` implements `IWarriorMassCombatSession`, registers soldiers with the existing `WarriorCombatMath`, and registers monsters from `MonsterConfig.MaxHP`. Normal attacks subtract `NormalAttackPower` / monster `AttackPower`. No experience, shield, loss-of-control, skill burst, or settlement popup. Bottom cards group the pool by `ClassId` in pool order. While a card is selected, a left click on walkable NavMesh outside `AirWall` places that group's front soldier and `TryRemove`s it immediately. Holding repeats every `DeployHoldIntervalSeconds`. This slice has no fog, so the whole walkable map accepts deploy. On enter, bake an IsoDiamond NavMesh from `DigMapBounds` the same way PushMap does, and mark `AirWall` not walkable, so a left click can sample a walkable point. Soldiers are `PushMapAdvanceView`s moved by `MassMoveScheduler` + `AttackSlotService`. An enemy inside detect range is chased and attacked. Slice 03c: with no enemy in detect range, if the cached unique `IsBoss` Final Boss is still alive, set `GoalKind.ChaseAnchor` to its ground XZ and unpause; inside detect range switch back to AttackSlot. If the Final Boss is dead or missing, pause. Mini Boss death does not change the UI. Monster combat presentation and `AggroMode` chase turn on only while a living friendly exists; otherwise they stop. Return does not decrement, and deployed soldiers do not return to the pool. Do not change `PushMapSessionService`. Slice 04a (Approach A, grid stamp) draws static unseen fog. The sheet writes one texel per cell; a shader fades edges over 0.5 ground units. Slice 04b (Approach A, in-place three-state grid) stamps living soldiers' `RevealRadius` as temporary reveal, then explored-dark after they leave or die; discovered normal monsters stay visible in explored-dark; temporary reveal and explored-dark still block deploy; re-entry rebuilds the grid and resets exploration. Slice 05 (Approach A, fourth grid state) activates a capture once via `TryActivateCapture`, stamps permanent light (alpha 0, deploy allowed), skips cleared reward targets, and re-stamps from `Captures` after the grid rebuild. Slice 06: `CocClassCardBar` holds a class card for `CardHoldSeconds`, then expands that group's soldiers above the card (inspect only, drag to scroll, release dismisses, pool order unchanged). Issues `.scratch/coc-combat/`. Slice 02 adds the §9.35–§9.38 sample tables (one gameplay row per difficulty, shared map `Coc_Lv2_01`). Do not runtime-reference `SmallScaleInt/`.
+
 **SkillEffect pipeline intent (D-073 / Approach B+):** pure C# `Assets/Scripts/Core/Combat/CombatStatusService.cs`, `SkillEffectPipeline.cs`, `SkillEffects/*Handler.cs` (namespace `Gravedigger2026.Core.Combat`). `PushMapSessionService` **only** calls `Dispatch(TriggerHook, context)` and `CombatStatusService.Tick` at existing settle points; **forbid** `if/switch` on `SkillId`. CombatSkillIcon still uses `SkillIconPopup` / `SkillPersistChanged`. Mode1 new columns may stay empty; Defend not wired. Issues `.scratch/soldier-skill-effects/`. **SE-07:** ranged hits `Dispatch(OnProjectileHit)`; `ProjectileView` is a **generic pierce channel** (keep current velocity after hit; `alreadyHitRuntimeIds` block repeats; Handler writes `ExtraHitsRemaining` / `DamageMul`; no projectile → no trigger). View must not branch on `SkillId`. **SE-09:** retarget moment `Dispatch(OnWarriorTargetAcquired)`; Handler supplies farthest enemy + behind landing; View local `SamplePosition`+`Warp`; AttackSlot / MassMove sync; failure does not start CD.
 
 **Architecture note:** ToolsPanel is Meta shell UI; gameplay state owned by rules layer; View subscribes only (§13). Dig: rules owns spawn/timer/DigAction/busy/damage; diamond map, circle cursor, dig anims, DigReward fly-to HUD portrait are View; continuous placeable space. UM stages do not resolve mode-config PKs; upgrade progress is in-memory this slice. Defend: rules outputs target/destination; move service executes (mass stack §9.7); Demo-min walkable surface in §9.7 / SPEC_03 §3.12.
@@ -427,7 +433,7 @@ Prefer an input abstraction; no raw `Input.GetKey` / touch in gameplay code.
 
 ---
 
-## 9. 配置表（关卡运作 / 关卡难度 / 挖坟 / 坟墓品质 / 材料 / 货币 / 挖坟能力 / 防守 / 刷怪波次 / 怪物 / 主角升级 / 灵魂 / 宝石 / 种族 / 制造部件 / 躯体外观 / 科技树 / 失控 / 士兵技能 / 推图战）
+## 9. 配置表（关卡运作 / 关卡难度 / 挖坟 / 坟墓品质 / 材料 / 货币 / 挖坟能力 / 防守 / 刷怪波次 / 怪物 / 主角升级 / 灵魂 / 宝石 / 种族 / 制造部件 / 躯体外观 / 科技树 / 失控 / 士兵技能 / 推图战 / COC）
 
 ### 简体中文
 
@@ -511,6 +517,38 @@ DifficultyConfig {
 ```
 
 规则语义：[SPEC_03 §3.9](SPEC_03_GameRules.md)。**Demo：** 样例三行对齐 UI-029 普通/困难/地狱；Hub 读表 / 存档解锁 / 发奖 **接线后置**（本片只落表+SPEC）。
+
+#### 9.1c 沙盘节点表 `SandboxNodeConfig`
+
+**磁盘名：**
+- **Excel：** `关卡_沙盘节点表_Level_SandboxNodeConfig.xlsx`
+- **CSV：** `Level_SandboxNodeConfig.csv`
+
+规则语义：[SPEC_03 §3.20](SPEC_03_GameRules.md) / [§3.21](SPEC_03_GameRules.md)（UI-036 / D-098 / D-099）。**不**改子关卡表。Mode1 与 Mode2 各一份。壳层按 `DifficultyId` 取行后按 `SortOrder` 升序横排。进入玩法**不**走 `TrySelectGameplayOption`：壳层自建 `LevelStageContext` 调用已有 `IStageModule.Enter`；沙盘会话结束 `Exit` 后回沙盘，不调用 `TryAdvanceStage`。COC 最终失败回 Title，不回沙盘。
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| NodeId | 节点ID | `string` | 主键；全表唯一 |
+| DifficultyId | 难度ID | `string` | 过滤键；样例 `Diff_Normal` / `Diff_Hard` / `Diff_Hell` |
+| SortOrder | 排序 | `int` | 同一难度内从左到右；小者在左 |
+| DisplayName | 玩法名 | `string` | 格子标题 |
+| GameplayType | 玩法类型 | `string` | `Dig` / `CocCombat` / `Shop` / `AutoManufacture`；`CocCombat` 进入 `GameplayState`（§3.21） |
+| RepeatEnterCount | 初始剩余次数 | `int` | ≥ 0；存档第一次见到该 `NodeId` 时写入 `RemainingEnterCount`；之后不随改表回写。展示与扣次见 §3.20 / §3.21 |
+| GameplayConfigId | 玩法配置ID | `string` | `Dig` 须解析 `DigGameplayConfig`（样例 `Dig_01`）；`CocCombat` 须解析 `CocGameplayConfig`（§9.35）；商店 / 自动造兵忽略 |
+
+```
+SandboxNodeConfig {
+  NodeId: Id
+  DifficultyId: Id
+  SortOrder: int
+  DisplayName: string
+  GameplayType: "Dig" | "CocCombat" | "Shop" | "AutoManufacture"
+  RepeatEnterCount: int          // initial remaining count on first sight
+  GameplayConfigId: Id | ""
+}
+```
+
+**存档：** 剩余次数与通关不写回本表，写 `SandboxProgress`（§6）。**Demo 样例：** 每个难度 4 行（挖坟 `Dig_01`、COC战斗、商店、自动制造），`RepeatEnterCount` 分别为 3 / 1 / 5 / 2。COC 行的 `GameplayConfigId` 已填：普通 `Coc_Normal`、困难 `Coc_Hard`、地狱 `Coc_Hell`（§9.35）。无法解析则不可进入。
 
 #### 9.1b 子关卡表 `SubLevelConfig`（见 §9.31）
 
@@ -2570,6 +2608,38 @@ DifficultyConfig {
 ```
 
 Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). **Demo:** three sample rows align with UI-029 Normal/Hard/Hell; Hub load / save unlock / grant **wiring deferred** (this slice: table + SPEC only).
+
+#### 9.1c SandboxNodeConfig
+
+**Disk name:**
+- **Excel:** `关卡_沙盘节点表_Level_SandboxNodeConfig.xlsx`
+- **CSV:** `Level_SandboxNodeConfig.csv`
+
+Rules: [SPEC_03 §3.20](SPEC_03_GameRules.md) / [§3.21](SPEC_03_GameRules.md) (UI-036 / D-098 / D-099). Does **not** change the SubLevel table. One copy under Mode1 and one under Mode2. The shell filters by `DifficultyId` and lays cells left-to-right by ascending `SortOrder`. Enter does **not** use `TrySelectGameplayOption`: the shell builds a `LevelStageContext` and calls the existing `IStageModule.Enter`; a Sandbox session `Exit`s and returns to the Sandbox, and does not call `TryAdvanceStage`. COC final loss returns to Title, not the Sandbox.
+
+| Field (EN) | ZH | Type (pseudo) | Notes |
+|------------|-----|---------------|-------|
+| NodeId | 节点ID | `string` | PK; unique in the table |
+| DifficultyId | 难度ID | `string` | Filter; samples `Diff_Normal` / `Diff_Hard` / `Diff_Hell` |
+| SortOrder | 排序 | `int` | Left-to-right within one difficulty; smaller is lefter |
+| DisplayName | 玩法名 | `string` | Cell title |
+| GameplayType | 玩法类型 | `string` | `Dig` / `CocCombat` / `Shop` / `AutoManufacture`; `CocCombat` is a `GameplayState` (§3.21) |
+| RepeatEnterCount | 初始剩余次数 | `int` | ≥ 0; copied to `RemainingEnterCount` the first time the save sees that `NodeId`; later table edits do not rewrite it. Display and decrement: §3.20 / §3.21 |
+| GameplayConfigId | 玩法配置ID | `string` | `Dig` must resolve `DigGameplayConfig` (sample `Dig_01`); `CocCombat` must resolve `CocGameplayConfig` (§9.35); Shop / AutoManufacture ignore it |
+
+```
+SandboxNodeConfig {
+  NodeId: Id
+  DifficultyId: Id
+  SortOrder: int
+  DisplayName: string
+  GameplayType: "Dig" | "CocCombat" | "Shop" | "AutoManufacture"
+  RepeatEnterCount: int          // initial remaining count on first sight
+  GameplayConfigId: Id | ""
+}
+```
+
+**Save:** remaining count and cleared state are not written back to this table; they live in `SandboxProgress` (§6). **Demo samples:** 4 rows per difficulty (Dig `Dig_01`, COC combat, Shop, AutoManufacture), `RepeatEnterCount` 3 / 1 / 5 / 2. COC `GameplayConfigId` values are `Coc_Normal` / `Coc_Hard` / `Coc_Hell` (§9.35). An unresolvable COC click cannot enter.
 
 #### 9.2 DigGameplayConfig
 
@@ -4638,6 +4708,132 @@ LocalizedDescriptionConfig {
 
 **解析：** `ConfigCsvRepository.TryGetLocalizedText(textKey, out text)` → `TextZh`。缺表（Mode1 可容忍）→ 空字典；缺 Key → false + Warning。Demo 样例行：`DigWarehouseHoverTips` / `此处统计可大致制造的士兵种族与职业数量`；子关卡 Tips 类型名：`TipMsg_Spirit`/`TipMsg_Wreck`/`TipMsg_Warrior`/`TipMsg_Archer`/`TipMsg_Assassin`/`TipMsg_Mage`/`TipMsg_Humans`/`TipMsg_Elves`/`TipMsg_Orcs`/`TipMsg_AllRaces`。
 
+#### 9.35 COC 玩法配置表 `CocGameplayConfig`
+
+规则语义：[SPEC_03 §3.21](SPEC_03_GameRules.md)（D-099）。切片 02（方案 B）已建 Mode2 样例表。Mode1 可不放表。三个难度各一行，共用地图 `Coc_Lv2_01`：占领奖励的目标难度必须与引用该 `GameplayConfigId` 的沙盘节点一致，所以不能三个难度共用同一个玩法配置 Id。
+
+**磁盘名：**
+- **Excel：** `COC_玩法配置表_Coc_CocGameplayConfig.xlsx`
+- **CSV：** `Coc_CocGameplayConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| GameplayConfigId | 玩法配置ID | `string` | 主键；沙盘节点 `CocCombat` 行引用 |
+| MapId | 地图编号 | `string` | Prefab 逻辑名；解析 → `Assets/Prefabs/Maps/{MapId}.prefab`。样例意图 `Coc_Lv2_01` |
+| RevealRadius | 临时揭示半径 | `float` | 地面 XZ 圆半径；缺省 **2**；≤ 0 → 加载失败 |
+| UnexploredAlpha | 未探索透明度 | `float` | 缺省 **0.9**；须在 (0, 1] |
+| ExploredAlpha | 变暗透明度 | `float` | 缺省 **0.7**；须在 (0, 1] |
+| CardHoldSeconds | 卡牌长按秒数 | `float` | 缺省 **1**；≤ 0 → 加载失败 |
+| DeployHoldIntervalSeconds | 按住洒兵间隔 | `float` | 缺省 **0.1**；≤ 0 → 加载失败 |
+
+```
+CocGameplayConfig {
+  GameplayConfigId: Id
+  MapId: string
+  RevealRadius: number = 2
+  UnexploredAlpha: number = 0.9
+  ExploredAlpha: number = 0.7
+  CardHoldSeconds: number = 1
+  DeployHoldIntervalSeconds: number = 0.1
+}
+```
+
+**地图标记（作者摆在 `{MapId}` 预制体上；运行时不自管规则）：**
+
+| 组件 | 字段 | 说明 |
+|------|------|------|
+| `SpawnPoint` | `SpawnPointId` | 复用推图刷怪点标记；与 §9.36 匹配。最终 BOSS 与小 BOSS 也走刷怪点，不另设 `BossPoint` |
+| `CocFogPolygon` | 有序子点，数量 ≥ 3 | 点数可增；按子节点顺序连成一个面。一个地图可有多个多边形 |
+| `CocCapturePoint` | `CapturePointId` | 位置 = Transform。半径不写在预制体上，走 §9.37 |
+| `AirWall` / `WalkSurface` | 同推图 | 洒兵与走向最终 BOSS 的寻路排除空气墙 |
+
+样例图从 `SearchExtract_Lv2_01` 复制后去掉搜打撤搜集点（`ObjectivePoint`）与 `BossPoint`。镜头复用推图 Combat 正交相机，不用 Hold。
+
+**切片 02 样例行（切片 03a 起运行时刷出并停住；切片 03b 起可洒兵并选敌；切片 03c 起无敌人时走向最终 BOSS；切片 03d 起结算通关/扣次；切片 04a 起画静态未探索雾并禁洒；切片 04b 起临时亮起与变暗；切片 05 起激活占领点并永久亮起；切片 06 起长按职业卡展开组内士兵）：**
+
+| 表 | 样例 |
+|----|------|
+| 玩法 | `Coc_Normal` / `Coc_Hard` / `Coc_Hell`，`MapId=Coc_Lv2_01`，半径与透明度、长按、洒兵间隔用上表缺省 |
+| 刷怪 | 每个玩法三行：`SP_01` `Normal` `Monster_01`×3；`SP_Mini` `MiniBoss`×1；`SP_Final` `FinalBoss`×1 |
+| 占领点 | `CP_Normal`→`Coc_Normal`，`CP_Hard`→`Coc_Hard`，`CP_Hell`→`Coc_Hell`，半径 3 |
+| 占领奖励 | `R_N`→`SB_N_Dig` +1；`R_H`→`SB_H_Shop` +1；`R_L`→`SB_L_AM` +1 |
+
+#### 9.36 COC 刷怪配置表 `CocSpawnConfig`
+
+一行一条刷怪定义。同一 `SpawnPointId` 可多行。
+
+**磁盘名：**
+- **Excel：** `COC_刷怪配置表_Coc_CocSpawnConfig.xlsx`
+- **CSV：** `Coc_CocSpawnConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| GameplayConfigId | 玩法配置ID | `string` | 外键 → §9.35 |
+| SpawnPointId | 刷怪点编号 | `string` | 与地图 `SpawnPoint` 匹配；缺标记则该行跳过并 Warning |
+| MonsterId | 怪物ID | `string` | 外键 → `MonsterConfig` |
+| SpawnCount | 数量 | `int` | ≥ 1。`FinalBoss` 行必须为 1 |
+| SpawnRole | 刷怪角色 | `string` | `Normal` / `MiniBoss` / `FinalBoss` |
+| SpawnOrder | 同点顺序 | `int` | 同 `SpawnPointId` 多行时升序 |
+
+```
+CocSpawnConfig {
+  GameplayConfigId: Id
+  SpawnPointId: Id
+  MonsterId: Id
+  SpawnCount: int
+  SpawnRole: "Normal" | "MiniBoss" | "FinalBoss"
+  SpawnOrder: int
+}
+```
+
+**加载：** 每个 `GameplayConfigId` 恰好一行 `FinalBoss`。0 行或多于 1 行 → 整表加载失败。`MiniBoss` 可 0 行或多行。开战在该 `SpawnPoint` 刷出；`FinalBoss` 与 `MiniBoss` 在未探索迷雾中仍可见。胜利只看该 `FinalBoss` 死亡。
+
+#### 9.37 COC 占领点配置表 `CocCapturePointConfig`
+
+**磁盘名：**
+- **Excel：** `COC_占领点配置表_Coc_CocCapturePointConfig.xlsx`
+- **CSV：** `Coc_CocCapturePointConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| CapturePointId | 占领点ID | `string` | 主键；与地图 `CocCapturePoint` 匹配 |
+| GameplayConfigId | 玩法配置ID | `string` | 外键 → §9.35 |
+| Radius | 永久亮起半径 | `float` | 地面 XZ 圆；> 0。激活后跨局保留，且圆内可洒兵 |
+
+```
+CocCapturePointConfig {
+  CapturePointId: Id
+  GameplayConfigId: Id
+  Radius: number
+}
+```
+
+地图上有标记但表中无行，或表中有行但当前地图无标记 → Warning，该点不参与。我方士兵中心进入圆即激活一次。
+
+#### 9.38 COC 占领奖励配置表 `CocCaptureRewardConfig`
+
+**磁盘名：**
+- **Excel：** `COC_占领奖励配置表_Coc_CocCaptureRewardConfig.xlsx`
+- **CSV：** `Coc_CocCaptureRewardConfig.csv`
+
+| 字段 (EN) | 中文 | 类型（伪） | 说明 |
+|-----------|------|------------|------|
+| RewardId | 奖励ID | `string` | 主键 |
+| CapturePointId | 占领点ID | `string` | 外键 → §9.37 |
+| TargetNodeId | 目标沙盘节点 | `string` | 外键 → `SandboxNodeConfig.NodeId` |
+| AddCount | 增加次数 | `int` | ≥ 1；加到该节点存档剩余次数 |
+
+```
+CocCaptureRewardConfig {
+  RewardId: Id
+  CapturePointId: Id
+  TargetNodeId: Id
+  AddCount: int
+}
+```
+
+**加载失败：** 目标节点不存在；目标节点 `DifficultyId` 与引用该 `GameplayConfigId` 的沙盘节点难度不同；目标 `GameplayType` 不是 `Dig` / `Shop` / `AutoManufacture`。已通关目标不加次数。同一占领点可多行。激活时发放一次，重进不重复发放。
+
 ### English (SubLevelConfig)
 
 Rules: [SPEC_03 §3.9](SPEC_03_GameRules.md). One row = one gameplay option (PK `GameplayOptionId`; **must not reuse across LevelIds**). Disk: Excel `关卡_子关卡表_Level_SubLevelConfig.xlsx`; CSV `Level_SubLevelConfig.csv`. Fields: Type/ConfigId (Shop/UM/AM ignore ConfigId; SearchExtract → §9.32); SearchExtract-only `GatherPointCount` (int N) and `GatherPointRewards` (`N:ItemId;Count|…`; `|` splits; `N:` starts a new point); Icon → `Resources/UI/Levels/`; Title/Description; Reward `ItemId;Count|…`; UnlockNext `OptId|…` must be Stage+1; empty UnlockNext → level victory on clear. **No** `MapPosX`/`MapPosY` (pins live only on `LevelRouteMap_{LevelId}` Prefab; Approach C). Editor (Mode2 CSV): `Gravedigger2026/Level（关卡）/Ensure LevelRouteMap Prefabs (UI-031)（确保关卡路线地图预制体）` creates/paints Background (width 1450, height by sprite), fills missing pins, and copies runtime Prefabs to `Assets/Resources/Prefabs/Level/`; `Sync LevelRouteMap Pins` adds missing pins (new pins default `(0,0)`) and warns on extras without overwriting authored positions. Runtime `LevelRouteSelectView` `Resources.Load`s the map Prefab by LevelId and pins options to child `anchoredPosition`; **map mode shows Icon only** (option root `Image` white fully transparent `(1,1,1,0)`, still clickable/hoverable); hover Tips = standalone Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab` nested under `LevelRouteSelectRoot/Box` (Ensure copies to `Resources/Prefabs/Level/`; runtime SerializeField only — no runtime `BuildHierarchy`); **chrome: `Box` stretch fullscreen; `MapScroll` height-full / width 1920 / horizontally centered (map content 1450 centered in viewport); `Title`/`LevelTabBar` overlay the map**; layout by GameplayType (Dig=`TipMessages`; Shop/AM/UM=`IconAssetId2`+Description; PushMap/SE/Defend=`IconAssetId2`+Reward icons); **on open / tab switch View scrolls `MapContent` Y to center the latest unlocked pin (Y only)**; **on clear-return non-empty `JustClearedOptionId` → snap just-cleared, hold 0.5s, ~0.5s smooth to frontier**; missing pin → Warning + `(0,0)`; no Prefab / no `RouteMapAssetId` → legacy Stage rows (full cards). Pins are placeholders, not option nodes. **Unlock edges `EdgeLayer`:** Prefab may default under `MapContent`; at runtime in map mode reparented under `LevelRouteMap_{LevelId}`, sibling after `Background` and before option Icons (edges above bg, below Icons), scrolls with the map (`CanvasGroup.blocksRaycasts=false`); legacy Stage-row mode reparents to Box overlay.
@@ -4657,6 +4853,20 @@ Runtime: `BgmService` + `BgmClipCatalog`; Title on SaveSelect only; Dig on Dig E
 ### English (LocalizedDescriptionConfig)
 
 Rules: shared UI / tips copy for future locale switching ([SPEC_03 §3.10](SPEC_03_GameRules.md) Dig Warehouse hover). Disk: Excel `通用_多语言描述表_Common_LocalizedDescriptionConfig.xlsx`; CSV `Common_LocalizedDescriptionConfig.csv`. Fields: `TextKey` PK; `TextZh` Demo authority string; `TextEn` reserved; `Comment` non-logic. Runtime `TryGetLocalizedText` reads `TextZh`. Missing table OK for Mode1 (empty map). Sample: `DigWarehouseHoverTips` = `此处统计可大致制造的士兵种族与职业数量`.
+
+### English (CocGameplayConfig / CocSpawnConfig / CocCapturePointConfig / CocCaptureRewardConfig)
+
+Rules: [SPEC_03 §3.21](SPEC_03_GameRules.md) (D-099). Slice 02 (Approach B) creates the Mode2 sample tables. Mode1 may omit them. One gameplay row per difficulty shares `Coc_Lv2_01`, because a capture reward's target difficulty must match the Sandbox node that references that `GameplayConfigId`.
+
+Disk: Excel `COC_玩法配置表_Coc_CocGameplayConfig.xlsx` / `COC_刷怪配置表_Coc_CocSpawnConfig.xlsx` / `COC_占领点配置表_Coc_CocCapturePointConfig.xlsx` / `COC_占领奖励配置表_Coc_CocCaptureRewardConfig.xlsx`; CSV `Coc_CocGameplayConfig.csv` / `Coc_CocSpawnConfig.csv` / `Coc_CocCapturePointConfig.csv` / `Coc_CocCaptureRewardConfig.csv`.
+
+Gameplay PK `GameplayConfigId`; `MapId` → `Prefabs/Maps/{MapId}.prefab` (sample `Coc_Lv2_01`, copied from `SearchExtract_Lv2_01` with SearchExtract gather `ObjectivePoint`s and `BossPoint` removed). Defaults: `RevealRadius` 2, `UnexploredAlpha` 0.9, `ExploredAlpha` 0.7, `CardHoldSeconds` 1, `DeployHoldIntervalSeconds` 0.1. Illegal defaults listed in §9.35 fail the load. Slice 02 rows: `Coc_Normal` / `Coc_Hard` / `Coc_Hell`; each has `SP_01` Normal `Monster_01`×3, `SP_Mini` MiniBoss×1, `SP_Final` FinalBoss×1; captures `CP_Normal` / `CP_Hard` / `CP_Hell` radius 3; rewards `R_N`→`SB_N_Dig`, `R_H`→`SB_H_Shop`, `R_L`→`SB_L_AM`, each +1. Slice 03a spawns these monsters and holds them idle. Slice 03b deploys and fights on this map. Slice 03c marches to the Final Boss when no enemy is in detect range. Slice 03d settles clear / round-loss. Slice 04a draws static unseen fog and blocks deploy inside it. Slice 04b stamps temporary reveal and explored-dark on the same grid. Slice 05 stamps permanent light for activated captures. Slice 06 holds a class card for `CardHoldSeconds` and expands that group above the card.
+
+Map markers on the prefab: `SpawnPoint` (reused; Final Boss and Mini Bosses use spawn points, no separate `BossPoint`), `CocFogPolygon` (ordered children, count ≥ 3, several polygons allowed), `CocCapturePoint` (`CapturePointId`; radius is not on the prefab), plus existing `AirWall` / `WalkSurface`. Combat camera reuses PushMap Combat ortho and scroll zoom, not SearchExtract Hold.
+
+Spawn: one row per definition; `SpawnRole` = `Normal` | `MiniBoss` | `FinalBoss`. Each `GameplayConfigId` must have exactly one `FinalBoss` row and that row's `SpawnCount` must be 1; otherwise the table fails to load. Victory is that Final Boss's death only.
+
+Capture: `Radius` > 0 is a ground-plane XZ circle, saved once activated, and allows deploy inside. A marker without a row, or a row without a marker on the current map, warns and that point is skipped. Reward rows add `AddCount` (≥ 1) to `TargetNodeId`'s saved remaining count once. Load fails if the target node is missing, its `DifficultyId` differs from the Sandbox node that references this gameplay, or its `GameplayType` is not `Dig` / `Shop` / `AutoManufacture`. Cleared targets gain nothing.
 
 ## 10. Mode2 商店系统（Shop；D-075）
 
@@ -4841,11 +5051,12 @@ Gravedigger2026/Assets/ConfigTables/
 
 | SystemEN | SystemZH | 适用范围（现有 §9 CSV 基名示例） |
 |----------|----------|----------------------------------|
-| `Level` | 关卡 | `Level_LevelOperationConfig`；`Level_DifficultyConfig`；`Level_SubLevelConfig` |
+| `Level` | 关卡 | `Level_LevelOperationConfig`；`Level_DifficultyConfig`；`Level_SubLevelConfig`；`Level_SandboxNodeConfig` |
 | `Dig` | 挖坟 | `Dig_DigGameplayConfig`、`Dig_GraveQualityConfig`、`Dig_MaterialConfig`、`Dig_CurrencyConfig` |
 | `Defend` | 防守 | `Defend_DefendGameplayConfig`、`Defend_WaveSpawnConfig`、`Defend_MonsterConfig` |
 | `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`、`PushMap_PushMapSpawnConfig` |
 | `SearchExtract` | 搜打撤 | `SearchExtract_SearchExtractGameplayConfig`、`SearchExtract_SearchExtractWaveSpawnConfig` |
+| `Coc` | COC | `Coc_CocGameplayConfig`、`Coc_CocSpawnConfig`、`Coc_CocCapturePointConfig`、`Coc_CocCaptureRewardConfig` |
 | `Manufacture` | 制造 | `Manufacture_ProtagonistLevelConfig`、`Manufacture_SoulConfig`、`Manufacture_ClassConfig`、`Manufacture_GemConfig`、`Manufacture_RaceConfig`、`Manufacture_BodyPartConfig`、`Manufacture_BodyAppearanceConfig`、`Manufacture_ExtraEquipmentConfig`、`Manufacture_GemSuffixNameConfig`、`Manufacture_MagicBookConfig` |
 | `Tech` | 科技 | `Tech_TechTreeConfig`、`Tech_TechEffectConfig` |
 | `Combat` | 战斗 | `Combat_LossOfControlConfig`、`Combat_CombatConstantConfig`、`Combat_SkillConfig`、`Combat_FormationBondConfig`、**`Combat_TacticalFormationConfig`** |
@@ -4994,7 +5205,7 @@ Gravedigger2026/Assets/ConfigTables/
 
 | SystemEN | SystemZH | Scope (existing §9 CSV basename examples) |
 |----------|----------|-------------------------------------------|
-| `Level` | 关卡 | `Level_LevelOperationConfig`；`Level_DifficultyConfig`；`Level_SubLevelConfig` |
+| `Level` | 关卡 | `Level_LevelOperationConfig`；`Level_DifficultyConfig`；`Level_SubLevelConfig`；`Level_SandboxNodeConfig` |
 | `Dig` | 挖坟 | `Dig_DigGameplayConfig`, `Dig_GraveQualityConfig`, `Dig_MaterialConfig`, `Dig_CurrencyConfig` |
 | `Defend` | 防守 | `Defend_DefendGameplayConfig`, `Defend_WaveSpawnConfig`, `Defend_MonsterConfig` |
 | `PushMap` | 推图战 | `PushMap_PushMapGameplayConfig`, `PushMap_PushMapSpawnConfig` |
@@ -5004,6 +5215,7 @@ Gravedigger2026/Assets/ConfigTables/
 | `Combat` | 战斗 | `Combat_LossOfControlConfig`, `Combat_CombatConstantConfig`, `Combat_SkillConfig`, `Combat_SkillEffectConfig`, `Combat_MonsterSkillEffectConfig` |
 | `Audio` | 音频 | `Audio_BgmConfig` |
 | `Shop` | 商店 | `Shop_ShopPoolConfig`, `Shop_ShopRefreshPriceConfig` |
+| `Coc` | COC | `Coc_CocGameplayConfig`, `Coc_CocSpawnConfig`, `Coc_CocCapturePointConfig`, `Coc_CocCaptureRewardConfig` |
 | `Common` | 通用 | `Common_LocalizedDescriptionConfig` |
 
 `TableZH` comes from the §9 subsection title (e.g.「挖坟配置表」). Per-table full Excel/CSV names: see §9 **Disk name** lines. New tables must choose `SystemZH` + `TableZH` + `SystemEN` before landing files.

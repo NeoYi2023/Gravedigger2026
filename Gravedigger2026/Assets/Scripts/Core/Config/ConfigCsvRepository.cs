@@ -84,6 +84,12 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, SearchExtractGameplayConfigRow>(StringComparer.Ordinal);
         private readonly List<SearchExtractWaveSpawnConfigRow> _searchExtractWaveRows =
             new List<SearchExtractWaveSpawnConfigRow>();
+        private readonly Dictionary<string, CocGameplayConfigRow> _cocById =
+            new Dictionary<string, CocGameplayConfigRow>(StringComparer.Ordinal);
+        private readonly List<CocSpawnConfigRow> _cocSpawnRows = new List<CocSpawnConfigRow>();
+        private readonly Dictionary<string, CocCapturePointConfigRow> _cocCaptureById =
+            new Dictionary<string, CocCapturePointConfigRow>(StringComparer.Ordinal);
+        private readonly List<CocCaptureRewardConfigRow> _cocRewardRows = new List<CocCaptureRewardConfigRow>();
         private readonly Dictionary<string, FormationBondConfigRow> _formationBondByKey =
             new Dictionary<string, FormationBondConfigRow>(StringComparer.Ordinal);
         private readonly List<FormationBondConfigRow> _formationBondRows = new List<FormationBondConfigRow>();
@@ -106,6 +112,9 @@ namespace Gravedigger2026.Core.Config
             new Dictionary<string, BgmConfigRow>(StringComparer.Ordinal);
         private readonly Dictionary<string, LocalizedDescriptionConfigRow> _localizedTextByKey =
             new Dictionary<string, LocalizedDescriptionConfigRow>(StringComparer.Ordinal);
+        private readonly List<SandboxNodeConfigRow> _sandboxNodes = new List<SandboxNodeConfigRow>();
+        private readonly Dictionary<string, SandboxNodeConfigRow> _sandboxById =
+            new Dictionary<string, SandboxNodeConfigRow>(StringComparer.Ordinal);
 
         public bool IsLoaded { get; private set; }
         public string LastError { get; private set; }
@@ -171,6 +180,10 @@ namespace Gravedigger2026.Core.Config
             _pushMapSpawnRows.Clear();
             _searchExtractById.Clear();
             _searchExtractWaveRows.Clear();
+            _cocById.Clear();
+            _cocSpawnRows.Clear();
+            _cocCaptureById.Clear();
+            _cocRewardRows.Clear();
             _formationBondByKey.Clear();
             _formationBondRows.Clear();
             _formationBondRowsByBondId.Clear();
@@ -183,11 +196,14 @@ namespace Gravedigger2026.Core.Config
             _bgmRows.Clear();
             _bgmById.Clear();
             _localizedTextByKey.Clear();
+            _sandboxNodes.Clear();
+            _sandboxById.Clear();
 
             try
             {
                 LoadLevelOperations();
                 LoadSubLevels();
+                LoadSandboxNodes();
                 ValidateLevelOptionGraph();
                 ResolveLevelUnlockRequirements();
                 LoadDigGameplay();
@@ -200,6 +216,11 @@ namespace Gravedigger2026.Core.Config
                 {
                     LoadSearchExtractGameplay();
                     LoadSearchExtractWaveSpawn();
+                    LoadCocGameplay();
+                    LoadCocSpawn();
+                    LoadCocCapturePoints();
+                    LoadCocCaptureRewards();
+                    ValidateCocTables();
                 }
 
                 LoadGraveQuality();
@@ -243,7 +264,7 @@ namespace Gravedigger2026.Core.Config
                 IsLoaded = true;
                 LoadedCampaignMode = mode;
                 Debug.Log(
-                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormations.Rows.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}, LocalizedText={_localizedTextByKey.Count}.");
+                    $"[ConfigCsvRepository] CampaignMode={mode} root={CsvPathResolver.RelativeCsvFolderFor(mode)} Loaded LevelOps={_levelOperations.Count}, Dig={_digById.Count}, Defend={_defendById.Count}, WaveSpawn={_waveSpawnRows.Count}, Monster={_monsterById.Count}, PushMap={_pushMapById.Count}, PushMapSpawn={_pushMapSpawnRows.Count}, SearchExtract={_searchExtractById.Count}, SearchExtractWave={_searchExtractWaveRows.Count}, Coc={_cocById.Count}, CocSpawn={_cocSpawnRows.Count}, CocCapture={_cocCaptureById.Count}, CocReward={_cocRewardRows.Count}, Grave={_graveById.Count}, Mat={_materialById.Count}, Cur={_currencyById.Count}, ItemCatalog={_itemCatalogById.Count}, ProtagonistLevel={_protagonistLevelById.Count}, BodyPart={_bodyPartById.Count}, Soul={_soulById.Count}, Class={_classById.Count}, Skill={_skillByKey.Count}, TacticalFormation={_tacticalFormations.Rows.Count}, MagicBook={_magicBookById.Count}, ProtagonistEquip={_protagonistEquipmentByKey.Count}, Race={_raceById.Count}, Gem={_gemById.Count}, Equip={_equipById.Count}, GemSuffix={_gemSuffixByComboKey.Count}, Appearance={_appearances.Count}, LossOfControl={_lossOfControlByTier.Count}, CombatConstant={_combatConstantByKey.Count}, TechTree={_techTreeRows.Count}, TechEffect={_techEffectById.Count}, Bgm={_bgmRows.Count}, LocalizedText={_localizedTextByKey.Count}.");
                 return true;
             }
             catch (Exception ex)
@@ -371,6 +392,39 @@ namespace Gravedigger2026.Core.Config
             return resolve.PrerequisiteOptionId ?? string.Empty;
         }
 
+        public bool TryGetSandboxNode(string nodeId, out SandboxNodeConfigRow row)
+        {
+            return _sandboxById.TryGetValue(nodeId ?? string.Empty, out row);
+        }
+
+        /// <summary>
+        /// Sandbox cells for one difficulty, ascending SortOrder (SPEC_03 §3.20 / SPEC_04 §9.1c).
+        /// </summary>
+        public IReadOnlyList<SandboxNodeConfigRow> GetSandboxNodes(string difficultyId)
+        {
+            var list = new List<SandboxNodeConfigRow>();
+            if (string.IsNullOrEmpty(difficultyId))
+            {
+                return list;
+            }
+
+            for (var i = 0; i < _sandboxNodes.Count; i++)
+            {
+                var row = _sandboxNodes[i];
+                if (row != null && string.Equals(row.DifficultyId, difficultyId, StringComparison.Ordinal))
+                {
+                    list.Add(row);
+                }
+            }
+
+            list.Sort((a, b) =>
+            {
+                var order = a.SortOrder.CompareTo(b.SortOrder);
+                return order != 0 ? order : string.CompareOrdinal(a.NodeId, b.NodeId);
+            });
+            return list;
+        }
+
         public bool TryGetDig(string gameplayConfigId, out DigGameplayConfigRow row)
         {
             return _digById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
@@ -429,6 +483,76 @@ namespace Gravedigger2026.Core.Config
         public bool TryGetSearchExtract(string gameplayConfigId, out SearchExtractGameplayConfigRow row)
         {
             return _searchExtractById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
+        }
+
+        public bool TryGetCoc(string gameplayConfigId, out CocGameplayConfigRow row)
+        {
+            return _cocById.TryGetValue(gameplayConfigId ?? string.Empty, out row);
+        }
+
+        public IReadOnlyList<CocSpawnConfigRow> GetCocSpawns(string gameplayConfigId)
+        {
+            var list = new List<CocSpawnConfigRow>();
+            if (string.IsNullOrEmpty(gameplayConfigId))
+            {
+                return list;
+            }
+
+            for (var i = 0; i < _cocSpawnRows.Count; i++)
+            {
+                var row = _cocSpawnRows[i];
+                if (row != null && string.Equals(row.GameplayConfigId, gameplayConfigId, StringComparison.Ordinal))
+                {
+                    list.Add(row);
+                }
+            }
+
+            return list;
+        }
+
+        public bool TryGetCocCapture(string capturePointId, out CocCapturePointConfigRow row)
+        {
+            return _cocCaptureById.TryGetValue(capturePointId ?? string.Empty, out row);
+        }
+
+        public IReadOnlyList<CocCapturePointConfigRow> GetCocCaptures(string gameplayConfigId)
+        {
+            var list = new List<CocCapturePointConfigRow>();
+            if (string.IsNullOrEmpty(gameplayConfigId))
+            {
+                return list;
+            }
+
+            foreach (var pair in _cocCaptureById)
+            {
+                var row = pair.Value;
+                if (row != null && string.Equals(row.GameplayConfigId, gameplayConfigId, StringComparison.Ordinal))
+                {
+                    list.Add(row);
+                }
+            }
+
+            return list;
+        }
+
+        public IReadOnlyList<CocCaptureRewardConfigRow> GetCocCaptureRewards(string capturePointId)
+        {
+            var list = new List<CocCaptureRewardConfigRow>();
+            if (string.IsNullOrEmpty(capturePointId))
+            {
+                return list;
+            }
+
+            for (var i = 0; i < _cocRewardRows.Count; i++)
+            {
+                var row = _cocRewardRows[i];
+                if (row != null && string.Equals(row.CapturePointId, capturePointId, StringComparison.Ordinal))
+                {
+                    list.Add(row);
+                }
+            }
+
+            return list;
         }
 
         public IReadOnlyList<SearchExtractWaveSpawnConfigRow> GetSearchExtractWaves(
@@ -952,6 +1076,59 @@ namespace Gravedigger2026.Core.Config
                     RouteMapAssetId = OptionalText(raw, "RouteMapAssetId") ?? string.Empty,
                     UnlockLevelId = OptionalText(raw, "UnlockLevelId") ?? string.Empty
                 });
+            }
+        }
+
+        private void LoadSandboxNodes()
+        {
+            const string table = "Level_SandboxNodeConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "NodeId", table, rowIndex);
+                if (_sandboxById.ContainsKey(id))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate NodeId '{id}'.");
+                }
+
+                var typeText = SimpleCsv.Require(raw, "GameplayType", table, rowIndex);
+                if (!SandboxNodeConfigRow.IsKnownGameplayType(typeText))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal GameplayType '{typeText}'.");
+                }
+
+                var sortText = SimpleCsv.Require(raw, "SortOrder", table, rowIndex);
+                if (!int.TryParse(sortText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sortOrder))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SortOrder '{sortText}'.");
+                }
+
+                var repeatText = SimpleCsv.Require(raw, "RepeatEnterCount", table, rowIndex);
+                if (!int.TryParse(repeatText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var repeatCount)
+                    || repeatCount < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal RepeatEnterCount '{repeatText}'.");
+                }
+
+                var row = new SandboxNodeConfigRow
+                {
+                    NodeId = id,
+                    DifficultyId = SimpleCsv.Require(raw, "DifficultyId", table, rowIndex),
+                    SortOrder = sortOrder,
+                    DisplayName = OptionalText(raw, "DisplayName"),
+                    GameplayType = typeText.Trim(),
+                    RepeatEnterCount = repeatCount,
+                    GameplayConfigId = OptionalText(raw, "GameplayConfigId")
+                };
+                _sandboxNodes.Add(row);
+                _sandboxById[id] = row;
             }
         }
 
@@ -1756,6 +1933,294 @@ namespace Gravedigger2026.Core.Config
                         }
                     }
                 }
+            }
+        }
+
+        private void LoadCocGameplay()
+        {
+            const string table = "Coc_CocGameplayConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                if (_cocById.ContainsKey(id))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate GameplayConfigId '{id}'.");
+                }
+
+                var mapId = SimpleCsv.Require(raw, "MapId", table, rowIndex);
+                if (!mapId.StartsWith(MapPrefabPaths.CocIdPrefix, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal MapId '{mapId}' (expect Coc_*).");
+                }
+
+                var reveal = RequireFloat(raw, "RevealRadius", table, rowIndex);
+                if (reveal <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: RevealRadius must be > 0.");
+                }
+
+                var unexplored = RequireFloat(raw, "UnexploredAlpha", table, rowIndex);
+                var explored = RequireFloat(raw, "ExploredAlpha", table, rowIndex);
+                RequireOpenUnitInterval(unexplored, "UnexploredAlpha", table, rowIndex);
+                RequireOpenUnitInterval(explored, "ExploredAlpha", table, rowIndex);
+
+                var cardHold = RequireFloat(raw, "CardHoldSeconds", table, rowIndex);
+                if (cardHold <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: CardHoldSeconds must be > 0.");
+                }
+
+                var deployInterval = RequireFloat(raw, "DeployHoldIntervalSeconds", table, rowIndex);
+                if (deployInterval <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: DeployHoldIntervalSeconds must be > 0.");
+                }
+
+                _cocById[id] = new CocGameplayConfigRow
+                {
+                    GameplayConfigId = id,
+                    MapId = mapId,
+                    RevealRadius = reveal,
+                    UnexploredAlpha = unexplored,
+                    ExploredAlpha = explored,
+                    CardHoldSeconds = cardHold,
+                    DeployHoldIntervalSeconds = deployInterval
+                };
+            }
+        }
+
+        private void LoadCocSpawn()
+        {
+            const string table = "Coc_CocSpawnConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var gameplayId = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                if (!_cocById.ContainsKey(gameplayId))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] {table} row {rowIndex}: unknown GameplayConfigId '{gameplayId}'.");
+                }
+
+                var role = SimpleCsv.Require(raw, "SpawnRole", table, rowIndex).Trim();
+                if (!CocSpawnConfigRow.IsKnownRole(role))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SpawnRole '{role}'.");
+                }
+
+                var spawnCount = RequirePositiveInt(raw, "SpawnCount", table, rowIndex);
+                if (role == CocSpawnConfigRow.RoleFinalBoss && spawnCount != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: FinalBoss SpawnCount must be 1.");
+                }
+
+                var orderText = SimpleCsv.Require(raw, "SpawnOrder", table, rowIndex).Trim();
+                if (!int.TryParse(orderText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var spawnOrder))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal SpawnOrder '{orderText}'.");
+                }
+
+                var monsterId = SimpleCsv.Require(raw, "MonsterId", table, rowIndex);
+                if (!_monsterById.ContainsKey(monsterId))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] {table} row {rowIndex}: unknown MonsterId '{monsterId}'.");
+                }
+
+                _cocSpawnRows.Add(new CocSpawnConfigRow
+                {
+                    GameplayConfigId = gameplayId,
+                    SpawnPointId = SimpleCsv.Require(raw, "SpawnPointId", table, rowIndex),
+                    MonsterId = monsterId,
+                    SpawnCount = spawnCount,
+                    SpawnRole = role,
+                    SpawnOrder = spawnOrder
+                });
+            }
+        }
+
+        private void LoadCocCapturePoints()
+        {
+            const string table = "Coc_CocCapturePointConfig.csv";
+            var path = RequirePath(table);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "CapturePointId", table, rowIndex);
+                if (_cocCaptureById.ContainsKey(id))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate CapturePointId '{id}'.");
+                }
+
+                var gameplayId = SimpleCsv.Require(raw, "GameplayConfigId", table, rowIndex);
+                if (!_cocById.ContainsKey(gameplayId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: unknown GameplayConfigId '{gameplayId}'.");
+                }
+
+                var radius = RequireFloat(raw, "Radius", table, rowIndex);
+                if (radius <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: Radius must be > 0.");
+                }
+
+                _cocCaptureById[id] = new CocCapturePointConfigRow
+                {
+                    CapturePointId = id,
+                    GameplayConfigId = gameplayId,
+                    Radius = radius
+                };
+            }
+        }
+
+        private void LoadCocCaptureRewards()
+        {
+            const string table = "Coc_CocCaptureRewardConfig.csv";
+            var path = RequirePath(table);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var rows = SimpleCsv.ReadRows(path);
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var raw = rows[i];
+                var rowIndex = i + 2;
+                var id = SimpleCsv.Require(raw, "RewardId", table, rowIndex);
+                if (!seen.Add(id))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: duplicate RewardId '{id}'.");
+                }
+
+                var captureId = SimpleCsv.Require(raw, "CapturePointId", table, rowIndex);
+                if (!_cocCaptureById.ContainsKey(captureId))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: unknown CapturePointId '{captureId}'.");
+                }
+
+                var addCount = RequirePositiveInt(raw, "AddCount", table, rowIndex);
+                _cocRewardRows.Add(new CocCaptureRewardConfigRow
+                {
+                    RewardId = id,
+                    CapturePointId = captureId,
+                    TargetNodeId = SimpleCsv.Require(raw, "TargetNodeId", table, rowIndex),
+                    AddCount = addCount
+                });
+            }
+        }
+
+        private void ValidateCocTables()
+        {
+            var finalBossCount = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var i = 0; i < _cocSpawnRows.Count; i++)
+            {
+                var row = _cocSpawnRows[i];
+                if (row == null || row.SpawnRole != CocSpawnConfigRow.RoleFinalBoss)
+                {
+                    continue;
+                }
+
+                if (!_cocById.ContainsKey(row.GameplayConfigId ?? string.Empty))
+                {
+                    continue;
+                }
+
+                var key = row.GameplayConfigId;
+                finalBossCount.TryGetValue(key, out var count);
+                finalBossCount[key] = count + 1;
+            }
+
+            foreach (var kv in _cocById)
+            {
+                finalBossCount.TryGetValue(kv.Key, out var count);
+                if (count != 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Coc_CocSpawnConfig.csv GameplayConfigId '{kv.Key}' must have exactly one FinalBoss row (got {count}).");
+                }
+            }
+
+            for (var i = 0; i < _sandboxNodes.Count; i++)
+            {
+                var node = _sandboxNodes[i];
+                if (node == null || node.GameplayType != SandboxNodeConfigRow.TypeCocCombat)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(node.GameplayConfigId) || !_cocById.ContainsKey(node.GameplayConfigId))
+                {
+                    Debug.LogWarning(
+                        $"[ConfigCsvRepository] Sandbox node '{node.NodeId}' CocCombat GameplayConfigId '{node.GameplayConfigId}' does not resolve.");
+                }
+            }
+
+            for (var i = 0; i < _cocRewardRows.Count; i++)
+            {
+                var reward = _cocRewardRows[i];
+                if (reward == null || !_sandboxById.TryGetValue(reward.TargetNodeId ?? string.Empty, out var target) || target == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Coc_CocCaptureRewardConfig.csv RewardId '{reward?.RewardId}' unknown TargetNodeId '{reward?.TargetNodeId}'.");
+                }
+
+                if (target.GameplayType != SandboxNodeConfigRow.TypeDig
+                    && target.GameplayType != SandboxNodeConfigRow.TypeShop
+                    && target.GameplayType != SandboxNodeConfigRow.TypeAutoManufacture)
+                {
+                    throw new InvalidOperationException(
+                        $"Coc_CocCaptureRewardConfig.csv RewardId '{reward.RewardId}' target '{target.NodeId}' GameplayType '{target.GameplayType}' is not Dig, Shop, or AutoManufacture.");
+                }
+
+                if (!_cocCaptureById.TryGetValue(reward.CapturePointId ?? string.Empty, out var capture) || capture == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Coc_CocCaptureRewardConfig.csv RewardId '{reward.RewardId}' missing capture '{reward.CapturePointId}'.");
+                }
+
+                for (var n = 0; n < _sandboxNodes.Count; n++)
+                {
+                    var source = _sandboxNodes[n];
+                    if (source == null
+                        || !string.Equals(source.GameplayConfigId, capture.GameplayConfigId, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    if (!string.Equals(source.DifficultyId, target.DifficultyId, StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"Coc_CocCaptureRewardConfig.csv RewardId '{reward.RewardId}' target difficulty '{target.DifficultyId}' differs from sandbox node '{source.NodeId}' ({source.DifficultyId}).");
+                    }
+                }
+            }
+        }
+
+        private static void RequireOpenUnitInterval(float value, string column, string table, int rowIndex)
+        {
+            if (value <= 0f || value > 1f)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: {column} must be in (0, 1].");
             }
         }
 

@@ -2,7 +2,7 @@
 
 **关联文档 / Related:** [SPEC_00_Index.md](SPEC_00_Index.md) · [SPEC_02_GameOverview.md](SPEC_02_GameOverview.md) · [SPEC_04_Technical.md](SPEC_04_Technical.md)
 
-> Demo 验收已扩大为「Meta 壳 + 一条关卡流水线垂直切片」（§3.8）；关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战 / 自动制造 / 主角装备 / 战术阵型 / **搜打撤** 规则见 §3.9–§3.19。Unity 编码须负责人明确授权 Demo 开发。
+> Demo 验收已扩大为「Meta 壳 + 一条关卡流水线垂直切片」（§3.8）；关卡阶段 / 挖坟 / 升级与制造 / 防守 / 科技树 / 推图战 / 自动制造 / 主角装备 / 战术阵型 / **搜打撤** / **沙盘** / **COC 战斗** 规则见 §3.9–§3.21。Unity 编码须负责人明确授权 Demo 开发。
 
 ---
 
@@ -12,7 +12,7 @@
 
 | 术语 (EN) | 中文 | 定义 |
 |-----------|------|------|
-| GameplayState | 玩法状态 | 局内主状态枚举：`Shop`（商店；Mode2 关卡第一阶段）、`Dig`（挖坟）、`AutoManufacture`（自动制造；Mode2 流水线）、`UpgradeManufacture`（升级与制造；原占位名 `SewRevive`）、`Defend`（防守）、`PushMap`（推图战）、`SearchExtract`（搜打撤；Mode2 子关卡玩法，§3.19）。关卡运行时由当前阶段的玩法类型决定（§3.9）；壳层默认占位仍为 Dig。 |
+| GameplayState | 玩法状态 | 局内主状态枚举：`Shop`（商店；Mode2 关卡第一阶段）、`Dig`（挖坟）、`AutoManufacture`（自动制造；Mode2 流水线）、`UpgradeManufacture`（升级与制造；原占位名 `SewRevive`）、`Defend`（防守）、`PushMap`（推图战）、`SearchExtract`（搜打撤；Mode2 子关卡玩法，§3.19）、`CocCombat`（COC 战斗；沙盘进入，§3.21）。关卡运行时由当前阶段的玩法类型决定（§3.9）；壳层默认占位仍为 Dig。 |
 | SaveSlot | 存档槽 | 固定数量的本地存档位；本版 **3 槽**（索引 0–2）。空槽可新建，占用槽可进入或删除。占用旗按槽共享；士兵池/布阵/副本解锁等进度按槽 **且按 `CampaignMode`** 隔离（§3.4）。 |
 | CampaignMode | 玩法模式 | 存档级玩法门闩：`Mode1` / `Mode2`。**本 Demo 进档路径：** 新建/进入**跳过** `CampaignModeSelect`，一律 `Mode2`（UI-014 组件保留，Mode1 入口后置）。同槽两模式进度完全隔离；Mode2 使用独立配置表根（[SPEC_04 §14](SPEC_04_Technical.md)）。Mode2 与 Mode1 共用战斗与挖坟机制；**士兵制造**：Mode1 手动（§3.11），Mode2 自动制造（§3.15）。**勿与** `BattleMode`（保卫战/推图战）混淆。 |
 | AutoManufacture | 自动制造 | Mode2 关卡玩法类型 / `GameplayState`：DigStageSummary 确认后进入；按规则自动选料→造兵→临时仓库→清空布阵后按职业区上阵；结束后进 `UpgradeManufacture`（§3.15）。 |
@@ -46,7 +46,13 @@
 | DifficultyId | 难度ID | 难度表主键；运作表行归属字段；样例 `Diff_Normal` / `Diff_Hard` / `Diff_Hell`。 |
 | UnlockRequireDifficultyId | 解锁所需难度ID | 难度表字段：空=初始解锁；填入存在的 DifficultyId=等该难度通关后解锁；找不到对应行=不可解锁。 |
 | ClearReward | 难度通关奖励 | 难度表字段：`ItemId;Count\|…`（经 §9.5a）；首次判定难度通关时一次性发放；空=无奖。 |
-| DifficultySelectHost | 难度选择宿主 | **新建进档** / 工具「关卡」/ 关卡结束回壳中心面（UI-029）：普通/困难/地狱三栏**等宽同屏**（各约 1/3 视口，左右排列）；悬停 Column 显示该难度描述（**Demo 仍写死**；表 `Description` 已定义，接线后置）；**仅普通**点击进入路线选择（UI-031）；困难/地狱可悬停、点击 Toast「还未制作」；**进入占用档跳过**直开 UI-031；**不**在栏内嵌 LevelSelect；难度**不**改玩法数值（§3.5）。无中央 MapHost 地图底图。 |
+| DifficultySelectHost | 难度选择宿主 | **新建进档** / 工具「关卡」先打开（UI-029）：普通/困难/地狱三栏**等宽同屏**（各约 1/3 视口，左右排列）；悬停 Column 显示该难度描述（**Demo 仍写死**；表 `Description` 已定义，接线后置）；**三栏点击都进入沙盘**（UI-036，按 `DifficultyId` 过滤）；**进入占用档**与玩法结束回沙盘（默认 `Diff_Normal`）；**不**在栏内嵌 LevelSelect；难度**不**改玩法数值（§3.5 / §3.20）。无中央 MapHost 地图底图。 |
+| Sandbox | 沙盘界面 | 难度之后的关卡入口（UI-036 / D-098 / D-099）：横向方格，显示玩法名与剩余进入次数；次数写入存档并拦截进入；无解锁前置；点击进挖坟 / 商店 / 自动造兵 / COC 战斗（§3.20 / §3.21）。 |
+| SandboxNode | 沙盘节点 | `Level_SandboxNodeConfig` 一行：`DifficultyId` + 排序 + 显示名 + `GameplayType` + `RepeatEnterCount`（首次见到时的初始剩余次数）+ 可选 `GameplayConfigId`（§3.20，[SPEC_04 §9.1c](SPEC_04_Technical.md)）。 |
+| CocCombat | COC战斗 | 沙盘玩法类型 / `GameplayState`。洒兵代替布阵；击杀唯一最终 BOSS 通关。规则 §3.21。 |
+| CocDeploy | 洒兵 | COC 战斗中从士兵库按 `ClassId` 分组，把一名士兵放到可洒区域（§3.21）。 |
+| CocFog | 战场迷雾 | COC 地图上由策划多边形盖住的黑雾；无士兵信息 / 临时亮起 / 变暗三态，外加占领点永久亮起（§3.21）。与镜头滤镜、地图外缘雾分开。 |
+| CocCapturePoint | COC占领点 | 地图上配置的区域；我方士兵进入后激活并写入存档，永久亮起且可给同一难度的其他沙盘玩法加次数（§3.21）。 |
 | InSaveShell | 进档壳层 | 选定存档后进入的常驻壳（Demo 默认 `CampaignMode=Mode2`）：默认打开 `DifficultySelectHost`（三栏同屏）；另承载 `GameplayState` 占位、浮动「工具」，以及左下「商店」（Mode2 / UI-026）、「装备」「魔法书」（UI-022 / UI-023）。独立 Prefab `InSaveShellPanel`。 |
 | ToolsPanel | 工具面板 | Demo 调试/设置壳层 UI；由浮动「工具」按钮打开。本期含「设置」「关卡」入口（关卡→列表选关），以及 Demo GM「增加主角装备」「增加魔法书」（→ GmGrantListPanel，UI-019 / D-061）与「添加士兵」（→ GmAddSoldierPanel，UI-020 / D-064）。 |
 | ShopSystem | 商店系统 | Mode2 全屏商店：既是关卡 `GameplayType=Shop`（样例 Stage1），也可由 InSaveShell 左下按钮作为局外 overlay 打开；共用 Prefab `ShopStageRoot`。展示玩家信息与 6 项待售商品（归类 A=装备、归类 B=魔法书），支持基于关卡解锁的开放、自动刷新/手动刷新，以及点击购买扣精魂并入账。 |
@@ -57,10 +63,10 @@
 | ShopRefreshPriceConfig | 刷新商品配置表 | `Shop_ShopRefreshPriceConfig.csv` 行：RefreshCount（刷新次数）与 RefreshPrice（刷新精魂价格）；用于手动刷新递进定价。 |
 | ShopCategory | 商品归类 | A 类=装备（对应主角装备 EquipId），B 类=魔法书（对应魔法书 MagicBookId）；同归类内按“道具ID相同→出现权重相加”聚合后做加权抽样。 |
 | PlayerPointer | 运行时光标 | 整段 Play 的系统硬件鼠标外观（UI-024）；源图 `Art/UI/Cursor.png`；点击热点为锁尖。**勿与** Dig 圆圈范围（`DigCursorRadius` / `UiDigCursorRing`）混淆。 |
-| Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每 Stage 挂最多 5 套玩法选项（多选一）；选项详情见子关卡表（§3.9；`Shop` / UM / AutoManufacture 的 ConfigId **忽略**）。进档 Hub / 工具「关卡」→ `DifficultySelectHost`；普通点击 → 路线选择 UI-031（Box 顶 LevelId 页签）；场景绑定 **TBD**。 |
+| Level | 关卡 | 由「关卡运作表」定义的多阶段流程实体；每 Stage 挂最多 5 套玩法选项（多选一）；选项详情见子关卡表（§3.9；`Shop` / UM / AutoManufacture 的 ConfigId **忽略**）。进档 Hub / 工具「关卡」→ `DifficultySelectHost`；任意难度点击 → 沙盘 UI-036（§3.20）。路线选择 UI-031 **保留**，不再作为这些入口的目的地。 |
 | LevelOperation | 关卡运作 | 关卡运作表一行：关卡 ID + 阶段编号 + `GameplayOptionId1..5` + 可选 `DifficultyId`（归属难度）+ 可选 `RouteMapAssetId`。 |
 | GameplayOption | 玩法选项 | 子关卡表一行；玩家在同 Stage 内多选一；通关后按 `UnlockNextOptionIds` 解锁下一 Stage 选项。 |
-| RouteSelect | 关卡路线选择 | 关卡内 Prefab（UI-031）：`Box` 全屏；`MapScroll` 竖向铺满、宽 1920 水平居中（地图内容 1450 在视口内居中）；`Title`/页签叠在地图上；Box 顶部 LevelId 页签；有 `LevelRouteMap_{LevelId}` 时竖滑该关地图 Prefab（宽 1450、高按比例）+ 选项钉在 Prefab 内同名 `GameplayOptionId` 子节点（场景仅 Icon；地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 `GameplayType` 分型——Dig：`TipMessages`（类型名/图标/存量尺度箭头）+Description；Shop/AutoManufacture/UpgradeManufacture：`IconAssetId2`+Description；PushMap/SearchExtract/Defend：`IconAssetId2`+Reward 图标行+Description；空字段对应区块隐藏）；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版自下而上 Stage + 横向完整选项卡；跨 Stage 连线。 |
+| RouteSelect | 关卡路线选择 | **保留**；玩家从难度 / 占用档 / 结束不再打开。关卡内 Prefab（UI-031）：`Box` 全屏；`MapScroll` 竖向铺满、宽 1920 水平居中（地图内容 1450 在视口内居中）；`Title`/页签叠在地图上；Box 顶部 LevelId 页签；有 `LevelRouteMap_{LevelId}` 时竖滑该关地图 Prefab（宽 1450、高按比例）+ 选项钉在 Prefab 内同名 `GameplayOptionId` 子节点（场景仅 Icon；地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 `GameplayType` 分型——Dig：`TipMessages`（类型名/图标/存量尺度箭头）+Description；Shop/AutoManufacture/UpgradeManufacture：`IconAssetId2`+Description；PushMap/SearchExtract/Defend：`IconAssetId2`+Reward 图标行+Description；空字段对应区块隐藏）；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版自下而上 Stage + 横向完整选项卡；跨 Stage 连线。 |
 | DigGameplayConfig | 挖坟配置 | 挖坟配置表一行：时长、开局坟数、过程生成速率、品质权重（零权重项剔除）等（§3.10，[SPEC_04 §9](SPEC_04_Technical.md)）。 |
 | Grave | 坟墓 | 挖坟地图上的可生成实体；带坟墓品质 ID；落点须避开已有坟与障碍物。 |
 | SpiritCrystal | 精魂结晶 | 坟墓品质 `QualityId=Q101`；交互/障碍/DigAction 同普通坟；掉落仅精魂（`Spirit`），无尸体残骸（§3.10）。 |
@@ -247,7 +253,7 @@
 
 | Term (EN) | ZH | Definition |
 |-----------|-----|------------|
-| GameplayState | 玩法状态 | In-session main state enum: `Shop` (shop; Mode2 Level stage 1), `Dig`, `AutoManufacture` (Mode2 pipeline), `UpgradeManufacture` (was placeholder `SewRevive`), `Defend`, `PushMap`, `SearchExtract` (search-fight-extract; Mode2 SubLevel; §3.19). During a Level, set by the current stage's gameplay type (§3.9); shell default placeholder remains Dig. |
+| GameplayState | 玩法状态 | In-session main state enum: `Shop` (shop; Mode2 Level stage 1), `Dig`, `AutoManufacture` (Mode2 pipeline), `UpgradeManufacture` (was placeholder `SewRevive`), `Defend`, `PushMap`, `SearchExtract` (search-fight-extract; Mode2 SubLevel; §3.19), `CocCombat` (COC combat; entered from the Sandbox; §3.21). During a Level, set by the current stage's gameplay type (§3.9); shell default placeholder remains Dig. |
 | SaveSlot | 存档槽 | Fixed local slots; this version **3 slots** (indices 0–2). Empty → create; occupied → enter or delete. Occupied flag is shared per slot; WarriorPool / BattleFormation / DungeonUnlocks progress is isolated per slot **and** `CampaignMode` (§3.4). |
 | CampaignMode | 玩法模式 | Save-level play gate: `Mode1` / `Mode2`. **This Demo enter path:** create/enter **skip** `CampaignModeSelect` and always use `Mode2` (UI-014 retained; Mode1 entry deferred). Progress fully isolated per mode in the same slot; Mode2 uses a separate config-table root ([SPEC_04 §14](SPEC_04_Technical.md)). Mode2 shares Dig/Defend mechanics with Mode1; **soldier manufacture**: Mode1 manual (§3.11), Mode2 AutoManufacture (§3.15). **Do not confuse** with `BattleMode` (Defend/PushMap). |
 | AutoManufacture | 自动制造 | Mode2 stage type / `GameplayState`: after DigStageSummary confirm; auto pick parts → craft → temp warehouse → clear formation then deploy by class zones; then enter `UpgradeManufacture` (§3.15). |
@@ -281,7 +287,13 @@
 | DifficultyId | 难度ID | Difficulty table PK; Level Operation ownership field; samples `Diff_Normal` / `Diff_Hard` / `Diff_Hell`. |
 | UnlockRequireDifficultyId | 解锁所需难度ID | Difficulty field: empty = initially unlocked; existing DifficultyId = unlock after that difficulty clears; missing row = never unlockable. |
 | ClearReward | 难度通关奖励 | Difficulty field: `ItemId;Count\|…` (via §9.5a); granted once on first difficulty-clear; empty = none. |
-| DifficultySelectHost | 难度选择宿主 | Default center for **Create enter** / Tools Level / LevelEnded (UI-029): equal-width Normal/Hard/Hell columns **same-screen** (~1/3 viewport each, left-to-right); hover Column shows difficulty description (**Demo still hardcoded**; table `Description` defined, wiring deferred); **Normal only** click → RouteSelect (UI-031); Hard/Hell hover OK, click → Toast「还未制作」; **Enter occupied skips** → UI-031; **no** in-column LevelSelect; difficulty does **not** change gameplay numbers (§3.5). No central MapHost map image. |
+| DifficultySelectHost | 难度选择宿主 | **Create enter** / Tools Level open this first (UI-029): equal-width Normal/Hard/Hell columns **same-screen** (~1/3 viewport each, left-to-right); hover Column shows difficulty description (**Demo still hardcoded**; table `Description` defined, wiring deferred); **any column click** opens the Sandbox (UI-036, filtered by `DifficultyId`); **Enter occupied** and gameplay-end return to the Sandbox (default `Diff_Normal`); **no** in-column LevelSelect; difficulty does **not** change gameplay numbers (§3.5 / §3.20). No central MapHost map image. |
+| Sandbox | 沙盘界面 | Level entry after difficulty (UI-036 / D-098 / D-099): horizontal cells show gameplay name and remaining enter count; the count is saved and gates entry; no unlock gates; click enters Dig / Shop / AutoManufacture / COC combat (§3.20 / §3.21). |
+| SandboxNode | 沙盘节点 | One `Level_SandboxNodeConfig` row: `DifficultyId` + sort + display name + `GameplayType` + `RepeatEnterCount` (initial remaining count the first time the save sees the node) + optional `GameplayConfigId` (§3.20, [SPEC_04 §9.1c](SPEC_04_Technical.md)). |
+| CocCombat | COC战斗 | Sandbox gameplay type / `GameplayState`. Deploy-soldiers replaces formation; killing the single Final Boss clears the node. Rules §3.21. |
+| CocDeploy | 洒兵 | In COC combat, place one soldier from the warrior pool, grouped by `ClassId`, into an allowed area (§3.21). |
+| CocFog | 战场迷雾 | Black fog authored as polygons on the COC map: unseen / temporary reveal / explored-dark, plus permanent light from capture points (§3.21). Separate from the camera fog filter and map-edge fog. |
+| CocCapturePoint | COC占领点 | A map-authored area. A friendly soldier entering it activates it into the save, lights it permanently, and can add enter counts to other Sandbox nodes of the same difficulty (§3.21). |
 | InSaveShell | 进档壳层 | Persistent shell after entering a save (Demo default `CampaignMode=Mode2`): default `DifficultySelectHost` (three columns same-screen); also hosts `GameplayState` placeholder, floating Tools, bottom-left Shop (Mode2 / UI-026) / Equipment / MagicBook (UI-022 / UI-023). Standalone Prefab `InSaveShellPanel`. |
 | ToolsPanel | 工具面板 | Demo settings/debug shell UI opened by floating Tools. This version: Settings + Level (Level → pick list) + Demo GM Grant Protagonist Equipment / Grant MagicBook (→ GmGrantListPanel, §3.5 / UI-019 / D-061) + Add Soldier (→ GmAddSoldierPanel, UI-020 / D-064). |
 | ShopSystem | 商店系统 | Mode2 full-screen shop: a Level `GameplayType=Shop` (sample Stage1) **and** an out-of-level InSaveShell overlay from the bottom-left button; both instantiate the same Prefab `ShopStageRoot`. Shows player info and 6 offers (category A=equipment, category B=magicbooks). Supports level-unlock gating, auto/manual refresh, and click-to-buy that deducts Spirit and grants inventory/equipment. |
@@ -292,10 +304,10 @@
 | ShopRefreshPriceConfig | 刷新商品配置表 | `Shop_ShopRefreshPriceConfig.csv` row: RefreshCount (how many manual refreshes) and RefreshPrice (Spirit cost); used for manual refresh pricing progression. |
 | ShopCategory | 商品归类 | Category A=equipment (protagonist gear EquipId), category B=magicbooks (MagicBookId). Inside a category, identical itemId weights are summed before weighted sampling. |
 | PlayerPointer | 运行时光标 | Whole-Play hardware mouse look (UI-024); source `Art/UI/Cursor.png`; hotspot = shovel tip. **Distinct from** Dig circle range (`DigCursorRadius` / `UiDigCursorRing`). |
-| Level | 关卡 | Multi-stage flow defined by Level Operation table; each Stage mounts up to 5 gameplay options (pick-one); option details in SubLevel table (§3.9; `Shop` / UM / AutoManufacture ConfigId **ignored**). Enter-shell Hub / Tools Level → `DifficultySelectHost`; Normal click → RouteSelect UI-031 (LevelId tabs atop Box); scene binding **TBD**. |
+| Level | 关卡 | Multi-stage flow defined by Level Operation table; each Stage mounts up to 5 gameplay options (pick-one); option details in SubLevel table (§3.9; `Shop` / UM / AutoManufacture ConfigId **ignored**). Enter-shell Hub / Tools Level → `DifficultySelectHost`; any difficulty click → Sandbox UI-036 (§3.20). RouteSelect UI-031 **remains**, and is no longer the destination of these entries. |
 | LevelOperation | 关卡运作 | One Level Operation row: LevelId + StageNumber + `GameplayOptionId1..5` + optional `DifficultyId` + optional `RouteMapAssetId`. |
 | GameplayOption | 玩法选项 | One SubLevel row; pick-one within Stage; clear unlocks next-Stage options via `UnlockNextOptionIds`. |
-| RouteSelect | 关卡路线选择 | In-Level Prefab (UI-031): `Box` fullscreen; `MapScroll` full viewport height, width 1920, horizontally centered (map content 1450 centered in viewport); `Title`/tabs overlay the map; LevelId tabs atop Box; with `LevelRouteMap_{LevelId}` → scroll that map Prefab (width 1450, height by aspect) + options pinned to child nodes named `GameplayOptionId` (Icon only on map; map Icon tri-state: Cleared Checkmark / Selectable pulse / Locked dim; hover Tips by `GameplayType` — Dig: `TipMessages` (type name/icon/stock-scale arrows)+Description; Shop/AutoManufacture/UpgradeManufacture: `IconAssetId2`+Description; PushMap/SearchExtract/Defend: `IconAssetId2`+Reward icon row+Description; empty fields hide their block); without map Prefab (or no `RouteMapAssetId`) → bottom-up Stages + full horizontal option cards; cross-Stage edges. |
+| RouteSelect | 关卡路线选择 | **Retained**; difficulty / occupied enter / gameplay end no longer open it. In-Level Prefab (UI-031): `Box` fullscreen; `MapScroll` full viewport height, width 1920, horizontally centered (map content 1450 centered in viewport); `Title`/tabs overlay the map; LevelId tabs atop Box; with `LevelRouteMap_{LevelId}` → scroll that map Prefab (width 1450, height by aspect) + options pinned to child nodes named `GameplayOptionId` (Icon only on map; map Icon tri-state: Cleared Checkmark / Selectable pulse / Locked dim; hover Tips by `GameplayType` — Dig: `TipMessages` (type name/icon/stock-scale arrows)+Description; Shop/AutoManufacture/UpgradeManufacture: `IconAssetId2`+Description; PushMap/SearchExtract/Defend: `IconAssetId2`+Reward icon row+Description; empty fields hide their block); without map Prefab (or no `RouteMapAssetId`) → bottom-up Stages + full horizontal option cards; cross-Stage edges. |
 | DigGameplayConfig | 挖坟配置 | One Dig config row: duration, initial grave count, spawn rate, quality weights (zero-weight entries dropped) (§3.10, [SPEC_04 §9](SPEC_04_Technical.md)). |
 | Grave | 坟墓 | Spawnable Dig-map entity with Grave Quality Id; placement must avoid existing graves and obstacles. |
 | SpiritCrystal | 精魂结晶 | Grave quality `QualityId=Q101`; same dig/obstacle/DigAction as normal graves; loot is Spirit only (no body-part wrecks) (§3.10). |
@@ -489,12 +501,12 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 | 登录主界面 | 版本号 | 右下只读 Text，显示 `Application.version` |
 | 存档选择 | 点击「返回」 | 回到登录主界面（UI-027）；Title BGM 保持（同 Context 幂等） |
 | 存档选择 | 点击空槽「新建」 | **跳过** `CampaignModeSelect`；占用该槽并以 `Mode2` 进入进档壳层 |
-| 存档选择 | 点击占用槽「进入」 | **跳过** `CampaignModeSelect`；加载该槽 **Mode2** 进度并进入进档壳层；**跳过** `DifficultySelectHost`，直接打开 UI-031（默认 LevelId 见下） |
+| 存档选择 | 点击占用槽「进入」 | **跳过** `CampaignModeSelect`；加载该槽 **Mode2** 进度并进入进档壳层；**跳过** `DifficultySelectHost`，直接打开沙盘 UI-036（默认难度 `Diff_Normal`） |
 | 存档选择 | 点击占用槽「删除」 | 须二次确认后清空槽位（含两模式全部进度键），停留在存档界面 |
 | 玩法模式选择 | （Demo 旁路） | UI-014 保留；本 Demo 新建/进入路径不弹出；Mode1 入口后置 |
-| 进档壳层 | 默认打开 | **新建**：打开 `DifficultySelectHost`（三栏同屏）；点普通 → UI-031。**进入占用档**：跳过 Hub，直接 `TryEnterLevel` 打开 UI-031。默认 LevelId=在已解锁关中，取 `LevelRouteProgress` 已通关选项所属 **StageNumber 最大** 的 LevelId（并列取解锁列表更后者；无通关 → 已解锁末项）；地图竖滑仍滚到最新已解锁前沿；困难/地狱仅新建/工具「关卡」Hub 可点 Toast |
+| 进档壳层 | 默认打开 | **新建**：打开 `DifficultySelectHost`（三栏同屏）；点任意难度 → 该难度沙盘 UI-036。**进入占用档**：跳过 Hub，打开沙盘（默认 `Diff_Normal`）。玩法结束回到同一难度沙盘。困难/地狱不再 Toast |
 | 进档壳层 | 悬停难度栏 | 显示该难度描述（Demo 写死） |
-| 进档壳层 | 点困难/地狱 | Toast「还未制作」；不改玩法数值 |
+| 进档壳层 | 点任意难度 | 打开该 `DifficultyId` 的沙盘（UI-036）；不改玩法数值 |
 | 进档壳层 | 点击浮动「工具」 | 打开 / 关闭工具面板 |
 | 进档壳层 | 点击左下「装备」 | 打开装备仓只读弹窗（UI-022 / D-067） |
 | 进档壳层 | 点击左下「魔法书」 | 打开魔法书 6 槽弹窗（UI-023 / D-068 / D-072）；可拖拽排序；点占用槽 → 槽下「删除」→ 二次确认后清槽 |
@@ -514,12 +526,12 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 | Title menu | Version text | Bottom-right read-only `Application.version` |
 | Save select | Back | Return to title menu (UI-027); Title BGM continues (same-Context idempotent) |
 | Save select | Create on empty slot | **Skip** `CampaignModeSelect`; occupy slot and enter InSaveShell as `Mode2` |
-| Save select | Enter occupied slot | **Skip** `CampaignModeSelect`; load slot **Mode2** progress and enter InSaveShell; **skip** `DifficultySelectHost` and open UI-031 directly (default LevelId below) |
+| Save select | Enter occupied slot | **Skip** `CampaignModeSelect`; load slot **Mode2** progress and enter InSaveShell; **skip** `DifficultySelectHost` and open Sandbox UI-036 (default difficulty `Diff_Normal`) |
 | Save select | Delete occupied slot | Confirm, then clear slot (both modes' keys); stay on save UI |
 | CampaignModeSelect | (Demo bypass) | UI-014 retained; not shown on this Demo create/enter path; Mode1 entry deferred |
-| InSaveShell | Default open | **Create:** show `DifficultySelectHost` (three columns); Normal → UI-031. **Enter occupied:** skip Hub; `TryEnterLevel` opens UI-031. Default LevelId = among unlocked levels, the LevelId hosting Cleared options with the **max StageNumber** (tie → later in unlocked list; none Cleared → last unlocked); map still scrolls to latest unlocked frontier; Hard/Hell Toast only from Create / Tools Level Hub |
+| InSaveShell | Default open | **Create:** show `DifficultySelectHost` (three columns); any difficulty → that difficulty's Sandbox UI-036. **Enter occupied:** skip Hub and open the Sandbox (default `Diff_Normal`). Gameplay end returns to the same difficulty's Sandbox. Hard/Hell no longer Toast |
 | InSaveShell | Hover difficulty column | Show that difficulty description (Demo hardcoded) |
-| InSaveShell | Hard / Hell click | Toast「还未制作」; no gameplay number change |
+| InSaveShell | Any difficulty click | Open that `DifficultyId`'s Sandbox (UI-036); no gameplay number change |
 | InSaveShell | Floating Tools | Open / close ToolsPanel |
 | InSaveShell | Bottom-left Equipment | Open read-only warehouse popup (UI-022 / D-067) |
 | InSaveShell | Bottom-left MagicBook | Open 6-slot popup (UI-023 / D-068 / D-072); drag to reorder; click occupied slot → Delete under slot → confirm then clear |
@@ -537,7 +549,7 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 |------|------|
 | 1. 启动 | 进入登录主界面（UI-027）；主按钮 → 存档选择（UI-001）（非直接进局） |
 | 2. Meta 存档 | 对 3 个固定槽执行新建 / 选择进入 / 删除；新建与进入**跳过** `CampaignModeSelect`，一律 `Mode2`（见 §3.4） |
-| 3. 进档壳层 | **新建**进档默认打开 `DifficultySelectHost`（三栏同屏）；**进入占用档**跳过 Hub 直开 UI-031（默认最大 Stage 所在已解锁 LevelId，§3.2）；壳层 `GameplayState` 占位仍为 Dig；显示浮动「工具」与左下「装备」「魔法书」（§3.5）；运行时 CSV 根为 Mode2（`ConfigTables/Mode2/Csv`） |
+| 3. 进档壳层 | **新建**进档默认打开 `DifficultySelectHost`（三栏同屏）；点任意难度进沙盘 UI-036。**进入占用档**跳过 Hub 直开沙盘（默认 `Diff_Normal`，§3.2 / §3.20）；壳层 `GameplayState` 占位仍为 Dig；显示浮动「工具」与左下「装备」「魔法书」（§3.5）；运行时 CSV 根为 Mode2（`ConfigTables/Mode2/Csv`） |
 | 4. 玩法状态 | 当前状态以占位表现可识别；关卡内由阶段玩法类型驱动（§3.9）；壳层内手动切换 **TBD** |
 | 5. 关卡 | 规则见 §3.9；按 `LevelOperationConfig` 驱动真实阶段（§3.8 D-010）；工具「关卡」打开列表选关（UI-008） |
 
@@ -549,7 +561,7 @@ Sync glossary rows to [CONTEXT.md](CONTEXT.md).
 |-------|-------------|
 | 1. Boot | Open title menu (UI-027); primary button → save select (UI-001) (not direct into gameplay) |
 | 2. Meta saves | Create / enter / delete on 3 fixed slots; create/enter **skip** `CampaignModeSelect`, always `Mode2` (§3.4) |
-| 3. InSaveShell | **Create:** default `DifficultySelectHost` (three columns); **Enter occupied:** skip Hub → UI-031 (default unlocked LevelId at max Cleared StageNumber, §3.2); shell `GameplayState` placeholder remains Dig; show floating Tools and bottom-left Equipment / MagicBook (§3.5); runtime CSV root is Mode2 (`ConfigTables/Mode2/Csv`) |
+| 3. InSaveShell | **Create:** default `DifficultySelectHost` (three columns); any difficulty → Sandbox UI-036. **Enter occupied:** skip Hub → Sandbox (default `Diff_Normal`, §3.2 / §3.20); shell `GameplayState` placeholder remains Dig; show floating Tools and bottom-left Equipment / MagicBook (§3.5); runtime CSV root is Mode2 (`ConfigTables/Mode2/Csv`) |
 | 4. Gameplay states | Placeholder must identify current state; in Level, driven by stage gameplay type (§3.9); manual shell switch **TBD** |
 | 5. Level | Rules in §3.9; drive real stages via `LevelOperationConfig` (§3.8 D-010); Tools Level opens pick list (UI-008) |
 
@@ -663,7 +675,7 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | 打开 / 关闭 | 点击按钮切换工具面板 |
 | 进档壳左下入口 | 左下 `BackButton`（「返回存档」）正上方竖排：**上「商店」、中「装备」、下「魔法书」、最下「返回存档」**。各 **160×48**，间距 **8**；Mode1/Mode2 均显示「返回存档」；商店为 Mode2（见下方规则）。点「商店」→ UI-026；点「装备」→ UI-022；点「魔法书」→ UI-023。弹窗/全屏对齐 UI-008 的遮罩风格（全屏遮罩 + 中框/全屏框 + 关闭）；`sortingOrder` ≥ 100 以盖住 AM 演出。Tools GM（UI-019）与 Dig HUD GM **保留**。 |
 | 本期条目 | **设置**（含科技树画布入口，见 §3.13 / UI-012）、**关卡**（打开关卡列表，见 UI-008）、**商店**（Mode2 全屏商店：开放/自动刷新/刷新价格递进/购买扣精魂）、**增加主角装备**、**增加魔法书**（Demo GM，见 UI-019 / D-061）、**添加士兵**（Demo GM，见 UI-020 / D-064） |
-| 关卡语义 | 工具「关卡」入口 **不等于** 直接切换三种 `GameplayState`；关卡多阶段规则见 §3.9。**新建进档** / 点击「关卡」→ 打开 **DifficultySelectHost**（三栏等宽同屏，各约 1/3；悬停显示难度描述）：**仅普通**点击 → `LevelOperationDriver.TryEnterLevel` 并打开 **LevelRouteSelectRoot**（UI-031）。**进入占用档** → **跳过** Hub，直接 `TryEnterLevel` 开 UI-031。默认 LevelId：占用档进入 = 已解锁关中 Cleared 选项 **StageNumber 最大** 所在 LevelId（并列取解锁列表更后者；无通关 → 已解锁末项）；新建点普通 / 无通关回退 = 已解锁末项。地图竖滑仍滚到最新已解锁前沿。困难/地狱可悬停描述、点击 Toast「还未制作」。无栏内 LevelSelect；无中央 MapHost。**规则已定义、Demo 接线后置：** 难度栏描述/解锁/通关奖取自 `DifficultyConfig`（§3.9）；当前 UI 仍写死三栏与 Toast。 |
+| 关卡语义 | 工具「关卡」入口 **不等于** 直接切换三种 `GameplayState`。**新建进档** / 点击「关卡」→ 打开 **DifficultySelectHost**（三栏等宽同屏，各约 1/3；悬停显示难度描述）：**任意难度**点击 → 沙盘 UI-036（§3.20），**不**再打开 `LevelRouteSelectRoot`（UI-031）。**进入占用档** → **跳过** Hub，打开沙盘（默认 `Diff_Normal`）。从沙盘进入的挖坟 / 商店 / 自动造兵结束后回到**同一难度**沙盘，不调用 `TryAdvanceStage`。旧 `LevelEnded` 同样回到最近沙盘难度（缺省 `Diff_Normal`）。困难/地狱不再 Toast。无栏内 LevelSelect；无中央 MapHost。UI-031 与子关卡路线**保留**，不从这些入口进入。**规则已定义、Demo 接线后置：** 难度栏描述/解锁/通关奖取自 `DifficultyConfig`（§3.9）；当前难度栏文案仍写死。 |
 | Demo GM：增加主角装备 | 点击 → 关闭 ToolsPanel → 打开 **GmGrantListPanel**：列出当前模式 `ProtagonistEquipmentConfig` **按 EquipId 去重**（取 Level 1 行 `DisplayName`，空则 Id）。点行 → **嵌套 LevelPicker**（该 EquipId 全部 `EquipLevel` 升序按钮，文案 `Lv.{n}`）→ `ProtagonistEquipmentService.DebugGrantAtLevel(equipId, level)`（未拥有则入仓该级 `CurrentExp=0`；已拥有则覆盖 `Level` 且 `CurrentExp=0`）。成功/失败 Toast + 日志；关 LevelPicker；**列表保持打开**。Dig HUD「获得铁铲/矿灯/炸药」仍 `TryAcquire`。 |
 | Demo GM：增加魔法书 | 点击 → 关闭 ToolsPanel → 同一 **GmGrantListPanel**：列出当前模式 `MagicBookConfig` 全表（`DisplayName`，空则 Id）。点一次 → `SpecialEquipSlotsService.TryEquip(magicBookId)`（装入第一个空槽；**无**独立仓库）。`IsUnique=1` 已装或 6 槽满 → 失败 Toast。Dig HUD Mode2 `GmMenuPanel` 魔法书全表 GM **保留**。 |
 | Demo GM：添加士兵 | 点击 → 关闭 ToolsPanel。**可用门闩（方案 A）：**（1）UM「布阵」编辑器已打开（`FormationEditorMode.UpgradeManufacture`，Mode1/Mode2 均可）；或（2）`CampaignMode=Mode2` 且任一战斗 Prepare 布阵已打开（`FormationEditorRoot_Mode2`：Defend / PushMap / SearchExtract Prepare）。否则 Toast「请先打开布阵界面」、不打开面板。**Mode1** Defend Prepare **仍不可用**。可用时打开左侧 **GmAddSoldierPanel**（UI-020）：职业下拉=`ClassConfig` 全表；种族下拉=`RaceConfig` 全表；数量输入（默认 1，钳制 1～999）；「自动上阵」默认勾选；底「关闭」「添加」。「添加」**不关面板**：在当前模式 `BodyAppearanceConfig` 中查找 `RaceId` 精确匹配 **且** `ClassAffinity` 含该职业 `ClassName`（`|` 分隔，与制造亲和一致）的外观行；**无匹配** → Toast「找不到此种士兵！」且不入池（**不**回退 `DefaultAppearanceId`）。**多条匹配不得均匀随机**：优先匹配集内 `AppearanceId` 等于该职业 `DefaultAppearanceId` 的行；否则 `AppearanceLevel` 等于该职业 `ClassLevel` 的行；再否则取表内首次出现。有匹配 → 不耗材料/精魂，由 `GmSoldierGrantService` 按 Demo 固定 `BaseStats` + 职业/种族行构造实例入 `WarriorPool`（授予 `DefaultSkillIds`@Lv1；若已装备 `GrantFormationSkill` 书则 **仅**应用该 Token，不跑 `StatMul`/`ForceClass`/`SoldierSkillLevelAdd`/`RaceWeightPick`）；若勾选自动上阵 → 对本批 Id 调 `AutoFormationDeployService.DeployBatch`（缺职业区则留池，不弹「找不到士兵」；zones 取自当前打开的布阵宿主）。 |
@@ -742,7 +754,7 @@ Cross-ref: [SPEC_02 §3](SPEC_02_GameOverview.md).
 | Open / close | Toggle ToolsPanel via button |
 | InSaveShell bottom-left | Above `BackButton` ("Return to saves"), vertical stack: **Shop (top, Mode2), Equipment (next), MagicBook (next), Back (bottom)**. Each **160×48**, gap **8**; Mode1/Mode2 show Back button; Shop enabled for Mode2 (see rules below). Shop → UI-026; Equipment → UI-022; MagicBook → UI-023. Popups/full-screen align with UI-008 dim style (full-screen dim + center/full-screen frame + close); `sortingOrder` ≥ 100 to cover AM presentation. Tools GM (UI-019) and Dig HUD GM **kept**. |
 | This version | **Settings** (hosts TechTree canvas, §3.13 / UI-012), **Level** (opens level list, UI-008), **Shop** (Mode2 full-screen shop: unlock/open + auto refresh + refresh price progression + buy with Spirit cost), **Grant Protagonist Equipment**, **Grant MagicBook** (Demo GM, UI-019 / D-061), **Add Soldier** (Demo GM, UI-020 / D-064) |
-| Level meaning | Tools Level entry is **not** a direct three-state switch; multi-stage Level rules in §3.9. **Create enter** / Level click → **DifficultySelectHost** (equal-width same-screen columns ~1/3 each; hover shows difficulty description): **Normal only** click → `LevelOperationDriver.TryEnterLevel` and open **LevelRouteSelectRoot** (UI-031). **Enter occupied** → **skip** Hub; `TryEnterLevel` opens UI-031. Default LevelId: occupied enter = unlocked LevelId hosting Cleared options with **max StageNumber** (tie → later in unlocked list; none Cleared → last unlocked); Create Normal / no Cleared fallback = last unlocked. Map still scrolls to latest unlocked frontier. Hard/Hell hover OK, click → Toast「还未制作」. No in-column LevelSelect; no central MapHost. Tools `LevelSelectPanel` may **bypass** gate. **Rules defined, Demo wiring deferred:** Hub description/unlock/clear reward come from `DifficultyConfig` (§3.9); current UI still hardcodes three columns + Toast. |
+| Level meaning | Tools Level entry is **not** a direct three-state switch. **Create enter** / Level click → **DifficultySelectHost** (equal-width same-screen columns ~1/3 each; hover shows difficulty description): **any difficulty** click → Sandbox UI-036 (§3.20), and does **not** open `LevelRouteSelectRoot` (UI-031). **Enter occupied** → **skip** Hub and open the Sandbox (default `Diff_Normal`). Dig / Shop / AutoManufacture entered from the Sandbox return to the **same difficulty** Sandbox and do not call `TryAdvanceStage`. Legacy `LevelEnded` also returns to the last Sandbox difficulty (default `Diff_Normal`). Hard/Hell no longer Toast. No in-column LevelSelect; no central MapHost. UI-031 and the SubLevel route **remain**, and are not opened from these entries. **Rules defined, Demo wiring deferred:** Hub description/unlock/clear reward come from `DifficultyConfig` (§3.9); difficulty column copy is still hardcoded. |
 | Demo GM: Grant Protagonist Equipment | Click → hide ToolsPanel → **GmGrantListPanel**: distinct `EquipId` from current-mode `ProtagonistEquipmentConfig` (Level 1 `DisplayName`, else Id). Pick a row → nested **LevelPicker** (all `EquipLevel` rows for that Id, ascending, label `Lv.{n}`) → `ProtagonistEquipmentService.DebugGrantAtLevel(equipId, level)` (not owned → add at that level `CurrentExp=0`; owned → overwrite `Level` and `CurrentExp=0`). Success/fail Toast + log; close LevelPicker; **list stays open**. Dig HUD Grant Iron Shovel / Miner Lamp / Explosives still `TryAcquire`. |
 | Demo GM: Grant MagicBook | Click → hide ToolsPanel → same **GmGrantListPanel**: all current-mode `MagicBookConfig` rows (`DisplayName`, else Id). One click → `SpecialEquipSlotsService.TryEquip(magicBookId)` (first empty slot; **no** warehouse). Unique already equipped or 6 slots full → fail Toast. Dig HUD Mode2 `GmMenuPanel` full MagicBook GM **kept**. |
 | Demo GM: Add Soldier | Click → hide ToolsPanel. **Open gate (Approach A):** (1) UM Formation editor open (`FormationEditorMode.UpgradeManufacture`, Mode1/Mode2); or (2) `CampaignMode=Mode2` and any combat Prepare formation open (`FormationEditorRoot_Mode2`: Defend / PushMap / SearchExtract Prepare). Else Toast「请先打开布阵界面」and do not open panel. **Mode1** Defend Prepare **still blocked**. When allowed → left **GmAddSoldierPanel** (UI-020): class dropdown = full `ClassConfig`; race dropdown = full `RaceConfig`; count input (default 1, clamp 1–999); Auto-deploy default on; bottom Close / Add. Add **keeps panel open**: find current-mode `BodyAppearanceConfig` rows with exact `RaceId` **and** `ClassAffinity` containing that class `ClassName` (`|`-split, same as manufacture affinity); **no match** → Toast「找不到此种士兵！」and no pool add (**no** `DefaultAppearanceId` fallback). **If several rows match, do not pick uniformly at random**: prefer the match whose `AppearanceId` equals that class's `DefaultAppearanceId`; else `AppearanceLevel` equals `ClassLevel`; else first table order. On match → no material/Spirit cost; `GmSoldierGrantService` builds instances with Demo fixed `BaseStats` + class/race rows into `WarriorPool` (`DefaultSkillIds`@Lv1; if a `GrantFormationSkill` book is equipped, apply **that token only** — not `StatMul`/`ForceClass`/`SoldierSkillLevelAdd`/`RaceWeightPick`); if Auto-deploy → `AutoFormationDeployService.DeployBatch` for batch Ids (missing class zone → leave in pool; not「找不到士兵」; zones from the open formation host). |
@@ -842,10 +854,13 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-026 | Mode2 商店全屏界面 | 已定义（Demo / Mode2） | 全屏 Prefab `Assets/Prefabs/Shop/ShopStageRoot.prefab`（内容区 stretch 铺满；运行时实例化/销毁）。底层全屏背景 `Title_Shop_1`（`AspectRatioFitter` EnvelopeParent 锁定长宽比铺满；其上半透明 `ShopBackdrop` Dim；`ShopBox` 为透明内容容器）。**双入口：** ① Mode2 关卡 Stage1 `GameplayType=Shop`（`ShopStageModule`；关闭 → `TryAdvanceStage`）；② InSaveShell 左下「商店」局外 overlay（关闭回壳、不推进阶段；Shop 阶段已开则 no-op）。布局：左侧「玩家信息」（精魂总值 `SpiritEssence`、`EquipSummaryText`/`MagicBookSummaryText` 占用摘要、其下已拥有装备/魔法书 ICON；点占用 ICON 在图标下方出现「出售」+ `SellPrice`，确认后出售入账精魂，见 D-076）；右侧「待售商品」（共 6 项：slot0..2 归类 A 装备、slot3..5 归类 B 魔法书；每项显示道具图标+道具名+精魂售价，支持点击购买；图标加载同 §3.5：A→`Resources/UI/Equipment/{IconAssetId}`、B→`Resources/UI/MagicBooks/{IconAssetId}`；购买成功后该 slot 标记已售/禁用且不自动刷新）。**OfferSlot 着色：** 未购根 Image 恒为纯白不透明 `Color.white`；已购仅通过 ColorTint 变色（`DisabledColor` alpha=1），**禁止**半透明淡出。下侧「刷新商品」按钮显示当前刷新价格并支持手动刷新递进定价；每次刷新重新生成 6 项（不足留空、不补齐）。商店在「新关卡解锁」时自动刷新一次并重置刷新价格进度。验收见 §3.8 D-075 / D-076。 |
 | UI-027 | 登录主界面 | 已定义（Demo） | Prefab `TitleMenuPanel`（`MetaCanvas` 子级）；共享 `TitleScreenBackground`（Sprite 源 `Art/UI/Meta/Title/`）；顶中游戏名 Image `GameName`（`Title_GameName.png`）；主按钮双态（开始/继续）→ SaveSelect；**设置 → UI-028**；读取存档/开发者介绍 → Tips「还未制作」；右下版本 Text；Title BGM 随机 |
 | UI-028 | 登录设置面板 | 已定义（Demo） | Prefab `TitleSettingsPanel`（`MetaCanvas` 子级；对齐 UI-008：全屏遮罩 + 中框 + 关闭；`sortingOrder` ≥ 100）；页签首期仅 **「显示」**：分辨率列表（`Screen.resolutions` 按宽×高去重降序，文案 `1920 × 1080`）+ 显示模式三选一（窗口 / 无边框全屏 / 独占全屏）；点 **「应用」** 才 `Screen.SetResolution` 并写机台级 PlayerPrefs（关闭不提交草稿）；Boot 读盘应用；**不**挂科技树；与 UI-007 分离 |
-| UI-029 | 难度选择宿主 | 已定义（Demo） | Prefab 内 `DifficultySelectHost`（`InSaveShellPanel` 中心面）；三栏等宽**同屏**（各约 1/3）；悬停显示难度描述（Demo 写死；表 `Description` 接线后置）；**仅普通**点击 → UI-031；困难/地狱 Toast；无栏内 UI-008；无 MapHost；难度不改玩法；**新建进档** / 工具「关卡」/ 关卡结束回壳默认打开；**进入占用档跳过**直开 UI-031；独立壳 Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`；验收 D-081；难度解锁/通关奖规则见 §3.9（接线后置） |
+| UI-029 | 难度选择宿主 | 已定义（Demo） | Prefab 内 `DifficultySelectHost`（`InSaveShellPanel` 中心面）；三栏等宽**同屏**（各约 1/3）；悬停显示难度描述（Demo 写死；表 `Description` 接线后置）；**三栏点击均进入沙盘 UI-036**；无栏内 UI-008；无 MapHost；难度不改玩法数值；**新建进档** / 工具「关卡」仍先打开本界面；**进入占用档**与玩法结束打开沙盘（默认 `Diff_Normal`）；独立壳 Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`；验收 D-081 / D-098；难度解锁/通关奖规则见 §3.9（接线后置） |
 | UI-030 | 战术阵型目录条 | 已定义（Demo） | 共享 `FormationEditorRoot` / `_Mode2`：`FormationCanvas` **左缘**竖排阵型目录按钮（`TacticalFormationSquadBarView`；数据=表内去重 `FormationId`，同阵型各 `FormationLevel` **共用 1 个按钮**）；常显，不随已建组出现或消失；图标=`Resources/UI/Formations/{IconAssetId}`（缺图空框+短 DisplayName）；点击 → **尝试新建一组**：未入任何组且技能中带有该 `FormationId` 的士兵，**已上阵优先**，不足 `min(MaxMemberCount, 槽位数)` 时按士兵库顺序从士兵栏**未上阵**补人并上阵（合计 ≥`MinMemberCount` 才 snap；不足 Min 不动坐标、不上阵）。阵心 = 本次纳入的已上阵成员质心；一个已上阵都没有时 = 镜头画面中心地面点（无效则失败且不动）。**不再**用按钮选中小队。选中、头顶图标与解散见 UI-035。Mode1/Mode2 均有；验收 §3.8 D-093（D-085 的点选高亮改由卡牌驱动） |
 | UI-035 | 战术阵型组卡牌 | 已定义（Demo） | `FormationEditorRoot` 与 `_Mode2` **顶中**横向卡牌条（视觉规格以 Mode2 为准；Mode1 复用同一组件，否则无法选中/解散）：一组一张；视口最多同时看见 **8** 张，超出可左右滑动；卡面含图标、名称、阵型等级、人数；点击进入选中：士兵栏**仅**高亮该组成员，布阵预览里组成员头顶显示该阵型图标（**不**进战斗）；**选中卡下方**出现「解散」（成员退回职业区并删除该组）。验收 §3.8 D-093 |
-| UI-031 | 关卡路线选择 | 已定义（Demo） | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab`（壳层；**`Box` 全屏 stretch**；**`MapScroll` 竖向铺满与屏幕同高、宽 1920 水平居中**（地图内容展示宽仍 **1450**、在视口内水平居中；Stage 回退 `StageScroll` 仍铺满）；**`Title` / `LevelTabBar` 叠在地图之上**，不占 MapScroll 顶边留白）；进关后 / 选项通关后显示；**Box 顶部 LevelId 页签**（去重列表；页签 Label / `Box/Title` 显示运作表 `LevelName`，空则回退 `LevelId`；默认末项；切换=`TryEnterLevel`）；有 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab` 时：Box 内竖滑该关地图（展示宽 **1450**、高按底图比例；底图源 `Art/UI/SubLevelMaps/`，运行时 `Resources/UI/SubLevelMaps/`，`RouteMapAssetId` 仍表驱动文件名）；选项中心钉在地图 Prefab 内子节点名=`GameplayOptionId` 的 `anchoredPosition`（底图左下角原点、Y 向上）；**打开/切页签后竖滑初始 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 StageNumber，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部）；**选项通关返回地图模式时**：`JustClearedOptionId` 非空 → 先瞬时对准刚通关钉点，停顿 **0.5s**，再约 **0.5s** 平滑滚向当前「最新已解锁」前沿（只动 Y）；缺刚通关钉则直接对准前沿；**只动 Y、X 不变**；**地图模式场景仅显示 Icon**（约 80×80）；**悬停**独立 Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab`（嵌套于壳层 `Box`；运行时 SerializeField，禁止代码拼装）按 GameplayType 分型展示（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标行；均含 Title）；缺钉 Warning、图标仍生成于 `(0,0)`；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版**自下而上** Stage 行 + 横向**完整选项卡**；运行时仍 Instantiate 选项节点（地图 Prefab 只提供底图+钉点 Transform）；**SearchExtract** 另展示点奖励摘要与子关卡 `Reward` **分离显示**；按 `UnlockNextOptionIds` 画相邻 Stage 连线；状态：锁定 / 可点 / 已通关；**地图模式 Icon 三态（仅地图模式；Stage 行仍用卡片底色）**：Cleared=正常色+Icon 下方内侧 Checkmark（源 `Art/UI/Icons/Checkmark.png`，运行时 `Resources/UI/Icons/Checkmark`）；Selectable/Running=慢速 alpha 闪烁+缩放 0.9↔1.1（周期约 1.6s）；Locked=Icon RGB×0.4 变暗；点击可选项 → `TrySelectGameplayOption`；验收 D-086 |
+| UI-036 | 沙盘界面 | 已定义（Demo） | Prefab `Assets/Prefabs/Sandbox/SandboxRoot.prefab`（运行时 `Resources/Prefabs/Sandbox/SandboxRoot`；缺则运行时拼装）。全屏；横向 `ScrollRect`；方格按 `SortOrder` 从左到右，显示 `DisplayName` 与剩余次数（未通关文案「可进入 N 次」；已通关文案「已通关」且不可进入）。剩余次数写入存档：挖坟 / 商店 / 自动造兵进入时扣 1，剩余 0 不可进入；COC 进入不扣，单局失败才扣（§3.21）。无解锁前置。点击：`Dig` → 现有 `DigStageModule`（须解析 `GameplayConfigId`）；`Shop` / `AutoManufacture` → 现有模块（ConfigId 忽略）；`CocCombat` → UI-037（须解析 `CocGameplayConfig`）。挖坟 / 商店 / 自动造兵结束，以及 COC 胜利或剩余仍大于 0 的单局失败，回同一难度沙盘，不走 `TrySelectGameplayOption` / `TryAdvanceStage`。COC 最终失败回 Title。返回按钮回 UI-029。验收 D-098 / D-099；规则 §3.20 / §3.21 |
+| UI-037 | COC战斗 | 已定义（Demo） | COC 进图即战斗，无布阵 Prepare。底部职业卡：按 `ClassId` 一组一张，显示职业名、组内数量、组内第一名外形；点击选中后，在可洒区域左键放走该组最前一名，按住左键按间隔重复。平移镜头按住鼠标右键拖动（推图仍是左键拖动）。含「退出」（无二次确认，即单局失败）。验收 D-099；规则 §3.21
+| UI-038 | COC组内展开 | 已定义（Demo） | 选中或未选中均可（不需先点击选中）：在职业卡上按住左键达到 `CardHoldSeconds`（默认 1 秒）后，于该卡上方用同样卡牌样式横排展开组内全部士兵（一行，可左右滑）。只查看，不改变洒出顺序，不单独放走某一名。松手收起。验收 D-099；规则 §3.21 |
+| UI-031 | 关卡路线选择 | 已定义（Demo，入口已让出） | **玩家难度 / 占用档 / 结束不再打开。** Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab`（壳层；**`Box` 全屏 stretch**；**`MapScroll` 竖向铺满与屏幕同高、宽 1920 水平居中**（地图内容展示宽仍 **1450**、在视口内水平居中；Stage 回退 `StageScroll` 仍铺满）；**`Title` / `LevelTabBar` 叠在地图之上**，不占 MapScroll 顶边留白）；进关后 / 选项通关后显示；**Box 顶部 LevelId 页签**（去重列表；页签 Label / `Box/Title` 显示运作表 `LevelName`，空则回退 `LevelId`；默认末项；切换=`TryEnterLevel`）；有 `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab` 时：Box 内竖滑该关地图（展示宽 **1450**、高按底图比例；底图源 `Art/UI/SubLevelMaps/`，运行时 `Resources/UI/SubLevelMaps/`，`RouteMapAssetId` 仍表驱动文件名）；选项中心钉在地图 Prefab 内子节点名=`GameplayOptionId` 的 `anchoredPosition`（底图左下角原点、Y 向上）；**打开/切页签后竖滑初始 Y 滚到「最新已解锁」钉点居中**（优先 Selectable/Running 最大 StageNumber，否则 Cleared；同 Stage 取最大钉点 Y；无目标则底部）；**选项通关返回地图模式时**：`JustClearedOptionId` 非空 → 先瞬时对准刚通关钉点，停顿 **0.5s**，再约 **0.5s** 平滑滚向当前「最新已解锁」前沿（只动 Y）；缺刚通关钉则直接对准前沿；**只动 Y、X 不变**；**地图模式场景仅显示 Icon**（约 80×80）；**悬停**独立 Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab`（嵌套于壳层 `Box`；运行时 SerializeField，禁止代码拼装）按 GameplayType 分型展示（Dig=TipMessages；Shop/AM/UM=IconAssetId2+Description；PushMap/SE/Defend=IconAssetId2+Reward 图标行；均含 Title）；缺钉 Warning、图标仍生成于 `(0,0)`；无地图 Prefab（或无 `RouteMapAssetId`）时回退竖版**自下而上** Stage 行 + 横向**完整选项卡**；运行时仍 Instantiate 选项节点（地图 Prefab 只提供底图+钉点 Transform）；**SearchExtract** 另展示点奖励摘要与子关卡 `Reward` **分离显示**；按 `UnlockNextOptionIds` 画相邻 Stage 连线；状态：锁定 / 可点 / 已通关；**地图模式 Icon 三态（仅地图模式；Stage 行仍用卡片底色）**：Cleared=正常色+Icon 下方内侧 Checkmark（源 `Art/UI/Icons/Checkmark.png`，运行时 `Resources/UI/Icons/Checkmark`）；Selectable/Running=慢速 alpha 闪烁+缩放 0.9↔1.1（周期约 1.6s）；Locked=Icon RGB×0.4 变暗；点击可选项 → `TrySelectGameplayOption`；验收 D-086 |
 | UI-032 | 搜打撤单点决策 | 已定义（规则库 / SearchExtract） | 单搜集点倒计时结束且仍有忠诚存活时弹出；底中「继续搜集」「离开」；最后一点仅「离开」；弹出后忠诚兵延迟 `SearchExtractDecisionIdleDelaySeconds`（默认 1s）停步并 Idle；**仅当**本关 `GatherPointCount=1` 时 LeaveButton 文案倒计时 `SearchExtractDecisionAutoLeaveSeconds`（默认 3s）后自动 Leave（可手动抢先）；Continue → 解除无敌、推进下一 `ObjectiveOrder`；Leave → 子关卡通关（`TryAdvanceStage` 或 §3.9 通关链）；验收 D-087 |
 | UI-033 | 战斗指示器 | 已定义（Demo / PushMap + SearchExtract） | Combat 顶中 HUD（锚点 `(0.5,1)`，`anchoredPosition.y=-10`，根 `localScale=0.75`，参考分辨率 1920×1080）：中央 `HPPK_UI_1`（`CenterBg`）**子节点**左右半区=敌我**当前存活数**（字号 BestFit 26～42）；敌方本场尚未出现过 `>0` 且当前为 0 时显示 **`?`**，一旦现身过则后续含清零均显示数字；左侧我方格 `HPPK_UI_2`（右对齐靠中心）、右侧敌方格 `HPPK_UI_3`（左对齐靠中心）；简画图标来自 `ClassConfig` / `MonsterConfig` 的 `SilhouetteIconAssetId`（`Resources/UI/Icons/{Id}`）；HP% 着色 ≥66% 绿 / 33%～66% 橙 / ≤33% 红 / 永久死亡灰+`HPPK_UI_4`（0.5s 后移除并重对齐）；单行超出半屏可用宽则**截断**（不显示第 2～N 行）；低频 0.2s 轮询；Prepare/Ended/结算弹窗期间隐藏；Defend **无**；验收 D-089 |
 | UI-034 | 离屏刷怪边缘提示 | 已定义（Demo / PushMap + SearchExtract） | Combat 真实刷怪一组完成后：以该次 `basePos`（SpawnPoint / `ResolveSpawnPosition`）相对战斗相机 `WorldToViewportPoint`；视口外则在最靠近方向的屏幕边缘显示 `EnemyAttack_1`（`Art/UI/Icons/`→`Resources/UI/Icons/EnemyAttack_1`；缺图空框仍闪）；图标不旋转；开场 0.4s 内闪红 2 次（`Image` 白↔红，alpha=1），再常亮 2s；显示 `localScale=1.3`；同帧多组可各出一枚；离开 Combat / Ended / UI-017 / UI-032 清掉进行中提示；PushMap **跳过** `PreparePreview`；Defend **无**；验收 D-090 |
@@ -882,10 +897,13 @@ Settings click → Settings page hosting TechTree canvas (§3.13); other setting
 | UI-026 | Mode2 shop full-screen UI | Defined (Demo / Mode2) | Full-screen Prefab `Assets/Prefabs/Shop/ShopStageRoot.prefab` (content stretch-fills; runtime instantiate/destroy). Bottom full-screen background `Title_Shop_1` (`AspectRatioFitter` EnvelopeParent keep-aspect cover; semi-transparent `ShopBackdrop` Dim above; `ShopBox` is a transparent content host). **Dual entry:** (1) Mode2 Level Stage1 `GameplayType=Shop` (`ShopStageModule`; close → `TryAdvanceStage`); (2) InSaveShell bottom-left Shop overlay (close returns to shell, does not advance; no-op while Shop stage is open). Layout: left "Player Info" (`SpiritEssence`, `EquipSummaryText`/`MagicBookSummaryText`, owned equipment/MagicBook ICONs below; click occupied ICON → Sell + `SellPrice` under it, confirm to sell for Spirit, D-076); right "Shop Offers" (6 offers total: slot0..2 category A equipment, slot3..5 category B magicbooks; each shows item icon + item name + Spirit price and supports click-to-buy; successful purchase marks that slot sold/disabled and does not auto-refresh). **OfferSlot tint:** unsold root Image stays opaque pure white (`Color.white`); sold uses ColorTint RGB only (`DisabledColor` alpha=1) — **no** semi-transparent fade. Bottom "Refresh Offers" button shows the current refresh price and supports manual refresh-price progression; each refresh regenerates all 6 offers (leave empty if insufficient, no backfill). The shop auto-refreshes once on each "new level unlock" and resets the refresh-price progression. Accept §3.8 D-075 / D-076. |
 | UI-027 | Title / login menu | Defined (Demo) | Prefab `TitleMenuPanel` under `MetaCanvas`; shared `TitleScreenBackground` (sprites under `Art/UI/Meta/Title/`); top-center game-name Image `GameName` (`Title_GameName.png`); primary dual-state (Start/Continue) → SaveSelect; **Settings → UI-028**; Load save / Credits → Tips「还未制作」; bottom-right version Text; random Title BGM |
 | UI-028 | Title settings panel | Defined (Demo) | Prefab `TitleSettingsPanel` under `MetaCanvas` (align UI-008: full-screen dim + center box + close; `sortingOrder` ≥ 100); first tab **Display** only: resolution list (`Screen.resolutions` dedupe by WxH descending, label `1920 × 1080`) + window mode tri-state (Windowed / Borderless / Exclusive); **Apply** commits `Screen.SetResolution` + machine-level PlayerPrefs (Close discards draft); Boot applies saved; **no** TechTree; separate from UI-007 |
-| UI-029 | Difficulty select host | Defined (Demo) | `DifficultySelectHost` inside `InSaveShellPanel`; equal-width **same-screen** columns (~1/3 each); hover shows difficulty description (Demo hardcoded; table `Description` wiring deferred); **Normal only** click → UI-031; Hard/Hell Toast; no in-column UI-008; no MapHost; no gameplay number change; **Create enter** / Tools Level / LevelEnded default open; **Enter occupied skips** → UI-031; standalone Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`; accept D-081; unlock/clear-reward rules in §3.9 (wiring deferred) |
+| UI-029 | Difficulty select host | Defined (Demo) | `DifficultySelectHost` inside `InSaveShellPanel`; equal-width **same-screen** columns (~1/3 each); hover shows difficulty description (Demo hardcoded; table `Description` wiring deferred); **any column click opens Sandbox UI-036**; no in-column UI-008; no MapHost; difficulty does not change gameplay numbers; **Create enter** / Tools Level still open this host first; **Enter occupied** and gameplay end open the Sandbox (default `Diff_Normal`); standalone Prefab `Assets/Prefabs/Meta/InSaveShellPanel.prefab`; accept D-081 / D-098; unlock/clear-reward rules in §3.9 (wiring deferred) |
 | UI-030 | Tactical formation catalog strip | Defined (Demo) | Shared `FormationEditorRoot` / `_Mode2`: left-edge vertical **catalog** buttons (`TacticalFormationSquadBarView`; data = distinct `FormationId` rows; all `FormationLevel`s of one formation **share 1 button**); always visible, not tied to existing groups; icon=`Resources/UI/Formations/{IconAssetId}` (missing → empty frame + short DisplayName); click **tries to create one new group** from soldiers in no group whose skills include that `FormationId`: **deployed first**, then undeployed SoldierBar soldiers in pool order until `min(MaxMemberCount, slot count)` (snap only if the total ≥`MinMemberCount`; below Min does not move or deploy). Center = centroid of the deployed members taken this click; if none are deployed, the ground point at the view center (invalid → fail, no moves). Buttons **no longer select** a squad. Selection, overhead icons, and disband are UI-035. Mode1+Mode2; accept §3.8 D-093 (D-085 soldier-bar highlight moves to the card) |
 | UI-035 | Tactical formation group cards | Defined (Demo) | Top-center horizontal card strip on `FormationEditorRoot` and `_Mode2` (visual spec authored for Mode2; Mode1 mounts the same component, otherwise Mode1 cannot select or disband): one card per group; viewport shows at most **8** cards, horizontal scroll both ways when more; card shows icon, name, formation level, member count; click selects that group: soldier bar highlights **only** its members, and formation-preview puppets show that formation’s icon overhead (**not** in combat); **Disband** appears under the selected card (members return to class zones and the group is removed). Accept §3.8 D-093 |
-| UI-031 | Level route select | Defined (Demo) | Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab` (chrome; **`Box` stretch fullscreen**; **`MapScroll` height matches screen, width 1920, horizontally centered** (map content still display width **1450**, centered in viewport; Stage fallback `StageScroll` still stretch-full); **`Title` / `LevelTabBar` overlay the map**, no top inset reserved for chrome); shown after enter Level / after option clear; **LevelId tabs atop Box** (distinct list; tab Label / `Box/Title` show Operation `LevelName`, empty→`LevelId`; default last; switch=`TryEnterLevel`); with `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`: vertical-scroll that map (display width **1450**, height by bg aspect; art source `Art/UI/SubLevelMaps/`, runtime `Resources/UI/SubLevelMaps/`; `RouteMapAssetId` still names the file); option centers pinned to child nodes named `GameplayOptionId` (`anchoredPosition`; map bottom-left origin, Y up); **on open / tab switch, initial scroll Y centers the latest unlocked pin** (prefer max StageNumber among Selectable/Running, else Cleared; same Stage → max pin Y; else bottom); **on clear-return in map mode**: non-empty `JustClearedOptionId` → snap to just-cleared pin, hold **0.5s**, then ~**0.5s** smooth scroll to current latest-unlocked frontier (Y only); missing cleared pin → frontier directly; **Y only, X unchanged**; **map mode shows Icon only** (~80×80); **hover** standalone Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab` (nested under chrome `Box`; runtime SerializeField only — no code-built hierarchy) by GameplayType (Dig=TipMessages; Shop/AM/UM=IconAssetId2+Description; PushMap/SE/Defend=IconAssetId2+Reward icons; Title always); missing pin → Warning, icon at `(0,0)`; without map Prefab (or no `RouteMapAssetId`) → bottom-up Stage rows + horizontal **full cards**; runtime still Instantiates option nodes (map Prefab = bg + pin Transforms only); **SearchExtract** dual summaries; edges from `UnlockNextOptionIds`; states locked / selectable / cleared; **map-mode Icon visuals (map mode only; Stage rows keep card tint)**: Cleared=normal + bottom-inner Checkmark (art `Art/UI/Icons/Checkmark.png`, runtime `Resources/UI/Icons/Checkmark`); Selectable/Running=slow alpha blink + scale 0.9↔1.1 (~1.6s period); Locked=Icon RGB×0.4 dim; click → `TrySelectGameplayOption`; accept D-086 |
+| UI-036 | Sandbox | Defined (Demo) | Prefab `Assets/Prefabs/Sandbox/SandboxRoot.prefab` (runtime `Resources/Prefabs/Sandbox/SandboxRoot`; runtime build if missing). Full screen; horizontal `ScrollRect`; cells left-to-right by `SortOrder`, showing `DisplayName` and remaining count (uncleared label 「可进入 N 次」; cleared label 「已通关」 and not enterable). Remaining count is saved: Dig / Shop / AutoManufacture decrement by 1 on enter and block at 0; COC does not decrement on enter, only on a round loss (§3.21). No unlock gates. Click: `Dig` → existing `DigStageModule` (`GameplayConfigId` must resolve); `Shop` / `AutoManufacture` → existing modules (ConfigId ignored); `CocCombat` → UI-037 (`CocGameplayConfig` must resolve). Dig / Shop / AutoManufacture end, and COC victory or a round loss that still leaves remaining count above 0, return to the same difficulty Sandbox, not via `TrySelectGameplayOption` / `TryAdvanceStage`. COC final loss returns to Title. Back returns to UI-029. Accept D-098 / D-099; rules §3.20 / §3.21 |
+| UI-037 | COC combat | Defined (Demo) | COC enters combat immediately; no formation Prepare. Bottom class cards: one card per `ClassId`, showing class name, count in the group, and the appearance of the first soldier in the group. Click selects the card; left-click on an allowed area places the front soldier of that group; holding left-click repeats on the interval. Pan the camera by holding the right mouse button (PushMap still pans with the left button). Includes Quit (no confirm dialog; that is a round loss). Accept D-099; rules §3.21
+| UI-038 | COC group expand | Defined (Demo) | Whether or not the card is selected (no prior click-select required): holding left-click on a class card for `CardHoldSeconds` (default 1s) expands every soldier in that group in one horizontal, scrollable row of the same card style above the card. Inspect only; it does not change deploy order and does not place a chosen soldier. Release dismisses the row. Accept D-099; rules §3.21 |
+| UI-031 | Level route select | Defined (Demo, entry retired) | **Difficulty / occupied enter / gameplay end no longer open this.** Prefab `Assets/Prefabs/Level/LevelRouteSelectRoot.prefab` (chrome; **`Box` stretch fullscreen**; **`MapScroll` height matches screen, width 1920, horizontally centered** (map content still display width **1450**, centered in viewport; Stage fallback `StageScroll` still stretch-full); **`Title` / `LevelTabBar` overlay the map**, no top inset reserved for chrome); shown after enter Level / after option clear; **LevelId tabs atop Box** (distinct list; tab Label / `Box/Title` show Operation `LevelName`, empty→`LevelId`; default last; switch=`TryEnterLevel`); with `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`: vertical-scroll that map (display width **1450**, height by bg aspect; art source `Art/UI/SubLevelMaps/`, runtime `Resources/UI/SubLevelMaps/`; `RouteMapAssetId` still names the file); option centers pinned to child nodes named `GameplayOptionId` (`anchoredPosition`; map bottom-left origin, Y up); **on open / tab switch, initial scroll Y centers the latest unlocked pin** (prefer max StageNumber among Selectable/Running, else Cleared; same Stage → max pin Y; else bottom); **on clear-return in map mode**: non-empty `JustClearedOptionId` → snap to just-cleared pin, hold **0.5s**, then ~**0.5s** smooth scroll to current latest-unlocked frontier (Y only); missing cleared pin → frontier directly; **Y only, X unchanged**; **map mode shows Icon only** (~80×80); **hover** standalone Prefab `Assets/Prefabs/Level/OptionHoverTips.prefab` (nested under chrome `Box`; runtime SerializeField only — no code-built hierarchy) by GameplayType (Dig=TipMessages; Shop/AM/UM=IconAssetId2+Description; PushMap/SE/Defend=IconAssetId2+Reward icons; Title always); missing pin → Warning, icon at `(0,0)`; without map Prefab (or no `RouteMapAssetId`) → bottom-up Stage rows + horizontal **full cards**; runtime still Instantiates option nodes (map Prefab = bg + pin Transforms only); **SearchExtract** dual summaries; edges from `UnlockNextOptionIds`; states locked / selectable / cleared; **map-mode Icon visuals (map mode only; Stage rows keep card tint)**: Cleared=normal + bottom-inner Checkmark (art `Art/UI/Icons/Checkmark.png`, runtime `Resources/UI/Icons/Checkmark`); Selectable/Running=slow alpha blink + scale 0.9↔1.1 (~1.6s period); Locked=Icon RGB×0.4 dim; click → `TrySelectGameplayOption`; accept D-086 |
 | UI-032 | SearchExtract point decision | Defined (rules library / SearchExtract) | After gather countdown ends with ≥1 living loyal: bottom-center **Continue Gather** / **Leave**; last point shows **Leave** only; after show, loyals delay `SearchExtractDecisionIdleDelaySeconds` (default 1s) then stop + Idle; **only if** stage `GatherPointCount=1`, LeaveButton label countdown `SearchExtractDecisionAutoLeaveSeconds` (default 3s) then auto-Leave (manual Leave may preempt); Continue → drop invincibility, advance next `ObjectiveOrder`; Leave → SubLevel clear (§3.9 chain); accept D-087 |
 | UI-033 | Combat indicator | Defined (Demo / PushMap + SearchExtract) | Combat top-center HUD (anchor `(0.5,1)`, `anchoredPosition.y=-10`, root `localScale=0.75`, ref 1920×1080): center `HPPK_UI_1` (`CenterBg`) **child** left/right-half = **current alive counts** (BestFit font 26–42); enemy shows **`?`** while this battle has never seen `EnemyAliveCount>0` and current is 0, then always numeric (incl. 0); left ally slots `HPPK_UI_2` (right-align toward center), right enemy slots `HPPK_UI_3` (left-align toward center); silhouettes from `ClassConfig` / `MonsterConfig` `SilhouetteIconAssetId` (`Resources/UI/Icons/{Id}`); HP% tint ≥66% green / 33%–66% orange / ≤33% red / permanent-dead gray+`HPPK_UI_4` (remove after 0.5s and re-align); one row exceeding half-screen usable width → **truncate** (do not show rows 2…N); 0.2s poll; hide in Prepare/Ended/settlement; Defend **none**; accept D-089 |
 | UI-034 | Off-screen spawn edge hint | Defined (Demo / PushMap + SearchExtract) | After each Combat real spawn group: test `basePos` (SpawnPoint / `ResolveSpawnPosition`) via combat camera `WorldToViewportPoint`; if outside viewport, show `EnemyAttack_1` at nearest screen edge (`Art/UI/Icons/`→`Resources/UI/Icons/EnemyAttack_1`; missing → empty frame still blinks); icon does not rotate; 2 red blinks in 0.4s (white↔red, alpha=1) then solid 2s; display `localScale=1.3`; multiple groups may each show one; clear on leave Combat / Ended / UI-017 / UI-032; PushMap **skips** `PreparePreview`; Defend **none**; accept D-090 |
@@ -936,7 +954,7 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 |----|--------|--------|------|
 | D-001 | 可打开存档界面，对 3 槽执行新建 / 选择进入 / 删除（删除含二次确认） | P0 | Meta 壳已实现（Boot） |
 | D-002 | 进入存档后可见浮动「工具」，可打开 / 关闭工具面板 | P0 | Meta 壳已实现 |
-| D-003 | 工具面板可见「设置」「关卡」入口；「关卡」打开难度 Hub（三栏同屏）；普通点击 → UI-031（默认末项 LevelId） | P0 | **关卡**→ DifficultySelectHost → LevelRouteSelect（UI-029/UI-031）；设置→科技树画布 |
+| D-003 | 工具面板可见「设置」「关卡」入口；「关卡」打开难度 Hub（三栏同屏）；任意难度点击 → 沙盘 UI-036 | P0 | **关卡**→ DifficultySelectHost → Sandbox（UI-029/UI-036）；设置→科技树画布 |
 | D-004 | 进档后可识别当前处于三种玩法状态之一；默认进档为挖坟占位；关卡内由阶段玩法类型驱动 | P0 | Meta 占位+Debug 切态保留；关卡内由 `LevelOperationDriver` 按阶段 `GameplayType` 驱动；进档默认中心面为难度 Hub（D-081） |
 | D-010 | 运行时只读 `ConfigTables/Csv/`；按 `LevelOperationConfig` 升序驱动至少一条含 Dig → UpgradeManufacture → Defend 的样例关卡；UI/日志可见 LevelId、StageNumber、GameplayType | P0 | 已实现（方案 A；手验：Tools 关卡 + Debug 推进阶段） |
 | D-020 | Dig 垂直切片可玩：按 `DigMapId` 实例化 `Assets/Prefabs/Maps/{Id}.prefab`；坟墓可挖可掉落；有效时长归零 → DigStageSummary 确认 → 交还关卡驱动 | P0 | 已实现（方案 A：`DigStageModule` + `DigSessionService`） |
@@ -982,7 +1000,9 @@ Manual shell state switch is **TBD** (must not equate Tools Level entry to a fiv
 | D-078 | 主角装备「引雷」`Equip_Elctr`：5 级表行 + Dig 定时事件 Token（间隔 15/13/11/9/7s，阶段开始后先等完整间隔）+ 随机坟或随机可放点落雷 + 命中坟无 LootDrop / 不触发炸药 + LootDrop 扫描 `IsPrimaryHand=1` 等权随机 → `ClassRestrict`+`RaceId` 入士兵池 + `Elctr_0`～`Elctr_3` 序列帧（0.05s/帧）+ 坟位待机 2s + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：`DigLightningScheduler` + Dig Views） |
 | D-079 | 主角装备「探测器」`Equip_Detector`：5 级表行 + 静态键 `DigProcessSpawnCountBonus`（L1～5 = +1～+5，并入 Dig caps）+ 过程生成 `SpawnRate` 的 **M** 加法（**不**改 N、**不**改开局坟数）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入 | P1 | **完成**（方案 A：caps 静态键） |
 | D-080 | 主角装备种族信物 `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`：各 5 级表行 + 静态键 `GraveSpawnWeightBonus`（L1～5 对应品质带权重累计 10/15/20/25/30；表缺席视为 0 再插入）+ ItemCatalog / Mode2 商店池 + Dig HUD GM 发放/划入；Mode2 Prefab/Catalog 覆盖 Q16–Q27（Q21–Q27 可占位） | P1 | **完成**（方案 A：复用矿灯 `GraveSpawnWeightBonus`） |
-| D-081 | 进档难度 Hub（UI-029）：**新建**进档打开三栏等宽**同屏**（各约 1/3）；悬停显示难度描述；**仅普通**点击 → UI-031（默认已解锁末项 LevelId）。**进入占用档**跳过 Hub，直开 UI-031：默认 LevelId=已解锁关中 Cleared 选项最大 StageNumber 所在关（并列取解锁列表更后者；无通关 → 已解锁末项）；地图竖滑滚到最新已解锁前沿。困难/地狱可悬停、点击 Toast；无栏内 LevelSelect；无 MapHost；左下/右上按钮位置不变；`InSaveShellPanel` 独立 Prefab。**旁注：** `DifficultyConfig` 表驱动解锁/描述/通关奖已入 SPEC，Demo Hub 接线后置 | P0 | **更新**（占用档直进路线；方案 C Hub 仅新建/工具关卡） |
+| D-081 | 进档难度 Hub（UI-029）：**新建**进档打开三栏等宽**同屏**（各约 1/3）；悬停显示难度描述；**任意难度**点击 → 沙盘 UI-036（D-098）。**进入占用档**跳过 Hub，直开沙盘（默认 `Diff_Normal`）。困难/地狱不再 Toast。无栏内 LevelSelect；无 MapHost；左下/右上按钮位置不变；`InSaveShellPanel` 独立 Prefab。**旁注：** `DifficultyConfig` 表驱动解锁/描述/通关奖已入 SPEC，Demo Hub 文案接线后置 | P0 | **更新**（入口改沙盘；方案 C Hub 仅新建/工具关卡） |
+| D-098 | 沙盘入口（UI-036 / 方案 A）：表 `Level_SandboxNodeConfig` 按 `DifficultyId` 横向排方格（玩法名 + 剩余次数）。点击进现有挖坟 `DigStageRoot` / 商店 / 自动造兵；结束回同一难度沙盘，不经 `TrySelectGameplayOption` / `TryAdvanceStage`，不改各玩法模块内部与 UI-031。无解锁前置。占用档与 `LevelEnded` 回沙盘（默认 `Diff_Normal`）。**次数只展示、COC 占位**已由 **D-099** 改为存档剩余次数与 COC 战斗 | P0 | **入口已落地**（issues `.scratch/coc-sandbox/`）；次数与 COC 战斗见 D-099 |
+| D-099 | COC 战斗（UI-037 / UI-038 / §3.21）：沙盘 `CocCombat` 进入即战斗（`GameplayState.CocCombat`）。底部按 `ClassId` 洒兵；战场迷雾三态 + 占领点永久亮起；击杀唯一最终 BOSS 通关回沙盘；单局失败（退出，或场上全死且库空）扣 1 次，扣到 0 回 Title，否则回沙盘。已洒出的士兵不回库。占领点激活与剩余次数写入存档；重进重置怪、迷雾探索与场上单位。不布阵、不护盾、不失控、不发经验、不弹推图结算 | P1 | 次数存档切片 01 已落地；空地图进入切片 02 已落地；刷怪待机切片 03a（方案 A）已落地；洒兵战斗切片 03b（方案 A）已落地；走向最终 BOSS 切片 03c（方案 A）已落地；胜负切片 03d（方案 A）已落地；迷雾静态片 04a（方案 A）已落地；临时亮起 / 变暗切片 04b（方案 A）已落地；占领切片 05（方案 A，同格第四态）已落地；长按展开切片 06 已落地（issues `.scratch/coc-combat/`） |
 | D-082 | Mode2 魔法书 Token **命中**附带体型放大：`VisualModelScale` ×`WarriorVisualModelScalePerHit`（样例 1.15，可叠）后夹 `WarriorVisualModelScaleMax`（样例 3）；可与 `Style_ScaleModel` 通道同次再 ×`VisualIntensityAdd`；`BodyRadius`/`AttackRange` 仍 ×k；空 `VisualStyleId` 命中也放大；存档→布阵/Defend/PushMap | P1 | **完成**（选定方案：命中步进 + Style_ScaleModel 并存夹紧；Correctness 菜单 `Run Warrior VisualModelScale Correctness (D-082)`） |
 | D-083 | 怪物尸体投射（抛物线击飞+砸击合一）：`distance≥DeathDie2KnockbackThreshold` 时飞行扫掠+落地砸其它存活怪；`OutgoingDamage×DeathCorpseSmashDamageMul`；同目标只结算一次；砸死不连锁；`MonsterCombatDead` 亦飞砸后 Delay→倒放；Defend+PushMap | P1 | **完成**（方案 A：Session `TryApplyCorpseSmashDamage` + View 抛物线/扫掠；Correctness 菜单 `Run Corpse Projectile Correctness Checks (D-083)`；issues `.scratch/corpse-projectile/`） |
 | D-084 | 战术阵型 TacticalFormation（方案 A）：魔法书 `GrantFormationSkill` 授予阵型技能；Pattern 槽位 + 整阵拖拽；Defend+PushMap 虚拟中心 + `FormationSlot` + 接敌 leash；阵亡 &lt;Min 运行时解散；属性/专属技能 overlay；专表 `TacticalFormationConfig`。**成员关系**（自动、每种最多 1 组）由 **D-093** 修订 | P1 | **完成**（方案 A；TF-01～06；框架已落地。自动单实例组阵见 D-093，规则已锁、编码未做） |
@@ -1023,7 +1043,7 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 |----|-----------|----------|--------|
 | D-001 | Save UI with 3 slots: create / enter / delete (delete confirms) | P0 | Meta shell done (Boot) |
 | D-002 | After enter: floating Tools; open / close ToolsPanel | P0 | Meta shell done |
-| D-003 | Tools shows Settings + Level; Level opens difficulty Hub (three columns same-screen); Normal click → UI-031 (default last unlocked LevelId) | P0 | **Level** → DifficultySelectHost → LevelRouteSelect (UI-029/UI-031); Settings → TechTree canvas |
+| D-003 | Tools shows Settings + Level; Level opens difficulty Hub (three columns same-screen); any difficulty click → Sandbox UI-036 | P0 | **Level** → DifficultySelectHost → Sandbox (UI-029/UI-036); Settings → TechTree canvas |
 | D-004 | Identifiable gameplay state; default Dig placeholder; in-Level driven by stage GameplayType | P0 | Meta placeholders + Debug cycle kept; in-Level driven by `LevelOperationDriver` via stage `GameplayType`; enter default center = difficulty Hub (D-081) |
 | D-010 | Runtime reads `ConfigTables/Csv/` only; `LevelOperationConfig` drives at least one sample Level with Dig → UpgradeManufacture → Defend; UI/log shows LevelId, StageNumber, GameplayType | P0 | Done (Approach A; hand-check: Tools Level + Debug advance stage) |
 | D-020 | Dig vertical playable: instantiate `Assets/Prefabs/Maps/{DigMapId}.prefab`; dig + loot; duration → DigStageSummary confirm → return to Level driver | P0 | Done (Approach A: `DigStageModule` + `DigSessionService`) |
@@ -1069,7 +1089,9 @@ Suggested order: D-001–D-004 (Meta) → D-010 (Level driver) → Dig → Upgra
 | D-078 | ProtagonistEquipment Lightning `Equip_Elctr`: 5-level rows + Dig timed event tokens (interval 15/13/11/9/7s, first strike after a full wait) + random grave or random placeable point + hit grave skips LootDrop and explosives + scan LootDrop `IsPrimaryHand=1` equal-random → `ClassRestrict`+`RaceId` into WarriorPool + `Elctr_0`–`Elctr_3` (0.05s/frame) + 2s idle preview + Dig HUD GM grant/spend | P1 | **Done** (Approach A: `DigLightningScheduler` + Dig Views) |
 | D-079 | ProtagonistEquipment Detector `Equip_Detector`: 5-level rows + static key `DigProcessSpawnCountBonus` (L1–5 = +1–+5, merges into Dig caps) + additive to process-spawn `SpawnRate` **M** (**not** N, **not** initial grave count) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend | P1 | **Done** (Approach A: static cap key) |
 | D-080 | ProtagonistEquipment race tokens `Equip_HumanToken` / `Equip_ElfToken` / `Equip_OrcToken`: 5-level rows each + static `GraveSpawnWeightBonus` (L1–5 cumulative weights 10/15/20/25/30 on quality bands; missing table Id = 0 then insert) + ItemCatalog / Mode2 shop pool + Dig HUD GM grant/spend; Mode2 Prefab/Catalog covers Q16–Q27 (Q21–Q27 may be placeholders) | P1 | **Done** (Approach A: reuse Miner Lamp `GraveSpawnWeightBonus`) |
-| D-081 | Enter-shell difficulty Hub (UI-029): **Create** opens equal-width **same-screen** columns (~1/3 each); hover description; **Normal only** → UI-031 (default last unlocked LevelId). **Enter occupied** skips Hub → UI-031: default LevelId = unlocked level hosting Cleared options with max StageNumber (tie → later in unlocked list; none Cleared → last unlocked); map scrolls to latest unlocked frontier. Hard/Hell hover OK, click Toast; no in-column LevelSelect; no MapHost; chrome unchanged; standalone `InSaveShellPanel` Prefab. **Note:** `DifficultyConfig` unlock/description/clear-reward rules are in SPEC; Demo Hub wiring deferred | P0 | **Updated** (occupied enter opens route; Approach C Hub for Create / Tools Level) |
+| D-081 | Enter-shell difficulty Hub (UI-029): **Create** opens equal-width **same-screen** columns (~1/3 each); hover description; **any difficulty** → Sandbox UI-036 (D-098). **Enter occupied** skips Hub → Sandbox (default `Diff_Normal`). Hard/Hell no longer Toast. No in-column LevelSelect; no MapHost; chrome unchanged; standalone `InSaveShellPanel` Prefab. **Note:** `DifficultyConfig` unlock/description/clear-reward rules are in SPEC; Demo Hub copy wiring deferred | P0 | **Updated** (entry is Sandbox; Approach C Hub for Create / Tools Level) |
+| D-098 | Sandbox entry (UI-036 / Approach A): `Level_SandboxNodeConfig` lays out cells horizontally per `DifficultyId` (gameplay name + remaining count). Click enters existing Dig `DigStageRoot` / Shop / AutoManufacture; end returns to the same difficulty Sandbox, not via `TrySelectGameplayOption` / `TryAdvanceStage`, and does not change gameplay module internals or UI-031. No unlock order. Occupied enter and `LevelEnded` open the Sandbox (default `Diff_Normal`). **Display-only counts and the COC placeholder** are replaced by saved remaining counts and COC combat in **D-099** | P0 | **Entry landed** (issues `.scratch/coc-sandbox/`); counts and COC combat are D-099 |
+| D-099 | COC combat (UI-037 / UI-038 / §3.21): Sandbox `CocCombat` enters combat immediately (`GameplayState.CocCombat`). Bottom cards deploy soldiers grouped by `ClassId`; battlefield fog has three states plus permanent capture light; killing the single Final Boss clears the node and returns to the Sandbox; a round loss (quit, or all field soldiers dead and the pool empty) decrements by 1, and reaching 0 returns to Title, otherwise to the Sandbox. Deployed soldiers do not return to the pool. Capture activation and remaining counts persist; re-entry resets monsters, fog exploration, and units on the field. No formation, shield, loss-of-control, experience, or PushMap settlement popup | P1 | Remaining-count slice 01 landed; empty-map enter slice 02 landed; spawn-idle slice 03a (Approach A) landed; deploy-fight slice 03b (Approach A) landed; Final Boss march slice 03c (Approach A) landed; win/loss slice 03d (Approach A) landed; fog / capture: static fog slice 04a (Approach A) landed; reveal / explored-dark slice 04b (Approach A) landed; capture slice 05 (Approach A, fourth grid state) landed; card-hold expand slice 06 landed (issues `.scratch/coc-combat/`) |
 | D-082 | Mode2 MagicBook token **hit** appends body scale: `VisualModelScale` ×`WarriorVisualModelScalePerHit` (sample 1.15, stackable) then clamp `WarriorVisualModelScaleMax` (sample 3); same hit may also ×`VisualIntensityAdd` via `Style_ScaleModel`; `BodyRadius`/`AttackRange` still ×k; empty `VisualStyleId` hit still scales; persist → formation/Defend/PushMap | P1 | **Done** (chosen: hit step + Style_ScaleModel coexist + clamp; menu `Run Warrior VisualModelScale Correctness (D-082)`) |
 | D-083 | Monster corpse projectile (parabolic knockback + smash unified): when `distance≥DeathDie2KnockbackThreshold`, flight sweep + landing smash other living monsters; `OutgoingDamage×DeathCorpseSmashDamageMul`; once per target; smash kills no chain; `MonsterCombatDead` also flies/smashes then Delay→reverse revive; Defend+PushMap | P1 | **Done** (Approach A: Session `TryApplyCorpseSmashDamage` + View parabolic/sweep; menu `Run Corpse Projectile Correctness Checks (D-083)`; issues `.scratch/corpse-projectile/`) |
 | D-084 | TacticalFormation (Approach A): MagicBook `GrantFormationSkill`; Pattern slots + whole-squad drag; Defend+PushMap virtual center + `FormationSlot` + engage leash; dissolve when living &lt;Min; stat/exclusive-skill overlay; table `TacticalFormationConfig`. **Membership** (auto, max one group per formation) is revised by **D-093** | P1 | **Done** (Approach A; TF-01–06; framework landed. Auto single-instance grouping → D-093, rules locked, not coded) |
@@ -4779,6 +4801,8 @@ OnMemberDeath / Rebel
 - [x] 战斗技能图标 CombatSkillIcon（UI-025 / D-071）：PushMap 头顶飘 + `Skill_02` 脚下持续
 - [ ] 战斗指示器 CombatIndicator（UI-033 / D-089）：PushMap + SearchExtract Combat 顶中敌我单位格；issues `.scratch/combat-indicator/`
 - [ ] 离屏刷怪边缘提示 OffScreenSpawnHint（UI-034 / D-090）：屏外 SpawnPoint 边缘 `EnemyAttack_1`；issues `.scratch/offscreen-spawn-hint/`
+- [x] 沙盘入口 Sandbox（UI-036 / D-098）：难度点击 / 占用档 / 结束进沙盘；方格进挖坟、商店、自动造兵或 COC 占位；issues `.scratch/coc-sandbox/`。次数只展示与 COC 占位由 D-099 修订
+- [ ] COC 战斗（UI-037 / UI-038 / D-099）：洒兵、战场迷雾、占领点、胜负与沙盘剩余次数；issues `.scratch/coc-combat/`。空地图进入（切片 02）、刷怪待机（切片 03a，方案 A）、洒兵战斗（切片 03b，方案 A）、走向最终 BOSS（切片 03c，方案 A）与胜负（切片 03d，方案 A）、静态迷雾（切片 04a，方案 A）、临时亮起/变暗（切片 04b，方案 A）、占领（切片 05，方案 A）、长按展开（切片 06）已落地
 - [x] 战术阵型 TacticalFormation 框架（§3.18 / D-084）：GrantFormationSkill、TacticalFormationConfig、Pattern Prefab、虚拟中心+FormationSlot+leash、激活/解散 overlay；TF-01～06 已落地。**自动、每种最多一组**由 D-093 修订
 - [x] 布阵战术阵型目录条（UI-030 / D-085）：原左侧已 snap 小队点选已接线；行为改为 D-093 创建按钮
 - [ ] 战术阵型多组与等级（UI-030 / UI-035 / D-093）：手动多组、等级查表、左缘目录、顶中卡牌、按组战斗已编码（TFG-01～05）；待验收
@@ -4873,6 +4897,8 @@ OnMemberDeath / Rebel
 - [x] CombatSkillIcon (UI-025 / D-071): PushMap overhead popup + `Skill_02` foot persist
 - [ ] CombatIndicator (UI-033 / D-089): PushMap + SearchExtract Combat top-center ally/enemy unit slots; issues `.scratch/combat-indicator/`
 - [ ] OffScreenSpawnHint (UI-034 / D-090): off-viewport SpawnPoint edge `EnemyAttack_1`; issues `.scratch/offscreen-spawn-hint/`
+- [x] Sandbox entry (UI-036 / D-098): difficulty click / occupied enter / end open the Sandbox; cells enter Dig, Shop, AutoManufacture, or the COC placeholder; issues `.scratch/coc-sandbox/`. Display-only counts and the COC placeholder are revised by D-099
+- [ ] COC combat (UI-037 / UI-038 / D-099): deploy soldiers, battlefield fog, capture points, win/loss, and Sandbox remaining counts; issues `.scratch/coc-combat/`. Empty-map enter (slice 02), spawn-idle (slice 03a, Approach A), deploy-fight (slice 03b, Approach A), Final Boss march (slice 03c, Approach A), win/loss (slice 03d, Approach A), static fog (slice 04a, Approach A), reveal/explored-dark (slice 04b, Approach A), capture (slice 05, Approach A), and card-hold expand (slice 06) have landed
 - [x] TacticalFormation framework (§3.18 / D-084): GrantFormationSkill, TacticalFormationConfig, Pattern Prefab, virtual center+FormationSlot+leash, activate/dissolve overlay; TF-01–06 landed. **Auto, max one group per formation** revised by D-093
 - [x] Formation catalog strip (UI-030 / D-085): original snapped-squad select is wired; behavior becomes the D-093 create button
 - [ ] Tactical multi-group + level (UI-030 / UI-035 / D-093): manual groups, level lookup, left-edge catalog, top-center cards, and per-group combat coded (TFG-01–05); pending playtest
@@ -5089,6 +5115,208 @@ Depends on §3.11 **BattleFormation**. Config: [SPEC_04 §9.32](SPEC_04_Technica
 **Locked (workshop 2026-09-02):** Combat top-bar remaining seconds; UI-031 shows both point-loot summary and SubLevel `Reward` (credit still split); no manual-kill loot; countdown is gameplay-table global only.
 
 **Slices:** `.scratch/mode3-search-extract/issues/` SE-00–09; **P1 HoldFraming:** `.scratch/search-extract-hold-camera/` SE-CAM-00–03 **closed** (samples locked at v0.84.27 initials); acceptance **D-087**. Excel landing = SE-01 **done**.
+
+---
+
+## 3.20 沙盘（Sandbox / COC 入口）
+
+### 简体中文
+
+**状态：入口已定义（方案 A：壳层沙盘会话旁路）。剩余次数切片 01 已落地（`SandboxProgressService`：打开当前难度时才首次写入）。COC 战斗见 §3.21 / D-099。**
+
+沙盘是难度选择之后的关卡入口，替代这些路径上的 UI-031。UI-031、子关卡表、`LevelOperationDriver` 的解锁/通关，以及挖坟 / 商店 / 自动造兵模块**内部**都不改。COC 战斗是新模块（§3.21），不改推图与搜打撤模块内部。
+
+**导航**
+
+- **新建进档**、工具「关卡」：仍先打开 `DifficultySelectHost`（UI-029）。
+- 点击普通 / 困难 / 地狱任一栏：打开该 `DifficultyId`（`Diff_Normal` / `Diff_Hard` / `Diff_Hell`）的沙盘。不再 Toast「还未制作」。
+- **进入占用档**：跳过难度界面，打开沙盘，难度默认 `Diff_Normal`。
+- 从沙盘进入的玩法结束（挖坟结算确认、商店关闭、自动造兵批次结束，以及 COC 胜利或剩余次数仍大于 0 的单局失败）回到**同一难度**沙盘。COC 最终失败回 Title（§3.21）。
+- 驱动器 `LevelEnded` 回到最近一次沙盘难度；尚无记录时用 `Diff_Normal`。
+- 沙盘「返回」回到难度选择。
+
+**方格**
+
+数据来自 [SPEC_04 §9.1c](SPEC_04_Technical.md) `Level_SandboxNodeConfig`。按 `DifficultyId` 过滤，`SortOrder` 升序从左到右。每格显示 `DisplayName` 与**存档剩余次数**（未通关：「可进入 N 次」；已通关：「已通关」且不可进入）。`RepeatEnterCount` 只在该存档第一次见到此 `NodeId` 时写成剩余次数；之后改表不回写旧档。方格之间**没有**解锁前置。
+
+**剩余次数**
+
+- 挖坟 / 商店 / 自动造兵：点击且剩余大于 0 时进入并立刻扣 1。剩余为 0 时点击不进入。
+- COC：剩余大于 0 且未通关才能进入；进入不扣次。扣次与通关见 §3.21。
+- 占领点按 [SPEC_04 §9.38](SPEC_04_Technical.md) 给**同一难度**的挖坟 / 商店 / 自动造兵节点增加剩余次数。已通关节点不加、也不因此重新打开。
+
+**进入（不经 `TrySelectGameplayOption`）**
+
+壳层自建 `LevelStageContext` 后调用已有 `IStageModule.Enter`。会话标记为沙盘时，完成回调 `Exit` 后重开沙盘，**不**调用 `TryAdvanceStage`（因此不写路线通关、不发子关卡奖励、不重开 UI-031）。
+
+| GameplayType | 行为 |
+|--------------|------|
+| `Dig` | `GameplayConfigId` 必须能解析到 `DigGameplayConfig`（样例 `Dig_01`），再进 `DigStageRoot` |
+| `Shop` | 现有 `ShopStageModule`；ConfigId 忽略 |
+| `AutoManufacture` | 现有 `AutoManufactureStageModule`；ConfigId 忽略；`LevelId` 为空时地图仍由现有解析落到 `Ground_01` |
+| `CocCombat` | `GameplayConfigId` 必须能解析到 `CocGameplayConfig`。壳层 `SetState(CocCombat)` 后进入 `CocCombatStageModule`。胜负与回程见 §3.21 |
+
+### English
+
+**Status: entry defined (Approach A: shell Sandbox session bypass). Remaining-count slice 01 has landed (`SandboxProgressService`: a node is recorded the first time that difficulty is opened). COC combat: §3.21 / D-099.**
+
+The Sandbox is the level entry after difficulty select, replacing UI-031 on these paths. UI-031, the SubLevel table, `LevelOperationDriver` unlock/clear, and Dig / Shop / AutoManufacture module **internals** stay unchanged. COC combat is a new module (§3.21) and does not change PushMap or SearchExtract internals.
+
+**Navigation**
+
+- **Create enter** and Tools Level still open `DifficultySelectHost` (UI-029) first.
+- Clicking Normal / Hard / Hell opens the Sandbox for that `DifficultyId` (`Diff_Normal` / `Diff_Hard` / `Diff_Hell`). No Toast「还未制作」.
+- **Enter occupied** skips the difficulty host and opens the Sandbox at `Diff_Normal`.
+- Gameplay entered from the Sandbox (Dig summary confirm, Shop close, AutoManufacture batch end, and COC victory or a round loss that still leaves remaining count above 0) returns to the **same difficulty** Sandbox. COC final loss returns to Title (§3.21).
+- Driver `LevelEnded` returns to the last Sandbox difficulty, or `Diff_Normal` if none was chosen.
+- Sandbox Back returns to difficulty select.
+
+**Cells**
+
+Rows come from [SPEC_04 §9.1c](SPEC_04_Technical.md) `Level_SandboxNodeConfig`. Filter by `DifficultyId`; left-to-right by ascending `SortOrder`. Each cell shows `DisplayName` and the **saved remaining count** (uncleared: 「可进入 N 次」; cleared: 「已通关」 and not enterable). `RepeatEnterCount` is copied into remaining count only the first time that save sees this `NodeId`; later table edits do not rewrite old saves. Cells have **no** unlock gates.
+
+**Remaining count**
+
+- Dig / Shop / AutoManufacture: a click with remaining above 0 enters and decrements by 1 immediately. A click at 0 does not enter.
+- COC: enter only when remaining is above 0 and the node is not cleared; entering does not decrement. Decrement and clear are §3.21.
+- Capture points add remaining count to Dig / Shop / AutoManufacture nodes of the **same difficulty** ([SPEC_04 §9.38](SPEC_04_Technical.md)). Cleared nodes gain nothing and do not reopen.
+
+**Enter (not via `TrySelectGameplayOption`)**
+
+The shell builds a `LevelStageContext` and calls the existing `IStageModule.Enter`. While the session is marked Sandbox, the complete callback `Exit`s and reopens the Sandbox, and does **not** call `TryAdvanceStage` (no route clear, no SubLevel reward, no UI-031).
+
+| GameplayType | Behavior |
+|--------------|----------|
+| `Dig` | `GameplayConfigId` must resolve to `DigGameplayConfig` (sample `Dig_01`), then `DigStageRoot` |
+| `Shop` | Existing `ShopStageModule`; ConfigId ignored |
+| `AutoManufacture` | Existing `AutoManufactureStageModule`; ConfigId ignored; empty `LevelId` still resolves the map to `Ground_01` |
+| `CocCombat` | `GameplayConfigId` must resolve to `CocGameplayConfig`. The shell `SetState(CocCombat)` then enters `CocCombatStageModule`. Win, loss, and return are §3.21 |
+
+---
+
+## 3.21 COC 战斗（CocCombat）
+
+### 简体中文
+
+**状态：规则已定义（D-099）。切片 02（方案 B）已从沙盘进入地图。切片 03a（方案 A）开战按刷怪表刷出怪物，并复用推图怪物表现停在刷怪点（不传主角、不传我方，因此不追击；不改推图会话）。切片 03b（方案 A）底部按 `ClassId` 洒兵：点在 NavMesh 可行走且空气墙外才放人，并立刻从士兵库删除。士兵复用推图选敌与 AttackSlot；命中由本局 `CocFieldCombatSession` 结算（不发经验、不护盾、不失控、不跑技能爆发）。切片 03c（方案 A）：检测范围内没有敌人时，士兵沿 NavMesh 走向本图唯一 `FinalBoss`（空气墙已标不可走）；进入检测范围后改走现有选敌。小 BOSS 死亡不结算通关。场上有存活我方后，怪物才沿用 `AggroMode` 追击。切片 03d（方案 A）：最终 BOSS 死亡 → 节点 `Cleared`、不扣次、回沙盘；退出或场上全死且库空 → 扣 1 次，剩余 &gt;0 回沙盘，否则回 Title。已洒出的不回库。迷雾切片 04a（方案 A，格子盖章）已画静态未探索黑雾。切片 04b（方案 A，同格三态就地更新）已写入临时亮起与变暗：存活士兵按 `RevealRadius` 盖章，离开或死亡后变暗；已发现普通怪在变暗区或多边形外保持可见；临时亮起与变暗仍禁洒；重进重建格子即重置探索。切片 05（方案 A，同格第四态）已激活占领点：写入存档、按半径盖永久亮起，并给同一难度未通关的挖坟 / 商店 / 自动造兵加次数。重进后再按存档盖章，不重复发放。切片 06：职业卡按住左键达到 `CardHoldSeconds` 后，在该卡上方横排展开组内全部士兵。未满时长离开卡牌则取消。展开后按住并左右拖动可滑动，松手收起。展开格不可点选洒出，不改池顺序，下一次仍放走该组最前一名。**
+
+COC 战斗从沙盘进入，用洒兵代替布阵。地图刷怪、NavMesh、空气墙，以及士兵的选敌、移动和攻击，沿用推图 / §3.12 已有战斗。不使用布阵、战术阵型、护盾、失控或叛变。不发经验，不弹推图结算（UI-017 / UI-018）。不放主角。
+
+**进入**
+
+沙盘节点 `GameplayType=CocCombat`，剩余次数大于 0，且未通关。`GameplayConfigId` 解析 [SPEC_04 §9.35](SPEC_04_Technical.md) `CocGameplayConfig`。壳层 `SetState(CocCombat)` 后 `CocCombatStageModule.Enter`。不经 `TrySelectGameplayOption` / `TryAdvanceStage`。没有 Prepare：进图即战斗，怪物已刷出，底部即可洒兵。切片 02 进图。切片 03a 在对应 `SpawnPoint` 刷出 `Normal` / `MiniBoss` / `FinalBoss` 并停住。切片 03b 在底部洒兵并让士兵打进入检测范围的敌人。切片 03c：没有检测范围内敌人时走向唯一最终 BOSS；路上再遇敌改打。切片 03d：胜负见本节「胜负」；「退出」即单局失败。切片 04a：多边形内的格子是未探索黑雾，普通怪隐藏。切片 04b：存活士兵周围半径 `RevealRadius` 变透明，离开或死亡后变暗；点击或 NavMesh 落点落在未探索、临时亮起或变暗格上不放人。多边形外仍可洒。切片 05：士兵中心进入占领点圆即激活一次；永久亮起格透明度 0 且可洒兵。没洒出的士兵留在库里；已洒出的不回来。
+
+**士兵库与卡牌（UI-037 / UI-038）**
+
+士兵来自挖坟和自动制造已经进入 `WarriorPool` 的实例。按 `Manufacture_ClassConfig.ClassId` 分组；组内顺序是池里该职业的现有顺序。数量为 0 的职业不显示卡牌。
+
+- 卡牌显示：职业名、组内数量、组内第一名的外形。
+- 点击卡牌：该卡选中。再次点击另一张则改选。
+- 洒出：选中后，在可洒区域按下鼠标左键一次，把该组最前一名放到点击处的可行走点，并立刻从士兵库删除。按住左键时，每 `DeployHoldIntervalSeconds`（默认 0.1 秒）再放走当前最前一名。点在不可洒、不可走或空气墙内则这次不放人。平移镜头按住鼠标右键拖动；左键不拖镜头。推图与搜打撤仍是左键拖动。
+- 长按卡牌达到 `CardHoldSeconds`（默认 1 秒）：UI-038 在该卡上方横排展开组内全部士兵，样式与职业卡相同（外形、名字、从 1 起的序号；序号 1 是下一次洒出的那一名）。不论该卡是否已选中，按住满时长即可展开，不需先点击选中。一行，超出视口可左右拖动滑动。未满时长指针离开卡牌则取消。松手收起。只查看，不改变池顺序，也不能点某一名单独洒出。
+- 「退出」无二次确认，立即记为单局失败。
+
+**可洒区域**
+
+只在这两处可放人：迷雾多边形以外；已激活占领点的永久亮起圆以内。临时亮起和变暗区域不能洒兵。点击点还须落在 NavMesh 可行走处，且不在空气墙内。
+
+**战斗**
+
+士兵进入地图后，用现有选敌方式追击并攻击。找不到敌人时，沿 NavMesh 最短路径走向本图唯一最终 BOSS，路径排除空气墙。有敌人进入该兵自己的攻击半径后，改为攻击该目标并继续战斗。
+
+开局怪物停在刷怪点。场上还没有我方士兵时不追击。出现我方士兵后，沿用怪物表现上已有的追击（`AggroMode`）。本玩法不掷失控、不产生叛变。
+
+**战场迷雾**
+
+黑雾画在士兵和地图元素之上，与 `CameraFogOverlay`、`MapEdgeFog` 分开。多边形写在地图预制体上：点数可增，按顺序自动连成一个面。多边形以外默认可看见怪物，也可洒兵。
+
+每一局重新计算探索。占领点的永久亮起不重置。
+
+| 状态 | 条件 | 表现 |
+|------|------|------|
+| 无士兵信息 | 多边形内，本局尚未被临时亮起或永久亮起覆盖的部分 | 透明度 `UnexploredAlpha`（默认 0.9）。能看见地图。隐藏普通怪。最终 BOSS 与小 BOSS 始终可见 |
+| 临时亮起 | 以我方存活士兵为圆心、地面 XZ 半径 `RevealRadius`（默认 2） | 透明度 0。能看见圆内的怪。圆内普通怪记为已发现 |
+| 变暗 | 某块区域曾被临时亮起，随后士兵死亡或离开，该块不再被任何临时亮起覆盖 | 透明度 `ExploredAlpha`（默认 0.7）。已发现且正站在变暗区、永久亮起或多边形外的普通怪保持可见。走进仍是「无士兵信息」的区域时，普通怪重新隐藏 |
+| 永久亮起 | 占领点已激活 | 配置半径的地面 XZ 圆，透明度 0，跨局保留。圆内可洒兵，怪可见 |
+
+半径都是地面上的圆。等距镜头下看起来会带地图倾角。画雾选定方案 A（格子盖章）。地面格宽 0.25。切片 04b 在同一张格子上就地写入 `Revealed` / `Explored`：每帧按存活士兵 `RevealRadius` 盖章；不再被盖住的格变暗。雾片贴在地面上，`sortingOrder` 250，盖住地图和士兵（200），低于弹体（320）。最终 BOSS 与小 BOSS 的精灵提到 280，画在雾片之上。雾片按格写入贴图（一格一像素，与硬边雾片同量级）。边缘过渡 0.5 在雾片着色器里对周围格做加权，不在 CPU 上逐像素重算。交界处半透明、不保留直角锯齿。格宽 0.25 与三态规则不变。普通怪中心落在未探索格就隐藏；圆内记为已发现；已发现且站在变暗区或多边形外保持可见，走进未探索格再隐藏。洒兵的点击点或 NavMesh 落点落在未探索、临时亮起或变暗格则这次不放人。多边形外（`Outside`）仍可洒。重进时销毁并重建格子，本局探索清空，再按存档把已激活占领点盖成永久亮起。
+
+**占领点**
+
+位置在地图预制体上。半径来自 `CocCapturePointConfig`。我方士兵中心进入该地面圆即激活；每个占领点只激活一次。激活写入存档，并按 `CocCaptureRewardConfig` 给同一难度的挖坟 / 商店 / 自动造兵节点增加剩余次数。再次进入不再发放。已通关的目标节点不加次数。选定方案 A（同格第四态）：进图重建雾格后，已激活的圆把格盖成永久亮起；临时亮起不改写这些格。单局失败重进后探索重置，永久亮起按存档再盖。
+
+**胜负**
+
+- 胜利：本图唯一 `FinalBoss` 死亡。不扣剩余次数。该沙盘节点标记通关，方格显示「已通关」且不能再进，然后回同一难度沙盘。
+- 单局失败：玩家点「退出」；或场上我方士兵全部死亡，且士兵库里已经没有可洒的士兵。已洒到场上的士兵不回库（退出时仍活着的也删除）。没洒出的留在库里。然后剩余次数扣 1。
+- 扣完后剩余仍大于 0：回同一难度沙盘。再次进入时，怪物、迷雾探索和场上单位全部重置；已激活占领点与其永久亮起保留。
+- 扣完后剩余为 0：最终失败，回 Title。占领点与已消耗的士兵保持存档结果。剩余为 0 的节点不能再进。
+- 小 BOSS 不作为胜利条件。每张 COC 地图的刷怪配置恰好一行 `FinalBoss`。
+
+**明确不做**
+
+布阵与战术阵型、护盾、失控/叛变、主角、经验与推图结算弹窗、搜打撤搜集点与守点镜头。
+
+### English
+
+**Status: rules defined (D-099). Slice 02 (Approach B) enters the map from the Sandbox. Slice 03a (Approach A) spawns from the spawn table and reuses the PushMap monster view, held idle on the spawn point (no protagonist and no friendlies are passed, so they do not chase; the PushMap session is unchanged). Slice 03b (Approach A) deploys from bottom `ClassId` cards: a click places a soldier only on walkable NavMesh outside air walls and removes that soldier from the pool immediately. Soldiers reuse PushMap target select and AttackSlot; hits settle on this round's `CocFieldCombatSession` (no experience, shield, loss-of-control, or skill burst). Slice 03c (Approach A): with no enemy in detect range, soldiers follow the NavMesh toward this map's single `FinalBoss` (AirWalls already non-walkable); inside detect range they reuse existing target select. Mini Boss death does not clear the round. Monsters use `AggroMode` chase only after a living friendly is on the field. Slice 03d (Approach A): Final Boss death → node `Cleared`, no decrement, return to Sandbox; Quit or wipe (all field dead and pool empty) → decrement by 1, remaining &gt;0 back to Sandbox else Title. Deployed soldiers do not return to the pool. Slice 04a (Approach A) draws static unseen fog. Slice 04b (Approach A, in-place three-state grid) writes temporary reveal and explored-dark: living soldiers stamp `RevealRadius`, cells they leave or die out of go dark; discovered normal monsters stay visible in explored-dark or outside polygons; temporary reveal and explored-dark still block deploy; re-entry rebuilds the grid and resets exploration. Slice 05 (Approach A, fourth grid state) activates a capture once, saves it, stamps permanent light, and adds remaining count to uncleared Dig / Shop / AutoManufacture nodes of the same difficulty. Re-entry re-stamps from the save and does not grant again. Slice 06: holding left-click on a class card for `CardHoldSeconds` expands every soldier in that group in one row above the card. Leaving the card before the threshold cancels. After it opens, dragging left or right scrolls, and releasing dismisses it. Peek cells cannot deploy a chosen soldier, the pool order stays unchanged, and the next deploy is still the front of that group.**
+
+COC combat is entered from the Sandbox and replaces formation with deploy-soldiers. Map spawns, NavMesh, air walls, and soldier target select, move, and attack reuse PushMap / §3.12 combat. No formation, tactical formation, shield, loss-of-control, or rebels. No experience and no PushMap settlement (UI-017 / UI-018). No protagonist.
+
+**Enter**
+
+Sandbox node `GameplayType=CocCombat`, remaining count above 0, and not cleared. `GameplayConfigId` resolves [SPEC_04 §9.35](SPEC_04_Technical.md) `CocGameplayConfig`. The shell `SetState(CocCombat)` then `CocCombatStageModule.Enter`. Not via `TrySelectGameplayOption` / `TryAdvanceStage`. There is no Prepare: the map starts in combat with monsters already spawned and the bottom bar ready to deploy. Slice 02 enters the map. Slice 03a spawns `Normal` / `MiniBoss` / `FinalBoss` on the matching `SpawnPoint` and holds them idle. Slice 03b deploys from the bottom bar and has soldiers attack enemies that enter detect range. Slice 03c: with no enemy in detect range they march to the single Final Boss; on the way they switch back to fight when an enemy enters detect range. Slice 03d: win/loss follows this section's "Win and loss"; Quit is a round loss. Slice 04a paints unseen fog cells inside polygons and hides normal monsters there. Slice 04b: a living soldier's `RevealRadius` circle goes transparent, then explored-dark after they leave or die; a click or NavMesh point on unseen, temporary-reveal, or explored-dark cells places nobody. Outside polygons, deploy remains allowed. Slice 05: a soldier center entering a capture circle activates it once; permanent-light cells are alpha 0 and allow deploy. Soldiers never deployed stay in the pool; deployed soldiers do not return.
+
+**Pool and cards (UI-037 / UI-038)**
+
+Soldiers are `WarriorPool` instances already created by Dig and AutoManufacture. Group by `Manufacture_ClassConfig.ClassId`; order inside a group is the pool order of that class. A class with count 0 shows no card.
+
+- A card shows the class name, the count in the group, and the appearance of the first soldier in the group.
+- Click a card to select it. Clicking another card switches the selection.
+- Deploy: while selected, one left-click on an allowed area places the front soldier of that group on a walkable point at the click and removes that soldier from the pool immediately. Holding left-click places the new front soldier every `DeployHoldIntervalSeconds` (default 0.1s). A click in a forbidden area, off the NavMesh, or inside an air wall places nobody. Pan the camera by holding the right mouse button; the left button does not pan. PushMap and SearchExtract still pan with the left button.
+- Holding a card for `CardHoldSeconds` (default 1s) opens UI-038 above that card: every soldier in the group, in the same card style (appearance, name, and a 1-based index; index 1 is the next deploy). Works whether or not the card is already selected; no prior click-select is required. One row; drag horizontally when it overflows the viewport. Leaving the card before the threshold cancels. Releasing dismisses it. Inspect only: pool order stays unchanged, and a chosen soldier cannot be deployed.
+- Quit has no confirm dialog and is an immediate round loss.
+
+**Where deploy is allowed**
+
+Only outside fog polygons, and inside the permanent-light circle of an activated capture point. Temporary reveal and explored-dark areas cannot receive soldiers. The click must also land on walkable NavMesh and outside air walls.
+
+**Combat**
+
+After a soldier enters the map, existing target select moves and attacks. With no enemy, the soldier follows the shortest NavMesh path to this map's single Final Boss, excluding air walls. When an enemy enters that soldier's own attack range, the soldier switches to that target and keeps fighting.
+
+Monsters start idle on their spawn points. They do not chase while no friendly soldier is on the field. After a friendly exists, they use the existing monster chase (`AggroMode`). This mode does not roll loss-of-control and does not create rebels.
+
+**Battlefield fog**
+
+Black fog draws above soldiers and map elements, separate from `CameraFogOverlay` and `MapEdgeFog`. Polygons live on the map prefab: the point count can grow, and points connect in order into one face. Outside every polygon, monsters are visible and deploy is allowed.
+
+Exploration recalculates every round. Permanent light from capture points does not reset.
+
+| State | When | Presentation |
+|-------|------|----------------|
+| Unseen | Inside a polygon, not covered this round by temporary reveal or permanent light | Alpha `UnexploredAlpha` (default 0.9). The map shows. Normal monsters hide. The Final Boss and Mini Bosses stay visible |
+| Temporary reveal | Ground-plane XZ circle of radius `RevealRadius` (default 2) around each living friendly | Alpha 0. Monsters in the circle show. Normal monsters in the circle become discovered |
+| Explored dark | An area was temporarily revealed, then the soldier died or left, and no temporary reveal still covers it | Alpha `ExploredAlpha` (default 0.7). Discovered normal monsters that are standing in explored-dark, permanent light, or outside polygons stay visible. A normal monster that walks into a still-unseen area hides again |
+| Permanent light | Capture point activated | Ground-plane XZ circle of the configured radius, alpha 0, kept across rounds. Deploy is allowed inside, and monsters there are visible |
+
+Radii are circles on the ground. Under the isometric camera they appear tilted with the map. Fog drawing is Approach A (grid stamp). Ground cell size is 0.25. Slice 04b writes `Revealed` / `Explored` in place on the same grid: each frame stamps living soldiers' `RevealRadius`; cells no longer covered go dark. The sheet lies on the ground at `sortingOrder` 250, above the map and soldiers (200) and below projectiles (320). Final Boss and Mini Boss sprites are raised to 280 so they draw above the sheet. The sheet writes one texel per cell, the same cost as the hard-edged sheet. A shader fades edges over 0.5 ground units by weighting neighboring cells, instead of rebuilding every texel on the CPU. Borders stay translucent and are not square stairs. Cell size 0.25 and the three states stay the same. A normal monster whose center is on an unseen cell is hidden; one inside the circle becomes discovered; a discovered monster in explored-dark or outside polygons stays visible and hides again on an unseen cell. A deploy click or NavMesh point on unseen, temporary-reveal, or explored-dark cells places nobody. Outside (`Outside`) still allows deploy. Re-entry destroys and rebuilds the grid, so this round's exploration clears, then activated capture circles are stamped permanent again from the save.
+
+**Capture points**
+
+Positions are on the map prefab. Radius comes from `CocCapturePointConfig`. A friendly soldier's center entering that ground circle activates it; each capture point activates once. Activation is saved and, per `CocCaptureRewardConfig`, adds remaining count to Dig / Shop / AutoManufacture nodes of the same difficulty. Re-entry does not grant again. A cleared target node gains nothing. Approach A (fourth grid state): after the fog grid is rebuilt, activated circles stamp cells permanent; temporary reveal does not overwrite them. A round-loss re-entry resets exploration and re-stamps permanent light from the save.
+
+**Win and loss**
+
+- Victory: this map's single `FinalBoss` dies. Remaining count is not decremented. The Sandbox node is marked cleared, the cell shows 「已通关」 and cannot be entered, then the game returns to the same difficulty Sandbox.
+- Round loss: the player presses Quit; or every friendly on the field is dead and the pool has no soldier left to deploy. Deployed soldiers do not return to the pool (ones still alive on quit are removed too). Soldiers never deployed stay in the pool. Then remaining count decrements by 1.
+- If remaining is still above 0: return to the same difficulty Sandbox. The next entry resets monsters, fog exploration, and units on the field; activated capture points and their permanent light remain.
+- If remaining is 0: final loss, return to Title. Capture points and consumed soldiers stay as saved. A node at 0 cannot be entered.
+- Mini Bosses are not a win condition. Each COC map's spawn config has exactly one `FinalBoss` row.
+
+**Explicitly out**
+
+Formation and tactical formation, shield, loss-of-control / rebels, the protagonist, experience and the PushMap settlement popup, SearchExtract gather points and hold camera.
 
 ---
 

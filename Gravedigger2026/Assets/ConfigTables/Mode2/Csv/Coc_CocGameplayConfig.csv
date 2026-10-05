@@ -1,0 +1,4 @@
+GameplayConfigId,MapId,RevealRadius,UnexploredAlpha,ExploredAlpha,CardHoldSeconds,DeployHoldIntervalSeconds
+Coc_Normal,Coc_Lv2_01,2,0.9,0.7,1,0.1
+Coc_Hard,Coc_Lv2_01,2,0.9,0.7,1,0.1
+Coc_Hell,Coc_Lv2_01,2,0.9,0.7,1,0.1

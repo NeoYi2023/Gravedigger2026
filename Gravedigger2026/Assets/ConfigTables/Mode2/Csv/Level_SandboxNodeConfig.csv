@@ -1,0 +1,13 @@
+NodeId,DifficultyId,SortOrder,DisplayName,GameplayType,RepeatEnterCount,GameplayConfigId
+SB_N_Dig,Diff_Normal,1,挖坟,Dig,3,Dig_01
+SB_N_Coc,Diff_Normal,2,COC战斗,CocCombat,1,Coc_Normal
+SB_N_Shop,Diff_Normal,3,商店,Shop,5,
+SB_N_AM,Diff_Normal,4,自动制造士兵,AutoManufacture,2,
+SB_H_Dig,Diff_Hard,1,挖坟,Dig,3,Dig_01
+SB_H_Coc,Diff_Hard,2,COC战斗,CocCombat,1,Coc_Hard
+SB_H_Shop,Diff_Hard,3,商店,Shop,5,
+SB_H_AM,Diff_Hard,4,自动制造士兵,AutoManufacture,2,
+SB_L_Dig,Diff_Hell,1,挖坟,Dig,3,Dig_01
+SB_L_Coc,Diff_Hell,2,COC战斗,CocCombat,1,Coc_Hell
+SB_L_Shop,Diff_Hell,3,商店,Shop,5,
+SB_L_AM,Diff_Hell,4,自动制造士兵,AutoManufacture,2,

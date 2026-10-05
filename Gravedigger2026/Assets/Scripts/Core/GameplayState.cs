@@ -14,6 +14,8 @@ namespace Gravedigger2026.Core
         /// <summary>Mode2 shop stage (SPEC_03 §3.5 / §3.9 / D-075).</summary>
         Shop = 5,
         /// <summary>Mode2 SearchExtract SubLevel (SPEC_03 §3.19 / D-087).</summary>
-        SearchExtract = 6
+        SearchExtract = 6,
+        /// <summary>Sandbox COC combat (SPEC_03 §3.21 / D-099). Not a LevelOperation stage.</summary>
+        CocCombat = 7
     }
 }

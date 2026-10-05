@@ -105,6 +105,8 @@ namespace Gravedigger2026.UI
                     return "当前玩法：推图战（PushMap）";
                 case GameplayState.SearchExtract:
                     return "当前玩法：搜打撤（SearchExtract）";
+                case GameplayState.CocCombat:
+                    return "当前玩法：COC战斗（CocCombat）";
                 default:
                     return "当前玩法：未知";
             }

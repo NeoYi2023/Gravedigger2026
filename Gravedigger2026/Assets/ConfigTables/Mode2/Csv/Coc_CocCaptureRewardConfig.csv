@@ -1,0 +1,4 @@
+RewardId,CapturePointId,TargetNodeId,AddCount
+R_N,CP_Normal,SB_N_Dig,1
+R_H,CP_Hard,SB_H_Shop,1
+R_L,CP_Hell,SB_L_AM,1

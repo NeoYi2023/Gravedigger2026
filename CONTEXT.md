@@ -5,7 +5,7 @@
 | 术语 (EN) | 中文 | 定义摘要 | SPEC |
 |-----------|------|----------|------|
 | Gravedigger2026 | 本项目 | Unity 工程与工作区名称 | [SPEC_02](SPEC_02_GameOverview.md) |
-| GameplayState | 玩法状态 | Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap / **Shop**（Mode2 商店阶段）、**SearchExtract**（搜打撤；Mode2 子关卡 §3.19）；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| GameplayState | 玩法状态 | Dig / AutoManufacture / UpgradeManufacture / Defend / PushMap / **Shop**（Mode2 商店阶段）、**SearchExtract**（搜打撤；Mode2 子关卡 §3.19）、**CocCombat**（COC 战斗；沙盘进入 §3.21）；关卡内由阶段玩法类型驱动 | [§3.1](SPEC_03_GameRules.md)、[§3.7](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
 | SaveSlot | 存档槽 | 固定 3 槽本地存档位；占用旗共享；士兵池/布阵/副本解锁等按槽 **且按 CampaignMode** PlayerPrefs | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignMode | 玩法模式 | 存档进出门闩：`Mode1` / `Mode2`；同槽进度隔离；Mode2 读独立配置根；**勿与** BattleMode（保卫/推图）混淆；Mode1 手动制造 §3.11，Mode2 自动制造 §3.15 | [§3.1](SPEC_03_GameRules.md)、[§3.4](SPEC_03_GameRules.md)、[§3.15](SPEC_03_GameRules.md) |
 | AutoManufacture | 自动制造 | Mode2 阶段：Dig 后自动选料造兵→临时仓库→清空布阵按职业区上阵→再进 UM | [§3.15](SPEC_03_GameRules.md) |
@@ -54,7 +54,14 @@
 | ShopProgress | 商店进度 | 存档商店快照：解锁关卡号、pending 开放、刷新次数、6 项 offers | [§3.5](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | LevelRouteProgress | 关卡路线进度 | 存档已通关 `GameplayOptionId` 集合；进关派生解锁；按槽+CampaignMode | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignModeSelect | 玩法模式选择 | UI-014 保留；本 Demo 新建/进入不弹出（直进 Mode2）；Mode1 入口后置（D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
-| DifficultySelectHost | 难度选择宿主 | **新建进档** / 工具「关卡」/ 关卡结束回壳中心面（UI-029 / D-081）：三栏等宽同屏（各约 1/3）；悬停显示难度描述；仅普通点击进 UI-031；Hard/Hell Toast；**进入占用档跳过**直开 UI-031（默认最大 Cleared Stage 所在已解锁 LevelId）；无栏内 LevelSelect / 无 MapHost；表驱动描述/解锁/通关奖见 `DifficultyConfig`（接线后置） | [§3.1](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md)、[§3.9](SPEC_03_GameRules.md) |
+| DifficultySelectHost | 难度选择宿主 | **新建进档** / 工具「关卡」先打开（UI-029 / D-081）：三栏等宽同屏；悬停显示难度描述；**任意难度**进沙盘 UI-036；**进入占用档**与结束回沙盘（默认 `Diff_Normal`）；无栏内 LevelSelect / 无 MapHost | [§3.5](SPEC_03_GameRules.md)、[§3.20](SPEC_03_GameRules.md) |
+| Sandbox | 沙盘界面 | 难度之后的横向关卡入口（UI-036 / D-098 / D-099）；方格显示玩法名与存档剩余次数，次数拦截进入 | [§3.20](SPEC_03_GameRules.md) |
+| SandboxNode | 沙盘节点 | `Level_SandboxNodeConfig` 一行：难度、排序、玩法名、类型、初始剩余次数、可选玩法配置 | [§3.20](SPEC_03_GameRules.md)、[SPEC_04 §9.1c](SPEC_04_Technical.md) |
+| SandboxProgress | 沙盘进度 | 按槽与模式保存的节点剩余次数、通关标记、已激活 COC 占领点 | [§3.20](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| CocCombat | COC战斗 | 沙盘玩法 / `GameplayState`；洒兵代替布阵；击杀唯一最终 BOSS 通关 | [§3.21](SPEC_03_GameRules.md) |
+| CocDeploy | 洒兵 | 按 `ClassId` 分组，把士兵库最前一名放到可洒区域；洒出即从库删除 | [§3.21](SPEC_03_GameRules.md) |
+| CocFog | 战场迷雾 | 地图多边形黑雾：无士兵信息 / 临时亮起 / 变暗；另有占领点永久亮起。与镜头滤镜、地图外缘雾分开 | [§3.21](SPEC_03_GameRules.md) |
+| CocCapturePoint | COC占领点 | 士兵进入后激活并存档；永久亮起，并可给同一难度的其他沙盘玩法加次数 | [§3.21](SPEC_03_GameRules.md)、[SPEC_04 §9.37](SPEC_04_Technical.md) |
 | DifficultyConfig | 关卡难度表 | `Level_DifficultyConfig`：DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
 | DifficultyId | 难度ID | 难度表主键；运作表归属字段 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
 | UnlockRequireDifficultyId | 解锁所需难度ID | 空=初始解锁；填 DifficultyId=等通关；找不到=不可解锁 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
@@ -62,8 +69,8 @@
 | TitleMenu | 登录主界面 | Boot 首屏；顶中 GameName（Title_GameName）；主按钮双态开始/继续 → SaveSelect；设置 → UI-028；共享 TitleScreenBackground（UI-027） | [§3.2](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
-| InSaveShell | 进档壳层 | 进档后常驻壳（**新建**默认难度 Hub；**进入占用档**直开 UI-031；玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → UI-031）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064；UM 布阵或 Mode2 Prepare 布阵打开时可用） | [§3.5](SPEC_03_GameRules.md) |
+| InSaveShell | 进档壳层 | 进档后常驻壳（**新建**默认难度 Hub；**进入占用档**直开沙盘 UI-036；玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md)、[§3.20](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → 沙盘 UI-036）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064；UM 布阵或 Mode2 Prepare 布阵打开时可用） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
 | BgmConfig | BGM 配置表 | `Audio_BgmConfig`：BgmId / Context / ClipId / Loop / Weight / Volume | [SPEC_04 §9.29](SPEC_04_Technical.md) |
@@ -79,7 +86,7 @@
 | SubLevelConfig | 子关卡表 | `Level_SubLevelConfig`；PK=`GameplayOptionId`；含 `TipMessages` / `IconAssetId2`（Tips 专用） | [SPEC_04 §9.31](SPEC_04_Technical.md) |
 | TipMessages | 子关卡 Tips 消息 | 编码 `MsgType;StockScale\|…`（≤3；尺度∈[-3,-1]∪[1,3]）；类型名←`TipMsg_*` | [SPEC_04 §9.31](SPEC_04_Technical.md) |
 | IconAssetId2 | Tips 中部图标 | 子关卡列；仅悬停 Tips；空=不显示；与地图钉点 `IconAssetId` 分离 | [SPEC_04 §9.31](SPEC_04_Technical.md) |
-| RouteSelect | 关卡路线选择 | Prefab（UI-031）：壳 `LevelRouteSelectRoot`（`Box` 全屏；`MapScroll` 竖向铺满、宽 1920 水平居中；地图内容 1450 视口内居中；`Title`/页签叠地图上）+ 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
+| RouteSelect | 关卡路线选择 | **保留**；难度 / 占用档 / 结束不再打开。Prefab（UI-031）：壳 `LevelRouteSelectRoot`（`Box` 全屏；`MapScroll` 竖向铺满、宽 1920 水平居中；地图内容 1450 视口内居中；`Title`/页签叠地图上）+ 每关 `LevelRouteMap_{LevelId}`（底图+`GameplayOptionId` 钉点；场景仅 Icon，地图 Icon 三态：已通关 Checkmark / 可选择慢闪缩放 / 未解锁变暗；悬停 Tips 按 GameplayType 分型：Dig=`TipMessages`；Shop/AM/UM=`IconAssetId2`+Description；PushMap/SE/Defend=`IconAssetId2`+Reward 图标）；页签/`Title` 显示运作表 `LevelName`；无地图 Prefab 时 Stage 行+横向完整选项卡；跨 Stage 连线 | [§3.9](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) UI-031 |
 | LevelRouteMap | 关卡路线地图 | 每关独立 Prefab `Assets/Prefabs/Level/LevelRouteMap_{LevelId}.prefab`；底图 + 选项钉点（子节点名=`GameplayOptionId`）；Editor `Ensure LevelRouteMap Prefabs` / `Sync LevelRouteMap Pins` | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §2](SPEC_04_Technical.md) / §9.31 |
 | DigGameplayConfig | 挖坟配置 | 基础时长、开局坟数、过程生成速率、品质权重（零权重剔除） | [§3.10](SPEC_03_GameRules.md)、[SPEC_04 §9](SPEC_04_Technical.md) |
 | DigMap | 挖坟地图 | 菱形外观；逻辑为整体可放置空间（非格子）；表现 Prefab `Ground_01`…`Ground_05`（`DigMapId`） | [§3.10](SPEC_03_GameRules.md) |

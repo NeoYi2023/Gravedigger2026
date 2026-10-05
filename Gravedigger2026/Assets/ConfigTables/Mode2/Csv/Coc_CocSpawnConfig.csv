@@ -1,0 +1,10 @@
+GameplayConfigId,SpawnPointId,MonsterId,SpawnCount,SpawnRole,SpawnOrder
+Coc_Normal,SP_01,Monster_01,3,Normal,1
+Coc_Normal,SP_Mini,Monster_01,1,MiniBoss,1
+Coc_Normal,SP_Final,Monster_01,1,FinalBoss,1
+Coc_Hard,SP_01,Monster_01,3,Normal,1
+Coc_Hard,SP_Mini,Monster_01,1,MiniBoss,1
+Coc_Hard,SP_Final,Monster_01,1,FinalBoss,1
+Coc_Hell,SP_01,Monster_01,3,Normal,1
+Coc_Hell,SP_Mini,Monster_01,1,MiniBoss,1
+Coc_Hell,SP_Final,Monster_01,1,FinalBoss,1

@@ -2,12 +2,14 @@ using System.Collections.Generic;
 using Gravedigger2026.Core;
 using Gravedigger2026.Core.Audio;
 using Gravedigger2026.Core.AutoManufacture;
+using Gravedigger2026.Core.Coc;
 using Gravedigger2026.Core.Config;
 using Gravedigger2026.Core.Dig;
 using Gravedigger2026.Core.Level;
 using Gravedigger2026.Core.ProtagonistEquipment;
 using Gravedigger2026.Core.PushMap;
 using Gravedigger2026.Core.Rewards;
+using Gravedigger2026.Core.Sandbox;
 using Gravedigger2026.Core.Settings;
 using Gravedigger2026.Core.Shop;
 using Gravedigger2026.Core.Tech;
@@ -70,6 +72,7 @@ namespace Gravedigger2026.Meta
         private ProtagonistEquipmentService _protagonistEquipment;
         private readonly ShopProgressService _shopProgress = new ShopProgressService();
         private readonly LevelRouteProgressService _levelRouteProgress = new LevelRouteProgressService();
+        private readonly SandboxProgressService _sandboxProgress = new SandboxProgressService();
         private readonly ShopOfferRefreshService _shopOfferRefresh = new ShopOfferRefreshService();
         private ShopPurchaseService _shopPurchase;
         private ShopSellService _shopSell;
@@ -86,8 +89,15 @@ namespace Gravedigger2026.Meta
         private DefendStageModule _defendModule;
         private PushMapStageModule _pushMapModule;
         private SearchExtractStageModule _searchExtractModule;
+        private CocCombatStageModule _cocModule;
         private LevelOperationDriver _levelDriver;
         private LevelRouteSelectView _routeSelectView;
+        private SandboxRootView _sandboxView;
+        private DigStageModule _digModule;
+        private AutoManufactureStageModule _autoMfgModule;
+        private string _sandboxDifficultyId = "Diff_Normal";
+        private bool _sandboxSession;
+        private LevelStageContext _sandboxContext;
         private readonly List<string> _routeLevelIds = new List<string>();
         private RewardGrantService _rewardGrant;
         private CameraFogService _cameraFog;
@@ -156,37 +166,37 @@ namespace Gravedigger2026.Meta
                 Debug.LogWarning("[MetaShell] ShopPrefabCatalog missing — Shop stage uses runtime full-screen fallback.");
             }
 
-            _levelDriver.RegisterModule(
-                new AutoManufactureStageModule(
-                    _autoManufacture,
-                    _formation,
-                    autoDeploy,
-                    _configs,
-                    _defendPrefabCatalog,
-                    _warriorPool,
-                    _autoMfgWorldParent != null ? _autoMfgWorldParent : transform,
-                    _specialEquipSlots,
-                    _autoMfgPresentationFlags,
-                    HandleAutoManufactureComplete,
-                    HandleAutoManufactureNoSoldiers,
-                    _autoManufactureBatchRecord,
-                    _autoMfgPrefabCatalog));
+            _autoMfgModule = new AutoManufactureStageModule(
+                _autoManufacture,
+                _formation,
+                autoDeploy,
+                _configs,
+                _defendPrefabCatalog,
+                _warriorPool,
+                _autoMfgWorldParent != null ? _autoMfgWorldParent : transform,
+                _specialEquipSlots,
+                _autoMfgPresentationFlags,
+                HandleAutoManufactureComplete,
+                HandleAutoManufactureNoSoldiers,
+                _autoManufactureBatchRecord,
+                _autoMfgPrefabCatalog);
+            _levelDriver.RegisterModule(_autoMfgModule);
             if (_digPrefabCatalog != null)
             {
-                _levelDriver.RegisterModule(
-                    new DigStageModule(
-                        _configs,
-                        _digPrefabCatalog,
-                        _digWorldParent != null ? _digWorldParent : transform,
-                        _warehouse,
-                        _techTree,
-                        HandleDigSummaryConfirmed,
-                        SetStagePresentationActive,
-                        _specialEquipSlots,
-                        _protagonistEquipment,
-                        _gmSoldierGrant,
-                        _defendPrefabCatalog,
-                        _bgm));
+                _digModule = new DigStageModule(
+                    _configs,
+                    _digPrefabCatalog,
+                    _digWorldParent != null ? _digWorldParent : transform,
+                    _warehouse,
+                    _techTree,
+                    HandleDigSummaryConfirmed,
+                    SetStagePresentationActive,
+                    _specialEquipSlots,
+                    _protagonistEquipment,
+                    _gmSoldierGrant,
+                    _defendPrefabCatalog,
+                    _bgm);
+                _levelDriver.RegisterModule(_digModule);
             }
             else
             {
@@ -284,6 +294,13 @@ namespace Gravedigger2026.Meta
                     HandleBattleFailureRestart,
                     SetStagePresentationActive);
                 _levelDriver.RegisterModule(_searchExtractModule);
+                _cocModule = new CocCombatStageModule(
+                    _configs,
+                    _defendPrefabCatalog,
+                    _warriorPool,
+                    _sandboxProgress,
+                    _digWorldParent != null ? _digWorldParent : transform,
+                    HandleCocRoundEnded);
             }
             else
             {
@@ -334,8 +351,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.GrantMagicBookRequested += HandleGrantMagicBook;
                 _inSaveShellView.GrantAddSoldierRequested += HandleGrantAddSoldier;
                 _inSaveShellView.LevelSelectPicked += HandleToolsLevelSelectPicked;
-                _inSaveShellView.LockedDifficultyClicked += HandleLockedDifficultyClicked;
-                _inSaveShellView.DifficultySelected += HandleNormalDifficultySelected;
+                _inSaveShellView.DifficultyPicked += HandleDifficultyPicked;
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
                 _inSaveShellView.GmGrantLevelPicked += HandleGmGrantLevelPicked;
                 _inSaveShellView.GmAddSoldierAddClicked += HandleGmAddSoldierAdd;
@@ -390,6 +406,12 @@ namespace Gravedigger2026.Meta
                 _routeSelectView.LevelTabSelected -= HandleLevelTabSelected;
                 _routeSelectView.LockedLevelTabClicked -= HandleLockedLevelTabClicked;
                 _routeSelectView.Closed -= HandleRouteClosed;
+            }
+
+            if (_sandboxView != null)
+            {
+                _sandboxView.BackRequested -= HandleSandboxBack;
+                _sandboxView.NodeClicked -= HandleSandboxNodeClicked;
             }
         }
 
@@ -615,13 +637,24 @@ namespace Gravedigger2026.Meta
             _protagonistEquipment?.ClearBound();
             _shopProgress.ClearBound();
             _levelRouteProgress.ClearBound();
+            _sandboxProgress.ClearBound();
             _autoManufactureBatchRecord.ClearBound();
             _campaignMode.Clear();
             SetStagePresentationActive(false);
 
+            if (_sandboxSession)
+            {
+                ExitSandboxModule();
+            }
+
             if (_routeSelectView != null)
             {
                 _routeSelectView.Hide();
+            }
+
+            if (_sandboxView != null)
+            {
+                _sandboxView.Hide();
             }
 
             DestroyOrphanRouteSelect();
@@ -753,6 +786,7 @@ namespace Gravedigger2026.Meta
             _protagonistEquipment?.BindSlot(slotIndex, mode);
             _shopProgress.BindSlot(slotIndex, mode);
             _levelRouteProgress.BindSlot(slotIndex, mode);
+            _sandboxProgress.BindSlot(slotIndex, mode);
             _autoManufactureBatchRecord.BindSlot(slotIndex, mode);
             if (!_configs.TryLoadAll(mode))
             {
@@ -801,14 +835,14 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.ShowStageInfo(null);
             }
 
-            // Create → difficulty Hub; occupied Enter → skip Hub, open UI-031 at max Cleared Stage (D-081).
+            // Create → difficulty Hub; occupied Enter → Sandbox at Diff_Normal (D-098).
             if (isNewSave)
             {
                 OpenLevelSelectPanel();
             }
             else
             {
-                OpenRouteSelectForOccupiedEnter();
+                OpenSandbox("Diff_Normal");
             }
         }
 
@@ -900,6 +934,7 @@ namespace Gravedigger2026.Meta
             AutoManufactureBatchRecordService.DeleteSlotData(slotIndex);
             ShopProgressService.DeleteSlotData(slotIndex);
             LevelRouteProgressService.DeleteSlotData(slotIndex);
+            SandboxProgressService.DeleteSlotData(slotIndex);
             if (_saveSelectView != null)
             {
                 _saveSelectView.RefreshAll();
@@ -1044,6 +1079,11 @@ namespace Gravedigger2026.Meta
 
         private void HandleShopStageComplete()
         {
+            if (ScheduleSandboxReturn())
+            {
+                return;
+            }
+
             AdvanceStageFromGameplay();
         }
 
@@ -1118,6 +1158,11 @@ namespace Gravedigger2026.Meta
 
         private void HandleDigSummaryConfirmed()
         {
+            if (ScheduleSandboxReturn())
+            {
+                return;
+            }
+
             AdvanceStageFromGameplay();
         }
 
@@ -1140,6 +1185,13 @@ namespace Gravedigger2026.Meta
         {
             // Re-entrancy: StageModule.Enter must finish. Zero-craft Tips are ~1s on the AM shell.
             yield return null;
+            if (_sandboxSession)
+            {
+                ExitSandboxModule();
+                OpenSandbox(_sandboxDifficultyId);
+                yield break;
+            }
+
             AdvanceStageFromGameplay();
         }
 
@@ -1856,145 +1908,465 @@ namespace Gravedigger2026.Meta
             return levels;
         }
 
-        private void HandleLockedDifficultyClicked()
+        private void HandleDifficultyPicked(DifficultySelectHostView.DifficultyKind kind)
         {
-            if (_toastView != null)
-            {
-                _toastView.Show("还未制作");
-            }
+            OpenSandbox(DifficultySelectHostView.ToDifficultyId(kind));
         }
 
-        private void HandleNormalDifficultySelected()
-        {
-            OpenRouteSelectWithDefaultLevel(preferMaxClearedStage: false);
-        }
-
-        /// <summary>
-        /// Occupied-slot Enter: skip DifficultySelectHost and open UI-031 (SPEC_03 §3.2 / D-081).
-        /// </summary>
-        private void OpenRouteSelectForOccupiedEnter()
-        {
-            OpenRouteSelectWithDefaultLevel(preferMaxClearedStage: true);
-        }
-
-        /// <param name="preferMaxClearedStage">
-        /// True → default LevelId = unlocked level hosting Cleared options with max StageNumber
-        /// (tie → later in unlocked list; none Cleared → last unlocked). False → last unlocked only.
-        /// </param>
-        private void OpenRouteSelectWithDefaultLevel(bool preferMaxClearedStage)
+        private void OpenSandbox(string difficultyId)
         {
             if (!_configs.IsLoaded)
             {
                 _configs.TryLoadAll();
             }
 
-            var levelIds = _configs.GetDistinctLevelIds();
-            if (levelIds == null || levelIds.Count == 0)
+            if (string.IsNullOrEmpty(difficultyId))
+            {
+                difficultyId = "Diff_Normal";
+            }
+
+            _sandboxDifficultyId = difficultyId;
+            if (_routeSelectView != null)
+            {
+                _routeSelectView.Hide();
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.HideToolsPanel();
+                _inSaveShellView.HideGmGrantListPanel();
+                _inSaveShellView.HideGmAddSoldierPanel();
+                _inSaveShellView.HideEquipmentWarehousePanel();
+                _inSaveShellView.HideMagicBookSlotsPanel();
+                _inSaveShellView.HideLevelSelectPanel();
+                _inSaveShellView.HideDifficultySelectHost();
+                _inSaveShellView.ShowStageInfo(null);
+            }
+
+            EnsureSandboxView();
+            if (_sandboxView == null)
+            {
+                return;
+            }
+
+            var nodes = _configs.GetSandboxNodes(difficultyId);
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                if (node == null)
+                {
+                    continue;
+                }
+
+                _sandboxProgress.EnsureSeen(node.NodeId, node.RepeatEnterCount);
+            }
+
+            _sandboxProgress.FlushNewNodes();
+            _sandboxView.Show(SandboxDifficultyTitle(difficultyId), nodes, _sandboxProgress.TryGetNode);
+            RefreshCameraFogMetaBlocking();
+        }
+
+        private static string SandboxDifficultyTitle(string difficultyId)
+        {
+            switch (difficultyId)
+            {
+                case "Diff_Hard":
+                    return "困难";
+                case "Diff_Hell":
+                    return "地狱";
+                default:
+                    return "普通";
+            }
+        }
+
+        private void EnsureSandboxView()
+        {
+            if (_sandboxView != null)
+            {
+                return;
+            }
+
+            var parent = FindMetaCanvas();
+            if (parent == null)
+            {
+                parent = transform;
+            }
+
+            var prefab = Resources.Load<GameObject>("Prefabs/Sandbox/SandboxRoot");
+            if (prefab != null)
+            {
+                var go = Instantiate(prefab, parent);
+                go.name = "SandboxRoot";
+                go.SetActive(false);
+                _sandboxView = go.GetComponent<SandboxRootView>();
+            }
+
+            if (_sandboxView == null)
+            {
+                _sandboxView = SandboxRuntimeFactory.Create(parent);
+            }
+
+            if (_sandboxView == null)
+            {
+                return;
+            }
+
+            _sandboxView.BackRequested += HandleSandboxBack;
+            _sandboxView.NodeClicked += HandleSandboxNodeClicked;
+            _sandboxView.Hide();
+        }
+
+        private void HandleCocRoundEnded(CocRoundResult result)
+        {
+            var nodeId = _sandboxContext != null ? _sandboxContext.GameplayOptionId : null;
+            ExitSandboxModule();
+
+            if (result == CocRoundResult.Victory)
+            {
+                if (!string.IsNullOrEmpty(nodeId))
+                {
+                    _sandboxProgress.TryMarkCleared(nodeId);
+                }
+
+                OpenSandbox(_sandboxDifficultyId);
+                return;
+            }
+
+            var remaining = 0;
+            if (!string.IsNullOrEmpty(nodeId))
+            {
+                _sandboxProgress.TryConsumeRoundLoss(nodeId, out remaining);
+            }
+
+            if (remaining > 0)
+            {
+                OpenSandbox(_sandboxDifficultyId);
+                return;
+            }
+
+            ShowTitleMenu();
+        }
+
+        private void HandleSandboxBack()
+        {
+            if (_sandboxView != null)
+            {
+                _sandboxView.Hide();
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.ShowDifficultySelectHost();
+            }
+        }
+
+        private void HandleSandboxNodeClicked(string nodeId)
+        {
+            if (!_configs.TryGetSandboxNode(nodeId, out var row) || row == null)
             {
                 if (_toastView != null)
                 {
-                    _toastView.Show("当前模式无可用关卡");
+                    _toastView.Show("沙盘节点不存在");
                 }
 
                 return;
             }
 
-            CacheRouteLevelIds(levelIds);
-            var unlocked = CollectUnlockedLevelIds(levelIds);
-            if (unlocked.Count == 0)
+            if (!_sandboxProgress.CanEnter(nodeId))
+            {
+                return;
+            }
+
+            if (row.GameplayType == SandboxNodeConfigRow.TypeCocCombat)
+            {
+                if (!TryBuildSandboxContext(row, out var cocContext, out var cocError))
+                {
+                    if (_toastView != null)
+                    {
+                        _toastView.Show(string.IsNullOrEmpty(cocError) ? "无法进入该玩法" : cocError);
+                    }
+
+                    return;
+                }
+
+                if (_cocModule == null)
+                {
+                    if (_toastView != null)
+                    {
+                        _toastView.Show("COC模块未就绪");
+                    }
+
+                    return;
+                }
+
+                _sandboxContext = cocContext;
+                _sandboxSession = true;
+                if (_sandboxView != null)
+                {
+                    _sandboxView.Hide();
+                }
+
+                _gameplayState.SetState(cocContext.GameplayType);
+                if (_inSaveShellView != null)
+                {
+                    _inSaveShellView.ShowGameplayState(cocContext.GameplayType);
+                    _inSaveShellView.ShowStageInfo(cocContext);
+                }
+
+                SetStagePresentationActive(true);
+                _cocModule.Enter(cocContext);
+                return;
+            }
+
+            if (!TryBuildSandboxContext(row, out var context, out var error))
             {
                 if (_toastView != null)
                 {
-                    _toastView.Show("当前无已解锁关卡");
-                }
-
-                // Occupied enter with nothing unlockable: fall back to Hub rather than blank shell.
-                if (preferMaxClearedStage)
-                {
-                    OpenLevelSelectPanel();
+                    _toastView.Show(string.IsNullOrEmpty(error) ? "无法进入该玩法" : error);
                 }
 
                 return;
             }
 
-            var defaultId = preferMaxClearedStage
-                ? ResolveLevelIdWithMaxClearedStage(unlocked)
-                : unlocked[unlocked.Count - 1];
-            HandleLevelSelectPicked(defaultId, bypassUnlockGate: false);
-        }
-
-        /// <summary>
-        /// Among unlocked LevelIds, pick the one whose Cleared options reach the highest StageNumber.
-        /// Ties prefer the later entry in <paramref name="unlocked"/>; no Cleared → last unlocked.
-        /// </summary>
-        private string ResolveLevelIdWithMaxClearedStage(IReadOnlyList<string> unlocked)
-        {
-            var fallback = unlocked[unlocked.Count - 1];
-            if (_levelRouteProgress == null || _configs == null)
+            if (!IsSandboxModuleReady(row.GameplayType, out var readyError))
             {
-                return fallback;
+                if (_toastView != null)
+                {
+                    _toastView.Show(readyError);
+                }
+
+                return;
             }
 
-            var bestStage = 0;
-            var bestId = fallback;
-            for (var i = 0; i < unlocked.Count; i++)
+            if (!_sandboxProgress.TryConsumeEnter(nodeId))
             {
-                var levelId = unlocked[i];
-                if (string.IsNullOrEmpty(levelId))
-                {
-                    continue;
-                }
-
-                var maxStage = GetMaxClearedStageNumberForLevel(levelId);
-                if (maxStage > bestStage)
-                {
-                    bestStage = maxStage;
-                    bestId = levelId;
-                }
-                else if (maxStage == bestStage && maxStage > 0)
-                {
-                    // Same StageNumber: prefer later unlocked (further campaign progress).
-                    bestId = levelId;
-                }
+                return;
             }
 
-            return bestId;
-        }
-
-        private int GetMaxClearedStageNumberForLevel(string levelId)
-        {
-            var stages = _configs.GetStagesForLevel(levelId);
-            if (stages == null || stages.Count == 0)
+            _sandboxContext = context;
+            _sandboxSession = true;
+            if (_sandboxView != null)
             {
-                return 0;
+                _sandboxView.Hide();
             }
 
-            var maxStage = 0;
-            for (var i = 0; i < stages.Count; i++)
+            _gameplayState.SetState(context.GameplayType);
+            if (_inSaveShellView != null)
             {
-                var stage = stages[i];
-                var ids = stage.GameplayOptionIds;
-                if (ids == null)
-                {
-                    continue;
-                }
+                _inSaveShellView.ShowGameplayState(context.GameplayType);
+                _inSaveShellView.ShowStageInfo(context);
+            }
 
-                for (var j = 0; j < ids.Length; j++)
-                {
-                    var oid = ids[j];
-                    if (string.IsNullOrEmpty(oid))
+            switch (row.GameplayType)
+            {
+                case SandboxNodeConfigRow.TypeDig:
+                    if (_digModule == null)
                     {
-                        continue;
+                        FailSandboxEnter("挖坟模块未就绪");
+                        return;
                     }
 
-                    if (_levelRouteProgress.IsCleared(oid) && stage.StageNumber > maxStage)
+                    _digModule.Enter(context);
+                    break;
+                case SandboxNodeConfigRow.TypeShop:
+                    if (_shopModule == null)
                     {
-                        maxStage = stage.StageNumber;
+                        FailSandboxEnter("商店模块未就绪");
+                        return;
                     }
-                }
+
+                    DestroyShopOverlay();
+                    _shopModule.Enter(context);
+                    break;
+                case SandboxNodeConfigRow.TypeAutoManufacture:
+                    if (_autoMfgModule == null)
+                    {
+                        FailSandboxEnter("自动制造模块未就绪");
+                        return;
+                    }
+
+                    _autoMfgModule.Enter(context);
+                    break;
+                default:
+                    FailSandboxEnter("未知沙盘玩法");
+                    break;
+            }
+        }
+
+        private bool IsSandboxModuleReady(string gameplayType, out string error)
+        {
+            switch (gameplayType)
+            {
+                case SandboxNodeConfigRow.TypeDig:
+                    if (_digModule != null)
+                    {
+                        error = null;
+                        return true;
+                    }
+
+                    error = "挖坟模块未就绪";
+                    return false;
+                case SandboxNodeConfigRow.TypeShop:
+                    if (_shopModule != null)
+                    {
+                        error = null;
+                        return true;
+                    }
+
+                    error = "商店模块未就绪";
+                    return false;
+                case SandboxNodeConfigRow.TypeAutoManufacture:
+                    if (_autoMfgModule != null)
+                    {
+                        error = null;
+                        return true;
+                    }
+
+                    error = "自动制造模块未就绪";
+                    return false;
+                default:
+                    error = "未知沙盘玩法";
+                    return false;
+            }
+        }
+
+        private void FailSandboxEnter(string message)
+        {
+            _sandboxSession = false;
+            _sandboxContext = null;
+            if (_toastView != null)
+            {
+                _toastView.Show(message);
             }
 
-            return maxStage;
+            OpenSandbox(_sandboxDifficultyId);
+        }
+
+        private bool TryBuildSandboxContext(SandboxNodeConfigRow row, out LevelStageContext context, out string error)
+        {
+            context = new LevelStageContext
+            {
+                LevelId = string.Empty,
+                StageNumber = 0,
+                GameplayOptionId = row.NodeId,
+                GameplayConfigId = row.GameplayConfigId ?? string.Empty
+            };
+            error = null;
+            switch (row.GameplayType)
+            {
+                case SandboxNodeConfigRow.TypeDig:
+                    context.GameplayType = Gravedigger2026.Core.GameplayState.Dig;
+                    if (!_configs.TryGetDig(row.GameplayConfigId, out var dig) || dig == null)
+                    {
+                        error = "挖坟配置不存在";
+                        return false;
+                    }
+
+                    context.DigConfig = dig;
+                    context.ResolvedMapId = dig.DigMapId;
+                    if (!MapPrefabPaths.TryResolveAssetPath(dig.DigMapId, out var path, out var mapError))
+                    {
+                        error = mapError;
+                        return false;
+                    }
+
+                    context.ResolvedMapPrefabPath = path;
+                    return true;
+                case SandboxNodeConfigRow.TypeShop:
+                    context.GameplayType = Gravedigger2026.Core.GameplayState.Shop;
+                    context.GameplayConfigIgnored = true;
+                    return true;
+                case SandboxNodeConfigRow.TypeAutoManufacture:
+                    context.GameplayType = Gravedigger2026.Core.GameplayState.AutoManufacture;
+                    context.GameplayConfigIgnored = true;
+                    return true;
+                case SandboxNodeConfigRow.TypeCocCombat:
+                    context.GameplayType = Gravedigger2026.Core.GameplayState.CocCombat;
+                    if (!_configs.TryGetCoc(row.GameplayConfigId, out var coc) || coc == null)
+                    {
+                        error = "COC配置不存在";
+                        return false;
+                    }
+
+                    if (_defendPrefabCatalog == null
+                        || !_defendPrefabCatalog.TryGetMap(coc.MapId, out var cocMap)
+                        || cocMap == null)
+                    {
+                        error = "COC地图未就绪";
+                        return false;
+                    }
+
+                    context.CocConfig = coc;
+                    context.ResolvedMapId = coc.MapId;
+                    if (!MapPrefabPaths.TryResolveAssetPath(coc.MapId, out var cocPath, out var cocMapError))
+                    {
+                        error = cocMapError;
+                        return false;
+                    }
+
+                    context.ResolvedMapPrefabPath = cocPath;
+                    return true;
+                default:
+                    error = "无法进入该玩法";
+                    return false;
+            }
+        }
+
+        private bool ScheduleSandboxReturn()
+        {
+            if (!_sandboxSession)
+            {
+                return false;
+            }
+
+            StartCoroutine(CoReturnToSandbox());
+            return true;
+        }
+
+        private System.Collections.IEnumerator CoReturnToSandbox()
+        {
+            yield return null;
+            if (!_sandboxSession)
+            {
+                yield break;
+            }
+
+            ExitSandboxModule();
+            OpenSandbox(_sandboxDifficultyId);
+        }
+
+        private void ExitSandboxModule()
+        {
+            var context = _sandboxContext;
+            _sandboxSession = false;
+            _sandboxContext = null;
+            if (context == null)
+            {
+                return;
+            }
+
+            switch (context.GameplayType)
+            {
+                case Gravedigger2026.Core.GameplayState.Dig:
+                    _digModule?.Exit(context);
+                    break;
+                case Gravedigger2026.Core.GameplayState.Shop:
+                    _shopModule?.Exit(context);
+                    break;
+                case Gravedigger2026.Core.GameplayState.AutoManufacture:
+                    _autoMfgModule?.Exit(context);
+                    break;
+                case Gravedigger2026.Core.GameplayState.CocCombat:
+                    _cocModule?.Exit(context);
+                    _gameplayState.SetState(Gravedigger2026.Core.GameplayState.Dig);
+                    break;
+            }
+
+            SetStagePresentationActive(false);
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.ShowStageInfo(null);
+            }
         }
 
         private void HandleLockedLevelTabClicked(string levelId)
@@ -2203,12 +2575,12 @@ namespace Gravedigger2026.Meta
                 _toastView.Show(message);
             }
 
-            if (_inSaveShellView != null)
+            if (_sandboxSession)
             {
-                _inSaveShellView.ShowStageInfo(null);
-                _inSaveShellView.ShowDifficultySelectHost();
+                ExitSandboxModule();
             }
 
+            OpenSandbox(_sandboxDifficultyId);
             RefreshCameraFogMetaBlocking();
         }
 

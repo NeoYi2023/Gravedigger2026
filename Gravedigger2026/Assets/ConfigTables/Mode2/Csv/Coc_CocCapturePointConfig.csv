@@ -1,0 +1,4 @@
+CapturePointId,GameplayConfigId,Radius
+CP_Normal,Coc_Normal,3
+CP_Hard,Coc_Hard,3
+CP_Hell,Coc_Hell,3

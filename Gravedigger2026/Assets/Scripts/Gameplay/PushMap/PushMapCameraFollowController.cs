@@ -13,7 +13,9 @@ namespace Gravedigger2026.Gameplay.PushMap
     /// Auto: look-at CameraFollowPath at max living-loyal projection s; SmoothDamp retreat
     /// when the lead drops; freeze when none. Missing path falls back to closest loyal.
     /// Auto presentation: world-XZ FollowDeadzone + SmoothDamp; Snap on EnterAuto.
-    /// Manual: LMB drag pans XZ mirrored to screen delta (grab-map); ResumeFollow returns to Auto.
+    /// Manual: drag pans XZ mirrored to screen delta (grab-map). Default button is left.
+    /// COC sets the right button so the left button can deploy (SPEC_03 §3.21).
+    /// ResumeFollow returns to Auto.
     /// Scroll wheel zooms orthographicSize (forward zoom-in); clamp from CombatConstantConfig.
     /// SearchExtract HoldFraming (SE-CAM-02 / SPEC_03 §3.19): SetHoldFraming / Clear / Freeze;
     /// PushMap Stage must not call those APIs. ResumeFollow during Hold returns to Hold, not rail.
@@ -44,6 +46,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Button _resumeButton;
         private bool _combatActive;
         private Mode _mode = Mode.Auto;
+        private int _panMouseButton;
         private bool _dragArmed;
         private Vector3 _lastMousePosition;
         private float _dragAccumPixels;
@@ -155,6 +158,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             _holdFrozen = true;
         }
 
+        /// <summary>
+        /// Pan button for Manual drag. 0 = left (PushMap / SearchExtract). 1 = right (COC).
+        /// </summary>
+        public void SetPanMouseButton(int button)
+        {
+            _panMouseButton = button < 0 ? 0 : button;
+            _dragArmed = false;
+            _dragAccumPixels = 0f;
+        }
+
         public void EnableForCombat()
         {
             ResetHoldState();
@@ -186,6 +199,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         public void Disable()
         {
             _combatActive = false;
+            _panMouseButton = 0;
             _dragArmed = false;
             _mode = Mode.Auto;
             _smoothVelocity = Vector3.zero;
@@ -424,7 +438,7 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void HandleDragInput()
         {
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(_panMouseButton))
             {
                 if (IsPointerOverUi())
                 {
@@ -443,14 +457,14 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            if (Input.GetMouseButtonUp(0))
+            if (Input.GetMouseButtonUp(_panMouseButton))
             {
                 _dragArmed = false;
                 _dragAccumPixels = 0f;
                 return;
             }
 
-            if (!Input.GetMouseButton(0))
+            if (!Input.GetMouseButton(_panMouseButton))
             {
                 return;
             }

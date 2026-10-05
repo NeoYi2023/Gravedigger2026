@@ -52,8 +52,7 @@ namespace Gravedigger2026.UI
         public event Action GrantAddSoldierRequested;
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
-        public event Action LockedDifficultyClicked;
-        public event Action DifficultySelected;
+        public event Action<DifficultySelectHostView.DifficultyKind> DifficultyPicked;
         public event Action<string> GmGrantItemPicked;
         public event Action<int> GmGrantLevelPicked;
         public event Action GmGrantListClosed;
@@ -111,8 +110,7 @@ namespace Gravedigger2026.UI
 
             if (_difficultySelectHost != null)
             {
-                _difficultySelectHost.LockedDifficultyClicked += () => LockedDifficultyClicked?.Invoke();
-                _difficultySelectHost.DifficultySelected += () => DifficultySelected?.Invoke();
+                _difficultySelectHost.DifficultyPicked += kind => DifficultyPicked?.Invoke(kind);
             }
 
             if (_debugWarriorTaskLabelButton != null)
@@ -223,7 +221,7 @@ namespace Gravedigger2026.UI
 
         public void ShowLevelSelectPanel(IReadOnlyList<string> levelIds)
         {
-            // Hub primary path is DifficultySelectHost → UI-031 tabs; LevelSelectPanel stays hidden.
+            // Hub primary path is DifficultySelectHost → Sandbox (UI-036); LevelSelectPanel stays hidden.
             _ = levelIds;
             EnsureDifficultySelectHost();
             SuppressModePanelsKeepBackdrop();

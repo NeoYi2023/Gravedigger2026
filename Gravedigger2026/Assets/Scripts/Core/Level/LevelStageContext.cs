@@ -17,6 +17,7 @@ namespace Gravedigger2026.Core.Level
         public DefendGameplayConfigRow DefendConfig;
         public PushMapGameplayConfigRow PushMapConfig;
         public SearchExtractGameplayConfigRow SearchExtractConfig;
+        public CocGameplayConfigRow CocConfig;
         /// <summary>SearchExtract only; SubLevel GatherPointCount (0 if unused).</summary>
         public int GatherPointCount;
         /// <summary>SearchExtract only; SubLevel GatherPointRewards encoding (empty if unused).</summary>
