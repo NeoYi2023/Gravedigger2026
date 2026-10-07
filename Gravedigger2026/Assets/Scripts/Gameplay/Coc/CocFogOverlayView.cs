@@ -5,8 +5,8 @@ namespace Gravedigger2026.Gameplay.Coc
 {
     /// <summary>
     /// Ground sprite of fog cells (SPEC_03 §3.21, Approach A).
-    /// The texture is one texel per 0.25 cell, same write cost as the hard sheet.
-    /// CocFogSoft fades edges over 0.5 on the GPU. Refresh writes pixels when the grid changes.
+    /// The alpha sheet is one texel per 0.25 cell. Group ids live on a linear R8 texture
+    /// so the 0.5 GPU fade does not pick up sRGB noise. Refresh writes when the grid changes.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CocFogOverlayView : MonoBehaviour
@@ -19,9 +19,11 @@ namespace Gravedigger2026.Gameplay.Coc
         private const string ShaderResourcePath = "Coc/CocFogSoft";
 
         private Texture2D _texture;
+        private Texture2D _groupTexture;
         private Sprite _sprite;
         private Material _material;
         private Color[] _pixels;
+        private Color[] _groupPixels;
         private float _unexploredAlpha = 0.9f;
         private float _exploredAlpha = 0.7f;
         private int _texWidth;
@@ -55,6 +57,10 @@ namespace Gravedigger2026.Gameplay.Coc
 
             Paint(grid);
             _texture.Apply(false, false);
+            if (_groupTexture != null)
+            {
+                _groupTexture.Apply(false, false);
+            }
         }
 
         private void Build(CocFogGrid grid, float unexploredAlpha, float exploredAlpha, float groundY)
@@ -70,10 +76,18 @@ namespace Gravedigger2026.Gameplay.Coc
                 wrapMode = TextureWrapMode.Clamp,
                 name = "CocFogGrid"
             };
+            _groupTexture = new Texture2D(_texWidth, _texHeight, TextureFormat.R8, false, true)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "CocFogGroups"
+            };
             _pixels = new Color[_texWidth * _texHeight];
+            _groupPixels = new Color[_texWidth * _texHeight];
 
             Paint(grid);
             _texture.Apply(false, false);
+            _groupTexture.Apply(false, false);
 
             var worldW = _texWidth * CocFogGrid.CellSize;
             var worldH = _texHeight * CocFogGrid.CellSize;
@@ -94,6 +108,7 @@ namespace Gravedigger2026.Gameplay.Coc
             if (shader != null)
             {
                 _material = new Material(shader);
+                _material.SetTexture("_GroupTex", _groupTexture);
                 renderer.material = _material;
             }
             else
@@ -112,7 +127,7 @@ namespace Gravedigger2026.Gameplay.Coc
 
         private void Paint(CocFogGrid grid)
         {
-            if (_texture == null || _pixels == null)
+            if (_texture == null || _pixels == null || _groupPixels == null)
             {
                 return;
             }
@@ -123,11 +138,18 @@ namespace Gravedigger2026.Gameplay.Coc
                 for (var tx = 0; tx < _texWidth; tx++)
                 {
                     var ix = tx - FadeCells;
-                    _pixels[tz * _texWidth + tx] = new Color(0f, 0f, 0f, CellAlpha(grid.GetCell(ix, iz)));
+                    var index = tz * _texWidth + tx;
+                    var group = grid.GetGroup(ix, iz);
+                    var encodedGroup = group <= CocFogGrid.NoGroup
+                        ? 0f
+                        : (group + 1) / 255f;
+                    _pixels[index] = new Color(0f, 0f, 0f, CellAlpha(grid.GetCell(ix, iz)));
+                    _groupPixels[index] = new Color(encodedGroup, 0f, 0f, 1f);
                 }
             }
 
             _texture.SetPixels(_pixels);
+            _groupTexture.SetPixels(_groupPixels);
         }
 
         private float CellAlpha(byte cell)
@@ -159,6 +181,12 @@ namespace Gravedigger2026.Gameplay.Coc
                 _texture = null;
             }
 
+            if (_groupTexture != null)
+            {
+                Destroy(_groupTexture);
+                _groupTexture = null;
+            }
+
             if (_material != null)
             {
                 Destroy(_material);
@@ -166,6 +194,7 @@ namespace Gravedigger2026.Gameplay.Coc
             }
 
             _pixels = null;
+            _groupPixels = null;
         }
     }
 }

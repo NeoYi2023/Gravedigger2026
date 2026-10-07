@@ -145,6 +145,12 @@ namespace Gravedigger2026.Gameplay.Coc
                 {
                     view = go.AddComponent<PushMapMonsterAgentView>();
                 }
+
+                if (go.GetComponent<HitFlashView>() == null)
+                {
+                    go.AddComponent<HitFlashView>();
+                }
+
                 view.Bind(
                     monsterRow,
                     null,
@@ -155,6 +161,8 @@ namespace Gravedigger2026.Gameplay.Coc
                     bindings != null ? bindings.Scheduler : null,
                     moveId,
                     bindings != null ? bindings.OnHitWarrior : null);
+                view.SetCocActiveChaseLatch(true);
+                view.RefreshAlertCenter();
                 view.SetCombatGameplayEnabled(false);
                 if (row.SpawnRole == CocSpawnConfigRow.RoleFinalBoss)
                 {

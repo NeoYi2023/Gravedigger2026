@@ -1231,6 +1231,25 @@ namespace Gravedigger2026.Gameplay.Defend
             return new Vector3(Mathf.Sin(rad), 0f, Mathf.Cos(rad));
         }
 
+        /// <summary>
+        /// Current base-layer action. Normalized time is unwrapped so a playing clip advances
+        /// and a restart jumps backward. Used by the COC attack-stuck return (SPEC_03 §3.21).
+        /// </summary>
+        public bool TryGetActionStamp(out int stateHash, out float normalizedTime)
+        {
+            stateHash = 0;
+            normalizedTime = 0f;
+            if (_animator == null)
+            {
+                return false;
+            }
+
+            var state = _animator.GetCurrentAnimatorStateInfo(0);
+            stateHash = state.fullPathHash;
+            normalizedTime = state.normalizedTime;
+            return true;
+        }
+
         /// <summary>Presentation facing as a planar unit vector (+X east, +Z north).</summary>
         public bool TryGetFacingUnitXZ(out Vector3 unitXZ)
         {

@@ -96,6 +96,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
         private bool _running;
         private bool _driverOutcomeDispatched;
         private NavMeshDataInstance _navMeshInstance;
+        private NavMeshDataInstance _specialNavMeshInstance;
         private string _gatherPointRewardsEncoded = string.Empty;
         private readonly HashSet<int> _creditedGatherOrders = new HashSet<int>();
 
@@ -204,6 +205,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             _session = new SearchExtractSessionService();
+            _session.SetMonsterWorldXZProvider(TryGetMonsterWorldXZ);
             _session.PhaseChanged += HandlePhaseChanged;
             _session.GatherCountdownSecondsChanged += HandleGatherCountdownSecondsChanged;
             _session.GatherPointActivated += HandleGatherPointActivated;
@@ -214,6 +216,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             _session.MonsterReviveStarted += HandleMonsterReviveStarted;
             _session.MonsterRevived += HandleMonsterRevived;
             _session.MonsterInvincibleChanged += HandleMonsterInvincibleChanged;
+            _session.MonsterBerserkTriggered += HandleMonsterBerserkTriggered;
             _session.WarriorDamageSettled += HandleWarriorDamageSettled;
             _session.WarriorCombatDead += HandleWarriorCombatDead;
             _session.PointSucceeded += HandlePointSucceeded;
@@ -262,6 +265,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 _session.MonsterReviveStarted -= HandleMonsterReviveStarted;
                 _session.MonsterRevived -= HandleMonsterRevived;
                 _session.MonsterInvincibleChanged -= HandleMonsterInvincibleChanged;
+                _session.MonsterBerserkTriggered -= HandleMonsterBerserkTriggered;
                 _session.WarriorDamageSettled -= HandleWarriorDamageSettled;
                 _session.WarriorCombatDead -= HandleWarriorCombatDead;
                 _session.PointSucceeded -= HandlePointSucceeded;
@@ -345,8 +349,22 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             }
 
             ReleaseNavMesh();
-            var airWallBoxes = CollectAirWallObstacles();
-            _navMeshInstance = DefendNavMeshBaker.Bake(_mapCenter, _mapHalfExtents, airWallBoxes);
+            var defaultWallBoxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(8);
+            var specialWallBoxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(8);
+            AirWallBakeCollector.Collect(
+                _mapInstance != null ? _mapInstance.transform : null,
+                defaultWallBoxes,
+                specialWallBoxes,
+                out var defaultTileMesh,
+                out var specialTileMesh);
+            _navMeshInstance = DefendNavMeshBaker.Bake(
+                _mapCenter,
+                _mapHalfExtents,
+                defaultWallBoxes,
+                agentRadiusOverride: -1f,
+                agentTypeID: SpecialMoveNavMesh.DefaultAgentTypeId,
+                notWalkableTileMesh: defaultTileMesh);
+            BakeSpecialMoveNavMesh(specialWallBoxes, specialTileMesh);
             EnsurePathingServices();
             ClearMassCombatPathing();
 
@@ -366,7 +384,7 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             ShowCombatIndicatorHud();
             Debug.Log(
                 $"[SearchExtractStage] Combat Level={_session.LevelId} Option={_session.GameplayOptionId} " +
-                $"Deployed={deployed} AirWalls={airWallBoxes.Count} NavMesh={_navMeshInstance.valid} " +
+                $"Deployed={deployed} AirWalls={defaultWallBoxes.Count} NavMesh={_navMeshInstance.valid} " +
                 $"AdvanceViews={_advanceViews.Count}");
         }
 
@@ -1229,6 +1247,43 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             SpawnDamagePopup(monster.transform.position, damage, DamagePopupStyle.Monster);
         }
 
+        private void HandleMonsterBerserkTriggered(string runtimeId, AggroMode mode, bool provoke)
+        {
+            var monster = FindMonsterView(runtimeId);
+            if (monster == null)
+            {
+                return;
+            }
+
+            monster.SetRuntimeAggroMode(mode);
+            if (provoke)
+            {
+                monster.NotifyProvoked();
+            }
+        }
+
+        private Vector2? TryGetMonsterWorldXZ(string runtimeId)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return null;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !string.Equals(monster.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var p = monster.transform.position;
+                return new Vector2(p.x, p.z);
+            }
+
+            return null;
+        }
+
         private void HandleMonsterKilled(string runtimeId, string killerWarriorId, float outgoingDamage, string deathTag)
         {
             ApplyMonsterDeathPresentation(runtimeId, killerWarriorId, outgoingDamage, deathTag, fakeDeathCorpse: false);
@@ -1488,36 +1543,30 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             return orders;
         }
 
-        private List<DefendNavMeshBaker.NavMeshBoxObstacle> CollectAirWallObstacles()
+        private void BakeSpecialMoveNavMesh(
+            IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> specialWallBoxes,
+            Mesh specialTileMesh)
         {
-            var boxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>();
-            if (_mapInstance == null)
+            if (!SpecialMoveNavMesh.TryResolveSpecialMoveAgentTypeId(out var specialId))
             {
-                return boxes;
-            }
-
-            var walls = _mapInstance.GetComponentsInChildren<AirWall>(true);
-            if (walls == null || walls.Length == 0)
-            {
-                return boxes;
-            }
-
-            for (var i = 0; i < walls.Length; i++)
-            {
-                var wall = walls[i];
-                if (wall == null)
+                if (specialTileMesh != null)
                 {
-                    continue;
+                    Destroy(specialTileMesh);
                 }
 
-                boxes.Add(new DefendNavMeshBaker.NavMeshBoxObstacle(
-                    wall.transform.position,
-                    wall.FullSize,
-                    wall.transform.rotation));
+                Debug.LogError(
+                    "[SearchExtractStage] NavMesh Agent Type 'SpecialMove' missing; " +
+                    "special-move soldiers stay on the default mesh.");
+                return;
             }
 
-            Debug.Log($"[SearchExtractStage] AirWall bake obstacles={boxes.Count}.");
-            return boxes;
+            _specialNavMeshInstance = DefendNavMeshBaker.Bake(
+                _mapCenter,
+                _mapHalfExtents,
+                specialWallBoxes,
+                agentRadiusOverride: -1f,
+                agentTypeID: specialId,
+                notWalkableTileMesh: specialTileMesh);
         }
 
         private void DeployCombatUnits()
@@ -1555,7 +1604,18 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     _mapCenter.x + entry.PositionX,
                     _mapCenter.y,
                     _mapCenter.z + entry.PositionZ);
-                if (NavMesh.SamplePosition(worldPos, out var hit, 2f, NavMesh.AllAreas))
+                ClassConfigRow classRow = null;
+                if (_configs != null && !string.IsNullOrEmpty(warrior.ClassId))
+                {
+                    _configs.TryGetClass(warrior.ClassId, out classRow);
+                }
+
+                var hasSpecialMove = classRow != null && classRow.HasSpecialMove;
+                if (SpecialMoveNavMesh.SampleWalkable(
+                        worldPos,
+                        2f,
+                        SpecialMoveNavMesh.ResolveAgentTypeId(hasSpecialMove),
+                        out var hit))
                 {
                     worldPos = hit.position;
                 }
@@ -1564,12 +1624,6 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                 go.name = $"Warrior_{warrior.Id}";
                 go.transform.position = worldPos;
                 WarriorAllIn1StyleView.ApplyTo(go, _catalog.VisualStyleCatalog, warrior);
-
-                ClassConfigRow classRow = null;
-                if (_configs != null && !string.IsNullOrEmpty(warrior.ClassId))
-                {
-                    _configs.TryGetClass(warrior.ClassId, out classRow);
-                }
 
                 var attackRange = 1f;
                 if (classRow != null && classRow.AttackRange > 0.05f)
@@ -1645,7 +1699,8 @@ namespace Gravedigger2026.Gameplay.SearchExtract
                     facingYawFlip: facingYawFlip,
                     pushCoefficient: pushCoefficient,
                     repulsionScale: repulsionScale,
-                    chaseMoveSpeedMult: chaseMult);
+                    chaseMoveSpeedMult: chaseMult,
+                    hasSpecialMove: hasSpecialMove);
                 advance.SetParabolaCrowd(() => _advanceViews, () => null);
 
                 var hold = new Vector2(worldPos.x, worldPos.z);
@@ -2781,6 +2836,12 @@ namespace Gravedigger2026.Gameplay.SearchExtract
             {
                 NavMesh.RemoveNavMeshData(_navMeshInstance);
                 _navMeshInstance = default;
+            }
+
+            if (_specialNavMeshInstance.valid)
+            {
+                NavMesh.RemoveNavMeshData(_specialNavMeshInstance);
+                _specialNavMeshInstance = default;
             }
         }
 

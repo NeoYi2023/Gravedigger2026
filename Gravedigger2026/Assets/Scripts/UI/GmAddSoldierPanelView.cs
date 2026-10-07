@@ -19,12 +19,18 @@ namespace Gravedigger2026.UI
 
     /// <summary>
     /// UI-020 / D-064: left-docked Tools GM add-soldier settings panel.
-    /// Root Canvas overrideSorting=100 so it draws above FormationCanvas (70) / squad bar.
+    /// Root Canvas overrideSorting=100 so it draws above FormationCanvas (70) / squad bar;
+    /// Sandbox path uses ≥220 above SandboxRoot (200).
     /// </summary>
     public sealed class GmAddSoldierPanelView : MonoBehaviour
     {
         /// <summary>Above FormationCanvas (70); aligned with other InSaveShell modals.</summary>
-        private const int PanelSortingOrder = 100;
+        public const int PanelSortingOrder = 100;
+
+        /// <summary>Above SandboxRoot (200) and ToolsPanel (220).</summary>
+        public const int SandboxElevatedSortingOrder = 230;
+
+        private int _activeSortingOrder = PanelSortingOrder;
 
         [SerializeField] private GameObject _root;
         [SerializeField] private Dropdown _classDropdown;
@@ -101,7 +107,10 @@ namespace Gravedigger2026.UI
             }
         }
 
-        public void Show(IReadOnlyList<GmDropdownOption> classes, IReadOnlyList<GmDropdownOption> races)
+        public void Show(
+            IReadOnlyList<GmDropdownOption> classes,
+            IReadOnlyList<GmDropdownOption> races,
+            int? sortingOrder = null)
         {
             FillDropdown(_classDropdown, _classIds, classes);
             FillDropdown(_raceDropdown, _raceIds, races);
@@ -110,11 +119,15 @@ namespace Gravedigger2026.UI
                 _countInput.text = "1";
             }
 
+            var sandboxElevated = sortingOrder.HasValue
+                && sortingOrder.Value >= SandboxElevatedSortingOrder;
             if (_autoDeployToggle != null)
             {
-                _autoDeployToggle.isOn = true;
+                // Sandbox gate: pool only — leave toggle off so UI matches forced grant path.
+                _autoDeployToggle.isOn = !sandboxElevated;
             }
 
+            _activeSortingOrder = sortingOrder ?? PanelSortingOrder;
             if (_root != null)
             {
                 ApplyPanelSorting();
@@ -146,7 +159,7 @@ namespace Gravedigger2026.UI
             }
 
             canvas.overrideSorting = true;
-            canvas.sortingOrder = PanelSortingOrder;
+            canvas.sortingOrder = _activeSortingOrder;
             if (target.GetComponent<GraphicRaycaster>() == null)
             {
                 target.AddComponent<GraphicRaycaster>();

@@ -22,6 +22,8 @@ namespace Gravedigger2026.Core.UpgradeManufacture
     {
         public const float DemoBaseMaxHp = 100f;
         public const float DemoBasePrimary = 20f;
+        public const string FullSetUndeadRaceId = "Race_Undead";
+        public const int FullSetCountPerClass = 50;
 
         private readonly ConfigCsvRepository _configs;
         private readonly WarriorPoolService _warriorPool;
@@ -97,6 +99,50 @@ namespace Gravedigger2026.Core.UpgradeManufacture
             Debug.Log(
                 $"[GmSoldierGrant] class={classId} race={raceId} appearance={appearanceId} " +
                 $"added={added} autoDeploy={autoDeploy} deployed={deployed}");
+            return true;
+        }
+
+        /// <summary>
+        /// Demo GM Full-Set Soldiers (SPEC_03 UI-020 / D-064): every ClassConfig × Race_Undead × 50, pool only.
+        /// Classes without undead appearance are skipped.
+        /// </summary>
+        public bool TryAddFullSetUndead(out int added, out int skippedClasses)
+        {
+            added = 0;
+            skippedClasses = 0;
+
+            foreach (var classRow in _configs.Classes)
+            {
+                if (classRow == null || string.IsNullOrEmpty(classRow.ClassId))
+                {
+                    continue;
+                }
+
+                if (!TryAdd(
+                        classRow.ClassId,
+                        FullSetUndeadRaceId,
+                        FullSetCountPerClass,
+                        autoDeploy: false,
+                        zones: null,
+                        out var classAdded,
+                        out _,
+                        out var error))
+                {
+                    if (error == GmSoldierGrantError.SoldierNotFound
+                        || error == GmSoldierGrantError.InvalidArgs)
+                    {
+                        skippedClasses++;
+                        continue;
+                    }
+
+                    return false;
+                }
+
+                added += classAdded;
+            }
+
+            Debug.Log(
+                $"[GmSoldierGrant] full-set undead added={added} skippedClasses={skippedClasses}");
             return true;
         }
 

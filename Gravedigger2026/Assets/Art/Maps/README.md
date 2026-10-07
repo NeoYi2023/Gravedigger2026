@@ -27,6 +27,14 @@
 - 菜单：`Gravedigger2026/Maps/Ensure Wall A Rule Tile (RT_WallA)` → 钉到 **FantasyTileset_A** 固定格 **`(30, -43)`**（禁止 `(-1,0)`，会搅乱 SSI 布局）。
 - 刷法：Tile Palette → **FantasyTileset_A** → 格子 `(30, -43)` 选 `RT_WallA`（图标 = Wall A1_N），填区域自动接边。
 
+## 空气墙 Tile 层
+
+与地面同一 Grid 下的阻挡层（D-101）。方盒 `AirWall` 仍然有效。权威见 SPEC_04 §9.22 / §13。
+
+1. 菜单 `Gravedigger2026/Maps/Ensure AirWall Tilemap Layer`：用 **Unity API** 生成蓝/绿菱形笔刷与 `Palettes/AirWall.prefab`（手写 YAML 不会出现在 Tile Palette 下拉），并给推图 / 搜打撤 / COC 地图补空的 `AirWallTilemap`。不改 `Ground_*`，不挪已有方盒。
+2. 跑完菜单后**关掉再开** Tile Palette，左上角下拉选 **AirWall**。`(0,0)` 蓝砖全挡；`(1,0)` 绿砖只放行 `SpecialMove=1` 的士兵。刷到地图的 `AirWallTilemap`，不要刷在地面层。
+3. 编辑态能看见半透明砖。进战斗后该层不画。寻路按格子菱形挡住，不是方盒外接矩形。
+
 ## 流动水面（FlowingWater）
 
 连续流动水面是 **地图表现约定**（非玩法规则）；权威见 SPEC_04 §13。资源：`Shaders/Water/`（Built-in shader ×2、贴图 ×2、`Water.mat` / `Foam.mat`）。禁止 Prefab / 运行时引用 `SmallScaleInt/`。

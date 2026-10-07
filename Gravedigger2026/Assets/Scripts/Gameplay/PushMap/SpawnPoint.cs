@@ -19,10 +19,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             _spawnPointId = spawnPointId ?? string.Empty;
         }
 
-        private void OnDrawGizmosSelected()
+        private void OnDrawGizmos()
         {
             Gizmos.color = new Color(0.95f, 0.35f, 0.35f, 0.95f);
             Gizmos.DrawWireSphere(transform.position + Vector3.up * 0.2f, 0.3f);
+
+#if UNITY_EDITOR
+            UnityEditor.Handles.Label(
+                transform.position + Vector3.up * 0.55f,
+                $"SpawnPoint Id {SpawnPointId}");
+#endif
         }
     }
 }

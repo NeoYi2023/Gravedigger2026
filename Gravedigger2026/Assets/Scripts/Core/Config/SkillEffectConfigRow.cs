@@ -13,5 +13,9 @@ namespace Gravedigger2026.Core.Config
         public string EffectParams;
         /// <summary>Pipeline hook enum string.</summary>
         public string TriggerHook;
+        /// <summary>D-102: 0 = no noise; &gt;0 added when this effect's TriggerHook matches.</summary>
+        public float AttackNoiseValue;
+        /// <summary>D-102: world XZ radius around the cast-target point.</summary>
+        public float NoiseRadius;
     }
 }

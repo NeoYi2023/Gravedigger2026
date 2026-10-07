@@ -13,6 +13,8 @@ using UnityEngine.AI;
 
 namespace Gravedigger2026.Gameplay.PushMap
 {
+    public delegate bool CocObstacleAimResolver(string runtimeId, out Transform transform, out float bodyRadius);
+
     /// <summary>
     /// MP-04/05: loyal advance via FlowField; engage ??GoalKind=AttackSlot (SPEC_03 ?3.12/?3.14).
     /// Samples MassMoveScheduler steer; applies NavMeshAgent.Move ??no per-frame SetDestination.
@@ -92,6 +94,11 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Vector3 _lastDesiredDirXZ;
         private readonly StuckHoldTracker _stuckHold = new StuckHoldTracker();
         private readonly ChaseStuckRetargetTracker _chaseStuckRetarget = new ChaseStuckRetargetTracker();
+        private bool _cocAttackPriority;
+        private string _cocLockedTargetId;
+        private float _cocObserveRange = ClassConfigRow.DefaultObserveRange;
+        private ClassConfigRow _cocClass;
+        private CocObstacleAimResolver _cocObstacleAim;
         private AllyFootCircleView _footCircle;
         private readonly List<MonsterWorldXZ> _targetAcquireCandidates = new List<MonsterWorldXZ>(32);
 
@@ -99,6 +106,29 @@ namespace Gravedigger2026.Gameplay.PushMap
         public int MoveId => _moveId;
         public float AgentRadius => _bodyRadius;
         public string AttackerId => _attackerId;
+        public float CocObserveRange => _cocObserveRange;
+        public string CocLockedTargetId => _cocLockedTargetId;
+        public ClassConfigRow CocClass => _cocClass;
+
+        /// <summary>
+        /// D-100 Approach A: COC injects the scored lock; default nearest select stays unchanged.
+        /// </summary>
+        public void EnableCocAttackPriority(ClassConfigRow classRow, float observeRange)
+        {
+            _cocAttackPriority = true;
+            _cocClass = classRow;
+            _cocObserveRange = observeRange > 0f ? observeRange : ClassConfigRow.DefaultObserveRange;
+        }
+
+        public void SetCocObstacleAimResolver(CocObstacleAimResolver resolver)
+        {
+            _cocObstacleAim = resolver;
+        }
+
+        public void SetCocLockedTargetId(string targetId)
+        {
+            _cocLockedTargetId = string.IsNullOrEmpty(targetId) ? null : targetId;
+        }
 
         public void SetBaseMoveSpeed(float moveSpeed)
         {
@@ -171,7 +201,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             bool facingYawFlip = false,
             float pushCoefficient = BodyAppearanceConfigRow.DefaultPushCoefficient,
             float repulsionScale = BodyAppearanceConfigRow.DefaultRepulsionScale,
-            float chaseMoveSpeedMult = ClassConfigRow.DefaultChaseMoveSpeedMult)
+            float chaseMoveSpeedMult = ClassConfigRow.DefaultChaseMoveSpeedMult,
+            bool hasSpecialMove = false)
         {
             _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
             _moveId = moveId;
@@ -201,6 +232,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             _stoppedActing = false;
             _stuckHold.Reset();
             _chaseStuckRetarget.Reset();
+            _cocAttackPriority = false;
+            _cocLockedTargetId = null;
+            _cocClass = null;
+            _cocObstacleAim = null;
+            _cocObserveRange = ClassConfigRow.DefaultObserveRange;
             _lastSteerDirXZ = Vector3.zero;
             _lastDesiredDirXZ = Vector3.zero;
 
@@ -209,6 +245,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 _agent = gameObject.AddComponent<NavMeshAgent>();
             }
+
+            _agent.agentTypeID = SpecialMoveNavMesh.ResolveAgentTypeId(hasSpecialMove);
 
             ApplyEffectiveMoveSpeed();
             _agent.stoppingDistance = 0f;
@@ -228,6 +266,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                 MassMoveScheduler.DetourGroupLoyal,
                 _pushCoefficient,
                 _repulsionScale);
+            if (hasSpecialMove)
+            {
+                _scheduler.SetUseSpecialFlowField(_moveId, true);
+            }
+
             _scheduler.SetGoal(_moveId, GoalKind.Objective);
             TryWarpOntoNavMesh();
             ClearPathingState();
@@ -605,7 +648,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             var radius = Mathf.Max(BlinkNavMeshSampleMinRadius, sampleRadius);
             var origin = new Vector3(desiredXZ.x, transform.position.y, desiredXZ.y);
-            if (!NavMesh.SamplePosition(origin, out var hit, radius, NavMesh.AllAreas))
+            if (!SpecialMoveNavMesh.SampleWalkable(_agent, origin, radius, out var hit))
             {
                 return null;
             }
@@ -785,6 +828,13 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _attackStartCooldown = Mathf.Max(0f, _attackStartCooldown - Time.deltaTime);
             }
 
+            if (_cocAttackPriority &&
+                TryResolveCocObstacleAim(out var obstacleTransform, out var obstacleId, out var obstacleBody))
+            {
+                TickCombatAgainstAim(obstacleTransform, obstacleId, obstacleBody);
+                return;
+            }
+
             if (!TryResolveCombatTarget(out var target))
             {
                 if (_burstHitsRemaining > 0)
@@ -837,6 +887,21 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private bool TryResolveCombatTarget(out PushMapMonsterAgentView target)
         {
+            if (_cocAttackPriority)
+            {
+                target = null;
+                if (string.IsNullOrEmpty(_cocLockedTargetId))
+                {
+                    return false;
+                }
+
+                return TryFindMonsterByRuntimeId(
+                           _monstersProvider != null ? _monstersProvider() : null,
+                           _cocLockedTargetId,
+                           out target)
+                       && target != null;
+            }
+
             if (_formationHold)
             {
                 target = null;
@@ -870,6 +935,61 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             return true;
+        }
+
+        private bool TryResolveCocObstacleAim(out Transform target, out string targetId, out float bodyRadius)
+        {
+            target = null;
+            targetId = null;
+            bodyRadius = 0f;
+            if (!_cocAttackPriority ||
+                string.IsNullOrEmpty(_cocLockedTargetId) ||
+                _cocObstacleAim == null)
+            {
+                return false;
+            }
+
+            if (!_cocObstacleAim(_cocLockedTargetId, out target, out bodyRadius) || target == null)
+            {
+                return false;
+            }
+
+            targetId = _cocLockedTargetId;
+            return true;
+        }
+
+        private void TickCombatAgainstAim(Transform target, string targetId, float targetBodyRadius)
+        {
+            if (target == null || string.IsNullOrEmpty(targetId))
+            {
+                return;
+            }
+
+            if (!_session.TryGetWarrior(_attackerId, out var state) || state == null)
+            {
+                return;
+            }
+
+            if (!CombatReach.IsInAttackRange(
+                    CombatReach.DistanceXZ(transform.position, target.position),
+                    state.AttackRange,
+                    _bodyRadius,
+                    targetBodyRadius))
+            {
+                if (_burstHitsRemaining > 0)
+                {
+                    EndBurst();
+                }
+
+                return;
+            }
+
+            if (_attackStartCooldown > 0f)
+            {
+                return;
+            }
+
+            BeginWindupAt(target, targetId, state);
         }
 
         private void FireBurstHit(DefendCombatWarriorState state, PushMapMonsterAgentView target)
@@ -907,6 +1027,26 @@ namespace Gravedigger2026.Gameplay.PushMap
                     ? state.RangedWindupHoldFrame
                     : 0;
                 _anim.ConfigureSoldierNormalAttackAnims(animPool);
+                _anim.PlayAttack(hold, state.AttackSpeed);
+            }
+        }
+
+        private void BeginWindupAt(Transform target, string targetId, DefendCombatWarriorState state)
+        {
+            _attackPhase = AttackPhase.Windup;
+            _windupTargetId = targetId;
+            _windupRemaining = Mathf.Max(0f, state.MeleeWindupSeconds);
+            _attackStartCooldown = state.AttackSpeed > 0.01f ? 1f / state.AttackSpeed : 1f;
+            _scheduler?.SetPaused(_moveId, true);
+            ClearPathingState();
+            if (_anim != null && target != null)
+            {
+                FaceTarget(target.position);
+                _anim.ConfigureSoldierNormalAttackAnims(state.NormalAttackAnims);
+                var hold = (state.AttackMode == AttackMode.Ranged || state.AttackMode == AttackMode.Parabola) &&
+                           state.MeleeWindupSeconds > 0f
+                    ? state.RangedWindupHoldFrame
+                    : 0;
                 _anim.PlayAttack(hold, state.AttackSpeed);
             }
         }
@@ -967,6 +1107,15 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var target = FindMonsterByRuntimeId(_windupTargetId);
+            if (target == null &&
+                _cocObstacleAim != null &&
+                _cocObstacleAim(_windupTargetId, out var obstacleTransform, out var obstacleBody) &&
+                obstacleTransform != null)
+            {
+                TickWindupAgainstAim(state, obstacleTransform, obstacleBody);
+                return;
+            }
+
             var range = state.AttackRange;
             var inRange = IsMonsterEngageable(target)
                           && CombatReach.IsInAttackRange(
@@ -1007,6 +1156,38 @@ namespace Gravedigger2026.Gameplay.PushMap
                 {
                     AfterBurstHit(melee: true);
                 }
+            }
+        }
+
+        private void TickWindupAgainstAim(
+            DefendCombatWarriorState state,
+            Transform target,
+            float targetBodyRadius)
+        {
+            var inRange = CombatReach.IsInAttackRange(
+                CombatReach.DistanceXZ(transform.position, target.position),
+                state.AttackRange,
+                _bodyRadius,
+                targetBodyRadius,
+                CombatReach.HitConfirmSlack);
+
+            _anim?.ReleaseAttackHold();
+            if (state.AttackMode == AttackMode.Ranged || state.AttackMode == AttackMode.Parabola)
+            {
+                if (inRange)
+                {
+                    FireProjectileAtAim(state, target, _windupTargetId);
+                }
+            }
+            else
+            {
+                _session.TryConfirmMeleeHit(_attackerId, _windupTargetId, inRange);
+            }
+
+            ClearWindup();
+            if (_burstHitsRemaining > 0)
+            {
+                AfterBurstHit(melee: state.AttackMode == AttackMode.Melee);
             }
         }
 
@@ -1183,6 +1364,52 @@ namespace Gravedigger2026.Gameplay.PushMap
                     });
                 }
             }
+        }
+
+        private void FireProjectileAtAim(
+            DefendCombatWarriorState state,
+            Transform target,
+            string targetId)
+        {
+            if (target == null || string.IsNullOrEmpty(targetId))
+            {
+                return;
+            }
+
+            if (_projectilePrefab == null)
+            {
+                _session.TryConfirmRangedHit(_attackerId, targetId);
+                return;
+            }
+
+            var parent = _projectileParent != null ? _projectileParent : transform.parent;
+            var go = Instantiate(_projectilePrefab, parent);
+            go.name = $"Projectile_{_attackerId}";
+            var spawnPos = transform.position + Vector3.up * 1.0f;
+            go.transform.position = spawnPos;
+            var to = target.position - spawnPos;
+            to.y = 0f;
+            if (to.sqrMagnitude > 0.0001f)
+            {
+                go.transform.rotation = Quaternion.LookRotation(to.normalized, Vector3.up);
+            }
+
+            var view = go.GetComponent<ProjectileView>();
+            if (view == null)
+            {
+                view = go.AddComponent<ProjectileView>();
+            }
+
+            view.Launch(
+                _session,
+                _attackerId,
+                targetId,
+                ResolveMonsterTransform,
+                state.RangedProjectileSpeed,
+                state.RangedTimeoutSeconds,
+                hitRadius: -1f,
+                enumerateAliveTargets: EnumerateAliveMonsterRuntimeIds);
+            TryApplyProjectileVisual(view, state.BaseClass);
         }
 
         private void FireProjectile(
@@ -1409,7 +1636,19 @@ namespace Gravedigger2026.Gameplay.PushMap
         private Transform ResolveMonsterTransform(string runtimeId)
         {
             var m = FindMonsterByRuntimeId(runtimeId);
-            return m != null ? m.transform : null;
+            if (m != null)
+            {
+                return m.transform;
+            }
+
+            if (_cocObstacleAim != null &&
+                _cocObstacleAim(runtimeId, out var obstacle, out _) &&
+                obstacle != null)
+            {
+                return obstacle;
+            }
+
+            return null;
         }
 
         /// <summary>Generic pierce scan: alive monster RuntimeIds (SE-07).</summary>
@@ -1682,7 +1921,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// </summary>
         private void TickChaseStuckRetarget()
         {
-            if (_isRebel || _scheduler == null || _moveId == 0 || _attackSlots == null)
+            if (_cocAttackPriority || _isRebel || _scheduler == null || _moveId == 0 || _attackSlots == null)
             {
                 _chaseStuckRetarget.Tick(false, transform.position, null, false, Time.deltaTime);
                 return;
@@ -1828,7 +2067,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            if (NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
+            if (SpecialMoveNavMesh.SampleWalkable(_agent, transform.position, NavMeshSampleRadius, out var hit))
             {
                 _agent.Warp(hit.position);
             }

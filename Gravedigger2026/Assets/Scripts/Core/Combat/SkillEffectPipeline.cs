@@ -20,6 +20,7 @@ namespace Gravedigger2026.Core.Combat
         private readonly HashSet<string> _dispatchedEffectIds =
             new HashSet<string>(StringComparer.Ordinal);
         private ITacticalFormationOverlayLookup _formationOverlay;
+        private CombatNoiseService _combatNoise;
 
         public SkillEffectPipeline(ConfigCsvRepository configs)
         {
@@ -38,6 +39,11 @@ namespace Gravedigger2026.Core.Combat
         public void SetFormationOverlay(ITacticalFormationOverlayLookup overlay)
         {
             _formationOverlay = overlay;
+        }
+
+        public void SetCombatNoise(CombatNoiseService combatNoise)
+        {
+            _combatNoise = combatNoise;
         }
 
         public void Register(ISkillEffectHandler handler)
@@ -178,6 +184,11 @@ namespace Gravedigger2026.Core.Combat
                 return;
             }
 
+            if (MatchesTriggerHook(effectRow, context.DispatchTriggerHook))
+            {
+                TryApplySkillNoise(context, effectRow);
+            }
+
             if (string.IsNullOrWhiteSpace(effectRow.EffectKind))
             {
                 return;
@@ -208,11 +219,59 @@ namespace Gravedigger2026.Core.Combat
             handler.Apply(context, effectRow);
         }
 
+        private void TryApplySkillNoise(SkillEffectContext context, SkillEffectConfigRow effectRow)
+        {
+            if (_combatNoise == null
+                || effectRow == null
+                || effectRow.AttackNoiseValue <= 0f
+                || context == null)
+            {
+                return;
+            }
+
+            if (!TryResolveNoiseCenter(context, out var center))
+            {
+                return;
+            }
+
+            _combatNoise.ApplyPulse(
+                center,
+                effectRow.AttackNoiseValue,
+                effectRow.NoiseRadius,
+                context.AliveMonstersXZ);
+        }
+
+        private static bool TryResolveNoiseCenter(SkillEffectContext context, out Vector2 center)
+        {
+            if (context.HasHitCenterXZ)
+            {
+                center = context.HitCenterXZ;
+                return true;
+            }
+
+            if (context.HasWarriorPositionXZ)
+            {
+                center = context.WarriorPositionXZ;
+                return true;
+            }
+
+            center = default;
+            return false;
+        }
+
         private static bool MatchesTriggerHook(SkillEffectConfigRow effectRow, string triggerHook)
         {
             if (effectRow == null || string.IsNullOrWhiteSpace(triggerHook))
             {
                 return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(effectRow.TriggerHook))
+            {
+                return string.Equals(
+                    triggerHook,
+                    SkillEffectTriggerHook.OnWarriorAaHitConfirm,
+                    StringComparison.Ordinal);
             }
 
             if (string.Equals(effectRow.TriggerHook, triggerHook, StringComparison.Ordinal))

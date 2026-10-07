@@ -30,6 +30,7 @@ namespace Gravedigger2026.Core.Pathing
         public const int DetourGroupMonster = 1;
 
         private FlowFieldService _flowField;
+        private FlowFieldService _specialFlowField;
         private readonly SpatialHash2D _hash = new SpatialHash2D();
         private readonly LocalDetourSolver _detour = new LocalDetourSolver();
         private readonly SoftCollisionService _softCollision = new SoftCollisionService();
@@ -62,6 +63,15 @@ namespace Gravedigger2026.Core.Pathing
         public void BindFlowField(FlowFieldService flowField)
         {
             _flowField = flowField;
+        }
+
+        /// <summary>
+        /// D-101: second PushMap field that omits SupportsSpecialMove walls.
+        /// Null → special-move agents fall back to the default field.
+        /// </summary>
+        public void BindSpecialFlowField(FlowFieldService specialFlowField)
+        {
+            _specialFlowField = specialFlowField;
         }
 
         /// <summary>PushMap Stage sets from current <c>CaptureZone.Radius</c> (clamped ≥0.01).</summary>
@@ -152,6 +162,19 @@ namespace Gravedigger2026.Core.Pathing
             agent.DesiredDestination = desiredDestinationXZ;
             _agents[index] = agent;
             _softCollision.SetIgnoreIncomingPush(id, kind == GoalKind.FormationSlot);
+        }
+
+        /// <summary>D-101: sample the special-move FlowField (omits checked AirWalls).</summary>
+        public void SetUseSpecialFlowField(int id, bool useSpecial)
+        {
+            if (!_indexById.TryGetValue(id, out var index))
+            {
+                return;
+            }
+
+            var agent = _agents[index];
+            agent.UseSpecialFlowField = useSpecial;
+            _agents[index] = agent;
         }
 
         public bool TryGetGoal(int id, out GoalKind kind, out Vector2 desiredDestinationXZ)
@@ -354,7 +377,8 @@ namespace Gravedigger2026.Core.Pathing
             var objectiveHold = false;
             if (agent.GoalKind == GoalKind.Objective)
             {
-                if (_flowField == null || !_flowField.HasField)
+                var field = ResolveFlowField(agent);
+                if (field == null || !field.HasField)
                 {
                     agent.Steer = Vector2.zero;
                     agent.LastDesired = Vector2.zero;
@@ -362,7 +386,7 @@ namespace Gravedigger2026.Core.Pathing
                     return;
                 }
 
-                var goal = _flowField.GoalWorld;
+                var goal = field.GoalWorld;
                 var toGoal = new Vector2(goal.x - agent.Position.x, goal.z - agent.Position.y);
                 var arriveR = _objectiveArriveRadius;
                 if (toGoal.sqrMagnitude <= arriveR * arriveR)
@@ -374,7 +398,7 @@ namespace Gravedigger2026.Core.Pathing
                 else
                 {
                     var world = new Vector3(agent.Position.x, 0f, agent.Position.y);
-                    desired = _flowField.SampleDir(world);
+                    desired = field.SampleDir(world);
                     if (desired.sqrMagnitude < 1e-8f && toGoal.sqrMagnitude > 1e-8f)
                     {
                         // Unreachable / zero cell while still outside zone → direct seek.
@@ -441,6 +465,18 @@ namespace Gravedigger2026.Core.Pathing
             _agents[index] = agent;
         }
 
+        private FlowFieldService ResolveFlowField(in MassMoveAgentState agent)
+        {
+            if (agent.UseSpecialFlowField &&
+                _specialFlowField != null &&
+                _specialFlowField.HasField)
+            {
+                return _specialFlowField;
+            }
+
+            return _flowField;
+        }
+
         private struct MassMoveAgentState
         {
             public readonly int Id;
@@ -453,6 +489,7 @@ namespace Gravedigger2026.Core.Pathing
             public GoalKind GoalKind;
             public bool Active;
             public bool Paused;
+            public bool UseSpecialFlowField;
 
             public MassMoveAgentState(int id, float radius, int detourGroup)
             {
@@ -466,6 +503,7 @@ namespace Gravedigger2026.Core.Pathing
                 GoalKind = GoalKind.Objective;
                 Active = false;
                 Paused = false;
+                UseSpecialFlowField = false;
             }
         }
     }

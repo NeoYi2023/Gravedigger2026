@@ -1907,6 +1907,7 @@ namespace Gravedigger2026.Editor.Meta
 
             var toolsBtn = CreateButton(root.transform, "ToolsButton", "工具", new Color(0.30f, 0.45f, 0.70f, 1f));
             Place(toolsBtn.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -20f), new Vector2(140f, 48f));
+            ApplyOverrideCanvas(toolsBtn, InSaveShellView.ToolsChromeSortingOrder);
 
             var backBtn = CreateButton(root.transform, "BackButton", "返回存档", new Color(0.35f, 0.35f, 0.40f, 1f));
             Place(backBtn.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(24f, 24f), new Vector2(160f, 48f));
@@ -2507,7 +2508,7 @@ namespace Gravedigger2026.Editor.Meta
         private static ToolsPanelView BuildToolsPanel(Transform parent)
         {
             var go = CreatePanel(parent, "ToolsPanel", new Color(0.08f, 0.09f, 0.12f, 0.95f));
-            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 430f));
+            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 490f));
 
             var title = CreateText(go.transform, "Title", "工具面板", 24, TextAnchor.UpperCenter);
             Place(title.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(240f, 36f));
@@ -2527,11 +2528,15 @@ namespace Gravedigger2026.Editor.Meta
             var grantSoldier = CreateButton(go.transform, "GrantAddSoldierButton", "添加士兵", new Color(0.48f, 0.40f, 0.28f, 1f));
             Place(grantSoldier.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -268f), new Vector2(200f, 44f));
 
-            var close = CreateButton(go.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
-            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -324f), new Vector2(200f, 40f));
+            var grantFullSet = CreateButton(go.transform, "GrantFullSetSoldierButton", "全套士兵", new Color(0.52f, 0.36f, 0.24f, 1f));
+            Place(grantFullSet.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -320f), new Vector2(200f, 44f));
 
+            var close = CreateButton(go.transform, "CloseButton", "关闭", new Color(0.40f, 0.40f, 0.42f, 1f));
+            Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -376f), new Vector2(200f, 40f));
+
+            ApplyOverrideCanvas(go, InSaveShellView.ToolsPanelSortingOrder);
             var view = go.AddComponent<ToolsPanelView>();
-            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, grantSoldier, close);
+            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, grantSoldier, grantFullSet, close);
             go.SetActive(false);
             return view;
         }
@@ -2539,7 +2544,7 @@ namespace Gravedigger2026.Editor.Meta
         private static void PatchToolsPanelGrantButtons(ToolsPanelView view)
         {
             var go = view.gameObject;
-            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 430f));
+            Place(go.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -80f), new Vector2(280f, 490f));
 
             var settings = go.transform.Find("SettingsButton")?.gameObject;
             var level = go.transform.Find("LevelButton")?.gameObject;
@@ -2547,6 +2552,7 @@ namespace Gravedigger2026.Editor.Meta
             var grantEquip = go.transform.Find("GrantProtagonistEquipmentButton")?.gameObject;
             var grantBook = go.transform.Find("GrantMagicBookButton")?.gameObject;
             var grantSoldier = go.transform.Find("GrantAddSoldierButton")?.gameObject;
+            var grantFullSet = go.transform.Find("GrantFullSetSoldierButton")?.gameObject;
 
             if (settings != null)
             {
@@ -2579,12 +2585,20 @@ namespace Gravedigger2026.Editor.Meta
 
             Place(grantSoldier.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -268f), new Vector2(200f, 44f));
 
-            if (close != null)
+            if (grantFullSet == null)
             {
-                Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -324f), new Vector2(200f, 40f));
+                grantFullSet = CreateButton(go.transform, "GrantFullSetSoldierButton", "全套士兵", new Color(0.52f, 0.36f, 0.24f, 1f));
             }
 
-            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, grantSoldier, close);
+            Place(grantFullSet.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -320f), new Vector2(200f, 44f));
+
+            if (close != null)
+            {
+                Place(close.GetComponent<RectTransform>(), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -376f), new Vector2(200f, 40f));
+            }
+
+            ApplyOverrideCanvas(go, InSaveShellView.ToolsPanelSortingOrder);
+            WireToolsPanelView(view, go, settings, level, grantEquip, grantBook, grantSoldier, grantFullSet, close);
         }
 
         private static void WireToolsPanelView(
@@ -2595,6 +2609,7 @@ namespace Gravedigger2026.Editor.Meta
             GameObject grantEquip,
             GameObject grantBook,
             GameObject grantSoldier,
+            GameObject grantFullSet,
             GameObject close)
         {
             var so = new SerializedObject(view);
@@ -2625,6 +2640,12 @@ namespace Gravedigger2026.Editor.Meta
             if (grantSoldierProp != null && grantSoldier != null)
             {
                 grantSoldierProp.objectReferenceValue = grantSoldier.GetComponent<Button>();
+            }
+
+            var grantFullSetProp = so.FindProperty("_grantFullSetSoldierButton");
+            if (grantFullSetProp != null && grantFullSet != null)
+            {
+                grantFullSetProp.objectReferenceValue = grantFullSet.GetComponent<Button>();
             }
 
             if (close != null)
@@ -2911,6 +2932,27 @@ namespace Gravedigger2026.Editor.Meta
             text.verticalOverflow = VerticalWrapMode.Overflow;
             StretchFull(go.GetComponent<RectTransform>());
             return text;
+        }
+
+        private static void ApplyOverrideCanvas(GameObject target, int sortingOrder)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var canvas = target.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = target.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = sortingOrder;
+            if (target.GetComponent<GraphicRaycaster>() == null)
+            {
+                target.AddComponent<GraphicRaycaster>();
+            }
         }
 
         private static GameObject CreateButton(Transform parent, string name, string label, Color color)

@@ -350,6 +350,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.GrantProtagonistEquipmentRequested += HandleGrantProtagonistEquipment;
                 _inSaveShellView.GrantMagicBookRequested += HandleGrantMagicBook;
                 _inSaveShellView.GrantAddSoldierRequested += HandleGrantAddSoldier;
+                _inSaveShellView.GrantFullSetSoldierRequested += HandleGrantFullSetSoldier;
                 _inSaveShellView.LevelSelectPicked += HandleToolsLevelSelectPicked;
                 _inSaveShellView.DifficultyPicked += HandleDifficultyPicked;
                 _inSaveShellView.GmGrantItemPicked += HandleGmGrantItemPicked;
@@ -1522,6 +1523,17 @@ namespace Gravedigger2026.Meta
                    || (_searchExtractModule != null && _searchExtractModule.IsFormationEditorOpen);
         }
 
+        /// <summary>D-064: formation open or Sandbox UI-036 open.</summary>
+        private bool IsGmAddSoldierAllowed()
+        {
+            return IsGmAddSoldierFormationOpen() || IsSandboxOpen();
+        }
+
+        private bool IsSandboxOpen()
+        {
+            return _sandboxView != null && _sandboxView.IsOpen;
+        }
+
         private bool TryCollectGmAddSoldierFormationClassZones(List<FormationClassZoneSnapshot> into)
         {
             if (_umModule != null && _umModule.IsFormationEditorOpen)
@@ -1571,7 +1583,7 @@ namespace Gravedigger2026.Meta
                 _inSaveShellView.HideMagicBookSlotsPanel();
             }
 
-            if (!IsGmAddSoldierFormationOpen())
+            if (!IsGmAddSoldierAllowed())
             {
                 if (_toastView != null)
                 {
@@ -1595,7 +1607,10 @@ namespace Gravedigger2026.Meta
 
             if (_inSaveShellView != null)
             {
-                _inSaveShellView.ShowGmAddSoldierPanel(classes, races);
+                int? sorting = IsGmAddSoldierFormationOpen()
+                    ? (int?)null
+                    : GmAddSoldierPanelView.SandboxElevatedSortingOrder;
+                _inSaveShellView.ShowGmAddSoldierPanel(classes, races, sorting);
                 RefreshCameraFogMetaBlocking();
             }
         }
@@ -1609,7 +1624,7 @@ namespace Gravedigger2026.Meta
                 return;
             }
 
-            if (!IsGmAddSoldierFormationOpen())
+            if (!IsGmAddSoldierAllowed())
             {
                 if (_toastView != null)
                 {
@@ -1619,8 +1634,17 @@ namespace Gravedigger2026.Meta
                 return;
             }
 
+            // Sandbox gate: pool only (no formation zones).
+            if (!IsGmAddSoldierFormationOpen())
+            {
+                autoDeploy = false;
+            }
+
             _gmZoneScratch.Clear();
-            TryCollectGmAddSoldierFormationClassZones(_gmZoneScratch);
+            if (autoDeploy)
+            {
+                TryCollectGmAddSoldierFormationClassZones(_gmZoneScratch);
+            }
 
             if (!_gmSoldierGrant.TryAdd(
                     classId,
@@ -1646,6 +1670,53 @@ namespace Gravedigger2026.Meta
                     ? $"已添加 {added}，上阵 {deployed}"
                     : $"已添加 {added}");
             }
+        }
+
+        private void HandleGrantFullSetSoldier()
+        {
+            if (!_configs.IsLoaded)
+            {
+                _configs.TryLoadAll();
+            }
+
+            if (_inSaveShellView != null)
+            {
+                _inSaveShellView.HideToolsPanel();
+                _inSaveShellView.HideLevelSelectPanel();
+                _inSaveShellView.HideGmGrantListPanel();
+                _inSaveShellView.HideGmAddSoldierPanel();
+                _inSaveShellView.HideEquipmentWarehousePanel();
+                _inSaveShellView.HideMagicBookSlotsPanel();
+            }
+
+            if (!IsGmAddSoldierAllowed())
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("请先打开布阵界面");
+                }
+
+                return;
+            }
+
+            if (!_gmSoldierGrant.TryAddFullSetUndead(out var added, out var skipped))
+            {
+                if (_toastView != null)
+                {
+                    _toastView.Show("全套士兵添加失败");
+                }
+
+                return;
+            }
+
+            if (_toastView != null)
+            {
+                _toastView.Show(skipped > 0
+                    ? $"已添加 {added}；跳过 {skipped}"
+                    : $"已添加 {added}");
+            }
+
+            RefreshCameraFogMetaBlocking();
         }
 
         private List<GmDropdownOption> BuildClassDropdownOptions()

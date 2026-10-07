@@ -96,6 +96,11 @@ namespace Gravedigger2026.Editor.Coc
                 EnsureSpawn(parent, "SP_Final", origin + new Vector3(8f, 0f, 4f));
                 EnsureFog(parent, origin);
                 EnsureCapture(parent, "CP_Normal", origin + new Vector3(-4f, 0f, 2f));
+                var normalCapture = FindCapture(parent.gameObject, "CP_Normal");
+                var blockOrigin = normalCapture != null
+                    ? normalCapture.transform.localPosition
+                    : origin + new Vector3(-4f, 0f, 2f);
+                EnsureDeployBlock(parent, blockOrigin);
                 EnsureCapture(parent, "CP_Hard", origin + new Vector3(0f, 0f, 8f));
                 EnsureCapture(parent, "CP_Hell", origin + new Vector3(6f, 0f, -2f));
                 PrefabUtility.SaveAsPrefabAsset(root, path);
@@ -137,6 +142,27 @@ namespace Gravedigger2026.Editor.Coc
             CreateFogPoint(fog.transform, "P0", new Vector3(-7f, 0f, -5f));
             CreateFogPoint(fog.transform, "P1", new Vector3(7f, 0f, -5f));
             CreateFogPoint(fog.transform, "P2", new Vector3(0f, 0f, 7f));
+        }
+
+        private static void EnsureDeployBlock(Transform parent, Vector3 localPosition)
+        {
+            var existing = parent.GetComponentsInChildren<CocDeployBlockPolygon>(true);
+            for (var i = 0; i < existing.Length; i++)
+            {
+                if (existing[i] != null && existing[i].PointCount >= 3)
+                {
+                    return;
+                }
+            }
+
+            var zone = new GameObject("CocDeployBlock_01");
+            zone.transform.SetParent(parent, false);
+            zone.transform.localPosition = localPosition;
+            zone.AddComponent<CocDeployBlockPolygon>();
+            CreateFogPoint(zone.transform, "P0", new Vector3(-2.5f, 0f, -1f));
+            CreateFogPoint(zone.transform, "P1", new Vector3(2.5f, 0f, -1f));
+            CreateFogPoint(zone.transform, "P2", new Vector3(2.5f, 0f, -10f));
+            CreateFogPoint(zone.transform, "P3", new Vector3(-2.5f, 0f, -10f));
         }
 
         private static void CreateFogPoint(Transform parent, string pointName, Vector3 localPosition)

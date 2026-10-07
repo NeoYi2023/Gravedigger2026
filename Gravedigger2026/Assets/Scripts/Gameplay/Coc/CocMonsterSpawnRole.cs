@@ -37,12 +37,16 @@ namespace Gravedigger2026.Gameplay.Coc
             }
 
             var hideBody = true;
-            if (cellState == CocFogGrid.Revealed || cellState == CocFogGrid.Permanent)
+            if (cellState == CocFogGrid.Outside)
+            {
+                hideBody = false;
+            }
+            else if (cellState == CocFogGrid.Revealed || cellState == CocFogGrid.Permanent)
             {
                 _discovered = true;
                 hideBody = false;
             }
-            else if (cellState != CocFogGrid.Unseen && _discovered)
+            else if (cellState == CocFogGrid.Explored && _discovered)
             {
                 hideBody = false;
             }

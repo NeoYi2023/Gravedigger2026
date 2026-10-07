@@ -75,6 +75,21 @@ namespace Gravedigger2026.Core.Config
         /// Not a CSV column (SPEC_04 §9.19).
         /// </summary>
         public int TableOrder;
+        /// <summary>COC target-value score default (SPEC_04 §9.19 D-100).</summary>
+        public const float DefaultTargetValue = 1f;
+        /// <summary>COC only. Missing/empty → 1. Unread by other modes.</summary>
+        public float TargetValue = DefaultTargetValue;
+        /// <summary>COC only. Missing/empty → TreatAsObstacle. Unread by other modes.</summary>
+        public CocObstaclePathMode ObstaclePathMode = CocObstaclePathMode.TreatAsObstacle;
+
+        /// <summary>D-102: 0 = never berserk; &gt;0 accumulated noise required.</summary>
+        public float BerserkNoiseThreshold;
+
+        /// <summary>D-102: empty CSV → false (reach threshold still does not switch).</summary>
+        public bool HasBerserkAggroMode;
+
+        /// <summary>D-102: AggroMode after berserk. Unread unless <see cref="HasBerserkAggroMode"/>.</summary>
+        public AggroMode BerserkAggroMode;
 
         /// <summary>Run speed with MoveSpeed fallback (SPEC_04 §9.19).</summary>
         public float ResolveRunSpeed()

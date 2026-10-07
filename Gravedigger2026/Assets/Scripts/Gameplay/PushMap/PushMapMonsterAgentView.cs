@@ -26,6 +26,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private const float MoveAnimSpeedSqr = 0.01f;
 
         private MonsterConfigRow _config;
+        private AggroMode _runtimeAggroMode;
         private Transform _protagonist;
         private Func<IReadOnlyList<PushMapAdvanceView>> _warriorsProvider;
         private Action<string> _onHitProtagonist;
@@ -76,6 +77,45 @@ namespace Gravedigger2026.Gameplay.PushMap
         private CorpseProjectileSmashSweep.LivingMonsterEnumerator _enumerateLivingMonsters;
         private DeathKnockbackGroundShadowView _knockbackShadow;
         private bool _combatGameplayEnabled = true;
+        /// <summary>COC only. Ignore-obstacle monsters drive XZ straight and stop on carved walls.</summary>
+        private bool _cocDriveStraight;
+        /// <summary>
+        /// COC only (SPEC_03 §3.21). Default off so PushMap / Defend / SearchExtract keep radius re-filter.
+        /// When on, ActiveChase may latch past AlertRadius until this monster dies.
+        /// </summary>
+        private bool _cocActiveChaseLatchEnabled;
+        /// <summary>COC ActiveChase: set by the first in-radius loyal soldier, a confirmed hit, or the current victim dying.</summary>
+        private bool _cocAggroLatched;
+        /// <summary>
+        /// Alert-circle center on the ground (XZ). Rewritten from this monster every scan,
+        /// including the scan right after the current soldier dies. Never a spawn point or a corpse.
+        /// </summary>
+        private Vector2 _alertCenterXZ;
+        private bool _alertCenterReady;
+        /// <summary>Last living warrior this monster chose. Used to notice a kill and rescan.</summary>
+        private string _lastChaseWarriorId;
+        /// <summary>COC ActiveChase has already chosen a soldier. Later scans ignore AlertRadius.</summary>
+        private bool _cocEverEngaged;
+        /// <summary>COC stage unlocked body-nearest chase after the first detect or hit.</summary>
+        private bool _cocChaseUnlocked;
+        /// <summary>COC stage writes the living soldier this monster must chase. Null uses table detect.</summary>
+        private PushMapAdvanceView _cocForcedWarrior;
+        /// <summary>Ground XZ at Bind, after spawn spread and the local nav warp.</summary>
+        private Vector2 _spawnXZ;
+        /// <summary>COC attack-stuck return. Ignores chase and damage until the spawn point.</summary>
+        private bool _cocReturningHome;
+        private float _cocAttackStuckTimer;
+        private Vector3 _cocAttackStuckOrigin;
+        private int _cocActionHash;
+        private float _cocActionNormalized;
+        private bool _cocAttackStuckWindowReady;
+        private const float CocAttackStuckSeconds = 2f;
+        private const float CocActionAdvanceEpsilon = 0.05f;
+        /// <summary>COC only. Treat-as-target wall handed in by the overlay. Null on every other mode.</summary>
+        private Transform _cocInterceptTarget;
+        private string _cocInterceptTargetId;
+        private float _cocInterceptBodyRadius;
+        private Func<bool> _cocInterceptTryHit;
         private Action _onDeathPresentationComplete;
         private Action _onReviveAnimComplete;
         private bool _deathPresentationCompleteSent;
@@ -92,6 +132,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         public float AttackRange => _config != null ? _config.AttackRange : 0f;
         /// <summary>Active detect radius; empty table cell defaults to AttackRange at load.</summary>
         public float AlertRadius => Mathf.Max(0f, _alertRadius);
+        public float TargetValue =>
+            _config != null ? Mathf.Max(0f, _config.TargetValue) : MonsterConfigRow.DefaultTargetValue;
         public float BodyRadius => _config != null ? Mathf.Max(0.05f, _config.BodyRadius) : 0.35f;
         public Vector2 FacingXZ
         {
@@ -117,17 +159,167 @@ namespace Gravedigger2026.Gameplay.PushMap
                 ? AttackMode.Ranged
                 : AttackMode.Melee;
 
-        /// <summary>Stationary stances never move (SPEC_03 §3.14).</summary>
-        public bool IsStationary => _config != null &&
-            (_config.AggroMode == AggroMode.StationaryActive || _config.AggroMode == AggroMode.StationaryPassive);
+        /// <summary>Stationary stances never move (SPEC_03 §3.14 / D-102 runtime AggroMode).</summary>
+        public bool IsStationary =>
+            _runtimeAggroMode == AggroMode.StationaryActive
+            || _runtimeAggroMode == AggroMode.StationaryPassive;
 
-        /// <summary>Passive stances stay idle until provoked (SPEC_03 §3.14).</summary>
-        public bool IsPassive => _config != null &&
-            (_config.AggroMode == AggroMode.PassiveChase || _config.AggroMode == AggroMode.StationaryPassive);
+        public bool IsActiveChase => _runtimeAggroMode == AggroMode.ActiveChase;
+
+        public bool CocChaseUnlocked => _cocChaseUnlocked;
+
+        public bool IsCocReturningHome => _cocReturningHome;
+
+        /// <summary>Passive stances stay idle until provoked (SPEC_03 §3.14 / D-102 runtime AggroMode).</summary>
+        public bool IsPassive =>
+            _runtimeAggroMode == AggroMode.PassiveChase
+            || _runtimeAggroMode == AggroMode.StationaryPassive;
 
         public void SetCombatGameplayEnabled(bool enabled)
         {
             _combatGameplayEnabled = enabled;
+        }
+
+        /// <summary>
+        /// COC overlay (D-100 Approach A). When true, chase pauses the scheduler and
+        /// <see cref="NavMeshAgent.Move"/>s toward the current soldier so carved walls stop the body.
+        /// PushMap / SearchExtract leave this unset.
+        /// </summary>
+        public void SetCocDriveStraight(bool enabled)
+        {
+            _cocDriveStraight = enabled;
+        }
+
+        /// <summary>
+        /// COC overlay (SPEC_03 §3.21). When true, ActiveChase latches after the first loyal
+        /// soldier inside AlertRadius (XZ) or after a confirmed hit, then retargets the nearest
+        /// loyal soldier with no AlertRadius cap until this monster dies.
+        /// PushMap / SearchExtract leave this unset.
+        /// </summary>
+        public void SetCocActiveChaseLatch(bool enabled)
+        {
+            _cocActiveChaseLatchEnabled = enabled;
+            if (!enabled)
+            {
+                _cocAggroLatched = false;
+            }
+        }
+
+        /// <summary>
+        /// COC confirmed soldier hit. ActiveChase latches even if the shooter is outside AlertRadius.
+        /// Passive stances stay on <see cref="NotifyProvoked"/> and are not latched here.
+        /// </summary>
+        public void NotifyCocSoldierHit()
+        {
+            if (!_alive || !_cocActiveChaseLatchEnabled || IsStationary)
+            {
+                return;
+            }
+
+            RefreshAlertCenter();
+            if (_runtimeAggroMode == AggroMode.ActiveChase)
+            {
+                _cocAggroLatched = true;
+            }
+        }
+
+        /// <summary>COC: after the first detect or hit, the stage supplies the chase soldier.</summary>
+        public void UnlockCocChase()
+        {
+            _cocChaseUnlocked = true;
+            _cocEverEngaged = true;
+            _cocAggroLatched = true;
+        }
+
+        /// <summary>Nearest living soldier chosen by the COC stage. Null falls back to table detect.</summary>
+        public void SetCocBodyTarget(PushMapAdvanceView warrior)
+        {
+            if (warrior != null && (!warrior.IsCombatActive || warrior.IsRebel))
+            {
+                warrior = null;
+            }
+
+            _cocForcedWarrior = warrior;
+        }
+
+        /// <summary>
+        /// Walk back to the Bind spawn point. Arriving clears the chase latch and ends invincibility.
+        /// </summary>
+        public void DriveCocReturnHome(AttackSlotService slots, MassMoveScheduler scheduler)
+        {
+            if (!_cocReturningHome || !_alive || scheduler == null || _moveId == 0)
+            {
+                return;
+            }
+
+            if (IsAtSpawn())
+            {
+                CompleteCocReturnHome(slots, scheduler);
+                return;
+            }
+
+            ReleaseSlotClaim(slots);
+            ClearCocIntercept();
+            SetCocBodyTarget(null);
+            scheduler.SetPaused(_moveId, false);
+            scheduler.SetGoal(_moveId, GoalKind.FormationHome, _spawnXZ);
+        }
+
+        /// <summary>Snap the alert circle onto this monster's current ground position.</summary>
+        public void RefreshAlertCenter()
+        {
+            var pos = transform.position;
+            _alertCenterXZ = new Vector2(pos.x, pos.z);
+            _alertCenterReady = true;
+        }
+
+        public CocObstaclePathMode ObstaclePathMode =>
+            _config != null ? _config.ObstaclePathMode : CocObstaclePathMode.TreatAsObstacle;
+
+        public string CocInterceptTargetId => _cocInterceptTargetId;
+
+        /// <summary>Current chase soldier or protagonist, ignoring a wall intercept.</summary>
+        public bool TryGetCocChaseAim(out Vector3 worldPosition)
+        {
+            worldPosition = default;
+            if (ResolveTarget(out var warrior, out var protagonist) == TargetKind.None)
+            {
+                return false;
+            }
+
+            var aim = warrior != null ? warrior.transform : protagonist;
+            if (aim == null)
+            {
+                return false;
+            }
+
+            worldPosition = aim.position;
+            return true;
+        }
+
+        /// <summary>
+        /// COC overlay (D-100 slice 03b). While set, chase and attack this wall with the
+        /// monster's own attack speed and anim. The hit callback is the −1 channel.
+        /// </summary>
+        public void SetCocIntercept(string targetId, Transform target, float bodyRadius, Func<bool> tryHit)
+        {
+            if (target == null || tryHit == null || string.IsNullOrEmpty(targetId))
+            {
+                ClearCocIntercept();
+                return;
+            }
+
+            _cocInterceptTarget = target;
+            _cocInterceptTargetId = targetId;
+            _cocInterceptBodyRadius = Mathf.Max(0.05f, bodyRadius);
+            _cocInterceptTryHit = tryHit;
+        }
+
+        public void ClearCocIntercept()
+        {
+            _cocInterceptTarget = null;
+            _cocInterceptTargetId = null;
+            _cocInterceptTryHit = null;
         }
 
         public void SetCorpseSmashBridge(
@@ -162,6 +354,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             TargetFocusRegistry targetFocus = null)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
+            _runtimeAggroMode = config.AggroMode;
             _protagonist = protagonist;
             _warriorsProvider = warriorsProvider;
             _onHitProtagonist = onHitProtagonist;
@@ -187,6 +380,17 @@ namespace Gravedigger2026.Gameplay.PushMap
             _postReviveAlertApplied = false;
             _attackerId = gameObject.name;
             _combatGameplayEnabled = true;
+            _cocDriveStraight = false;
+            _cocActiveChaseLatchEnabled = false;
+            _cocAggroLatched = false;
+            _alertCenterReady = false;
+            _lastChaseWarriorId = null;
+            _cocEverEngaged = false;
+            _cocChaseUnlocked = false;
+            _cocForcedWarrior = null;
+            _cocReturningHome = false;
+            ResetCocAttackStuck();
+            ClearCocIntercept();
 
             _agent = GetComponent<NavMeshAgent>();
             if (_agent == null)
@@ -195,6 +399,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _agent.enabled = true;
+            _agent.agentTypeID = SpecialMoveNavMesh.DefaultAgentTypeId;
 
             _agent.speed = ResolveEffectiveMoveSpeed(false);
             _agent.stoppingDistance = 0f;
@@ -209,10 +414,17 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             // v0.73.9: local Warp only — do not SamplePosition(12) across AirWalls onto outer diamond.
             var warpSample = Mathf.Max(1f, BodyRadius * 3f);
-            if (!_agent.isOnNavMesh && NavMesh.SamplePosition(transform.position, out var hit, warpSample, NavMesh.AllAreas))
+            if (!_agent.isOnNavMesh &&
+                SpecialMoveNavMesh.SampleWalkable(
+                    _agent,
+                    transform.position,
+                    warpSample,
+                    out var hit))
             {
                 _agent.Warp(hit.position);
             }
+
+            _spawnXZ = new Vector2(transform.position.x, transform.position.z);
 
             RegisterWithScheduler(startPaused: true);
 
@@ -285,6 +497,16 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
         }
 
+        /// <summary>D-102: one-shot runtime AggroMode after berserk. Does not rewrite the table row.</summary>
+        public void SetRuntimeAggroMode(AggroMode mode)
+        {
+            _runtimeAggroMode = mode;
+            if (_agent != null && _alive && !IsStationary)
+            {
+                _agent.speed = ResolveEffectiveMoveSpeed(_gait.IsRun);
+            }
+        }
+
         /// <summary>
         /// ActiveChase/PassiveChase → gait speed × mult × slow; Stationary* unused (no move).
         /// SPEC_03 §3.14 / SPEC_04 §9.19.
@@ -297,7 +519,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             var mult = 1f;
-            switch (_config.AggroMode)
+            switch (_runtimeAggroMode)
             {
                 case AggroMode.ActiveChase:
                     mult = _config.ActiveMoveMult;
@@ -337,6 +559,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             _alive = false;
+            _cocReturningHome = false;
+            ResetCocAttackStuck();
             ClearRangedWindup();
             _stuckHold.Reset();
             _gait.Reset();
@@ -637,7 +861,12 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// </summary>
         public bool TryRefreshChaseGoal(AttackSlotService slots, MassMoveScheduler scheduler)
         {
-            if (!_alive || IsStationary || _config == null || scheduler == null || _moveId == 0)
+            if (_cocReturningHome ||
+                !_alive ||
+                IsStationary ||
+                _config == null ||
+                scheduler == null ||
+                _moveId == 0)
             {
                 return false;
             }
@@ -658,28 +887,53 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return false;
             }
 
-            if (ResolveTarget(out var warriorView, out var protagonistTf) == TargetKind.None)
+            Transform targetTf;
+            string targetId;
+            float targetBody;
+            var intercepting = TryGetCocIntercept(out var interceptTf, out var interceptBody, out var interceptId);
+            if (intercepting)
+            {
+                targetTf = interceptTf;
+                targetId = interceptId;
+                targetBody = interceptBody;
+            }
+            else if (ResolveTarget(out var warriorView, out var protagonistTf) == TargetKind.None)
             {
                 ReleaseSlotClaim(slots);
                 scheduler.SetPaused(_moveId, true);
                 return false;
             }
+            else
+            {
+                targetTf = warriorView != null ? warriorView.transform : protagonistTf;
+                if (targetTf == null)
+                {
+                    ReleaseSlotClaim(slots);
+                    scheduler.SetPaused(_moveId, true);
+                    return false;
+                }
 
-            var targetTf = warriorView != null ? warriorView.transform : protagonistTf;
-            if (targetTf == null)
+                targetId = warriorView != null
+                    ? warriorView.AttackerId
+                    : "Protagonist";
+                targetBody = warriorView != null
+                    ? warriorView.AgentRadius
+                    : AttackSlotService.DefaultTargetBodyRadius;
+            }
+
+            var dist = CombatReach.DistanceXZ(transform.position, targetTf.position);
+
+            if (_cocDriveStraight && !intercepting)
             {
                 ReleaseSlotClaim(slots);
                 scheduler.SetPaused(_moveId, true);
-                return false;
-            }
+                if (CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
+                {
+                    StopMovement();
+                }
 
-            var targetId = warriorView != null
-                ? warriorView.AttackerId
-                : "Protagonist";
-            var targetBody = warriorView != null
-                ? warriorView.AgentRadius
-                : AttackSlotService.DefaultTargetBodyRadius;
-            var dist = Vector3.Distance(transform.position, targetTf.position);
+                return true;
+            }
 
             // In AttackRange (edge-gap): hold and attack (no chase steer).
             if (CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
@@ -719,11 +973,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                 slotPos = targetTf.position + away.normalized * ring;
             }
 
+            var dest = CombatReach.ChaseDestinationXZ(
+                transform.position,
+                targetTf.position,
+                slotPos,
+                _config.AttackRange,
+                BodyRadius,
+                targetBody,
+                MassMoveScheduler.ArriveEpsilon);
             scheduler.SetPaused(_moveId, false);
-            scheduler.SetGoal(
-                _moveId,
-                GoalKind.AttackSlot,
-                new Vector2(slotPos.x, slotPos.z));
+            scheduler.SetGoal(_moveId, GoalKind.AttackSlot, dest);
             return true;
         }
 
@@ -734,6 +993,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             TryNotifyReviveAnimComplete();
 
             if (!_alive || _config == null || !_combatGameplayEnabled)
+            {
+                ResetCocAttackStuck();
+                return;
+            }
+
+            if (_cocReturningHome)
             {
                 return;
             }
@@ -747,6 +1012,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     ClearRangedWindup();
                 }
 
+                ResetCocAttackStuck();
                 return;
             }
 
@@ -762,34 +1028,57 @@ namespace Gravedigger2026.Gameplay.PushMap
                 StopMovement();
                 _scheduler?.SetPaused(_moveId, true);
                 TickRangedWindup();
+                ResetCocAttackStuck();
                 return;
             }
 
-            var targetKind = ResolveTarget(out var warriorView, out var protagonistTf);
-            if (targetKind == TargetKind.None)
+            Transform targetTf;
+            float targetBody;
+            PushMapAdvanceView warriorView = null;
+            TargetKind targetKind;
+            if (TryGetCocIntercept(out var interceptTf, out var interceptBody, out _))
             {
-                return;
+                targetTf = interceptTf;
+                targetBody = interceptBody;
+                targetKind = TargetKind.CocIntercept;
             }
-
-            var targetTf = targetKind == TargetKind.Warrior && warriorView != null
-                ? warriorView.transform
-                : protagonistTf;
-            if (targetTf == null)
+            else
             {
-                return;
+                targetKind = ResolveTarget(out warriorView, out var protagonistTf);
+                if (targetKind == TargetKind.None)
+                {
+                    ResetCocAttackStuck();
+                    return;
+                }
+
+                targetTf = targetKind == TargetKind.Warrior && warriorView != null
+                    ? warriorView.transform
+                    : protagonistTf;
+                if (targetTf == null)
+                {
+                    ResetCocAttackStuck();
+                    return;
+                }
+
+                targetBody = warriorView != null
+                    ? warriorView.AgentRadius
+                    : AttackSlotService.DefaultTargetBodyRadius;
             }
 
-            var dist = Vector3.Distance(transform.position, targetTf.position);
-            var targetBody = warriorView != null
-                ? warriorView.AgentRadius
-                : AttackSlotService.DefaultTargetBodyRadius;
+            var dist = CombatReach.DistanceXZ(transform.position, targetTf.position);
             if (!CombatReach.IsInAttackRange(dist, _config.AttackRange, BodyRadius, targetBody))
+            {
+                ResetCocAttackStuck();
+                return;
+            }
+
+            TickCocAttackStuck();
+            if (_cocReturningHome)
             {
                 return;
             }
 
             StopMovement();
-            _scheduler?.SetPaused(_moveId, true);
 
             _attackCooldown -= Time.deltaTime;
             if (_attackCooldown > 0f)
@@ -805,7 +1094,11 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return;
             }
 
-            if (targetKind == TargetKind.Protagonist)
+            if (targetKind == TargetKind.CocIntercept)
+            {
+                _cocInterceptTryHit?.Invoke();
+            }
+            else if (targetKind == TargetKind.Protagonist)
             {
                 _onHitProtagonist?.Invoke($"Monster:{_config.MonsterId}");
             }
@@ -819,6 +1112,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                         $"[PushMapMonster] {_config.MonsterId} hit warrior {warriorView.AttackerId} " +
                         "but Session did not settle (inactive / already dead).");
                 }
+
+                NoteVictimDown(warriorView);
             }
 
             var aspd = _config.AttackSpeed * ResolveSlowAttackMul();
@@ -860,6 +1155,22 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             if (_config == null)
             {
+                return;
+            }
+
+            if (targetKind == TargetKind.CocIntercept)
+            {
+                if (TryGetCocIntercept(out var interceptTf, out var interceptBody, out _) &&
+                    CombatReach.IsInAttackRange(
+                        CombatReach.DistanceXZ(transform.position, interceptTf.position),
+                        _config.AttackRange,
+                        BodyRadius,
+                        interceptBody,
+                        CombatReach.HitConfirmSlack))
+                {
+                    _cocInterceptTryHit?.Invoke();
+                }
+
                 return;
             }
 
@@ -922,6 +1233,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                     $"[PushMapMonster] {_config.MonsterId} hit warrior {warriorView.AttackerId} " +
                     "but Session did not settle (inactive / already dead).");
             }
+
+            NoteVictimDown(warriorView);
         }
 
         private void ClearRangedWindup()
@@ -975,37 +1288,44 @@ namespace Gravedigger2026.Gameplay.PushMap
 
                     if (_agent.isOnNavMesh)
                     {
-                        // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
-                        var hasSteer =
-                            _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
-                        var hasCorrection =
-                            _scheduler.TryGetCorrection(_moveId, out var correction) &&
-                            correction.sqrMagnitude > 1e-8f;
-                        if (hasSteer || hasCorrection)
+                        if (_cocDriveStraight && !inAttackRange)
                         {
-                            if (_agent.hasPath)
+                            TryApplyCocStraightDrive();
+                        }
+                        else
+                        {
+                            // SC-03: soft-collision impulse applies even on zero-steer frames (attack hold).
+                            var hasSteer =
+                                _scheduler.TryGetSteer(_moveId, out var steer) && steer.sqrMagnitude > 1e-8f;
+                            var hasCorrection =
+                                _scheduler.TryGetCorrection(_moveId, out var correction) &&
+                                correction.sqrMagnitude > 1e-8f;
+                            if (hasSteer || hasCorrection)
                             {
-                                _agent.ResetPath();
-                            }
+                                if (_agent.hasPath)
+                                {
+                                    _agent.ResetPath();
+                                }
 
-                            _agent.isStopped = false;
-                            var speed = ResolveEffectiveMoveSpeed(_gait.IsRun);
-                            _agent.speed = speed;
-                            var delta = hasSteer
-                                ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
-                                : Vector3.zero;
-                            if (hasCorrection)
-                            {
-                                delta.x += correction.x;
-                                delta.z += correction.y;
-                            }
+                                _agent.isStopped = false;
+                                var speed = ResolveEffectiveMoveSpeed(_gait.IsRun);
+                                _agent.speed = speed;
+                                var delta = hasSteer
+                                    ? new Vector3(steer.x, 0f, steer.y) * (speed * Time.deltaTime)
+                                    : Vector3.zero;
+                                if (hasCorrection)
+                                {
+                                    delta.x += correction.x;
+                                    delta.z += correction.y;
+                                }
 
-                            if (hasSteer)
-                            {
-                                _lastSteerDirXZ = new Vector3(steer.x, 0f, steer.y);
-                            }
+                                if (hasSteer)
+                                {
+                                    _lastSteerDirXZ = new Vector3(steer.x, 0f, steer.y);
+                                }
 
-                            _agent.Move(delta);
+                                _agent.Move(delta);
+                            }
                         }
                     }
                 }
@@ -1014,10 +1334,164 @@ namespace Gravedigger2026.Gameplay.PushMap
             TickAnimPresentation(inAttackRange, isLocomoting);
         }
 
+        private void TryApplyCocStraightDrive()
+        {
+            if (!TryGetCombatTargetPosition(out var targetPos, out _))
+            {
+                return;
+            }
+
+            var to = targetPos - transform.position;
+            to.y = 0f;
+            if (to.sqrMagnitude < 1e-8f)
+            {
+                return;
+            }
+
+            if (_agent.hasPath)
+            {
+                _agent.ResetPath();
+            }
+
+            _agent.isStopped = false;
+            var speed = ResolveEffectiveMoveSpeed(_gait.IsRun);
+            _agent.speed = speed;
+            var dir = to.normalized;
+            _lastSteerDirXZ = dir;
+            _lastDesiredDirXZ = dir;
+            _agent.Move(dir * (speed * Time.deltaTime));
+        }
+
+        private bool IsAtSpawn()
+        {
+            var pos = transform.position;
+            var dx = pos.x - _spawnXZ.x;
+            var dz = pos.z - _spawnXZ.y;
+            var epsilon = MassMoveScheduler.ArriveEpsilon;
+            return dx * dx + dz * dz <= epsilon * epsilon;
+        }
+
+        private void TickCocAttackStuck()
+        {
+            if (!_cocActiveChaseLatchEnabled || IsStationary || _cocReturningHome)
+            {
+                ResetCocAttackStuck();
+                return;
+            }
+
+            if (!IsCocActionFrozen(out var hash, out var normalized))
+            {
+                BeginCocAttackStuckWindow(hash, normalized);
+                return;
+            }
+
+            var pos = transform.position;
+            var dx = pos.x - _cocAttackStuckOrigin.x;
+            var dz = pos.z - _cocAttackStuckOrigin.z;
+            var epsilon = CombatRuntimeTuning.StuckDisplacementEpsilon;
+            if (dx * dx + dz * dz >= epsilon * epsilon)
+            {
+                BeginCocAttackStuckWindow(hash, normalized);
+                return;
+            }
+
+            _cocAttackStuckTimer += Time.deltaTime;
+            if (_cocAttackStuckTimer >= CocAttackStuckSeconds)
+            {
+                BeginCocReturnHome();
+            }
+        }
+
+        private bool IsCocActionFrozen(out int hash, out float normalized)
+        {
+            hash = 0;
+            normalized = 0f;
+            if (_anim == null || !_anim.TryGetActionStamp(out hash, out normalized))
+            {
+                return false;
+            }
+
+            if (!_cocAttackStuckWindowReady)
+            {
+                return false;
+            }
+
+            if (hash != _cocActionHash)
+            {
+                return false;
+            }
+
+            if (normalized > _cocActionNormalized + CocActionAdvanceEpsilon)
+            {
+                return false;
+            }
+
+            if (normalized < _cocActionNormalized - CocActionAdvanceEpsilon)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void BeginCocAttackStuckWindow(int hash, float normalized)
+        {
+            _cocAttackStuckWindowReady = true;
+            _cocAttackStuckTimer = 0f;
+            _cocAttackStuckOrigin = transform.position;
+            _cocActionHash = hash;
+            _cocActionNormalized = normalized;
+        }
+
+        private void ResetCocAttackStuck()
+        {
+            _cocAttackStuckWindowReady = false;
+            _cocAttackStuckTimer = 0f;
+        }
+
+        private void BeginCocReturnHome()
+        {
+            _cocReturningHome = true;
+            ResetCocAttackStuck();
+            _stuckHold.Reset();
+            ClearRangedWindup();
+            ClearCocIntercept();
+            SetCocBodyTarget(null);
+            _anim?.ResetToIdle();
+        }
+
+        private void CompleteCocReturnHome(AttackSlotService slots, MassMoveScheduler scheduler)
+        {
+            _cocReturningHome = false;
+            _cocChaseUnlocked = false;
+            _cocAggroLatched = false;
+            _cocEverEngaged = false;
+            _cocForcedWarrior = null;
+            _lastChaseWarriorId = null;
+            ResetCocAttackStuck();
+            _stuckHold.Reset();
+            ClearCocIntercept();
+            ReleaseSlotClaim(slots);
+            if (scheduler != null && _moveId != 0)
+            {
+                scheduler.SetPaused(_moveId, true);
+            }
+
+            StopMovement();
+            _anim?.ResetToIdle();
+        }
+
         private void EvaluateLocomotion(out bool inAttackRange, out bool isLocomoting)
         {
             inAttackRange = false;
             isLocomoting = false;
+            if (_cocReturningHome)
+            {
+                _stuckHold.Tick(false, transform.position, Time.deltaTime);
+                isLocomoting = _alive && !IsStunnedNow() && !IsAtSpawn();
+                return;
+            }
+
             if (TryGetCombatTargetPosition(out var attackTargetPos, out var body) && _config != null)
             {
                 inAttackRange = CombatReach.IsInAttackRange(
@@ -1032,11 +1506,16 @@ namespace Gravedigger2026.Gameplay.PushMap
                                  _moveId != 0 &&
                                  _scheduler.TryGetSteer(_moveId, out var steerIntent) &&
                                  steerIntent.sqrMagnitude > MoveAnimSpeedSqr;
+            var hasStraightIntent = _cocDriveStraight &&
+                                    _alive &&
+                                    !IsStunnedNow() &&
+                                    !IsStationary &&
+                                    !inAttackRange;
             var wantsMove = _alive &&
                             !IsStunnedNow() &&
                             !IsStationary &&
                             !inAttackRange &&
-                            hasSteerIntent;
+                            (hasSteerIntent || hasStraightIntent);
             _stuckHold.Tick(wantsMove, transform.position, Time.deltaTime);
             isLocomoting = wantsMove && !_stuckHold.IsHolding;
         }
@@ -1123,6 +1602,13 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (_config == null)
             {
                 return false;
+            }
+
+            if (TryGetCocIntercept(out var interceptTf, out var interceptBody, out _))
+            {
+                targetPos = interceptTf.position;
+                targetBodyRadius = interceptBody;
+                return true;
             }
 
             var kind = ResolveTarget(out var warriorView, out var protagonistTf);
@@ -1222,7 +1708,16 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             None = 0,
             Protagonist = 1,
-            Warrior = 2
+            Warrior = 2,
+            CocIntercept = 3
+        }
+
+        private bool TryGetCocIntercept(out Transform target, out float bodyRadius, out string targetId)
+        {
+            target = _cocInterceptTarget;
+            bodyRadius = _cocInterceptBodyRadius;
+            targetId = _cocInterceptTargetId;
+            return target != null && _cocInterceptTryHit != null && !string.IsNullOrEmpty(targetId);
         }
 
         private bool IsAggroActive => !IsPassive || _provoked;
@@ -1231,6 +1726,20 @@ namespace Gravedigger2026.Gameplay.PushMap
         {
             warrior = null;
             protagonist = _protagonist;
+            RefreshAlertCenter();
+            if (_cocForcedWarrior != null)
+            {
+                if (_cocForcedWarrior.IsCombatActive && !_cocForcedWarrior.IsRebel)
+                {
+                    warrior = _cocForcedWarrior;
+                    _lastChaseWarriorId = warrior.AttackerId;
+                    return TargetKind.Warrior;
+                }
+
+                _cocForcedWarrior = null;
+            }
+
+            NoteDeadChaseVictim();
 
             if (_config == null || !IsAggroActive)
             {
@@ -1279,8 +1788,107 @@ namespace Gravedigger2026.Gameplay.PushMap
                     break;
             }
 
+            if (kind == TargetKind.Warrior && warrior != null && !string.IsNullOrEmpty(warrior.AttackerId))
+            {
+                _lastChaseWarriorId = warrior.AttackerId;
+                if (_cocActiveChaseLatchEnabled
+                    && _runtimeAggroMode == AggroMode.ActiveChase
+                    && !IsStationary)
+                {
+                    _cocEverEngaged = true;
+                    _cocAggroLatched = true;
+                }
+            }
+
             SyncTargetFocus(kind, warrior);
             return kind;
+        }
+
+        /// <summary>Ground XZ distance from the alert center, which tracks this monster.</summary>
+        private float DistanceFromAlertCenter(Vector3 world)
+        {
+            RefreshAlertCenter();
+
+            var dx = world.x - _alertCenterXZ.x;
+            var dz = world.z - _alertCenterXZ.y;
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
+
+        private Vector3 AlertCenterWorld
+        {
+            get
+            {
+                RefreshAlertCenter();
+                return new Vector3(_alertCenterXZ.x, transform.position.y, _alertCenterXZ.y);
+            }
+        }
+
+        /// <summary>
+        /// Current chase soldier died: snap the alert center back onto this monster and keep COC ActiveChase latched.
+        /// </summary>
+        private void NoteDeadChaseVictim()
+        {
+            if (!_cocActiveChaseLatchEnabled
+                || _runtimeAggroMode != AggroMode.ActiveChase
+                || IsStationary
+                || string.IsNullOrEmpty(_lastChaseWarriorId)
+                || IsLivingLoyalWarrior(_lastChaseWarriorId))
+            {
+                return;
+            }
+
+            _cocAggroLatched = true;
+            _lastChaseWarriorId = null;
+            RefreshAlertCenter();
+            ClearTargetFocus();
+        }
+
+        private void NoteVictimDown(PushMapAdvanceView warrior)
+        {
+            if (warrior == null || warrior.IsCombatActive)
+            {
+                return;
+            }
+
+            if (!_cocActiveChaseLatchEnabled
+                || _runtimeAggroMode != AggroMode.ActiveChase
+                || IsStationary)
+            {
+                return;
+            }
+
+            _cocAggroLatched = true;
+            if (string.Equals(_lastChaseWarriorId, warrior.AttackerId, StringComparison.Ordinal))
+            {
+                _lastChaseWarriorId = null;
+            }
+
+            RefreshAlertCenter();
+            ClearTargetFocus();
+            TryRefreshChaseGoal(_attackSlots, _scheduler);
+        }
+
+        private bool IsLivingLoyalWarrior(string warriorId)
+        {
+            var list = _warriorsProvider != null ? _warriorsProvider() : null;
+            if (list == null || string.IsNullOrEmpty(warriorId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < list.Count; i++)
+            {
+                var w = list[i];
+                if (w != null
+                    && !w.IsRebel
+                    && w.IsCombatActive
+                    && string.Equals(w.AttackerId, warriorId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool WithinDetect(Vector3 targetPos, float alertRadius, float targetBodyRadius)
@@ -1294,7 +1902,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 return true;
             }
 
-            return Vector3.Distance(transform.position, targetPos) <= Mathf.Max(0.01f, detect);
+            return DistanceFromAlertCenter(targetPos) <= Mathf.Max(0.01f, detect);
         }
 
         private TargetKind NearestAny(float alertRadius, out PushMapAdvanceView warrior, out Transform protagonist)
@@ -1307,14 +1915,14 @@ namespace Gravedigger2026.Gameplay.PushMap
             if (protagonist != null &&
                 WithinDetect(protagonist.position, alertRadius, AttackSlotService.DefaultTargetBodyRadius))
             {
-                bestDist = Vector3.Distance(transform.position, protagonist.position);
+                bestDist = DistanceFromAlertCenter(protagonist.position);
                 kind = TargetKind.Protagonist;
             }
 
             var nearestWarrior = NearestLoyalWarriorWithin(alertRadius);
             if (nearestWarrior != null)
             {
-                var d = Vector3.Distance(transform.position, nearestWarrior.transform.position);
+                var d = DistanceFromAlertCenter(nearestWarrior.transform.position);
                 if (d < bestDist)
                 {
                     warrior = nearestWarrior;
@@ -1325,12 +1933,87 @@ namespace Gravedigger2026.Gameplay.PushMap
             return kind;
         }
 
+        /// <summary>COC ActiveChase only: latched chase ignores AlertRadius until this monster dies.</summary>
+        private bool IsCocActiveChasePersistent =>
+            _cocActiveChaseLatchEnabled
+            && _cocAggroLatched
+            && _runtimeAggroMode == AggroMode.ActiveChase
+            && !IsStationary;
+
+        private void TryLatchCocActiveChase(IReadOnlyList<PushMapAdvanceView> list, float alertRadius)
+        {
+            if (_cocAggroLatched
+                || !_cocActiveChaseLatchEnabled
+                || _runtimeAggroMode != AggroMode.ActiveChase
+                || IsStationary
+                || list == null)
+            {
+                return;
+            }
+
+            var detect = Mathf.Max(0.01f, alertRadius);
+            for (var i = 0; i < list.Count; i++)
+            {
+                var w = list[i];
+                if (w == null || w.IsRebel || !w.IsCombatActive || string.IsNullOrEmpty(w.AttackerId))
+                {
+                    continue;
+                }
+
+                if (DistanceFromAlertCenter(w.transform.position) <= detect)
+                {
+                    _cocAggroLatched = true;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Strict nearest living loyal soldier by this monster's body XZ. No alert radius, no sticky band.</summary>
+        private PushMapAdvanceView NearestByBody(IReadOnlyList<PushMapAdvanceView> list)
+        {
+            PushMapAdvanceView best = null;
+            var bestDist = float.MaxValue;
+            if (list == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < list.Count; i++)
+            {
+                var w = list[i];
+                if (w == null || w.IsRebel || !w.IsCombatActive || string.IsNullOrEmpty(w.AttackerId))
+                {
+                    continue;
+                }
+
+                var dist = CombatReach.DistanceXZ(transform.position, w.transform.position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = w;
+                }
+            }
+
+            return best;
+        }
+
         private PushMapAdvanceView NearestLoyalWarriorWithin(float alertRadius)
         {
             var list = _warriorsProvider != null ? _warriorsProvider() : null;
             if (list == null || list.Count == 0)
             {
                 return null;
+            }
+
+            TryLatchCocActiveChase(list, alertRadius);
+            var cocUnlocked = _cocActiveChaseLatchEnabled
+                              && _runtimeAggroMode == AggroMode.ActiveChase
+                              && !IsStationary
+                              && (_cocAggroLatched || _cocEverEngaged);
+            if (cocUnlocked)
+            {
+                _cocAggroLatched = true;
+                return NearestByBody(list);
             }
 
             var chasePersistent = IsPassive && _provoked && !IsStationary;
@@ -1343,7 +2026,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     continue;
                 }
 
-                var d = Vector3.Distance(transform.position, w.transform.position);
+                var d = DistanceFromAlertCenter(w.transform.position);
                 var detect = IsStationary
                     ? CombatReach.MaxCenterDistance(_config.AttackRange, BodyRadius, w.AgentRadius)
                     : alertRadius;
@@ -1364,7 +2047,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             string currentFocus = null;
             _targetFocus?.TryGetFocus(_attackerId, out currentFocus);
             var pickedId = MonsterNearestWarriorPicker.Pick(
-                transform.position,
+                AlertCenterWorld,
                 _nearestCandidateScratch,
                 _targetFocus,
                 _attackerId,

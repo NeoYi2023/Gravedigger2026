@@ -26,7 +26,8 @@ namespace Gravedigger2026.Gameplay.PushMap
         private const float LifetimeSeconds = 0.5f;
         private const float RiseZ = 0.5f;
         private const float CharacterSize = 0.12f;
-        private const int SortingOrder = 210;
+        /// <summary>Above CocFog (250) and COC Boss sprites (280); below projectiles (320).</summary>
+        private const int SortingOrder = 290;
 
         private float _startZ;
         private float _elapsed;
@@ -91,38 +92,37 @@ namespace Gravedigger2026.Gameplay.PushMap
         private TextMesh EnsureLabel()
         {
             var label = GetComponentInChildren<TextMesh>(true);
-            if (label != null)
+            if (label == null)
             {
-                return label;
+                var go = new GameObject("Label");
+                var t = go.transform;
+                t.SetParent(transform, false);
+                t.localPosition = Vector3.zero;
+                // Top-down Combat camera looks down -Y; face text upward.
+                t.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+                label = go.AddComponent<TextMesh>();
+                label.anchor = TextAnchor.MiddleCenter;
+                label.alignment = TextAlignment.Center;
+                label.characterSize = CharacterSize;
+                var font = Font.CreateDynamicFontFromOSFont(
+                    new[] { "Microsoft YaHei", "SimHei", "Arial Unicode MS", "Arial" },
+                    32);
+                if (font != null)
+                {
+                    label.font = font;
+                    var meshRenderer = go.GetComponent<MeshRenderer>();
+                    if (meshRenderer != null && font.material != null)
+                    {
+                        meshRenderer.sharedMaterial = font.material;
+                    }
+                }
             }
 
-            var go = new GameObject("Label");
-            var t = go.transform;
-            t.SetParent(transform, false);
-            t.localPosition = Vector3.zero;
-            // Top-down Combat camera looks down -Y; face text upward.
-            t.localRotation = Quaternion.Euler(90f, 0f, 0f);
-
-            label = go.AddComponent<TextMesh>();
-            label.anchor = TextAnchor.MiddleCenter;
-            label.alignment = TextAlignment.Center;
-            label.characterSize = CharacterSize;
-            var font = Font.CreateDynamicFontFromOSFont(
-                new[] { "Microsoft YaHei", "SimHei", "Arial Unicode MS", "Arial" },
-                32);
-            if (font != null)
+            var renderer = label.GetComponent<MeshRenderer>();
+            if (renderer != null)
             {
-                label.font = font;
-                var renderer = go.GetComponent<MeshRenderer>();
-                if (renderer != null)
-                {
-                    if (font.material != null)
-                    {
-                        renderer.sharedMaterial = font.material;
-                    }
-
-                    renderer.sortingOrder = SortingOrder;
-                }
+                renderer.sortingOrder = SortingOrder;
             }
 
             return label;

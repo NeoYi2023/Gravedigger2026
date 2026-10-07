@@ -59,6 +59,9 @@ namespace Gravedigger2026.Core.SearchExtract
         private readonly List<CombatIndicatorMonsterRead> _monsterIndicatorScratch =
             new List<CombatIndicatorMonsterRead>(64);
         private readonly List<string> _clearScratch = new List<string>(32);
+        private CombatNoiseService _combatNoise;
+        private Func<string, Vector2?> _monsterWorldXZProvider;
+        private readonly List<MonsterWorldXZ> _aliveMonstersXZScratch = new List<MonsterWorldXZ>(32);
 
         public event Action<SearchExtractPhase> PhaseChanged;
         public event Action GatherPointActivated;
@@ -70,6 +73,8 @@ namespace Gravedigger2026.Core.SearchExtract
         public event Action<string, float> MonsterReviveStarted;
         public event Action<string> MonsterRevived;
         public event Action<string, string, bool> MonsterInvincibleChanged;
+        /// <summary>D-102: runtimeId, new AggroMode, provoke.</summary>
+        public event Action<string, AggroMode, bool> MonsterBerserkTriggered;
         public event Action<string, float> WarriorDamageSettled;
         public event Action<string> WarriorCombatDead;
         public event Action<SearchExtractPointDecisionInfo> PointSucceeded;
@@ -215,6 +220,17 @@ namespace Gravedigger2026.Core.SearchExtract
             ResetGatherCountdownState();
             ResetWaveSpawnState();
             BindDeathSkillHost();
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered -= HandleMonsterBerserkTriggered;
+            }
+
+            _combatNoise = _configs != null ? new CombatNoiseService(_configs) : null;
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered += HandleMonsterBerserkTriggered;
+            }
+
             Phase = SearchExtractPhase.Combat;
             PhaseChanged?.Invoke(Phase);
             Debug.Log(
@@ -590,7 +606,20 @@ namespace Gravedigger2026.Core.SearchExtract
             LockedLossOfControlTierId = 0;
             LevelId = null;
             GameplayOptionId = null;
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered -= HandleMonsterBerserkTriggered;
+                _combatNoise.ResetBattle();
+            }
+
+            _combatNoise = null;
+            _aliveMonstersXZScratch.Clear();
             _configs = null;
+        }
+
+        public void SetMonsterWorldXZProvider(Func<string, Vector2?> provider)
+        {
+            _monsterWorldXZProvider = provider;
         }
 
         public bool TryRegisterWarrior(
@@ -658,6 +687,9 @@ namespace Gravedigger2026.Core.SearchExtract
             state = new DefendCombatWarriorState
             {
                 WarriorId = warrior.Id,
+                ClassId = classRow != null
+                    ? classRow.ClassId ?? string.Empty
+                    : warrior.ClassId ?? string.Empty,
                 BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
                 AttackMode = ParabolaCombatRegistration.ResolveAttackMode(warrior, classRow),
                 MaxHp = maxHp,
@@ -755,6 +787,7 @@ namespace Gravedigger2026.Core.SearchExtract
             }
 
             _monsterDeathSkills.InitializeMonsterState(_monsters[runtimeId], _configs);
+            _combatNoise?.RegisterMonster(runtimeId, monsterId);
             return true;
         }
 
@@ -920,6 +953,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 TryFinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
+            TryApplyClassAttackNoise(warrior, monsterRuntimeId);
             return true;
         }
 
@@ -957,6 +991,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 TryFinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
+            TryApplyClassAttackNoise(warrior, monsterRuntimeId);
             return true;
         }
 
@@ -993,6 +1028,7 @@ namespace Gravedigger2026.Core.SearchExtract
                 TryFinalizeMonsterDeath(monster, monsterRuntimeId, warriorId, warrior.NormalAttackPower, string.Empty);
             }
 
+            TryApplyClassAttackNoise(warrior, monsterRuntimeId);
             return true;
         }
 
@@ -1375,6 +1411,69 @@ namespace Gravedigger2026.Core.SearchExtract
 
             Debug.Log(
                 $"[SearchExtractSession] Rules clear monsters count={_clearScratch.Count} Order={CurrentGatherOrder}");
+        }
+
+        private void TryApplyClassAttackNoise(DefendCombatWarriorState warrior, string monsterRuntimeId)
+        {
+            if (_combatNoise == null || warrior == null)
+            {
+                return;
+            }
+
+            if (!TryResolveMonsterWorldXZ(monsterRuntimeId, out var center))
+            {
+                return;
+            }
+
+            FillAliveMonstersXZScratch();
+            _combatNoise.TryApplyClassPulse(warrior, center, _aliveMonstersXZScratch);
+        }
+
+        private bool TryResolveMonsterWorldXZ(string monsterRuntimeId, out Vector2 positionXZ)
+        {
+            positionXZ = default;
+            if (string.IsNullOrEmpty(monsterRuntimeId) || _monsterWorldXZProvider == null)
+            {
+                return false;
+            }
+
+            var maybe = _monsterWorldXZProvider(monsterRuntimeId);
+            if (!maybe.HasValue)
+            {
+                return false;
+            }
+
+            positionXZ = maybe.Value;
+            return true;
+        }
+
+        private void FillAliveMonstersXZScratch()
+        {
+            _aliveMonstersXZScratch.Clear();
+            if (_monsterWorldXZProvider == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _monsters)
+            {
+                if (pair.Value == null || !IsMonsterTargetable(pair.Key))
+                {
+                    continue;
+                }
+
+                if (!TryResolveMonsterWorldXZ(pair.Key, out var xz))
+                {
+                    continue;
+                }
+
+                _aliveMonstersXZScratch.Add(new MonsterWorldXZ(pair.Key, xz));
+            }
+        }
+
+        private void HandleMonsterBerserkTriggered(string runtimeId, AggroMode mode, bool provoke)
+        {
+            MonsterBerserkTriggered?.Invoke(runtimeId, mode, provoke);
         }
 
         private void ResetGatherCountdownState()

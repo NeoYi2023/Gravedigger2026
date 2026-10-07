@@ -1,12 +1,12 @@
-SkillEffectId,Notes
-SkillEffect_01,
-SkillEffect_02,
-SkillEffect_03,
-SkillEffect_04,
-SkillEffect_05,
-SkillEffect_06,
-SkillEffect_07,
-SkillEffect_08,
-SkillEffect_09,
-SkillEffect_10,
-BondEffect_Demo_1,Mode1 演示羁绊：展示占位（Handler 未接线）
+SkillEffectId,Notes,AttackNoiseValue,NoiseRadius
+SkillEffect_01,,0,0
+SkillEffect_02,,0,0
+SkillEffect_03,,0,0
+SkillEffect_04,,0,0
+SkillEffect_05,,0,0
+SkillEffect_06,,0,0
+SkillEffect_07,,0,0
+SkillEffect_08,,0,0
+SkillEffect_09,,0,0
+SkillEffect_10,,0,0
+BondEffect_Demo_1,Mode1 演示羁绊：展示占位（Handler 未接线）,0,0

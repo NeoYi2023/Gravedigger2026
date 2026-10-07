@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Gravedigger2026.Core.Config
 {
@@ -95,6 +96,33 @@ namespace Gravedigger2026.Core.Config
         /// Not a CSV column (SPEC_04 §9.9b).
         /// </summary>
         public int TableOrder;
+        /// <summary>COC observe/fog radius (SPEC_04 §9.9b D-100). Missing/empty/≤0 → 2.</summary>
+        public const float DefaultObserveRange = 2f;
+        /// <summary>COC only. Missing/empty/≤0 stored as <see cref="DefaultObserveRange"/>.</summary>
+        public float ObserveRange = DefaultObserveRange;
+        /// <summary>COC only. Missing/empty → PreferNearest.</summary>
+        public CocDistancePriority DistancePriority;
+        /// <summary>COC only. Missing/empty → HighToLow.</summary>
+        public CocTargetValueMode TargetValueMode;
+        /// <summary>COC only. Never null; empty = no candidate types.</summary>
+        public IReadOnlyDictionary<string, float> TargetTypeScores = EmptyTargetTypeScores;
+
+        /// <summary>
+        /// D-101: 1 = this soldier treats AirWall.SupportsSpecialMove walls as walkable.
+        /// Missing/empty CSV → 0.
+        /// </summary>
+        public int SpecialMove;
+
+        public bool HasSpecialMove => SpecialMove == 1;
+
+        /// <summary>D-102: 0 = no noise; &gt;0 added on each AA HitConfirm.</summary>
+        public float AttackNoiseValue;
+
+        /// <summary>D-102: world XZ radius around the attack-target point.</summary>
+        public float NoiseRadius;
+
+        public static readonly IReadOnlyDictionary<string, float> EmptyTargetTypeScores =
+            new Dictionary<string, float>(StringComparer.Ordinal);
 
         public float ResolveBaseMoveSpeed()
         {

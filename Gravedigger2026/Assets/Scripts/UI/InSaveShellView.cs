@@ -13,6 +13,12 @@ namespace Gravedigger2026.UI
 {
     public sealed class InSaveShellView : MonoBehaviour
     {
+        /// <summary>Above SandboxRoot Canvas (200); keeps ToolsButton clickable on UI-036.</summary>
+        public const int ToolsChromeSortingOrder = 210;
+
+        /// <summary>Above ToolsButton (210) and Sandbox (200); ToolsPanel list must clear SandboxRoot.</summary>
+        public const int ToolsPanelSortingOrder = 220;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private Image _backdropImage;
         [SerializeField] private Text _slotLabel;
@@ -50,6 +56,7 @@ namespace Gravedigger2026.UI
         public event Action GrantProtagonistEquipmentRequested;
         public event Action GrantMagicBookRequested;
         public event Action GrantAddSoldierRequested;
+        public event Action GrantFullSetSoldierRequested;
         public event Action<string> LevelSelectPicked;
         public event Action LevelSelectClosed;
         public event Action<DifficultySelectHostView.DifficultyKind> DifficultyPicked;
@@ -64,6 +71,7 @@ namespace Gravedigger2026.UI
         private void Awake()
         {
             CacheBackdropDefaultFromImage();
+            EnsureToolsChromeSorting();
 
             if (_toolsButton != null)
             {
@@ -129,6 +137,7 @@ namespace Gravedigger2026.UI
                     () => GrantProtagonistEquipmentRequested?.Invoke();
                 _toolsPanel.GrantMagicBookClicked += () => GrantMagicBookRequested?.Invoke();
                 _toolsPanel.GrantAddSoldierClicked += () => GrantAddSoldierRequested?.Invoke();
+                _toolsPanel.GrantFullSetSoldierClicked += () => GrantFullSetSoldierRequested?.Invoke();
                 _toolsPanel.Closed += () => ToolsClosed?.Invoke();
             }
 
@@ -207,7 +216,18 @@ namespace Gravedigger2026.UI
         {
             if (_toolsPanel != null)
             {
+                EnsureToolsChromeSorting();
                 _toolsPanel.Toggle();
+                // Nested Canvas on a previously inactive ToolsPanel only sticks after activate.
+                if (_toolsPanel.IsOpen)
+                {
+                    EnsureToolsChromeSorting();
+                    var panelRoot = _toolsPanel.Root;
+                    if (panelRoot != null)
+                    {
+                        panelRoot.transform.SetAsLastSibling();
+                    }
+                }
             }
         }
 
@@ -287,12 +307,46 @@ namespace Gravedigger2026.UI
 
         public void ShowGmAddSoldierPanel(
             IReadOnlyList<GmDropdownOption> classes,
-            IReadOnlyList<GmDropdownOption> races)
+            IReadOnlyList<GmDropdownOption> races,
+            int? sortingOrder = null)
         {
             EnsureGmAddSoldierPanel();
             if (_gmAddSoldierPanel != null)
             {
-                _gmAddSoldierPanel.Show(classes, races);
+                _gmAddSoldierPanel.Show(classes, races, sortingOrder);
+            }
+        }
+
+        private void EnsureToolsChromeSorting()
+        {
+            ApplyOverrideCanvas(
+                _toolsButton != null ? _toolsButton.gameObject : null,
+                ToolsChromeSortingOrder);
+            ApplyOverrideCanvas(
+                _toolsPanel != null
+                    ? (_toolsPanel.Root != null ? _toolsPanel.Root : _toolsPanel.gameObject)
+                    : null,
+                ToolsPanelSortingOrder);
+        }
+
+        private static void ApplyOverrideCanvas(GameObject target, int sortingOrder)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var canvas = target.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = target.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = sortingOrder;
+            if (target.GetComponent<GraphicRaycaster>() == null)
+            {
+                target.AddComponent<GraphicRaycaster>();
             }
         }
 

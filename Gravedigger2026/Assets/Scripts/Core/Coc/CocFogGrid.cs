@@ -7,6 +7,7 @@ namespace Gravedigger2026.Core.Coc
     /// Ground-plane fog cells (SPEC_03 §3.21, Approach A).
     /// Cell size is 0.25. Slice 04b stamps Revealed / Explored in place.
     /// Slice 05 stamps Permanent; reveal does not overwrite it.
+    /// Approach B stores FogGroupId per cell so the overlay fade does not blend groups.
     /// </summary>
     public sealed class CocFogGrid
     {
@@ -16,8 +17,11 @@ namespace Gravedigger2026.Core.Coc
         public const byte Revealed = 2;
         public const byte Explored = 3;
         public const byte Permanent = 4;
+        public const int NoGroup = -1;
+        public const int MaxGroupId = 254;
 
         private readonly byte[] _cells;
+        private readonly int[] _groups;
         private readonly bool[] _covered;
         private readonly List<int> _revealed;
 
@@ -28,13 +32,45 @@ namespace Gravedigger2026.Core.Coc
         public int UnseenCount { get; }
         public bool HasCoverage => UnseenCount > 0;
 
-        private CocFogGrid(int width, int height, float originX, float originZ, byte[] cells, int unseenCount)
+        public readonly struct RevealStamp
+        {
+            public readonly Vector2 Center;
+            public readonly float Radius;
+
+            public RevealStamp(Vector2 center, float radius)
+            {
+                Center = center;
+                Radius = radius;
+            }
+        }
+
+        public readonly struct AuthoredPolygon
+        {
+            public readonly Vector2[] Points;
+            public readonly int GroupId;
+
+            public AuthoredPolygon(Vector2[] points, int groupId)
+            {
+                Points = points;
+                GroupId = groupId;
+            }
+        }
+
+        private CocFogGrid(
+            int width,
+            int height,
+            float originX,
+            float originZ,
+            byte[] cells,
+            int[] groups,
+            int unseenCount)
         {
             Width = width;
             Height = height;
             OriginX = originX;
             OriginZ = originZ;
             _cells = cells;
+            _groups = groups ?? System.Array.Empty<int>();
             UnseenCount = unseenCount;
             _covered = cells != null && cells.Length > 0 ? new bool[cells.Length] : System.Array.Empty<bool>();
             _revealed = new List<int>(64);
@@ -42,10 +78,36 @@ namespace Gravedigger2026.Core.Coc
 
         public static CocFogGrid Empty()
         {
-            return new CocFogGrid(0, 0, 0f, 0f, System.Array.Empty<byte>(), 0);
+            return new CocFogGrid(0, 0, 0f, 0f, System.Array.Empty<byte>(), System.Array.Empty<int>(), 0);
+        }
+
+        public static int NormalizeGroupId(int groupId)
+        {
+            if (groupId < 0)
+            {
+                return 0;
+            }
+
+            return groupId > MaxGroupId ? MaxGroupId : groupId;
         }
 
         public static CocFogGrid Build(IReadOnlyList<Vector2[]> polygons)
+        {
+            if (polygons == null || polygons.Count == 0)
+            {
+                return Empty();
+            }
+
+            var authored = new AuthoredPolygon[polygons.Count];
+            for (var i = 0; i < polygons.Count; i++)
+            {
+                authored[i] = new AuthoredPolygon(polygons[i], 0);
+            }
+
+            return Build(authored);
+        }
+
+        public static CocFogGrid Build(IReadOnlyList<AuthoredPolygon> polygons)
         {
             if (polygons == null || polygons.Count == 0)
             {
@@ -59,7 +121,7 @@ namespace Gravedigger2026.Core.Coc
             var usable = 0;
             for (var p = 0; p < polygons.Count; p++)
             {
-                var poly = polygons[p];
+                var poly = polygons[p].Points;
                 if (poly == null || poly.Length < 3)
                 {
                     continue;
@@ -93,6 +155,7 @@ namespace Gravedigger2026.Core.Coc
             }
 
             var cells = new byte[width * height];
+            var groups = new int[width * height];
             var unseen = 0;
             for (var iz = 0; iz < height; iz++)
             {
@@ -100,17 +163,21 @@ namespace Gravedigger2026.Core.Coc
                 for (var ix = 0; ix < width; ix++)
                 {
                     var x = originX + (ix + 0.5f) * CellSize;
-                    if (!ContainsAny(polygons, x, z))
+                    var group = ResolveGroup(polygons, x, z);
+                    var index = iz * width + ix;
+                    if (group == NoGroup)
                     {
+                        groups[index] = NoGroup;
                         continue;
                     }
 
-                    cells[iz * width + ix] = Unseen;
+                    cells[index] = Unseen;
+                    groups[index] = group;
                     unseen++;
                 }
             }
 
-            return new CocFogGrid(width, height, originX, originZ, cells, unseen);
+            return new CocFogGrid(width, height, originX, originZ, cells, groups, unseen);
         }
 
         public byte GetCell(int ix, int iz)
@@ -121,6 +188,16 @@ namespace Gravedigger2026.Core.Coc
             }
 
             return _cells[iz * Width + ix];
+        }
+
+        public int GetGroup(int ix, int iz)
+        {
+            if (_groups == null || _groups.Length == 0 || ix < 0 || iz < 0 || ix >= Width || iz >= Height)
+            {
+                return NoGroup;
+            }
+
+            return _groups[iz * Width + ix];
         }
 
         public byte GetWorldCell(float worldX, float worldZ)
@@ -197,9 +274,10 @@ namespace Gravedigger2026.Core.Coc
 
         /// <summary>
         /// Stamp living-soldier circles as Revealed; uncovered Revealed cells become Explored.
+        /// Each stamp may use a different radius (D-100 ObserveRange).
         /// Returns true when any cell changed.
         /// </summary>
-        public bool ApplyReveal(IReadOnlyList<Vector2> centers, float radius)
+        public bool ApplyReveal(IReadOnlyList<RevealStamp> stamps)
         {
             if (!HasCoverage || _cells == null || _cells.Length == 0)
             {
@@ -208,13 +286,19 @@ namespace Gravedigger2026.Core.Coc
 
             var changed = false;
             System.Array.Clear(_covered, 0, _covered.Length);
-            if (centers != null && radius > 0f)
+            if (stamps != null)
             {
-                var r2 = radius * radius;
-                for (var c = 0; c < centers.Count; c++)
+                for (var c = 0; c < stamps.Count; c++)
                 {
-                    var cx = centers[c].x;
-                    var cz = centers[c].y;
+                    var radius = stamps[c].Radius;
+                    if (radius <= 0f)
+                    {
+                        continue;
+                    }
+
+                    var r2 = radius * radius;
+                    var cx = stamps[c].Center.x;
+                    var cz = stamps[c].Center.y;
                     var minIx = Mathf.Max(0, Mathf.FloorToInt((cx - radius - OriginX) / CellSize));
                     var maxIx = Mathf.Min(Width - 1, Mathf.FloorToInt((cx + radius - OriginX) / CellSize));
                     var minIz = Mathf.Max(0, Mathf.FloorToInt((cz - radius - OriginZ) / CellSize));
@@ -280,18 +364,25 @@ namespace Gravedigger2026.Core.Coc
             }
         }
 
-        private static bool ContainsAny(IReadOnlyList<Vector2[]> polygons, float x, float z)
+        private static int ResolveGroup(IReadOnlyList<AuthoredPolygon> polygons, float x, float z)
         {
+            var group = NoGroup;
             for (var p = 0; p < polygons.Count; p++)
             {
-                var poly = polygons[p];
-                if (poly != null && poly.Length >= 3 && Contains(poly, x, z))
+                var poly = polygons[p].Points;
+                if (poly == null || poly.Length < 3 || !Contains(poly, x, z))
                 {
-                    return true;
+                    continue;
+                }
+
+                var candidate = NormalizeGroupId(polygons[p].GroupId);
+                if (group == NoGroup || candidate < group)
+                {
+                    group = candidate;
                 }
             }
 
-            return false;
+            return group;
         }
 
         private static bool Contains(Vector2[] poly, float x, float z)

@@ -10,6 +10,7 @@ using Gravedigger2026.Core.UpgradeManufacture;
 using Gravedigger2026.Gameplay.Defend;
 using Gravedigger2026.Gameplay.Dig;
 using Gravedigger2026.Gameplay.PushMap;
+using Gravedigger2026.UI;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.EventSystems;
@@ -19,23 +20,33 @@ namespace Gravedigger2026.Gameplay.Coc
 {
     /// <summary>
     /// COC map view (SPEC_03 §3.21). Slice 03d deploys by ClassId, fights with PushMap
-    /// target select, marches to the Final Boss, and settles victory / round loss.
+    /// chase/AttackSlot, marches to the Final Boss, and settles victory / round loss.
     /// Slice 04b stamps temporary reveal and explored-dark on the fog grid.
     /// Slice 05 stamps permanent light for activated capture points.
     /// Slice 06 expands a class card's soldiers on hold without changing pool order.
+    /// D-100 slice 01: observe-range fog and three-axis product lock (Approach A).
+    /// D-100 slice 02: destructible obstacles enter targeting; hits deal 1 HP.
+    /// D-100 slice 03b: treat-as-target monsters hit a wall only when it blocks the soldier.
+    /// D-103: deploy-block polygons reject clicks outside activated capture circles.
+    /// Soldier repath: out of attack range, blocked straight lines follow NavMesh corners.
+    /// Monster hit FX: MonsterDamageSettled → red DamagePopup + HitFlash (soldiers deferred).
     /// </summary>
     public sealed class CocCombatStageController : MonoBehaviour
     {
         private const float DeploySampleRadius = 1.5f;
         private const int WalkableAreaMask = 1;
+        private const string DeployBlockTip = "该区域无法投入士兵";
 
         private readonly List<PushMapAdvanceView> _soldiers = new List<PushMapAdvanceView>(16);
         private readonly List<PushMapMonsterAgentView> _monsters = new List<PushMapMonsterAgentView>(16);
         private readonly List<AirWall> _airWalls = new List<AirWall>(8);
+        private AirWallTilemap[] _airWallTiles = Array.Empty<AirWallTilemap>();
+        private readonly List<CocDestructibleObstacle> _obstacles = new List<CocDestructibleObstacle>(4);
         private readonly List<CocClassCardModel> _cardModels = new List<CocClassCardModel>(8);
         private readonly List<MassMoveSample> _moveSamples = new List<MassMoveSample>(32);
         private readonly MassMoveScheduler _scheduler = new MassMoveScheduler();
         private readonly AttackSlotService _attackSlots = new AttackSlotService();
+        private readonly CocSoldierNavPath _soldierNavPath = new CocSoldierNavPath();
 
         private GameObject _mapInstance;
         private Camera _camera;
@@ -58,11 +69,19 @@ namespace Gravedigger2026.Gameplay.Coc
         private bool _deployHeld;
         private int _nextMoveId = 1;
         private float _groundY;
-        private readonly List<Vector2> _revealCenters = new List<Vector2>(16);
+        private readonly List<CocFogGrid.RevealStamp> _revealStamps = new List<CocFogGrid.RevealStamp>(16);
+        private readonly List<CocAttackPriority.Candidate> _priorityCandidates =
+            new List<CocAttackPriority.Candidate>(16);
         private NavMeshDataInstance _navMesh;
+        private NavMeshDataInstance _specialNavMesh;
         private bool _loggedDeployReject;
         private CocFogGrid _fogGrid;
         private CocFogOverlayView _fogOverlay;
+        private CocDeployBlockArea _deployBlock;
+        private CocDeployBlockOutlineView _deployBlockOutline;
+        private ToastView _deployToast;
+        private readonly List<CocDeployBlockArea.ActivatedCircle> _activatedCircles =
+            new List<CocDeployBlockArea.ActivatedCircle>(4);
         private float _revealRadius = 2f;
         private SandboxProgressService _progress;
         private readonly List<CaptureSite> _captures = new List<CaptureSite>(4);
@@ -99,10 +118,17 @@ namespace Gravedigger2026.Gameplay.Coc
             _mapInstance.name = mapId;
             _airWalls.Clear();
             _mapInstance.GetComponentsInChildren(true, _airWalls);
+            _airWallTiles = _mapInstance.GetComponentsInChildren<AirWallTilemap>(true);
             BakeWalkNavMesh();
 
             _field = new CocFieldCombatSession(configs);
+            _field.SetMonsterWorldXZProvider(TryGetMonsterWorldXZ);
             _field.MonsterDied += HandleMonsterDied;
+            _field.MonsterDamageSettled += HandleMonsterDamageSettled;
+            _field.ObstacleDamaged += HandleObstacleDamaged;
+            _field.ObstacleDestroyed += HandleObstacleDestroyed;
+            _field.MonsterBerserkTriggered += HandleMonsterBerserkTriggered;
+            BindObstacles();
             var bindings = new CocMonsterSpawnBindings
             {
                 Scheduler = _scheduler,
@@ -122,6 +148,7 @@ namespace Gravedigger2026.Gameplay.Coc
             ResolveFinalBoss();
             BindCaptures(context?.CocConfig != null ? context.CocConfig.GameplayConfigId : null);
             BuildFog(context);
+            BuildDeployBlock();
             EnsureCamera(configs);
             EnsureHud();
             if (_cards != null)
@@ -140,7 +167,7 @@ namespace Gravedigger2026.Gameplay.Coc
             RebuildCards();
             Debug.Log(
                 $"[CocCombatStage] Map instantiated MapId={mapId}. Spawned={spawned}. " +
-                $"FinalBoss={(_finalBoss != null)}. Deploy ready.");
+                $"FinalBoss={(_finalBoss != null)}. Obstacles={_obstacles.Count}. Deploy ready.");
             TryEvaluateWipeLoss();
         }
 
@@ -156,6 +183,10 @@ namespace Gravedigger2026.Gameplay.Coc
             if (_field != null)
             {
                 _field.MonsterDied -= HandleMonsterDied;
+                _field.MonsterDamageSettled -= HandleMonsterDamageSettled;
+                _field.ObstacleDamaged -= HandleObstacleDamaged;
+                _field.ObstacleDestroyed -= HandleObstacleDestroyed;
+                _field.MonsterBerserkTriggered -= HandleMonsterBerserkTriggered;
                 _field.Clear();
                 _field = null;
             }
@@ -191,6 +222,17 @@ namespace Gravedigger2026.Gameplay.Coc
                 _hudRoot = null;
             }
 
+            _deployToast = null;
+
+            if (_deployBlockOutline != null)
+            {
+                Destroy(_deployBlockOutline.gameObject);
+                _deployBlockOutline = null;
+            }
+
+            _deployBlock = null;
+            _activatedCircles.Clear();
+
             if (_camera != null)
             {
                 Destroy(_camera.gameObject);
@@ -206,17 +248,21 @@ namespace Gravedigger2026.Gameplay.Coc
             _soldiers.Clear();
             _monsters.Clear();
             _airWalls.Clear();
+            _airWallTiles = Array.Empty<AirWallTilemap>();
+            _obstacles.Clear();
             _cardModels.Clear();
             _moveSamples.Clear();
             _scheduler.Clear();
             _attackSlots.Clear();
+            _soldierNavPath.Clear();
             ReleaseNavMesh();
             _finalBoss = null;
             _selectedClassId = null;
             _loggedDeployReject = false;
             _fogGrid = null;
             _fogOverlay = null;
-            _revealCenters.Clear();
+            _revealStamps.Clear();
+            _priorityCandidates.Clear();
             _captures.Clear();
             _progress = null;
             _deployHeld = false;
@@ -294,7 +340,8 @@ namespace Gravedigger2026.Gameplay.Coc
                 return false;
             }
 
-            if (!TryPickDeployPoint(out var point))
+            var hasSpecialMove = SelectedClassHasSpecialMove();
+            if (!TryPickDeployPoint(hasSpecialMove, out var point))
             {
                 return false;
             }
@@ -391,8 +438,14 @@ namespace Gravedigger2026.Gameplay.Coc
                 facingYawFlip,
                 pushCoefficient,
                 repulsionScale,
-                chaseMult);
+                chaseMult,
+                classRow != null && classRow.HasSpecialMove);
             advance.SetParabolaCrowd(ProvideSoldiers, () => null);
+            var observe = CocAttackPriority.ResolveObserveRange(
+                classRow != null ? classRow.ObserveRange : 0f,
+                _revealRadius);
+            advance.EnableCocAttackPriority(classRow, observe);
+            advance.SetCocObstacleAimResolver(TryResolveObstacleAim);
             _scheduler.SetPaused(moveId, true);
             _soldiers.Add(advance);
         }
@@ -414,7 +467,16 @@ namespace Gravedigger2026.Gameplay.Coc
             return false;
         }
 
-        private bool TryPickDeployPoint(out Vector3 point)
+        private bool SelectedClassHasSpecialMove()
+        {
+            return _configs != null
+                && !string.IsNullOrEmpty(_selectedClassId)
+                && _configs.TryGetClass(_selectedClassId, out var row)
+                && row != null
+                && row.HasSpecialMove;
+        }
+
+        private bool TryPickDeployPoint(bool hasSpecialMove, out Vector3 point)
         {
             point = default;
             if (_camera == null)
@@ -437,7 +499,21 @@ namespace Gravedigger2026.Gameplay.Coc
             }
 
             var hitPoint = ray.GetPoint(enter);
-            if (!NavMesh.SamplePosition(hitPoint, out var navHit, DeploySampleRadius, WalkableAreaMask))
+            var agentTypeId = SpecialMoveNavMesh.ResolveAgentTypeId(hasSpecialMove);
+            var sampled = SpecialMoveNavMesh.SampleWalkable(
+                hitPoint,
+                DeploySampleRadius,
+                agentTypeId,
+                out var navHit,
+                WalkableAreaMask);
+            if (IsInsideLockedDeployBlock(hitPoint) ||
+                (sampled && IsInsideLockedDeployBlock(navHit.position)))
+            {
+                ShowDeployBlockTip();
+                return false;
+            }
+
+            if (!sampled)
             {
                 RejectDeployOnce("Click is off the walkable map.");
                 return false;
@@ -451,7 +527,10 @@ namespace Gravedigger2026.Gameplay.Coc
                 return false;
             }
 
-            if (IsInsideAirWall(hitPoint) || IsInsideAirWall(navHit.position))
+            if (IsInsideAirWall(hitPoint, hasSpecialMove) ||
+                IsInsideAirWall(navHit.position, hasSpecialMove) ||
+                IsInsideDestructibleObstacle(hitPoint) ||
+                IsInsideDestructibleObstacle(navHit.position))
             {
                 RejectDeployOnce("Click is inside an air wall.");
                 return false;
@@ -475,26 +554,47 @@ namespace Gravedigger2026.Gameplay.Coc
             var half = bounds != null ? bounds.HalfExtents : new Vector2(5f, 2.5f);
             _groundY = center.y;
 
-            var boxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(_airWalls.Count);
-            for (var i = 0; i < _airWalls.Count; i++)
-            {
-                var wall = _airWalls[i];
-                if (wall == null)
-                {
-                    continue;
-                }
+            var defaultBoxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(8);
+            var specialBoxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(8);
+            AirWallBakeCollector.Collect(
+                _mapInstance != null ? _mapInstance.transform : null,
+                defaultBoxes,
+                specialBoxes,
+                out var defaultTileMesh,
+                out var specialTileMesh);
 
-                boxes.Add(new DefendNavMeshBaker.NavMeshBoxObstacle(
-                    wall.transform.position,
-                    wall.FullSize,
-                    wall.transform.rotation));
-            }
-
-            _navMesh = DefendNavMeshBaker.Bake(center, half, boxes);
+            _navMesh = DefendNavMeshBaker.Bake(
+                center,
+                half,
+                defaultBoxes,
+                DefendNavMeshBaker.CocCarveAgentRadius,
+                SpecialMoveNavMesh.DefaultAgentTypeId,
+                defaultTileMesh);
             if (!_navMesh.valid)
             {
                 Debug.LogError("[CocCombatStage] NavMesh bake failed. Deploy cannot find a walkable point.");
             }
+
+            if (!SpecialMoveNavMesh.TryResolveSpecialMoveAgentTypeId(out var specialId))
+            {
+                if (specialTileMesh != null)
+                {
+                    Destroy(specialTileMesh);
+                }
+
+                Debug.LogError(
+                    "[CocCombatStage] NavMesh Agent Type 'SpecialMove' missing; " +
+                    "special-move soldiers stay on the default mesh.");
+                return;
+            }
+
+            _specialNavMesh = DefendNavMeshBaker.Bake(
+                center,
+                half,
+                specialBoxes,
+                DefendNavMeshBaker.CocCarveAgentRadius,
+                specialId,
+                specialTileMesh);
         }
 
         private void ReleaseNavMesh()
@@ -503,6 +603,12 @@ namespace Gravedigger2026.Gameplay.Coc
             {
                 NavMesh.RemoveNavMeshData(_navMesh);
                 _navMesh = default;
+            }
+
+            if (_specialNavMesh.valid)
+            {
+                NavMesh.RemoveNavMeshData(_specialNavMesh);
+                _specialNavMesh = default;
             }
         }
 
@@ -517,18 +623,97 @@ namespace Gravedigger2026.Gameplay.Coc
             Debug.LogWarning($"[CocCombatStage] Deploy rejected: {reason}");
         }
 
-        private bool IsInsideAirWall(Vector3 world)
+        private bool IsInsideAirWall(Vector3 world, bool ignoreSupportsSpecialMove)
         {
             for (var i = 0; i < _airWalls.Count; i++)
             {
                 var wall = _airWalls[i];
-                if (wall != null && wall.ContainsXZ(world))
+                if (wall == null)
+                {
+                    continue;
+                }
+
+                if (ignoreSupportsSpecialMove && wall.SupportsSpecialMove)
+                {
+                    continue;
+                }
+
+                if (wall.ContainsXZ(world))
+                {
+                    return true;
+                }
+            }
+
+            for (var i = 0; i < _airWallTiles.Length; i++)
+            {
+                var layer = _airWallTiles[i];
+                if (layer != null && layer.Blocks(world.x, world.z, ignoreSupportsSpecialMove))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private bool IsInsideDestructibleObstacle(Vector3 world)
+        {
+            for (var i = 0; i < _obstacles.Count; i++)
+            {
+                var obstacle = _obstacles[i];
+                if (obstacle != null &&
+                    obstacle.IsAlive &&
+                    (_field == null || _field.IsObstacleTargetable(obstacle.RuntimeId)) &&
+                    obstacle.ContainsXZ(world))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void BindObstacles()
+        {
+            _obstacles.Clear();
+            if (_mapInstance == null)
+            {
+                return;
+            }
+
+            _mapInstance.GetComponentsInChildren(true, _obstacles);
+            for (var i = 0; i < _obstacles.Count; i++)
+            {
+                var obstacle = _obstacles[i];
+                if (obstacle == null)
+                {
+                    continue;
+                }
+
+                obstacle.BindRuntimeId("CocObstacle_" + (i + 1).ToString("00"));
+                _field?.TryRegisterObstacle(obstacle.RuntimeId, obstacle.MaxHp);
+            }
+        }
+
+        private bool TryResolveObstacleAim(string runtimeId, out Transform transform, out float bodyRadius)
+        {
+            transform = null;
+            bodyRadius = 0f;
+            if (!TryFindObstacle(runtimeId, out var obstacle) ||
+                obstacle == null ||
+                !obstacle.IsAlive)
+            {
+                return false;
+            }
+
+            if (_field != null && !_field.IsObstacleTargetable(runtimeId))
+            {
+                return false;
+            }
+
+            transform = obstacle.transform;
+            bodyRadius = obstacle.BodyRadius;
+            return true;
         }
 
         private void BuildFog(LevelStageContext context)
@@ -561,10 +746,10 @@ namespace Gravedigger2026.Gameplay.Coc
                 $"revealRadius={_revealRadius:0.##}.");
         }
 
-        private List<Vector2[]> CollectFogPolygons()
+        private List<CocFogGrid.AuthoredPolygon> CollectFogPolygons()
         {
             var markers = _mapInstance.GetComponentsInChildren<CocFogPolygon>(true);
-            var polygons = new List<Vector2[]>(markers.Length);
+            var polygons = new List<CocFogGrid.AuthoredPolygon>(markers.Length);
             for (var i = 0; i < markers.Length; i++)
             {
                 var marker = markers[i];
@@ -577,6 +762,78 @@ namespace Gravedigger2026.Gameplay.Coc
                 if (count < 3)
                 {
                     Debug.LogWarning($"[CocCombatStage] CocFogPolygon '{marker.name}' has {count} points. Skip.");
+                    continue;
+                }
+
+                var groupId = marker.FogGroupId;
+                if (groupId < 0)
+                {
+                    Debug.LogWarning(
+                        $"[CocCombatStage] CocFogPolygon '{marker.name}' FogGroupId={groupId}. Using 0.");
+                    groupId = 0;
+                }
+                else if (groupId > CocFogGrid.MaxGroupId)
+                {
+                    Debug.LogWarning(
+                        $"[CocCombatStage] CocFogPolygon '{marker.name}' FogGroupId={groupId} exceeds {CocFogGrid.MaxGroupId}. Clamped.");
+                    groupId = CocFogGrid.MaxGroupId;
+                }
+
+                var poly = new Vector2[count];
+                for (var p = 0; p < count; p++)
+                {
+                    var world = marker.transform.GetChild(p).position;
+                    poly[p] = new Vector2(world.x, world.z);
+                }
+
+                polygons.Add(new CocFogGrid.AuthoredPolygon(poly, groupId));
+            }
+
+            return polygons;
+        }
+
+        private bool IsInsideFog(Vector3 world)
+        {
+            return _fogGrid != null && _fogGrid.BlocksDeploy(world.x, world.z);
+        }
+
+        private void BuildDeployBlock()
+        {
+            if (_mapInstance == null)
+            {
+                return;
+            }
+
+            _deployBlock = CocDeployBlockArea.Build(CollectDeployBlockPolygons());
+            if (_deployBlock == null || !_deployBlock.HasCoverage)
+            {
+                return;
+            }
+
+            _deployBlockOutline = CocDeployBlockOutlineView.Create(
+                _mapInstance.transform,
+                _deployBlock,
+                _groundY);
+            Debug.Log($"[CocCombatStage] Deploy-block polygons={_deployBlock.Polygons.Count}.");
+        }
+
+        private List<Vector2[]> CollectDeployBlockPolygons()
+        {
+            var markers = _mapInstance.GetComponentsInChildren<CocDeployBlockPolygon>(true);
+            var polygons = new List<Vector2[]>(markers.Length);
+            for (var i = 0; i < markers.Length; i++)
+            {
+                var marker = markers[i];
+                if (marker == null)
+                {
+                    continue;
+                }
+
+                var count = marker.PointCount;
+                if (count < 3)
+                {
+                    Debug.LogWarning(
+                        $"[CocCombatStage] CocDeployBlockPolygon '{marker.name}' has {count} points. Skip.");
                     continue;
                 }
 
@@ -593,9 +850,36 @@ namespace Gravedigger2026.Gameplay.Coc
             return polygons;
         }
 
-        private bool IsInsideFog(Vector3 world)
+        private bool IsInsideLockedDeployBlock(Vector3 world)
         {
-            return _fogGrid != null && _fogGrid.BlocksDeploy(world.x, world.z);
+            if (_deployBlock == null || !_deployBlock.HasCoverage)
+            {
+                return false;
+            }
+
+            _activatedCircles.Clear();
+            for (var i = 0; i < _captures.Count; i++)
+            {
+                var site = _captures[i];
+                if (!site.Activated)
+                {
+                    continue;
+                }
+
+                _activatedCircles.Add(new CocDeployBlockArea.ActivatedCircle(site.X, site.Z, site.Radius));
+            }
+
+            return _deployBlock.BlocksDeploy(world.x, world.z, _activatedCircles);
+        }
+
+        private void ShowDeployBlockTip()
+        {
+            if (_deployToast != null)
+            {
+                _deployToast.Show(DeployBlockTip);
+            }
+
+            RejectDeployOnce("Click is inside a deploy-block zone.");
         }
 
         private void BindCaptures(string gameplayConfigId)
@@ -818,7 +1102,7 @@ namespace Gravedigger2026.Gameplay.Coc
                 return;
             }
 
-            _revealCenters.Clear();
+            _revealStamps.Clear();
             for (var i = 0; i < _soldiers.Count; i++)
             {
                 var soldier = _soldiers[i];
@@ -828,10 +1112,12 @@ namespace Gravedigger2026.Gameplay.Coc
                 }
 
                 var pos = soldier.transform.position;
-                _revealCenters.Add(new Vector2(pos.x, pos.z));
+                _revealStamps.Add(new CocFogGrid.RevealStamp(
+                    new Vector2(pos.x, pos.z),
+                    soldier.CocObserveRange));
             }
 
-            if (!_fogGrid.ApplyReveal(_revealCenters, _revealRadius))
+            if (!_fogGrid.ApplyReveal(_revealStamps))
             {
                 return;
             }
@@ -871,6 +1157,7 @@ namespace Gravedigger2026.Gameplay.Coc
         private void TickGoals()
         {
             var living = CountLivingFriendlies();
+            _soldierNavPath.BeginFrame();
             for (var i = 0; i < _soldiers.Count; i++)
             {
                 RefreshSoldierGoal(_soldiers[i]);
@@ -882,32 +1169,234 @@ namespace Gravedigger2026.Gameplay.Coc
             }
         }
 
+        private bool TryGetCocEngageTarget(
+            PushMapAdvanceView soldier,
+            out PushMapMonsterAgentView monster,
+            out CocDestructibleObstacle obstacle)
+        {
+            monster = null;
+            obstacle = null;
+            if (soldier == null)
+            {
+                return false;
+            }
+
+            var observe = soldier.CocObserveRange;
+            var lockedId = soldier.CocLockedTargetId;
+            if (!string.IsNullOrEmpty(lockedId))
+            {
+                if (TryFindCocMonster(lockedId, out var locked) &&
+                    IsCocEnemyCandidate(locked) &&
+                    CocAttackPriority.IsInsideObserveRange(
+                        CombatReach.DistanceXZ(soldier.transform.position, locked.transform.position),
+                        observe))
+                {
+                    monster = locked;
+                    return true;
+                }
+
+                if (TryFindObstacle(lockedId, out var lockedWall) &&
+                    IsCocObstacleCandidate(lockedWall) &&
+                    CocAttackPriority.IsInsideObserveRange(
+                        CombatReach.DistanceXZ(soldier.transform.position, lockedWall.transform.position),
+                        observe))
+                {
+                    obstacle = lockedWall;
+                    return true;
+                }
+            }
+
+            _priorityCandidates.Clear();
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var candidate = _monsters[i];
+                if (!IsCocEnemyCandidate(candidate))
+                {
+                    continue;
+                }
+
+                var dist = CombatReach.DistanceXZ(
+                    soldier.transform.position,
+                    candidate.transform.position);
+                if (!CocAttackPriority.IsInsideObserveRange(dist, observe))
+                {
+                    continue;
+                }
+
+                _priorityCandidates.Add(new CocAttackPriority.Candidate(
+                    candidate.RuntimeTargetId,
+                    dist,
+                    candidate.TargetValue,
+                    CocAttackPriority.TypeEnemyUnit));
+            }
+
+            for (var i = 0; i < _obstacles.Count; i++)
+            {
+                var wall = _obstacles[i];
+                if (!IsCocObstacleCandidate(wall))
+                {
+                    continue;
+                }
+
+                var dist = CombatReach.DistanceXZ(
+                    soldier.transform.position,
+                    wall.transform.position);
+                if (!CocAttackPriority.IsInsideObserveRange(dist, observe))
+                {
+                    continue;
+                }
+
+                _priorityCandidates.Add(new CocAttackPriority.Candidate(
+                    wall.RuntimeId,
+                    dist,
+                    wall.TargetValue,
+                    CocAttackPriority.TypeDestructibleObstacle));
+            }
+
+            if (!CocAttackPriority.TryPickBest(soldier.CocClass, _priorityCandidates, out var bestId))
+            {
+                soldier.SetCocLockedTargetId(null);
+                return false;
+            }
+
+            if (TryFindCocMonster(bestId, out monster) && monster != null)
+            {
+                soldier.SetCocLockedTargetId(bestId);
+                return true;
+            }
+
+            if (TryFindObstacle(bestId, out obstacle) && obstacle != null)
+            {
+                soldier.SetCocLockedTargetId(bestId);
+                return true;
+            }
+
+            soldier.SetCocLockedTargetId(null);
+            monster = null;
+            obstacle = null;
+            return false;
+        }
+
+        private bool IsCocEnemyCandidate(PushMapMonsterAgentView m)
+        {
+            if (m == null || !m.IsAlive || string.IsNullOrEmpty(m.RuntimeTargetId))
+            {
+                return false;
+            }
+
+            return _field == null || _field.IsMonsterTargetable(m.RuntimeTargetId);
+        }
+
+        private bool IsCocObstacleCandidate(CocDestructibleObstacle obstacle)
+        {
+            if (obstacle == null || !obstacle.IsAlive || string.IsNullOrEmpty(obstacle.RuntimeId))
+            {
+                return false;
+            }
+
+            return _field == null || _field.IsObstacleTargetable(obstacle.RuntimeId);
+        }
+
+        private bool TryFindObstacle(string runtimeId, out CocDestructibleObstacle obstacle)
+        {
+            obstacle = null;
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < _obstacles.Count; i++)
+            {
+                var candidate = _obstacles[i];
+                if (candidate != null &&
+                    string.Equals(candidate.RuntimeId, runtimeId, StringComparison.Ordinal))
+                {
+                    obstacle = candidate;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryFindCocMonster(string runtimeId, out PushMapMonsterAgentView monster)
+        {
+            monster = null;
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var m = _monsters[i];
+                if (m != null &&
+                    string.Equals(m.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    monster = m;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void RefreshSoldierGoal(PushMapAdvanceView soldier)
         {
             if (soldier == null || !soldier.IsCombatActive || soldier.MoveId == 0)
             {
+                if (soldier != null && soldier.MoveId != 0)
+                {
+                    _soldierNavPath.Release(soldier.MoveId);
+                }
+
                 return;
             }
 
-            if (!soldier.TryGetEngageMonster(out var monster) || monster == null)
+            if (!TryGetCocEngageTarget(soldier, out var monster, out var obstacle) ||
+                (monster == null && obstacle == null))
             {
                 _attackSlots.Release(soldier.AttackerId);
                 if (!TryGetLivingFinalBoss(out var boss))
                 {
+                    _soldierNavPath.Release(soldier.MoveId);
                     _scheduler.SetPaused(soldier.MoveId, true);
                     return;
                 }
 
-                // Slice 03c: no detect-range enemy → march toward the unique Final Boss.
-                // AirWalls are already non-walkable on the baked NavMesh.
+                // No observe-range target → march to the unique Final Boss along this
+                // soldier's NavMesh when an air wall blocks the straight line.
                 var marchDest = new Vector2(boss.transform.position.x, boss.transform.position.z);
+                var steer = SteerAroundWalls(soldier, boss.RuntimeTargetId, marchDest);
                 _scheduler.SetPaused(soldier.MoveId, false);
-                _scheduler.SetGoal(soldier.MoveId, GoalKind.ChaseAnchor, marchDest);
+                _scheduler.SetGoal(soldier.MoveId, GoalKind.ChaseAnchor, steer);
                 return;
             }
 
-            var targetBody = monster.BodyRadius;
-            var distXZ = CombatReach.DistanceXZ(soldier.transform.position, monster.transform.position);
+            if (obstacle != null)
+            {
+                RefreshSoldierAttackGoal(
+                    soldier,
+                    obstacle.RuntimeId,
+                    obstacle.transform.position,
+                    obstacle.BodyRadius);
+                return;
+            }
+
+            RefreshSoldierAttackGoal(
+                soldier,
+                monster.RuntimeTargetId,
+                monster.transform.position,
+                monster.BodyRadius);
+        }
+
+        private void RefreshSoldierAttackGoal(
+            PushMapAdvanceView soldier,
+            string targetId,
+            Vector3 targetPos,
+            float targetBody)
+        {
+            var distXZ = CombatReach.DistanceXZ(soldier.transform.position, targetPos);
             var inRange = CombatReach.IsInAttackRange(
                 distXZ,
                 soldier.AttackRange,
@@ -915,9 +1404,9 @@ namespace Gravedigger2026.Gameplay.Coc
                 targetBody);
             var claimed = _attackSlots.TryClaim(
                 soldier.AttackerId,
-                monster.RuntimeTargetId,
+                targetId,
                 soldier.AttackRange,
-                monster.transform.position,
+                targetPos,
                 out var slotPos,
                 soldier.AttackMode,
                 soldier.transform.position,
@@ -927,6 +1416,7 @@ namespace Gravedigger2026.Gameplay.Coc
 
             if (inRange)
             {
+                _soldierNavPath.Release(soldier.MoveId);
                 if (!claimed)
                 {
                     _attackSlots.Release(soldier.AttackerId);
@@ -935,7 +1425,7 @@ namespace Gravedigger2026.Gameplay.Coc
                 var hold = claimed
                     ? CombatReach.ChaseDestinationXZ(
                         soldier.transform.position,
-                        monster.transform.position,
+                        targetPos,
                         slotPos,
                         soldier.AttackRange,
                         soldier.AgentRadius,
@@ -954,7 +1444,7 @@ namespace Gravedigger2026.Gameplay.Coc
             }
             else
             {
-                var away = soldier.transform.position - monster.transform.position;
+                var away = soldier.transform.position - targetPos;
                 away.y = 0f;
                 if (away.sqrMagnitude < 1e-6f)
                 {
@@ -965,19 +1455,35 @@ namespace Gravedigger2026.Gameplay.Coc
                     soldier.AttackRange,
                     soldier.AgentRadius,
                     targetBody);
-                chasePoint = monster.transform.position + away.normalized * ring;
+                chasePoint = targetPos + away.normalized * ring;
             }
 
             var dest = CombatReach.ChaseDestinationXZ(
                 soldier.transform.position,
-                monster.transform.position,
+                targetPos,
                 chasePoint,
                 soldier.AttackRange,
                 soldier.AgentRadius,
                 targetBody,
                 MassMoveScheduler.ArriveEpsilon);
+            var steer = SteerAroundWalls(soldier, targetId, dest);
             _scheduler.SetPaused(soldier.MoveId, false);
-            _scheduler.SetGoal(soldier.MoveId, GoalKind.AttackSlot, dest);
+            _scheduler.SetGoal(soldier.MoveId, GoalKind.AttackSlot, steer);
+        }
+
+        private Vector2 SteerAroundWalls(PushMapAdvanceView soldier, string targetId, Vector2 destination)
+        {
+            var agent = soldier.GetComponent<NavMeshAgent>();
+            var agentTypeId = agent != null
+                ? agent.agentTypeID
+                : SpecialMoveNavMesh.DefaultAgentTypeId;
+            return _soldierNavPath.ResolveSteer(
+                soldier.MoveId,
+                targetId,
+                soldier.transform.position,
+                destination,
+                agentTypeId,
+                Time.deltaTime);
         }
 
         private void RefreshMonster(int livingFriendlies, PushMapMonsterAgentView monster)
@@ -987,8 +1493,28 @@ namespace Gravedigger2026.Gameplay.Coc
                 return;
             }
 
+            if (monster.IsCocReturningHome && monster.IsAlive)
+            {
+                monster.SetCombatGameplayEnabled(true);
+                monster.ClearCocIntercept();
+                monster.SetCocBodyTarget(null);
+                monster.DriveCocReturnHome(_attackSlots, _scheduler);
+                if (_field != null)
+                {
+                    _field.SetReturnHomeInvincible(monster.RuntimeTargetId, monster.IsCocReturningHome);
+                }
+
+                return;
+            }
+
+            if (_field != null)
+            {
+                _field.SetReturnHomeInvincible(monster.RuntimeTargetId, false);
+            }
+
             if (livingFriendlies <= 0 || !monster.IsAlive)
             {
+                monster.ClearCocIntercept();
                 monster.SetCombatGameplayEnabled(false);
                 if (monster.MoveId != 0)
                 {
@@ -1005,7 +1531,142 @@ namespace Gravedigger2026.Gameplay.Coc
                 TryProvoke(monster);
             }
 
+            AssignCocBodyTarget(monster);
+            RefreshTreatAsTarget(monster);
             monster.TryRefreshChaseGoal(_attackSlots, _scheduler);
+        }
+
+        /// <summary>
+        /// ActiveChase, once a soldier has entered AlertRadius or landed a hit, chases the
+        /// nearest living soldier measured from the monster body. A new deploy is not required.
+        /// </summary>
+        private void AssignCocBodyTarget(PushMapMonsterAgentView monster)
+        {
+            if (monster == null || !monster.IsAlive || monster.IsStationary || !monster.IsActiveChase)
+            {
+                monster?.SetCocBodyTarget(null);
+                return;
+            }
+
+            if (!monster.CocChaseUnlocked && SoldierInsideAlert(monster))
+            {
+                monster.UnlockCocChase();
+            }
+
+            monster.SetCocBodyTarget(monster.CocChaseUnlocked
+                ? NearestLivingSoldier(monster.transform.position)
+                : null);
+        }
+
+        private bool SoldierInsideAlert(PushMapMonsterAgentView monster)
+        {
+            var alert = Mathf.Max(0.01f, monster.AlertRadius);
+            var origin = monster.transform.position;
+            for (var i = 0; i < _soldiers.Count; i++)
+            {
+                var soldier = _soldiers[i];
+                if (!IsLivingSoldier(soldier))
+                {
+                    continue;
+                }
+
+                if (CombatReach.DistanceXZ(origin, soldier.transform.position) <= alert)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private PushMapAdvanceView NearestLivingSoldier(Vector3 origin)
+        {
+            PushMapAdvanceView best = null;
+            var bestDist = float.MaxValue;
+            for (var i = 0; i < _soldiers.Count; i++)
+            {
+                var soldier = _soldiers[i];
+                if (!IsLivingSoldier(soldier))
+                {
+                    continue;
+                }
+
+                var dist = CombatReach.DistanceXZ(origin, soldier.transform.position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = soldier;
+                }
+            }
+
+            return best;
+        }
+
+        private static bool IsLivingSoldier(PushMapAdvanceView soldier)
+        {
+            return soldier != null && soldier.IsCombatActive && !soldier.IsRebel;
+        }
+
+        private void RefreshTreatAsTarget(PushMapMonsterAgentView monster)
+        {
+            if (monster.ObstaclePathMode != CocObstaclePathMode.TreatAsTarget)
+            {
+                monster.ClearCocIntercept();
+                return;
+            }
+
+            if (!monster.TryGetCocChaseAim(out var aim))
+            {
+                monster.ClearCocIntercept();
+                return;
+            }
+
+            CocDestructibleObstacle best = null;
+            var bestDist = float.MaxValue;
+            var bestId = string.Empty;
+            var from = monster.transform.position;
+            var segment = Vector2.Distance(new Vector2(from.x, from.z), new Vector2(aim.x, aim.z));
+            for (var i = 0; i < _obstacles.Count; i++)
+            {
+                var wall = _obstacles[i];
+                if (!IsCocObstacleCandidate(wall) || !wall.SegmentCrossesXZ(from, aim, out var tEnter))
+                {
+                    continue;
+                }
+
+                var dist = tEnter * segment;
+                var id = wall.RuntimeId ?? string.Empty;
+                if (best != null &&
+                    (dist > bestDist + 0.0001f ||
+                     (Mathf.Abs(dist - bestDist) <= 0.0001f &&
+                      string.CompareOrdinal(id, bestId) >= 0)))
+                {
+                    continue;
+                }
+
+                best = wall;
+                bestDist = dist;
+                bestId = id;
+            }
+
+            if (best == null)
+            {
+                monster.ClearCocIntercept();
+                return;
+            }
+
+            if (string.Equals(monster.CocInterceptTargetId, best.RuntimeId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var monsterId = monster.RuntimeTargetId;
+            var wallId = best.RuntimeId;
+            monster.SetCocIntercept(
+                wallId,
+                best.transform,
+                best.BodyRadius,
+                () => _field != null && _field.TryApplyMonsterObstacleHit(monsterId, wallId));
         }
 
         private void TryProvoke(PushMapMonsterAgentView monster)
@@ -1183,7 +1844,100 @@ namespace Gravedigger2026.Gameplay.Coc
                 return;
             }
 
-            _field.TryRegisterMonster(view.RuntimeTargetId, row.MaxHP);
+            _field.TryRegisterMonster(view.RuntimeTargetId, row.MonsterId, row.MaxHP);
+            view.SetCocDriveStraight(CocMonsterObstaclePath.ShouldDriveStraight(row.ObstaclePathMode));
+            view.SetCocActiveChaseLatch(true);
+        }
+
+        private void HandleMonsterDamageSettled(string runtimeId, float damage)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !string.Equals(monster.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                monster.NotifyProvoked();
+                monster.NotifyCocSoldierHit();
+                monster.UnlockCocChase();
+
+                var flash = monster.GetComponent<HitFlashView>();
+                if (flash == null)
+                {
+                    flash = monster.gameObject.AddComponent<HitFlashView>();
+                }
+
+                flash.Play(HitFlashView.MonsterFlashColor);
+                SpawnDamagePopup(monster.transform.position, damage, DamagePopupStyle.Monster);
+                return;
+            }
+        }
+
+        private void SpawnDamagePopup(Vector3 worldPos, float damage, DamagePopupStyle style)
+        {
+            var prefab = _catalog != null ? _catalog.DamagePopupPrefab : null;
+            if (prefab == null)
+            {
+                Debug.LogWarning("[CocCombatStage] DamagePopup prefab missing in DefendPrefabCatalog — popup skipped.");
+                return;
+            }
+
+            var parent = _mapInstance != null ? _mapInstance.transform : transform;
+            DamagePopupView.Spawn(prefab, parent, worldPos, damage, style);
+        }
+
+        private void HandleMonsterBerserkTriggered(string runtimeId, AggroMode mode, bool provoke)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !string.Equals(monster.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                monster.SetRuntimeAggroMode(mode);
+                if (provoke)
+                {
+                    monster.NotifyProvoked();
+                }
+
+                return;
+            }
+        }
+
+        private Vector2? TryGetMonsterWorldXZ(string runtimeId)
+        {
+            if (string.IsNullOrEmpty(runtimeId))
+            {
+                return null;
+            }
+
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster == null || !string.Equals(monster.RuntimeTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var p = monster.transform.position;
+                return new Vector2(p.x, p.z);
+            }
+
+            return null;
         }
 
         private void ResolveFinalBoss()
@@ -1263,6 +2017,47 @@ namespace Gravedigger2026.Gameplay.Coc
             if (wasFinalBoss)
             {
                 SettleRound(CocRoundResult.Victory);
+            }
+        }
+
+        private void HandleObstacleDamaged(string runtimeId, float remaining, float maxHp)
+        {
+            if (!TryFindObstacle(runtimeId, out var obstacle) || obstacle == null)
+            {
+                return;
+            }
+
+            obstacle.NotifyDamaged(remaining, maxHp);
+        }
+
+        private void HandleObstacleDestroyed(string runtimeId, string killerWarriorId)
+        {
+            if (_settled || !TryFindObstacle(runtimeId, out var obstacle) || obstacle == null)
+            {
+                return;
+            }
+
+            obstacle.NotifyDestroyed();
+            for (var i = 0; i < _monsters.Count; i++)
+            {
+                var monster = _monsters[i];
+                if (monster != null &&
+                    string.Equals(monster.CocInterceptTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    monster.ClearCocIntercept();
+                    _attackSlots.Release(monster.RuntimeTargetId);
+                }
+            }
+
+            for (var i = 0; i < _soldiers.Count; i++)
+            {
+                var soldier = _soldiers[i];
+                if (soldier != null &&
+                    string.Equals(soldier.CocLockedTargetId, runtimeId, StringComparison.Ordinal))
+                {
+                    soldier.SetCocLockedTargetId(null);
+                    _attackSlots.Release(soldier.AttackerId);
+                }
             }
         }
 
@@ -1447,6 +2242,48 @@ namespace Gravedigger2026.Gameplay.Coc
 
             _returnButton = buttonGo.GetComponent<Button>();
             _returnButton.onClick.AddListener(HandleReturnClicked);
+            EnsureDeployToast();
+        }
+
+        private void EnsureDeployToast()
+        {
+            var toastGo = new GameObject(
+                "DeployBlockToast",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            toastGo.transform.SetParent(_hudRoot.transform, false);
+            var rt = toastGo.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(640f, 64f);
+            rt.anchoredPosition = new Vector2(0f, 120f);
+            var bg = toastGo.GetComponent<Image>();
+            bg.color = new Color(0.16f, 0.05f, 0.05f, 0.9f);
+            bg.raycastTarget = false;
+
+            var textGo = new GameObject(
+                "Message",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Text));
+            textGo.transform.SetParent(toastGo.transform, false);
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(12f, 4f);
+            textRt.offsetMax = new Vector2(-12f, -4f);
+            var text = textGo.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.fontSize = 28;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = new Color(1f, 0.86f, 0.86f, 1f);
+            text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+            _deployToast = toastGo.AddComponent<ToastView>();
+            _deployToast.RuntimeConfigure(toastGo, text, 1.6f);
         }
 
         private void HandleReturnClicked()

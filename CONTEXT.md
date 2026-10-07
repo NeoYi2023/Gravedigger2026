@@ -55,13 +55,22 @@
 | LevelRouteProgress | 关卡路线进度 | 存档已通关 `GameplayOptionId` 集合；进关派生解锁；按槽+CampaignMode | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CampaignModeSelect | 玩法模式选择 | UI-014 保留；本 Demo 新建/进入不弹出（直进 Mode2）；Mode1 入口后置（D-045） | [§3.2](SPEC_03_GameRules.md)、[§3.6](SPEC_03_GameRules.md) |
 | DifficultySelectHost | 难度选择宿主 | **新建进档** / 工具「关卡」先打开（UI-029 / D-081）：三栏等宽同屏；悬停显示难度描述；**任意难度**进沙盘 UI-036；**进入占用档**与结束回沙盘（默认 `Diff_Normal`）；无栏内 LevelSelect / 无 MapHost | [§3.5](SPEC_03_GameRules.md)、[§3.20](SPEC_03_GameRules.md) |
-| Sandbox | 沙盘界面 | 难度之后的横向关卡入口（UI-036 / D-098 / D-099）；方格显示玩法名与存档剩余次数，次数拦截进入 | [§3.20](SPEC_03_GameRules.md) |
+| Sandbox | 沙盘界面 | 难度之后的横向关卡入口（UI-036 / D-098 / D-099）；方格显示玩法名与存档剩余次数，次数拦截进入；Canvas=200；ToolsButton=210 / ToolsPanel=220 仍可点（含 GM 添加士兵入池） | [§3.20](SPEC_03_GameRules.md) |
 | SandboxNode | 沙盘节点 | `Level_SandboxNodeConfig` 一行：难度、排序、玩法名、类型、初始剩余次数、可选玩法配置 | [§3.20](SPEC_03_GameRules.md)、[SPEC_04 §9.1c](SPEC_04_Technical.md) |
 | SandboxProgress | 沙盘进度 | 按槽与模式保存的节点剩余次数、通关标记、已激活 COC 占领点 | [§3.20](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | CocCombat | COC战斗 | 沙盘玩法 / `GameplayState`；洒兵代替布阵；击杀唯一最终 BOSS 通关 | [§3.21](SPEC_03_GameRules.md) |
 | CocDeploy | 洒兵 | 按 `ClassId` 分组，把士兵库最前一名放到可洒区域；洒出即从库删除 | [§3.21](SPEC_03_GameRules.md) |
-| CocFog | 战场迷雾 | 地图多边形黑雾：无士兵信息 / 临时亮起 / 变暗；另有占领点永久亮起。与镜头滤镜、地图外缘雾分开 | [§3.21](SPEC_03_GameRules.md) |
+| CocFog | 战场迷雾 | 地图多边形黑雾：同 `FogGroupId` 并成一块雾岛；无士兵信息 / 临时亮起 / 变暗；另有占领点永久亮起。与镜头滤镜、地图外缘雾分开 | [§3.21](SPEC_03_GameRules.md) |
+| CocDeployBlock | 禁洒区 | 地图多边形：内部全透明，只画半透明红边。默认禁洒；已激活占领点永久亮起圆内可洒 | [§3.21](SPEC_03_GameRules.md) |
+| FogGroupId | 迷雾组编号 | `CocFogPolygon` 整型，缺省 0。同号并成一块雾岛；亮起仍按格 | [§3.21](SPEC_03_GameRules.md) |
 | CocCapturePoint | COC占领点 | 士兵进入后激活并存档；永久亮起，并可给同一难度的其他沙盘玩法加次数 | [§3.21](SPEC_03_GameRules.md)、[SPEC_04 §9.37](SPEC_04_Technical.md) |
+| ObserveRange | 观察范围 | 职业表字段。COC 中该士兵的选敌圆和迷雾半径（世界单位，缺省 2）。其他玩法不读 | [§3.21](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
+| DestructibleObstacle | 可破坏障碍 | COC 地图预制体模型：血量、目标价值、1 格临时空气墙；每次攻击扣 1。不进怪物表 | [§3.21](SPEC_03_GameRules.md) |
+| ObstaclePathMode | 障碍寻路模式 | 怪物表字段，仅 COC：视为障碍 / 视为目标（挡路才打）/ 无视障碍 | [§3.21](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
+| AttackNoiseValue | 攻击噪声值 | 职业普攻或技能效果每次施加的噪声增量。`0`=无噪声 | [§3.12](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md)/[§9.21b](SPEC_04_Technical.md) |
+| NoiseRadius | 噪声半径 | 噪声脉冲地面 XZ 半径。范围内存活怪物累积 | [§3.12](SPEC_03_GameRules.md) |
+| BerserkNoiseThreshold | 狂暴要求值 | 怪物本场累积噪声达标后改 `AggroMode` 一次。`0`=不会狂暴 | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.19](SPEC_04_Technical.md) |
+| BerserkAggroMode | 狂暴后仇恨模式 | 狂暴后切换到的 `AggroMode`。空=达标也不切 | [§3.14](SPEC_03_GameRules.md) |
 | DifficultyConfig | 关卡难度表 | `Level_DifficultyConfig`：DifficultyId / DisplayName / UnlockRequireDifficultyId / Description / ClearReward | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
 | DifficultyId | 难度ID | 难度表主键；运作表归属字段 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1](SPEC_04_Technical.md) |
 | UnlockRequireDifficultyId | 解锁所需难度ID | 空=初始解锁；填 DifficultyId=等通关；找不到=不可解锁 | [§3.9](SPEC_03_GameRules.md)、[SPEC_04 §9.1a](SPEC_04_Technical.md) |
@@ -70,7 +79,7 @@
 | TitleSettings | 登录设置面板 | Title「设置」打开；页签「显示」：分辨率 + 窗口/无边框/独占全屏；机台级 `DisplaySettingsService`（UI-028）；与进档 UI-007 科技树分离 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | DisplaySettings | 显示设置 | 机台级分辨率与全屏模式；`Gravedigger2026.Display.*` PlayerPrefs；Boot 应用 | [SPEC_04 §6](SPEC_04_Technical.md) |
 | InSaveShell | 进档壳层 | 进档后常驻壳（**新建**默认难度 Hub；**进入占用档**直开沙盘 UI-036；玩法占位 + 工具 + 左下商店/装备/魔法书）；权威 Prefab `InSaveShellPanel`（`MetaShellRoot` 仅嵌套 Instance） | [§3.1](SPEC_03_GameRules.md)、[§3.3](SPEC_03_GameRules.md)、[§3.5](SPEC_03_GameRules.md)、[§3.20](SPEC_03_GameRules.md) |
-| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → 沙盘 UI-036）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064；UM 布阵或 Mode2 Prepare 布阵打开时可用） | [§3.5](SPEC_03_GameRules.md) |
+| ToolsPanel | 工具面板 | Demo 设置/调试壳；含设置、关卡（→DifficultySelectHost → 沙盘 UI-036）及 GM「增加主角装备」（→GmGrantListPanel 嵌套选等级 / D-061）、「增加魔法书」（→GmGrantListPanel / D-061）、「添加士兵」（→GmAddSoldierPanel / D-064）、「全套士兵」（同门闩；`ClassConfig`×亡灵×50 仅入池 / D-064）；UM 布阵或 Mode2 Prepare 布阵或沙盘打开时可用；沙盘仅入士兵库；ToolsButton=210 / ToolsPanel=220（Show 后重写，高于沙盘 200） | [§3.5](SPEC_03_GameRules.md) |
 | PlayerPointer | 运行时光标 | 整段 Play 硬件鼠标外观（UI-024）；`Art/UI/Cursor.png`；勿与 Dig 圆圈混淆 | [§3.6](SPEC_03_GameRules.md)、[SPEC_04 §4](SPEC_04_Technical.md) |
 | BgmContext | BGM 情境 | `Title` \| `Dig` \| `Combat`；驱动曲池随机与启停 | [§3.4](SPEC_03_GameRules.md)、[SPEC_04 §9.29](SPEC_04_Technical.md) |
 | BgmConfig | BGM 配置表 | `Audio_BgmConfig`：BgmId / Context / ClipId / Loop / Weight / Volume | [SPEC_04 §9.29](SPEC_04_Technical.md) |
@@ -221,7 +230,8 @@
 | ObjectivePoint | 目标点 | 有序推进点 1→2→3…；全队共当前目标 | [§3.14](SPEC_03_GameRules.md) |
 | CaptureZone | 判定圈 | 默认半径 2；任一忠诚兵进入当前圈 → 立即占领 | [§3.14](SPEC_03_GameRules.md) |
 | Capture | 占领 | 目标点本场已占领；关联刷怪停刷；可发奖励/副本解锁钩子 | [§3.14](SPEC_03_GameRules.md) |
-| AirWall | 空气墙 | 阻挡敌我；支持 Y 轴 45° 旋转 | [§3.14](SPEC_03_GameRules.md) |
+| AirWall | 空气墙 | 阻挡敌我。方盒可绕 Y 轴 45°；或同一 Grid 下 `AirWallTilemap` 笔刷（战斗不显示）。勾选墙 / 绿砖仅 `SpecialMove=1` 的士兵可走 | [§3.14](SPEC_03_GameRules.md) |
+| SpecialMove | 特殊移动 | `ClassConfig` 字段（0/1）。具备时，地图上「支持特殊移动」的空气墙对该士兵无效 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.9b](SPEC_04_Technical.md) |
 | SpawnPoint | 刷怪点 | 地图独立编号；由 PushMapSpawnConfig 驱动 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.23](SPEC_04_Technical.md) |
 | TrapZone | 陷阱区域 | 忠诚士兵进入触发绑定刷怪点 | [§3.14](SPEC_03_GameRules.md) |
 | BossPoint | BOSS 点 | 击杀该点 BOSS → PushMap 阶段通关 | [§3.14](SPEC_03_GameRules.md) |
@@ -240,8 +250,8 @@
 | ResumeFollow | 恢复跟随 | 手动模式底中按钮 → 回 Auto | [§3.14](SPEC_03_GameRules.md) |
 | FollowDeadzone | 跟随死区 | Auto 世界 XZ 半径 0.15；圈内忽略目标小幅位移 | [§3.14](SPEC_03_GameRules.md) |
 | FollowSmoothTime | 跟随缓动时间 | Auto 超出死区后 XZ SmoothDamp 时间 0.25s | [§3.14](SPEC_03_GameRules.md) |
-| DamagePopup | 伤害飘字 | PushMap 命中后头顶 `-受伤值`（`RoundToInt` 实际伤害，无下限 1）；怪红/兵白字号 12；0.5s Z +0→+0.5 后销毁 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
-| HitFlash | 受伤闪烁 | PushMap 命中后模型亮色；怪红/兵白；2×0.1s 紧接不灭；重伤刷新 | [§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.22](SPEC_04_Technical.md) |
+| DamagePopup | 伤害飘字 | PushMap / SearchExtract / COC（仅怪）命中后头顶 `-受伤值`（`RoundToInt` 实际伤害，无下限 1）；怪红/兵白字号 12；0.5s Z +0→+0.5 后销毁；COC 飘字 sortingOrder 290 | [§3.14](SPEC_03_GameRules.md)/[§3.21](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
+| HitFlash | 受伤闪烁 | PushMap / SearchExtract / COC（仅怪）命中后模型亮色；怪红/兵白；2×0.1s 紧接不灭；重伤刷新 | [§3.14](SPEC_03_GameRules.md)/[§3.21](SPEC_03_GameRules.md)、[SPEC_04 §6](SPEC_04_Technical.md) |
 | AllyFootCircle | 友军脚下圈 | Defend/PushMap Combat 忠诚存活士兵脚下绿描边圆 + 内黑 α160/255；半径=`BodyRadius`；localPos Y=-0.05 Z=-0.2；rotation X=-30；跟随；叛变/死亡隐藏；Order In Layer=`50` | [§3.12](SPEC_03_GameRules.md)/[§3.14](SPEC_03_GameRules.md)、[SPEC_04 §9.7](SPEC_04_Technical.md) |
 | PushMapGameplayConfig | 推图战配置表 | MapId/经验/占领掉落/副本解锁等 | [SPEC_04 §9.22](SPEC_04_Technical.md) |
 | PushMapSpawnConfig | 推图战刷怪表 | SpawnPointId+MonsterId+陷阱/目标关联 | [SPEC_04 §9.23](SPEC_04_Technical.md) |

@@ -119,6 +119,7 @@ namespace Gravedigger2026.Gameplay.PushMap
         private BossPoint _bossPoint;
         private EngageZone _engageZone;
         private NavMeshDataInstance _navMeshInstance;
+        private NavMeshDataInstance _specialNavMeshInstance;
         private GameObject _battleProtagonistInstance;
 
         /// <summary>
@@ -129,7 +130,9 @@ namespace Gravedigger2026.Gameplay.PushMap
         /// </summary>
 
         private FlowFieldService _flowField;
-        private StaticBoxWalkableMask _flowWalkableMask;
+        private FlowFieldService _specialFlowField;
+        private AirWallCombinedWalkMask _flowWalkableMask;
+        private AirWallCombinedWalkMask _specialFlowWalkableMask;
         private MassMoveScheduler _moveScheduler;
         private AttackSlotService _attackSlots;
         private TargetFocusRegistry _targetFocus;
@@ -241,6 +244,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _session.MonsterReviveStarted += HandleMonsterReviveStarted;
             _session.MonsterRevived += HandleMonsterRevived;
             _session.MonsterInvincibleChanged += HandleMonsterInvincibleChanged;
+            _session.MonsterBerserkTriggered += HandleMonsterBerserkTriggered;
             _session.WarriorDamageSettled += HandleWarriorDamageSettled;
             _session.WarriorCombatDead += HandleWarriorCombatDead;
             _session.WarriorBecameRebel += HandleWarriorBecameRebel;
@@ -294,6 +298,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                 _session.MonsterReviveStarted -= HandleMonsterReviveStarted;
                 _session.MonsterRevived -= HandleMonsterRevived;
                 _session.MonsterInvincibleChanged -= HandleMonsterInvincibleChanged;
+                _session.MonsterBerserkTriggered -= HandleMonsterBerserkTriggered;
                 _session.WarriorDamageSettled -= HandleWarriorDamageSettled;
                 _session.WarriorCombatDead -= HandleWarriorCombatDead;
                 _session.WarriorBecameRebel -= HandleWarriorBecameRebel;
@@ -414,9 +419,23 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             ReleaseNavMesh();
-            var airWallBoxes = CollectAirWallObstacles();
-            _navMeshInstance = DefendNavMeshBaker.Bake(_mapCenter, _mapHalfExtents, airWallBoxes);
-            ConfigureFlowFieldPathing(airWallBoxes);
+            var defaultWallBoxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(8);
+            var specialWallBoxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>(8);
+            AirWallBakeCollector.Collect(
+                _mapInstance != null ? _mapInstance.transform : null,
+                defaultWallBoxes,
+                specialWallBoxes,
+                out var defaultTileMesh,
+                out var specialTileMesh);
+            _navMeshInstance = DefendNavMeshBaker.Bake(
+                _mapCenter,
+                _mapHalfExtents,
+                defaultWallBoxes,
+                agentRadiusOverride: -1f,
+                agentTypeID: SpecialMoveNavMesh.DefaultAgentTypeId,
+                notWalkableTileMesh: defaultTileMesh);
+            BakeSpecialMoveNavMesh(specialWallBoxes, specialTileMesh);
+            ConfigureFlowFieldPathing(defaultWallBoxes, specialWallBoxes);
 
             BeginObjectiveChain();
             _combatMagicBookBuff = _specialEquipSlots != null
@@ -578,6 +597,21 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             SpawnDamagePopup(monster.transform.position, damage, DamagePopupStyle.Monster);
+        }
+
+        private void HandleMonsterBerserkTriggered(string runtimeId, AggroMode mode, bool provoke)
+        {
+            var monster = FindMonsterView(runtimeId);
+            if (monster == null)
+            {
+                return;
+            }
+
+            monster.SetRuntimeAggroMode(mode);
+            if (provoke)
+            {
+                monster.NotifyProvoked();
+            }
         }
 
         /// <summary>
@@ -847,38 +881,32 @@ namespace Gravedigger2026.Gameplay.PushMap
         }
 
         /// <summary>
-        /// PM-08: map AirWall → Not Walkable Box sources for StartBattle bake (incl. Y 45°).
+        /// PM-08 / D-101: map AirWall → default mesh (all walls) + special mesh (omit checked).
         /// </summary>
-        private List<DefendNavMeshBaker.NavMeshBoxObstacle> CollectAirWallObstacles()
+        private void BakeSpecialMoveNavMesh(
+            IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> specialWallBoxes,
+            Mesh specialTileMesh)
         {
-            var boxes = new List<DefendNavMeshBaker.NavMeshBoxObstacle>();
-            if (_mapInstance == null)
+            if (!SpecialMoveNavMesh.TryResolveSpecialMoveAgentTypeId(out var specialId))
             {
-                return boxes;
-            }
-
-            var walls = _mapInstance.GetComponentsInChildren<AirWall>(true);
-            if (walls == null || walls.Length == 0)
-            {
-                return boxes;
-            }
-
-            for (var i = 0; i < walls.Length; i++)
-            {
-                var wall = walls[i];
-                if (wall == null)
+                if (specialTileMesh != null)
                 {
-                    continue;
+                    Destroy(specialTileMesh);
                 }
 
-                boxes.Add(new DefendNavMeshBaker.NavMeshBoxObstacle(
-                    wall.transform.position,
-                    wall.FullSize,
-                    wall.transform.rotation));
+                Debug.LogError(
+                    "[PushMapStage] NavMesh Agent Type 'SpecialMove' missing; " +
+                    "special-move soldiers stay on the default mesh.");
+                return;
             }
 
-            Debug.Log($"[PushMapStage] AirWall bake obstacles={boxes.Count}.");
-            return boxes;
+            _specialNavMeshInstance = DefendNavMeshBaker.Bake(
+                _mapCenter,
+                _mapHalfExtents,
+                specialWallBoxes,
+                agentRadiusOverride: -1f,
+                agentTypeID: specialId,
+                notWalkableTileMesh: specialTileMesh);
         }
 
         private void CollectSpawnMarkers()
@@ -1371,7 +1399,8 @@ namespace Gravedigger2026.Gameplay.PushMap
                     facingYawFlip,
                     pushCoefficient,
                     repulsionScale,
-                    chaseMult);
+                    chaseMult,
+                    classRow != null && classRow.HasSpecialMove);
                 advance.SetParabolaCrowd(
                     () => _advanceViews,
                     () => _battleProtagonistInstance != null ? _battleProtagonistInstance.transform : null);
@@ -1474,16 +1503,21 @@ namespace Gravedigger2026.Gameplay.PushMap
         private void EnsurePathingServices()
         {
             _flowField ??= new FlowFieldService();
-            _flowWalkableMask ??= new StaticBoxWalkableMask();
+            _specialFlowField ??= new FlowFieldService();
+            _flowWalkableMask ??= new AirWallCombinedWalkMask();
+            _specialFlowWalkableMask ??= new AirWallCombinedWalkMask();
             _moveScheduler ??= new MassMoveScheduler();
             _attackSlots ??= new AttackSlotService();
             _targetFocus ??= new TargetFocusRegistry();
         }
 
-        private void ConfigureFlowFieldPathing(IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> airWallBoxes)
+        private void ConfigureFlowFieldPathing(
+            IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> defaultWallBoxes,
+            IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> specialWallBoxes)
         {
             EnsurePathingServices();
             _flowWalkableMask.Clear();
+            _specialFlowWalkableMask.Clear();
             _moveScheduler.Clear();
             _attackSlots.Clear();
             _targetFocus.Clear();
@@ -1492,22 +1526,41 @@ namespace Gravedigger2026.Gameplay.PushMap
             _lastSlotGoalRefreshCount = 0;
             _flowFieldReady = false;
 
-            if (airWallBoxes != null)
-            {
-                for (var i = 0; i < airWallBoxes.Count; i++)
-                {
-                    var box = airWallBoxes[i];
-                    _flowWalkableMask.AddBox(
-                        StaticBoxWalkableMask.BoxObstacle.FromFullSize(box.Center, box.Size, box.Rotation));
-                }
-            }
+            FillWalkableMask(_flowWalkableMask, defaultWallBoxes);
+            FillWalkableMask(_specialFlowWalkableMask, specialWallBoxes);
+            var tileLayers = _mapInstance != null
+                ? _mapInstance.GetComponentsInChildren<AirWallTilemap>(true)
+                : Array.Empty<AirWallTilemap>();
+            _flowWalkableMask.SetLayers(tileLayers, ignoreSupportsSpecialMove: false);
+            _specialFlowWalkableMask.SetLayers(tileLayers, ignoreSupportsSpecialMove: true);
 
             _flowField.Configure(_mapCenter, _mapHalfExtents, FlowFieldService.DefaultCellSize);
+            _specialFlowField.Configure(_mapCenter, _mapHalfExtents, FlowFieldService.DefaultCellSize);
             _moveScheduler.BindFlowField(_flowField);
+            _moveScheduler.BindSpecialFlowField(_specialFlowField);
             _flowFieldReady = true;
             Debug.Log(
                 $"[PushMapStage] FlowField configured — cell={_flowField.CellSize} " +
-                $"grid={_flowField.Cols}x{_flowField.Rows} airWallMaskBoxes={_flowWalkableMask.BoxCount}.");
+                $"grid={_flowField.Cols}x{_flowField.Rows} " +
+                $"airWallMaskBoxes={_flowWalkableMask.BoxCount} " +
+                $"specialMaskBoxes={_specialFlowWalkableMask.BoxCount}.");
+        }
+
+        private static void FillWalkableMask(
+            AirWallCombinedWalkMask mask,
+            IReadOnlyList<DefendNavMeshBaker.NavMeshBoxObstacle> airWallBoxes)
+        {
+            if (mask == null || airWallBoxes == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < airWallBoxes.Count; i++)
+            {
+                var box = airWallBoxes[i];
+                mask.AddBox(
+                    StaticBoxWalkableMask.BoxObstacle.FromFullSize(box.Center, box.Size, box.Rotation));
+            }
         }
 
         private void ClearFlowFieldPathing()
@@ -1517,6 +1570,7 @@ namespace Gravedigger2026.Gameplay.PushMap
             _attackSlots?.Clear();
             _targetFocus?.Clear();
             _flowWalkableMask?.Clear();
+            _specialFlowWalkableMask?.Clear();
             _moveSamples.Clear();
             _nextAdvanceMoveId = 0;
             _slotGoalCursor = 0;
@@ -1525,7 +1579,11 @@ namespace Gravedigger2026.Gameplay.PushMap
 
         private void RebuildFlowFieldTowardCurrentObjective()
         {
-            if (!_flowFieldReady || _flowField == null || _flowWalkableMask == null)
+            if (!_flowFieldReady ||
+                _flowField == null ||
+                _flowWalkableMask == null ||
+                _specialFlowField == null ||
+                _specialFlowWalkableMask == null)
             {
                 return;
             }
@@ -1552,10 +1610,12 @@ namespace Gravedigger2026.Gameplay.PushMap
 
             var before = _flowField.RebuildCount;
             _flowField.Rebuild(goalWorld, _flowWalkableMask);
+            _specialFlowField.Rebuild(goalWorld, _specialFlowWalkableMask);
             Debug.Log(
                 $"[PushMapStage] FlowField Rebuild shared field — {goalLabel} " +
                 $"goal={goalWorld} RebuildCount={_flowField.RebuildCount} (was {before}) " +
-                $"maskBoxes={_flowWalkableMask.BoxCount}.");
+                $"maskBoxes={_flowWalkableMask.BoxCount} " +
+                $"specialMaskBoxes={_specialFlowWalkableMask.BoxCount}.");
         }
 
         /// <summary>
@@ -2190,6 +2250,12 @@ namespace Gravedigger2026.Gameplay.PushMap
             {
                 NavMesh.RemoveNavMeshData(_navMeshInstance);
                 _navMeshInstance = default;
+            }
+
+            if (_specialNavMeshInstance.valid)
+            {
+                NavMesh.RemoveNavMeshData(_specialNavMeshInstance);
+                _specialNavMeshInstance = default;
             }
         }
 

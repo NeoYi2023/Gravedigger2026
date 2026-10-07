@@ -1638,7 +1638,14 @@ namespace Gravedigger2026.Core.Config
                     RunAnims = OptionalText(raw, "RunAnims"),
                     LootDrop = OptionalText(raw, "LootDrop"),
                     SilhouetteIconAssetId = OptionalText(raw, "SilhouetteIconAssetId"),
-                    TableOrder = i
+                    TableOrder = i,
+                    TargetValue = ParseMonsterTargetValue(raw, table, rowIndex),
+                    ObstaclePathMode = ParseMonsterObstaclePathMode(raw, table, rowIndex),
+                    BerserkNoiseThreshold = ParseOptionalNonNegFloat(
+                        raw, "BerserkNoiseThreshold", 0f, table, rowIndex),
+                    HasBerserkAggroMode = ParseOptionalBerserkAggroMode(
+                        raw, table, rowIndex, out var berserkAggro),
+                    BerserkAggroMode = berserkAggro
                 };
             }
 
@@ -2585,7 +2592,16 @@ namespace Gravedigger2026.Core.Config
                     DefaultAppearanceId = OptionalText(raw, "DefaultAppearanceId"),
                     DefaultSkillIds = ParseDefaultSkillIds(OptionalText(raw, "DefaultSkillIds")),
                     SilhouetteIconAssetId = OptionalText(raw, "SilhouetteIconAssetId"),
-                    TableOrder = i
+                    TableOrder = i,
+                    ObserveRange = ParseObserveRange(raw, table, rowIndex),
+                    DistancePriority = ParseCocDistancePriority(raw, table, rowIndex),
+                    TargetValueMode = ParseCocTargetValueMode(raw, table, rowIndex),
+                    TargetTypeScores = ParseCocTargetTypeScores(raw, table, rowIndex),
+                    SpecialMove = ParseSpecialMove(raw, table, rowIndex),
+                    AttackNoiseValue = ParseOptionalNonNegFloat(
+                        raw, "AttackNoiseValue", 0f, table, rowIndex),
+                    NoiseRadius = ParseOptionalNonNegFloat(
+                        raw, "NoiseRadius", 0f, table, rowIndex)
                 };
             }
         }
@@ -2686,7 +2702,11 @@ namespace Gravedigger2026.Core.Config
                     Notes = OptionalText(raw, "Notes"),
                     EffectKind = OptionalText(raw, "EffectKind"),
                     EffectParams = OptionalText(raw, "EffectParams"),
-                    TriggerHook = OptionalText(raw, "TriggerHook")
+                    TriggerHook = OptionalText(raw, "TriggerHook"),
+                    AttackNoiseValue = ParseOptionalNonNegFloat(
+                        raw, "AttackNoiseValue", 0f, table, rowIndex),
+                    NoiseRadius = ParseOptionalNonNegFloat(
+                        raw, "NoiseRadius", 0f, table, rowIndex)
                 };
             }
         }
@@ -3033,6 +3053,208 @@ namespace Gravedigger2026.Core.Config
                         "(expect 战士|射手|法师|刺客 or empty); using Unspecified.");
                     return BaseClassKind.Unspecified;
             }
+        }
+
+        private static float ParseObserveRange(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "ObserveRange");
+            if (text.Length == 0)
+            {
+                return ClassConfigRow.DefaultObserveRange;
+            }
+
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal ObserveRange '{text}'.");
+            }
+
+            return value > 0f ? value : ClassConfigRow.DefaultObserveRange;
+        }
+
+        private static bool ParseOptionalBerserkAggroMode(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex,
+            out AggroMode mode)
+        {
+            mode = AggroMode.ActiveChase;
+            var text = OptionalText(raw, "BerserkAggroMode");
+            if (text.Length == 0)
+            {
+                return false;
+            }
+
+            if (!Enum.TryParse(text, false, out mode))
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal BerserkAggroMode '{text}'.");
+            }
+
+            return true;
+        }
+
+        private static int ParseSpecialMove(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "SpecialMove");
+            if (text.Length == 0)
+            {
+                return 0;
+            }
+
+            if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var flag)
+                || (flag != 0 && flag != 1))
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal SpecialMove '{text}' (expected 0|1).");
+            }
+
+            return flag;
+        }
+
+        private static CocDistancePriority ParseCocDistancePriority(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "DistancePriority");
+            if (text.Length == 0 || text == Gravedigger2026.Core.Coc.CocAttackPriority.DistanceNearestToken)
+            {
+                return CocDistancePriority.PreferNearest;
+            }
+
+            if (text == Gravedigger2026.Core.Coc.CocAttackPriority.DistanceFarthestToken)
+            {
+                return CocDistancePriority.PreferFarthest;
+            }
+
+            throw new InvalidOperationException(
+                $"{table} row {rowIndex}: illegal DistancePriority '{text}'.");
+        }
+
+        private static CocTargetValueMode ParseCocTargetValueMode(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "TargetValueMode");
+            if (text.Length == 0 || text == Gravedigger2026.Core.Coc.CocAttackPriority.ValueHighToLowToken)
+            {
+                return CocTargetValueMode.HighToLow;
+            }
+
+            if (text == Gravedigger2026.Core.Coc.CocAttackPriority.ValueIgnoreToken)
+            {
+                return CocTargetValueMode.IgnoreValue;
+            }
+
+            throw new InvalidOperationException(
+                $"{table} row {rowIndex}: illegal TargetValueMode '{text}'.");
+        }
+
+        private static IReadOnlyDictionary<string, float> ParseCocTargetTypeScores(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "TargetTypeScores");
+            if (text.Length == 0)
+            {
+                return ClassConfigRow.EmptyTargetTypeScores;
+            }
+
+            var map = new Dictionary<string, float>(StringComparer.Ordinal);
+            var parts = text.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < parts.Length; i++)
+            {
+                var segment = parts[i].Trim();
+                if (segment.Length == 0)
+                {
+                    continue;
+                }
+
+                var sep = segment.LastIndexOf(';');
+                if (sep <= 0 || sep == segment.Length - 1)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal TargetTypeScores '{text}'.");
+                }
+
+                var typeName = segment.Substring(0, sep).Trim();
+                var scoreText = segment.Substring(sep + 1).Trim();
+                if (typeName != Gravedigger2026.Core.Coc.CocAttackPriority.TypeEnemyUnit &&
+                    typeName != Gravedigger2026.Core.Coc.CocAttackPriority.TypeDestructibleObstacle)
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal TargetTypeScores type '{typeName}'.");
+                }
+
+                if (!float.TryParse(scoreText, NumberStyles.Float, CultureInfo.InvariantCulture, out var score))
+                {
+                    throw new InvalidOperationException(
+                        $"{table} row {rowIndex}: illegal TargetTypeScores score '{scoreText}'.");
+                }
+
+                if (!map.ContainsKey(typeName))
+                {
+                    map.Add(typeName, score);
+                }
+            }
+
+            return map.Count == 0 ? ClassConfigRow.EmptyTargetTypeScores : map;
+        }
+
+        private static float ParseMonsterTargetValue(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "TargetValue");
+            if (text.Length == 0)
+            {
+                return MonsterConfigRow.DefaultTargetValue;
+            }
+
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ||
+                value < 0f)
+            {
+                throw new InvalidOperationException(
+                    $"{table} row {rowIndex}: illegal TargetValue '{text}'.");
+            }
+
+            return value;
+        }
+
+        private static CocObstaclePathMode ParseMonsterObstaclePathMode(
+            Dictionary<string, string> raw,
+            string table,
+            int rowIndex)
+        {
+            var text = OptionalText(raw, "ObstaclePathMode");
+            if (text.Length == 0 ||
+                text == Gravedigger2026.Core.Coc.CocMonsterObstaclePath.TreatAsObstacleToken)
+            {
+                return CocObstaclePathMode.TreatAsObstacle;
+            }
+
+            if (text == Gravedigger2026.Core.Coc.CocMonsterObstaclePath.TreatAsTargetToken)
+            {
+                return CocObstaclePathMode.TreatAsTarget;
+            }
+
+            if (text == Gravedigger2026.Core.Coc.CocMonsterObstaclePath.IgnoreObstacleToken)
+            {
+                return CocObstaclePathMode.IgnoreObstacle;
+            }
+
+            throw new InvalidOperationException(
+                $"{table} row {rowIndex}: illegal ObstaclePathMode '{text}'.");
         }
 
         /// <summary>

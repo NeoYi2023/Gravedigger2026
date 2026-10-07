@@ -1,22 +1,29 @@
 using System.Collections.Generic;
 using Gravedigger2026.Core.Config;
+using Gravedigger2026.Gameplay.Defend;
 using UnityEngine;
-using UnityEngine.AI;
 
 namespace Gravedigger2026.Gameplay.PushMap
 {
     /// <summary>
-    /// PM-10 / v0.73.9: stagger PushMap spawn positions by BodyRadius footprint circles on NavMesh
-    /// (SPEC_03 §3.14 / SPEC_04 §9.23). Ring first, then spiral outward; avoids existing living
+    /// PM-10 / v0.73.9 / v0.84.122 / v0.84.137: stagger spawn positions by BodyRadius footprint
+    /// circles on NavMesh (SPEC_03 §3.14 / SPEC_04 §9.23). Snaps marker basePos onto NavMesh first
+    /// (tall vertical recover, local XZ). Filled golden-angle disk from the spawn center
+    /// (no equal-angle hollow ring) plus small jitter; then spiral search. Avoids existing living
     /// footprints. SamplePosition is local-only and leashed to basePos so hits cannot snap across
     /// AirWalls onto empty outer-diamond NavMesh; packed batches prefer overlap at base.
+    /// Shared by PushMap, SearchExtract, and COC.
     /// </summary>
     public static class PushMapSpawnSpread
     {
         private const float MinRadius = 0.05f;
         private const float OverlapEpsilon = 0.02f;
         private const int MaxSpiralSteps = 24;
-        private const int ShrinkAttempts = 6;
+        private const float PackMul = 1.85f;
+        private const float GoldenAngle = 2.399963f;
+        private const float JitterAngle = 0.35f;
+        private const float JitterRadiusMin = 0.9f;
+        private const float JitterRadiusMax = 1.1f;
 
         private static float MinSampleDistance => CombatRuntimeTuning.PushMapSpawnMinSampleDistance;
         private static float SampleDistanceBodyMul => CombatRuntimeTuning.PushMapSpawnSampleDistanceBodyMul;
@@ -56,6 +63,8 @@ namespace Gravedigger2026.Gameplay.PushMap
             var radius = Mathf.Max(MinRadius, bodyRadius);
             var sampleDistance = Mathf.Max(MinSampleDistance, radius * SampleDistanceBodyMul);
             var absoluteLeash = Mathf.Max(AbsoluteLeashFloor, radius * AbsoluteLeashBodyMul);
+            // v0.84.137: recover Y-misauthored markers before filled-disk search.
+            basePos = SnapBaseOntoNavMesh(basePos, sampleDistance, absoluteLeash);
             var accepted = new List<Footprint>(count + (occupied?.Count ?? 0));
             if (occupied != null)
             {
@@ -73,6 +82,41 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
         }
 
+        /// <summary>
+        /// Projects <paramref name="basePos"/> onto walkable NavMesh. Uses a tall sample for Y
+        /// recover when the marker sits below/above the mesh, but rejects hits that stray beyond
+        /// the local XZ sample radius (no lateral AirWall snap).
+        /// </summary>
+        private static Vector3 SnapBaseOntoNavMesh(
+            Vector3 basePos,
+            float sampleDistance,
+            float absoluteLeash)
+        {
+            if (TrySampleNear(basePos, basePos, sampleDistance, sampleDistance, out var localHit))
+            {
+                return localHit;
+            }
+
+            var tall = Mathf.Max(sampleDistance, absoluteLeash);
+            if (!SpecialMoveNavMesh.SampleWalkable(
+                    basePos,
+                    tall,
+                    SpecialMoveNavMesh.DefaultAgentTypeId,
+                    out var hit))
+            {
+                return basePos;
+            }
+
+            var dx = hit.position.x - basePos.x;
+            var dz = hit.position.z - basePos.z;
+            if (dx * dx + dz * dz > sampleDistance * sampleDistance)
+            {
+                return basePos;
+            }
+
+            return hit.position;
+        }
+
         private static Vector3 ResolveOne(
             Vector3 basePos,
             int index,
@@ -82,29 +126,32 @@ namespace Gravedigger2026.Gameplay.PushMap
             float absoluteLeash,
             List<Footprint> accepted)
         {
-            if (TryPlaceAt(basePos, radius, basePos, absoluteLeash, sampleDistance, accepted, out var atBase)
-                && total == 1)
+            if ((index == 0 || total == 1) &&
+                TryPlaceAt(basePos, radius, basePos, absoluteLeash, sampleDistance, accepted, out var atBase))
             {
                 return atBase;
             }
 
-            // Prefer a ring large enough that neighboring same-batch circles clear each other.
-            var ringRadius = total <= 1
-                ? 0f
-                : radius * 2f / Mathf.Max(0.2f, 2f * Mathf.Sin(Mathf.PI / total));
-
-            for (var shrink = 0; shrink < ShrinkAttempts; shrink++)
+            if (index > 0)
             {
-                var scale = 1f - shrink * 0.12f;
-                var r = ringRadius * scale;
-                var leash = Mathf.Min(absoluteLeash, r + radius + LeashSlack);
-                if (TryCandidate(basePos, index, total, r, radius, leash, sampleDistance, accepted, out var hit))
+                var packAngle = index * GoldenAngle + Random.Range(-JitterAngle, JitterAngle);
+                var packDist = radius * PackMul * Mathf.Sqrt(index) *
+                    Random.Range(JitterRadiusMin, JitterRadiusMax);
+                if (packDist <= absoluteLeash)
                 {
-                    return hit;
+                    var packed = basePos + new Vector3(
+                        Mathf.Cos(packAngle) * packDist,
+                        0f,
+                        Mathf.Sin(packAngle) * packDist);
+                    var packLeash = Mathf.Min(absoluteLeash, packDist + radius + LeashSlack);
+                    if (TryPlaceAt(packed, radius, basePos, packLeash, sampleDistance, accepted, out var packHit))
+                    {
+                        return packHit;
+                    }
                 }
             }
 
-            // Spiral outward from base, but never beyond absolute leash.
+            // Local spiral search if the packed slot is blocked; never beyond absolute leash.
             for (var step = 0; step < MaxSpiralSteps; step++)
             {
                 var dist = radius * (1.2f + step * 0.55f);
@@ -113,7 +160,7 @@ namespace Gravedigger2026.Gameplay.PushMap
                     break;
                 }
 
-                var angle = index * 2.399963f + step * 0.7f; // golden-angle-ish
+                var angle = index * GoldenAngle + step * 0.7f;
                 var candidate = basePos + new Vector3(Mathf.Cos(angle) * dist, 0f, Mathf.Sin(angle) * dist);
                 var leash = Mathf.Min(absoluteLeash, dist + radius + LeashSlack);
                 if (TryPlaceAt(candidate, radius, basePos, leash, sampleDistance, accepted, out var spiralHit))
@@ -129,31 +176,6 @@ namespace Gravedigger2026.Gameplay.PushMap
             }
 
             return basePos;
-        }
-
-        private static bool TryCandidate(
-            Vector3 basePos,
-            int index,
-            int total,
-            float ringRadius,
-            float bodyRadius,
-            float leashFromBase,
-            float sampleDistance,
-            List<Footprint> accepted,
-            out Vector3 placed)
-        {
-            Vector3 candidate;
-            if (total <= 1 || ringRadius <= 0.001f)
-            {
-                candidate = basePos;
-            }
-            else
-            {
-                var angle = index * (Mathf.PI * 2f / total) - Mathf.PI * 0.5f;
-                candidate = basePos + new Vector3(Mathf.Cos(angle) * ringRadius, 0f, Mathf.Sin(angle) * ringRadius);
-            }
-
-            return TryPlaceAt(candidate, bodyRadius, basePos, leashFromBase, sampleDistance, accepted, out placed);
         }
 
         private static bool TryPlaceAt(
@@ -186,7 +208,11 @@ namespace Gravedigger2026.Gameplay.PushMap
             out Vector3 placed)
         {
             placed = candidate;
-            if (!NavMesh.SamplePosition(candidate, out var hit, sampleDistance, NavMesh.AllAreas))
+            if (!SpecialMoveNavMesh.SampleWalkable(
+                    candidate,
+                    sampleDistance,
+                    SpecialMoveNavMesh.DefaultAgentTypeId,
+                    out var hit))
             {
                 return false;
             }

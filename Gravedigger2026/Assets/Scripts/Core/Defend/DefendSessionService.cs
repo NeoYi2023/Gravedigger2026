@@ -947,6 +947,8 @@ namespace Gravedigger2026.Core.Defend
     public sealed class DefendCombatWarriorState
     {
         public string WarriorId;
+        /// <summary>D-102: class-table lookup for attack noise.</summary>
+        public string ClassId;
         public BaseClassKind BaseClass;
         public AttackMode AttackMode;
         public float MaxHp;

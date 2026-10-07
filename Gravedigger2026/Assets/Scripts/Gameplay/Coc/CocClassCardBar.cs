@@ -11,29 +11,35 @@ namespace Gravedigger2026.Gameplay.Coc
     /// Bottom class cards for COC deploy (SPEC_03 §3.21 / UI-037 / UI-038).
     /// Short press selects. Holding left-click for CardHoldSeconds expands the group above the card
     /// whether or not it was already selected. The expand row is inspect-only.
+    /// ClassCardRow is a left-aligned masked viewport; horizontal drag scrolls when cards overflow.
     /// </summary>
     public sealed class CocClassCardBar : MonoBehaviour
     {
         private const float CardWidth = 132f;
         private const float CardHeight = 168f;
         private const float Gap = 8f;
+        private const float RowViewWidth = 1600f;
         private const int VisiblePeekCount = 4;
 
         private readonly List<CardSlot> _slots = new List<CardSlot>(8);
         private readonly Dictionary<string, Sprite> _sprites =
             new Dictionary<string, Sprite>(StringComparer.Ordinal);
         private RectTransform _row;
+        private RectTransform _content;
         private Font _font;
         private float _holdSeconds = 1f;
         private bool _holding;
         private bool _expanded;
         private bool _expandReachedThisPress;
+        private bool _rowScrolledThisPress;
         private string _holdingClassId;
         private float _holdElapsed;
         private GameObject _expandHost;
         private RectTransform _expandContent;
         private float _scroll;
         private float _maxScroll;
+        private float _rowScroll;
+        private float _rowMaxScroll;
         private float _canvasScale = 1f;
 
         public event Action<string> ClassSelected;
@@ -50,20 +56,30 @@ namespace Gravedigger2026.Gameplay.Coc
                 return;
             }
 
-            var rowGo = new GameObject("ClassCardRow", typeof(RectTransform));
+            var rowGo = new GameObject("ClassCardRow", typeof(RectTransform), typeof(RectMask2D));
             rowGo.transform.SetParent(parent, false);
             _row = rowGo.GetComponent<RectTransform>();
             _row.anchorMin = new Vector2(0.5f, 0f);
             _row.anchorMax = new Vector2(0.5f, 0f);
             _row.pivot = new Vector2(0.5f, 0f);
             _row.anchoredPosition = new Vector2(0f, 108f);
-            _row.sizeDelta = new Vector2(1600f, CardHeight);
+            _row.sizeDelta = new Vector2(RowViewWidth, CardHeight);
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(rowGo.transform, false);
+            _content = contentGo.GetComponent<RectTransform>();
+            _content.anchorMin = new Vector2(0f, 0.5f);
+            _content.anchorMax = new Vector2(0f, 0.5f);
+            _content.pivot = new Vector2(0f, 0.5f);
+            _content.sizeDelta = new Vector2(0f, CardHeight);
+            _content.anchoredPosition = Vector2.zero;
+
             _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         }
 
         public void Rebuild(IReadOnlyList<CocClassCardModel> cards, string selectedClassId)
         {
-            if (_row == null)
+            if (_row == null || _content == null)
             {
                 return;
             }
@@ -71,11 +87,13 @@ namespace Gravedigger2026.Gameplay.Coc
             ClearSlots();
             if (cards == null || cards.Count == 0)
             {
+                _content.sizeDelta = new Vector2(0f, CardHeight);
+                _rowScroll = 0f;
+                _rowMaxScroll = 0f;
+                ApplyRowScroll();
                 return;
             }
 
-            var total = cards.Count * CardWidth + (cards.Count - 1) * Gap;
-            var start = -total * 0.5f + CardWidth * 0.5f;
             for (var i = 0; i < cards.Count; i++)
             {
                 var model = cards[i];
@@ -87,9 +105,18 @@ namespace Gravedigger2026.Gameplay.Coc
                 var selected = string.Equals(model.ClassId, selectedClassId, StringComparison.Ordinal);
                 var slot = CreateSlot(model, selected);
                 var rt = slot.Root;
-                rt.anchoredPosition = new Vector2(start + _slots.Count * (CardWidth + Gap), 0f);
+                rt.anchoredPosition = new Vector2(_slots.Count * (CardWidth + Gap), 0f);
                 _slots.Add(slot);
             }
+
+            var count = _slots.Count;
+            var contentWidth = count > 0
+                ? count * CardWidth + (count - 1) * Gap
+                : 0f;
+            _content.sizeDelta = new Vector2(contentWidth, CardHeight);
+            _rowMaxScroll = Mathf.Max(0f, contentWidth - RowViewWidth);
+            _rowScroll = 0f;
+            ApplyRowScroll();
         }
 
         public void Clear()
@@ -106,6 +133,7 @@ namespace Gravedigger2026.Gameplay.Coc
                 _holding = false;
                 _expanded = false;
                 _expandReachedThisPress = false;
+                _rowScrolledThisPress = false;
                 _holdingClassId = null;
                 _holdElapsed = 0f;
                 return;
@@ -115,20 +143,25 @@ namespace Gravedigger2026.Gameplay.Coc
             _holding = true;
             _expanded = false;
             _expandReachedThisPress = false;
+            _rowScrolledThisPress = false;
             _holdingClassId = classId;
             _holdElapsed = 0f;
             _scroll = 0f;
             _maxScroll = 0f;
+            RefreshCanvasScale();
         }
 
         /// <summary>
         /// Ends the press, dismisses expand, and selects the card when this press was valid.
         /// Selection does not gate expand: hold works on selected and unselected cards alike.
+        /// A horizontal drag that scrolled the bottom bar does not select.
         /// </summary>
         public void EndHold()
         {
             var classId = _holdingClassId;
-            var shouldSelect = _holding && !string.IsNullOrEmpty(classId);
+            var shouldSelect = _holding
+                && !_rowScrolledThisPress
+                && !string.IsNullOrEmpty(classId);
             ResetHoldState();
             if (shouldSelect)
             {
@@ -163,12 +196,15 @@ namespace Gravedigger2026.Gameplay.Coc
             _holding = false;
             _expanded = false;
             _expandReachedThisPress = false;
+            _rowScrolledThisPress = false;
             _holdingClassId = null;
             _holdElapsed = 0f;
             _scroll = 0f;
             _maxScroll = 0f;
             DismissExpandVisual();
         }
+
+        public bool IsExpanded => _expanded;
 
         public void DragExpanded(float deltaX)
         {
@@ -184,9 +220,54 @@ namespace Gravedigger2026.Gameplay.Coc
             _expandContent.anchoredPosition = pos;
         }
 
+        /// <summary>
+        /// Scrolls the bottom class-card row. Cancels a pending hold-to-expand on first use.
+        /// </summary>
+        public void DragRow(float deltaX)
+        {
+            if (_expanded || _content == null)
+            {
+                return;
+            }
+
+            if (!_rowScrolledThisPress)
+            {
+                _rowScrolledThisPress = true;
+                _holding = false;
+                _holdElapsed = 0f;
+            }
+
+            if (_rowMaxScroll <= 0f)
+            {
+                return;
+            }
+
+            var scale = _canvasScale > 0f ? _canvasScale : 1f;
+            _rowScroll = Mathf.Clamp(_rowScroll - deltaX / scale, 0f, _rowMaxScroll);
+            ApplyRowScroll();
+        }
+
+        private void ApplyRowScroll()
+        {
+            if (_content == null)
+            {
+                return;
+            }
+
+            var pos = _content.anchoredPosition;
+            pos.x = -_rowScroll;
+            _content.anchoredPosition = pos;
+        }
+
+        private void RefreshCanvasScale()
+        {
+            var canvas = _row != null ? _row.GetComponentInParent<Canvas>() : null;
+            _canvasScale = canvas != null && canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;
+        }
+
         private void Update()
         {
-            if (!_holding || _expanded)
+            if (!_holding || _expanded || _rowScrolledThisPress)
             {
                 return;
             }
@@ -270,8 +351,7 @@ namespace Gravedigger2026.Gameplay.Coc
                 CreatePeek(content, slot.Members[i], i);
             }
 
-            var canvas = _row != null ? _row.GetComponentInParent<Canvas>() : null;
-            _canvasScale = canvas != null && canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;
+            RefreshCanvasScale();
             _expandHost = hostGo;
             _expandContent = content;
             _scroll = 0f;
@@ -338,11 +418,11 @@ namespace Gravedigger2026.Gameplay.Coc
                 typeof(Image),
                 typeof(Button),
                 typeof(CocClassCardHoldRelay));
-            go.transform.SetParent(_row, false);
+            go.transform.SetParent(_content, false);
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
             rt.sizeDelta = new Vector2(CardWidth, CardHeight);
 
             var image = go.GetComponent<Image>();
@@ -476,10 +556,16 @@ namespace Gravedigger2026.Gameplay.Coc
         IPointerDownHandler,
         IPointerUpHandler,
         IPointerExitHandler,
+        IBeginDragHandler,
         IDragHandler
     {
+        private const float RowScrollThresholdPx = 12f;
+
         public CocClassCardBar Bar;
         public string ClassId;
+
+        private bool _rowDragActive;
+        private Vector2 _pressScreen;
 
         public void OnPointerDown(PointerEventData eventData)
         {
@@ -488,6 +574,8 @@ namespace Gravedigger2026.Gameplay.Coc
                 return;
             }
 
+            _rowDragActive = false;
+            _pressScreen = eventData.position;
             Bar.BeginHold(ClassId);
         }
 
@@ -499,6 +587,7 @@ namespace Gravedigger2026.Gameplay.Coc
             }
 
             Bar.EndHold();
+            _rowDragActive = false;
         }
 
         public void OnPointerExit(PointerEventData eventData)
@@ -511,6 +600,27 @@ namespace Gravedigger2026.Gameplay.Coc
             Bar.CancelIfPending(ClassId);
         }
 
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (eventData.button != PointerEventData.InputButton.Left || Bar == null)
+            {
+                return;
+            }
+
+            if (Bar.IsExpanded)
+            {
+                return;
+            }
+
+            var total = eventData.position - _pressScreen;
+            if (Mathf.Abs(total.x) >= RowScrollThresholdPx
+                && Mathf.Abs(total.x) >= Mathf.Abs(total.y))
+            {
+                _rowDragActive = true;
+                Bar.DragRow(eventData.delta.x);
+            }
+        }
+
         public void OnDrag(PointerEventData eventData)
         {
             if (eventData.button != PointerEventData.InputButton.Left || Bar == null)
@@ -518,7 +628,25 @@ namespace Gravedigger2026.Gameplay.Coc
                 return;
             }
 
-            Bar.DragExpanded(eventData.delta.x);
+            if (Bar.IsExpanded)
+            {
+                Bar.DragExpanded(eventData.delta.x);
+                return;
+            }
+
+            if (!_rowDragActive)
+            {
+                var total = eventData.position - _pressScreen;
+                if (Mathf.Abs(total.x) < RowScrollThresholdPx
+                    || Mathf.Abs(total.x) < Mathf.Abs(total.y))
+                {
+                    return;
+                }
+
+                _rowDragActive = true;
+            }
+
+            Bar.DragRow(eventData.delta.x);
         }
     }
 

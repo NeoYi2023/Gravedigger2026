@@ -12,6 +12,7 @@ namespace Gravedigger2026.UI
         [SerializeField] private Button _grantProtagonistEquipmentButton;
         [SerializeField] private Button _grantMagicBookButton;
         [SerializeField] private Button _grantAddSoldierButton;
+        [SerializeField] private Button _grantFullSetSoldierButton;
         [SerializeField] private Button _closeButton;
 
         public event Action SettingsClicked;
@@ -19,7 +20,10 @@ namespace Gravedigger2026.UI
         public event Action GrantProtagonistEquipmentClicked;
         public event Action GrantMagicBookClicked;
         public event Action GrantAddSoldierClicked;
+        public event Action GrantFullSetSoldierClicked;
         public event Action Closed;
+
+        public GameObject Root => _root != null ? _root : gameObject;
 
         private void Awake()
         {
@@ -53,6 +57,12 @@ namespace Gravedigger2026.UI
                 _grantAddSoldierButton.onClick.AddListener(() => GrantAddSoldierClicked?.Invoke());
             }
 
+            if (_grantFullSetSoldierButton != null)
+            {
+                _grantFullSetSoldierButton.onClick.AddListener(
+                    () => GrantFullSetSoldierClicked?.Invoke());
+            }
+
             if (_closeButton != null)
             {
                 _closeButton.onClick.AddListener(HandleCloseClicked);
@@ -72,6 +82,8 @@ namespace Gravedigger2026.UI
             if (_root != null)
             {
                 _root.SetActive(true);
+                ApplyChromeSorting();
+                _root.transform.SetAsLastSibling();
             }
         }
 
@@ -92,6 +104,31 @@ namespace Gravedigger2026.UI
             else
             {
                 Show();
+            }
+        }
+
+        /// <summary>
+        /// Re-apply after SetActive(true): nested Canvas added while inactive may not keep overrideSorting.
+        /// </summary>
+        private void ApplyChromeSorting()
+        {
+            var target = _root != null ? _root : gameObject;
+            if (target == null)
+            {
+                return;
+            }
+
+            var canvas = target.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                canvas = target.AddComponent<Canvas>();
+            }
+
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = InSaveShellView.ToolsPanelSortingOrder;
+            if (target.GetComponent<GraphicRaycaster>() == null)
+            {
+                target.AddComponent<GraphicRaycaster>();
             }
         }
 
@@ -129,10 +166,19 @@ namespace Gravedigger2026.UI
                     new Vector2(0f, -268f));
             }
 
-            var rootRt = _root != null ? _root.GetComponent<RectTransform>() : transform as RectTransform;
-            if (rootRt != null && rootRt.sizeDelta.y < 420f)
+            if (_grantFullSetSoldierButton == null)
             {
-                rootRt.sizeDelta = new Vector2(rootRt.sizeDelta.x, 430f);
+                _grantFullSetSoldierButton = CloneToolButton(
+                    "GrantFullSetSoldierButton",
+                    "全套士兵",
+                    new Color(0.52f, 0.36f, 0.24f, 1f),
+                    new Vector2(0f, -320f));
+            }
+
+            var rootRt = _root != null ? _root.GetComponent<RectTransform>() : transform as RectTransform;
+            if (rootRt != null && rootRt.sizeDelta.y < 480f)
+            {
+                rootRt.sizeDelta = new Vector2(rootRt.sizeDelta.x, 490f);
             }
 
             RelayoutToolButton(_settingsButton, new Vector2(0f, -60f), new Vector2(200f, 44f));
@@ -140,7 +186,8 @@ namespace Gravedigger2026.UI
             RelayoutToolButton(_grantProtagonistEquipmentButton, new Vector2(0f, -164f), new Vector2(200f, 44f));
             RelayoutToolButton(_grantMagicBookButton, new Vector2(0f, -216f), new Vector2(200f, 44f));
             RelayoutToolButton(_grantAddSoldierButton, new Vector2(0f, -268f), new Vector2(200f, 44f));
-            RelayoutToolButton(_closeButton, new Vector2(0f, -324f), new Vector2(200f, 40f));
+            RelayoutToolButton(_grantFullSetSoldierButton, new Vector2(0f, -320f), new Vector2(200f, 44f));
+            RelayoutToolButton(_closeButton, new Vector2(0f, -376f), new Vector2(200f, 40f));
         }
 
         private static void RelayoutToolButton(Button button, Vector2 anchoredPos, Vector2 size)

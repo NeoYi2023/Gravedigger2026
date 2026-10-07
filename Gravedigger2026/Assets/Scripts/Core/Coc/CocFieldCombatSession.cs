@@ -11,6 +11,8 @@ namespace Gravedigger2026.Core.Coc
     /// <summary>
     /// This-round COC hit settlement (SPEC_03 §3.21 slice 03b, Approach A).
     /// Registers soldiers with WarriorCombatMath and monsters with MonsterConfig.MaxHP.
+    /// Destructible obstacles take 1 HP per hit (D-100 slice 02).
+    /// Treat-as-target monsters use the same −1 channel (D-100 slice 03b).
     /// Normal attacks only. No experience, shield, rebel, skill burst, or settlement.
     /// </summary>
     public sealed class CocFieldCombatSession : IWarriorMassCombatSession
@@ -20,15 +22,36 @@ namespace Gravedigger2026.Core.Coc
             new Dictionary<string, DefendCombatWarriorState>(StringComparer.Ordinal);
         private readonly Dictionary<string, MonsterHp> _monsters =
             new Dictionary<string, MonsterHp>(StringComparer.Ordinal);
+        private readonly Dictionary<string, MonsterHp> _obstacles =
+            new Dictionary<string, MonsterHp>(StringComparer.Ordinal);
+        private readonly CombatNoiseService _combatNoise;
+        private Func<string, Vector2?> _monsterWorldXZProvider;
+        private readonly List<MonsterWorldXZ> _aliveMonstersXZScratch = new List<MonsterWorldXZ>(32);
+        private readonly HashSet<string> _returnHomeInvincible =
+            new HashSet<string>(StringComparer.Ordinal);
+
+        public const float ObstacleHitDamage = 1f;
 
         public CocFieldCombatSession(ConfigCsvRepository configs)
         {
             _configs = configs;
+            _combatNoise = configs != null ? new CombatNoiseService(configs) : null;
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered += (runtimeId, mode, provoke) =>
+                    MonsterBerserkTriggered?.Invoke(runtimeId, mode, provoke);
+            }
         }
 
         public bool IsCombatGameplayActive { get; set; } = true;
 
         public event Action<string, string, float> MonsterDied;
+        /// <summary>Confirmed soldier hit on a monster (runtimeId, damage). Includes the killing blow.</summary>
+        public event Action<string, float> MonsterDamageSettled;
+        public event Action<string, float, float> ObstacleDamaged;
+        public event Action<string, string> ObstacleDestroyed;
+        /// <summary>D-102: runtimeId, new AggroMode, provoke.</summary>
+        public event Action<string, AggroMode, bool> MonsterBerserkTriggered;
 
         public bool TryRegisterWarrior(
             WarriorInstance warrior,
@@ -77,6 +100,9 @@ namespace Gravedigger2026.Core.Coc
             state = new DefendCombatWarriorState
             {
                 WarriorId = warrior.Id,
+                ClassId = classRow != null
+                    ? classRow.ClassId ?? string.Empty
+                    : warrior.ClassId ?? string.Empty,
                 BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
                 AttackMode = ParabolaCombatRegistration.ResolveAttackMode(warrior, classRow),
                 MaxHp = maxHp,
@@ -121,7 +147,7 @@ namespace Gravedigger2026.Core.Coc
             }
         }
 
-        public void TryRegisterMonster(string runtimeId, float maxHp)
+        public void TryRegisterMonster(string runtimeId, string monsterId, float maxHp)
         {
             if (string.IsNullOrEmpty(runtimeId) || _monsters.ContainsKey(runtimeId))
             {
@@ -130,6 +156,23 @@ namespace Gravedigger2026.Core.Coc
 
             var hp = Mathf.Max(1f, maxHp);
             _monsters.Add(runtimeId, new MonsterHp(hp, hp));
+            _combatNoise?.RegisterMonster(runtimeId, monsterId);
+        }
+
+        public void TryRegisterObstacle(string runtimeId, float maxHp)
+        {
+            if (string.IsNullOrEmpty(runtimeId) || _obstacles.ContainsKey(runtimeId))
+            {
+                return;
+            }
+
+            var hp = Mathf.Max(1f, maxHp);
+            _obstacles.Add(runtimeId, new MonsterHp(hp, hp));
+        }
+
+        public bool IsObstacleTargetable(string runtimeId)
+        {
+            return _obstacles.TryGetValue(runtimeId, out var hp) && hp.Remaining > 0f;
         }
 
         public bool TryApplyMonsterHit(string monsterRuntimeId, string warriorId, float attackPower)
@@ -149,6 +192,30 @@ namespace Gravedigger2026.Core.Coc
             if (warrior.RemainingHp <= 0f)
             {
                 warrior.IsCombatDead = true;
+            }
+
+            return true;
+        }
+
+        /// <summary>Monster treat-as-target hit: 1 HP, not <c>AttackPower</c> (D-100 slice 03b).</summary>
+        public bool TryApplyMonsterObstacleHit(string monsterRuntimeId, string obstacleRuntimeId)
+        {
+            if (!IsCombatGameplayActive || !IsMonsterAlive(monsterRuntimeId))
+            {
+                return false;
+            }
+
+            if (!_obstacles.TryGetValue(obstacleRuntimeId, out var hp) || hp.Remaining <= 0f)
+            {
+                return false;
+            }
+
+            hp.Remaining = Mathf.Max(0f, hp.Remaining - ObstacleHitDamage);
+            _obstacles[obstacleRuntimeId] = hp;
+            ObstacleDamaged?.Invoke(obstacleRuntimeId, hp.Remaining, hp.Max);
+            if (hp.Remaining <= 0f)
+            {
+                ObstacleDestroyed?.Invoke(obstacleRuntimeId, monsterRuntimeId);
             }
 
             return true;
@@ -201,7 +268,7 @@ namespace Gravedigger2026.Core.Coc
                 return false;
             }
 
-            return SettleMonsterDamage(warrior, monsterRuntimeId);
+            return SettleHit(warrior, monsterRuntimeId);
         }
 
         public bool TryConfirmParabolaMeleeHit(string warriorId, string monsterRuntimeId, bool stillInRange)
@@ -211,7 +278,7 @@ namespace Gravedigger2026.Core.Coc
                 return false;
             }
 
-            return SettleMonsterDamage(warrior, monsterRuntimeId);
+            return SettleHit(warrior, monsterRuntimeId);
         }
 
         public bool TryConfirmRangedHit(string warriorId, string monsterRuntimeId)
@@ -221,7 +288,7 @@ namespace Gravedigger2026.Core.Coc
                 return false;
             }
 
-            return SettleMonsterDamage(warrior, monsterRuntimeId);
+            return SettleHit(warrior, monsterRuntimeId);
         }
 
         public bool TryAcquireWarriorTarget(
@@ -250,15 +317,81 @@ namespace Gravedigger2026.Core.Coc
             return false;
         }
 
+        /// <summary>COC attack-stuck return. Hits are rejected until the stage clears the flag.</summary>
+        public void SetReturnHomeInvincible(string monsterRuntimeId, bool on)
+        {
+            if (string.IsNullOrEmpty(monsterRuntimeId))
+            {
+                return;
+            }
+
+            if (on)
+            {
+                _returnHomeInvincible.Add(monsterRuntimeId);
+            }
+            else
+            {
+                _returnHomeInvincible.Remove(monsterRuntimeId);
+            }
+        }
+
         public void Clear()
         {
             _warriors.Clear();
             _monsters.Clear();
+            _obstacles.Clear();
+            _aliveMonstersXZScratch.Clear();
+            _returnHomeInvincible.Clear();
+            _combatNoise?.ResetBattle();
             IsCombatGameplayActive = false;
+        }
+
+        public void SetMonsterWorldXZProvider(Func<string, Vector2?> provider)
+        {
+            _monsterWorldXZProvider = provider;
+        }
+
+        private bool SettleHit(DefendCombatWarriorState warrior, string targetRuntimeId)
+        {
+            if (_obstacles.ContainsKey(targetRuntimeId))
+            {
+                return SettleObstacleDamage(warrior, targetRuntimeId);
+            }
+
+            return SettleMonsterDamage(warrior, targetRuntimeId);
+        }
+
+        private bool SettleObstacleDamage(DefendCombatWarriorState warrior, string obstacleRuntimeId)
+        {
+            if (!IsCombatGameplayActive || warrior == null || !IsWarriorCombatActive(warrior.WarriorId))
+            {
+                return false;
+            }
+
+            if (!_obstacles.TryGetValue(obstacleRuntimeId, out var hp) || hp.Remaining <= 0f)
+            {
+                return false;
+            }
+
+            hp.Remaining = Mathf.Max(0f, hp.Remaining - ObstacleHitDamage);
+            _obstacles[obstacleRuntimeId] = hp;
+            ObstacleDamaged?.Invoke(obstacleRuntimeId, hp.Remaining, hp.Max);
+            if (hp.Remaining <= 0f)
+            {
+                ObstacleDestroyed?.Invoke(obstacleRuntimeId, warrior.WarriorId);
+            }
+
+            return true;
         }
 
         private bool SettleMonsterDamage(DefendCombatWarriorState warrior, string monsterRuntimeId)
         {
+            if (!string.IsNullOrEmpty(monsterRuntimeId) &&
+                _returnHomeInvincible.Contains(monsterRuntimeId))
+            {
+                return false;
+            }
+
             if (!IsCombatGameplayActive || warrior == null || !IsWarriorCombatActive(warrior.WarriorId))
             {
                 return false;
@@ -272,12 +405,72 @@ namespace Gravedigger2026.Core.Coc
             var dmg = Mathf.Max(0f, warrior.NormalAttackPower);
             hp.Remaining = Mathf.Max(0f, hp.Remaining - dmg);
             _monsters[monsterRuntimeId] = hp;
+            TryApplyClassAttackNoise(warrior, monsterRuntimeId);
+            MonsterDamageSettled?.Invoke(monsterRuntimeId, dmg);
             if (hp.Remaining <= 0f)
             {
                 MonsterDied?.Invoke(monsterRuntimeId, warrior.WarriorId, dmg);
             }
 
             return true;
+        }
+
+        private void TryApplyClassAttackNoise(DefendCombatWarriorState warrior, string monsterRuntimeId)
+        {
+            if (_combatNoise == null || warrior == null)
+            {
+                return;
+            }
+
+            if (!TryResolveMonsterWorldXZ(monsterRuntimeId, out var center))
+            {
+                return;
+            }
+
+            FillAliveMonstersXZScratch();
+            _combatNoise.TryApplyClassPulse(warrior, center, _aliveMonstersXZScratch);
+        }
+
+        private bool TryResolveMonsterWorldXZ(string monsterRuntimeId, out Vector2 positionXZ)
+        {
+            positionXZ = default;
+            if (string.IsNullOrEmpty(monsterRuntimeId) || _monsterWorldXZProvider == null)
+            {
+                return false;
+            }
+
+            var maybe = _monsterWorldXZProvider(monsterRuntimeId);
+            if (!maybe.HasValue)
+            {
+                return false;
+            }
+
+            positionXZ = maybe.Value;
+            return true;
+        }
+
+        private void FillAliveMonstersXZScratch()
+        {
+            _aliveMonstersXZScratch.Clear();
+            if (_monsterWorldXZProvider == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _monsters)
+            {
+                if (pair.Value.Remaining <= 0f)
+                {
+                    continue;
+                }
+
+                if (!TryResolveMonsterWorldXZ(pair.Key, out var xz))
+                {
+                    continue;
+                }
+
+                _aliveMonstersXZScratch.Add(new MonsterWorldXZ(pair.Key, xz));
+            }
         }
 
         private struct MonsterHp

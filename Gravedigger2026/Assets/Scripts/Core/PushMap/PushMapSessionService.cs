@@ -79,6 +79,9 @@ namespace Gravedigger2026.Core.PushMap
         /// <summary>D-074: post-revive invincible toggled (monsterRuntimeId, skillId, on).</summary>
         public event Action<string, string, bool> MonsterInvincibleChanged;
 
+        /// <summary>D-102: runtimeId, new AggroMode, provoke.</summary>
+        public event Action<string, AggroMode, bool> MonsterBerserkTriggered;
+
         /// <summary>PM-13: monster AttackPower settled on a warrior (warriorId, damage).</summary>
         public event Action<string, float> WarriorDamageSettled;
 
@@ -113,6 +116,7 @@ namespace Gravedigger2026.Core.PushMap
         private readonly CombatStatusService _combatStatus = new CombatStatusService();
         private readonly MonsterDeathSkillService _monsterDeathSkills = new MonsterDeathSkillService();
         private SkillEffectPipeline _skillEffectPipeline;
+        private CombatNoiseService _combatNoise;
         private ITacticalFormationOverlayLookup _formationOverlay;
         private Func<string, Vector2?> _monsterWorldXZProvider;
         private readonly List<MonsterWorldXZ> _aliveMonstersXZScratch = new List<MonsterWorldXZ>(32);
@@ -205,8 +209,14 @@ namespace Gravedigger2026.Core.PushMap
             _lockedTierChance = 0f;
             _configs = null;
             _skillEffectPipeline = null;
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered -= HandleMonsterBerserkTriggered;
+                _combatNoise.ResetBattle();
+            }
+
+            _combatNoise = null;
             _formationOverlay = null;
-            _monsterWorldXZProvider = null;
             _aliveMonstersXZScratch.Clear();
             _objectiveOrders.Clear();
             _capturedObjectives.Clear();
@@ -317,6 +327,18 @@ namespace Gravedigger2026.Core.PushMap
             _configs = configs;
             _skillEffectPipeline = configs != null ? new SkillEffectPipeline(configs) : null;
             _skillEffectPipeline?.SetFormationOverlay(_formationOverlay);
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered -= HandleMonsterBerserkTriggered;
+            }
+
+            _combatNoise = configs != null ? new CombatNoiseService(configs) : null;
+            if (_combatNoise != null)
+            {
+                _combatNoise.BerserkTriggered += HandleMonsterBerserkTriggered;
+            }
+
+            _skillEffectPipeline?.SetCombatNoise(_combatNoise);
             _combatStatus.WarriorInvincibleChanged -= HandleWarriorInvincibleChanged;
             _combatStatus.WarriorInvincibleChanged += HandleWarriorInvincibleChanged;
             _combatStatus.MonsterInvincibleChanged -= HandleMonsterInvincibleChangedInternal;
@@ -826,6 +848,9 @@ namespace Gravedigger2026.Core.PushMap
             state = new DefendCombatWarriorState
             {
                 WarriorId = warrior.Id,
+                ClassId = classRow != null
+                    ? classRow.ClassId ?? string.Empty
+                    : warrior.ClassId ?? string.Empty,
                 BaseClass = classRow != null ? classRow.BaseClass : BaseClassKind.Unspecified,
                 AttackMode = ParabolaCombatRegistration.ResolveAttackMode(warrior, classRow),
                 MaxHp = maxHp,
@@ -949,6 +974,7 @@ namespace Gravedigger2026.Core.PushMap
             };
             RememberMonsterRegisterOrder(runtimeId);
             _monsterDeathSkills.InitializeMonsterState(_monsters[runtimeId], _configs);
+            _combatNoise?.RegisterMonster(runtimeId, monsterId);
             return true;
         }
 
@@ -1825,6 +1851,13 @@ namespace Gravedigger2026.Core.PushMap
                 warrior.LastNormalAttackTargetRuntimeId,
                 monsterRuntimeId,
                 StringComparison.Ordinal);
+            var hitCenter = default(Vector2);
+            var hasHitCenter = TryResolveMonsterWorldXZ(monsterRuntimeId, out hitCenter);
+            if (hasHitCenter)
+            {
+                FillAliveMonstersXZScratch();
+            }
+
             var pipelineNote = string.Empty;
             if (_skillEffectPipeline != null)
             {
@@ -1836,7 +1869,10 @@ namespace Gravedigger2026.Core.PushMap
                     OutgoingDamage = dmg,
                     IsNewTargetFirstHit = isNewTargetFirstHit,
                     CombatStatus = _combatStatus,
-                    AlreadyHitRuntimeIds = flight != null ? flight.AlreadyHitRuntimeIds : null
+                    AlreadyHitRuntimeIds = flight != null ? flight.AlreadyHitRuntimeIds : null,
+                    HitCenterXZ = hitCenter,
+                    HasHitCenterXZ = hasHitCenter,
+                    AliveMonstersXZ = hasHitCenter ? _aliveMonstersXZScratch : null
                 };
                 var beforePipeline = dmg;
                 if (flight != null)
@@ -1860,9 +1896,6 @@ namespace Gravedigger2026.Core.PushMap
 
             warrior.LastNormalAttackTargetRuntimeId = monsterRuntimeId;
 
-            var hitCenter = default(Vector2);
-            var hasHitCenter = TryResolveMonsterWorldXZ(monsterRuntimeId, out hitCenter);
-
             monster.RemainingHp = Math.Max(0f, monster.RemainingHp - dmg);
             Debug.Log(
                 $"[PushMapSession] {tag} {warrior.WarriorId} -> {monsterRuntimeId} " +
@@ -1870,6 +1903,7 @@ namespace Gravedigger2026.Core.PushMap
 
             MonsterDamageSettled?.Invoke(monsterRuntimeId, dmg);
             TryFinalizeMonsterDeath(monster, monsterRuntimeId, warrior.WarriorId, dmg, tag);
+            TryApplyClassAttackNoise(warrior, monsterRuntimeId);
 
             if (_skillEffectPipeline != null && hasHitCenter && !monster.IsCombatDead)
             {
@@ -1940,6 +1974,27 @@ namespace Gravedigger2026.Core.PushMap
 
                 _aliveMonstersXZScratch.Add(new MonsterWorldXZ(pair.Key, xz));
             }
+        }
+
+        private void TryApplyClassAttackNoise(DefendCombatWarriorState warrior, string monsterRuntimeId)
+        {
+            if (_combatNoise == null || warrior == null)
+            {
+                return;
+            }
+
+            if (!TryResolveMonsterWorldXZ(monsterRuntimeId, out var center))
+            {
+                return;
+            }
+
+            FillAliveMonstersXZScratch();
+            _combatNoise.TryApplyClassPulse(warrior, center, _aliveMonstersXZScratch);
+        }
+
+        private void HandleMonsterBerserkTriggered(string runtimeId, AggroMode mode, bool provoke)
+        {
+            MonsterBerserkTriggered?.Invoke(runtimeId, mode, provoke);
         }
 
         private void EnterWarriorDowned(DefendCombatWarriorState warrior)
